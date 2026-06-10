@@ -668,7 +668,7 @@ function getPOPaymentsAggregated() {
   var prList = _prLoadAll();
   var agg = {};
   prList.forEach(function(r) {
-    var po = String(r.poNo || '').trim().toUpperCase();
+    var po = typeof _poKey_ === 'function' ? _poKey_(r.poNo) : String(r.poNo || '').trim().toUpperCase();
     if (!po) return;
     if (!agg[po]) agg[po] = { remitted: 0, requested: 0 };
     

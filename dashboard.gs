@@ -714,7 +714,7 @@ function listAuditLog(filters, _session) {
   var lastRow = sh.getLastRow();
   if (lastRow < 2) return [];
   
-  var hdrRow = _detectHeaderRow(sh,['timestamp','user','action'],[],5);
+  var hdrRow = _detectHeaderRow(sh,['timestamp','user','department'],[],5);
   var hmap   = _headerMap(sh, hdrRow);
   
   var tsCol     = _findCol(hmap,['Timestamp','Time','Date']);
