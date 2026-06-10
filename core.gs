@@ -423,9 +423,29 @@ var Transaction = (function() {
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 function _logAudit(userEmail, actionType, details, department) {
   try {
-    var sh = _ensureSheet_(SHEETS.AUDIT, ['Timestamp','User','Action','Details','Department','IP']);
-    sh.appendRow([new Date(), String(userEmail||''), String(actionType||''),
-                  String(details||''), String(department||''), '']);
+    var sh = _ensureSheet_(SHEETS.AUDIT, ['Timestamp','User','Department','Action Type','Details','IP']);
+    var lastCol = sh.getLastColumn();
+    var hdr = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+    var row = new Array(lastCol);
+    for(var i=0; i<row.length; i++) row[i] = '';
+    
+    var hmap = {};
+    hdr.forEach(function(h, i){ hmap[String(h).trim().toLowerCase()] = i; });
+    
+    function setV(colNames, val) {
+      for(var i=0; i<colNames.length; i++) {
+        var n = colNames[i].toLowerCase();
+        if (hmap[n] !== undefined) { row[hmap[n]] = val; return; }
+      }
+    }
+    
+    setV(['Timestamp','Time','Date'], new Date());
+    setV(['User','Email','User Name'], String(userEmail||''));
+    setV(['Action','Action Type'], String(actionType||''));
+    setV(['Details','Description'], String(details||''));
+    setV(['Department','Dept'], String(department||''));
+    
+    sh.appendRow(row);
   } catch (e) { Logger.log('Audit log failed: ' + e.message); }
 }
 

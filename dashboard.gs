@@ -708,13 +708,31 @@ function listAuditLog(filters, _session) {
   if (!sh) return [];
   var lastRow = sh.getLastRow();
   if (lastRow < 2) return [];
+  
+  var hdrRow = _detectHeaderRow(sh,['timestamp','user','action'],[],5);
+  var hmap   = _headerMap(sh, hdrRow);
+  
+  var tsCol     = _findCol(hmap,['Timestamp','Time','Date']);
+  var userCol   = _findCol(hmap,['User','Email','User Name']);
+  var actionCol = _findCol(hmap,['Action','Action Type']);
+  var detailsCol= _findCol(hmap,['Details','Description']);
+  var deptCol   = _findCol(hmap,['Department','Dept']);
+
   filters = filters || {};
   var limit = Math.min(Number(filters.limit) || 250, 500);
-  var startRow = Math.max(2, lastRow - limit + 1);
+  var startRow = Math.max(hdrRow+1, lastRow - limit + 1);
   var numRows = lastRow - startRow + 1;
-  var data = sh.getRange(startRow, 1, numRows, 6).getValues();
+  if (numRows <= 0) return [];
+
+  var data = sh.getRange(startRow, 1, numRows, sh.getLastColumn()).getValues();
   var mapped = data.map(function(r){
-    return {timestamp:r[0], user:r[1], actionType:r[2], details:r[3], department:r[4]};
+    return {
+      timestamp:  tsCol ? r[tsCol-1] : '',
+      user:       userCol ? r[userCol-1] : '',
+      actionType: actionCol ? r[actionCol-1] : '',
+      details:    detailsCol ? r[detailsCol-1] : '',
+      department: deptCol ? r[deptCol-1] : ''
+    };
   });
   return mapped.reverse();
 }
