@@ -356,6 +356,7 @@ function getPOsByVendor(vendorName) {
       var hdrFull = shFull.getRange(1, 1, 1, shFull.getLastColumn()).getValues()[0];
       hdrFull.forEach(function(h, idx) { mapFull[String(h).trim()] = idx; });
       var rowsFull = shFull.getRange(2, 1, shFull.getLastRow() - 1, shFull.getLastColumn()).getValues();
+      var poAgg = null;
       rowsFull.forEach(function(r) {
         if (_vendorIdentityKey_(safeString(r[mapFull['Vendor Name']])) === key) {
           var poNo = safeString(r[mapFull['PO No']]);
@@ -365,10 +366,18 @@ function getPOsByVendor(vendorName) {
             if (_poKey_(result[j].poNo) === _poKey_(poNo)) { existing = result[j]; break; }
           }
           var poVal = _num(r[mapFull['Grand Total']]);
+          
+          if (!poAgg) poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
+          var agg = poAgg[poNo.toUpperCase()] || { remitted: 0, requested: 0 };
+          
           if (existing) {
              existing.vendorCode = existing.vendorCode || safeString(r[mapFull['Vendor Code']]);
              existing.category = existing.category || safeString(r[mapFull['Category']]);
              existing.status = safeString(r[mapFull['Status']]) || existing.status;
+             existing.poValue = poVal;
+             existing.revisedPOValue = poVal;
+             existing.paid = agg.remitted;
+             existing.balance = poVal - agg.remitted;
           } else {
             result.push({
               poNo: poNo,
@@ -379,8 +388,8 @@ function getPOsByVendor(vendorName) {
               status: safeString(r[mapFull['Status']]) || 'Open',
               poValue: poVal,
               revisedPOValue: poVal,
-              paid: 0,
-              balance: poVal
+              paid: agg.remitted,
+              balance: poVal - agg.remitted
             });
           }
         }

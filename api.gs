@@ -136,6 +136,7 @@ var API_ALLOWLIST = {
   createPaymentRequest:true, listPaymentRequests:true,
   approvePaymentRequest:true, transitionPaymentWorkflow:true,
   setPaymentHold:true, updatePaymentInline:true,
+  deletePaymentRequest:true,
   detectDuplicatePayment:true, getPaymentReportRows:true,
   repairPaymentRequestData:true,
   // Approval workflow

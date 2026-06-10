@@ -663,3 +663,58 @@ function recalculateProjectOutflows(_session) {
   }
   _invalidateAllCaches_();
 }
+
+function getPOPaymentsAggregated() {
+  var prList = _prLoadAll();
+  var agg = {};
+  prList.forEach(function(r) {
+    var po = String(r.poNo || '').trim().toUpperCase();
+    if (!po) return;
+    if (!agg[po]) agg[po] = { remitted: 0, requested: 0 };
+    
+    var amt = r.dirAmt || r.finAmt || r.procAmt || r.amountRequested || 0;
+    var isRemitted = /Remitted/i.test(String(r.remittance||''));
+    var isRejected = /Rejected/i.test(String(r.procApproval||'')) || 
+                     /Rejected/i.test(String(r.financeApproval||'')) || 
+                     /Rejected/i.test(String(r.directorApproval||''));
+    
+    if (isRemitted) {
+      agg[po].remitted += amt;
+    } else if (!isRejected) {
+      agg[po].requested += amt; // Pending amounts
+    }
+  });
+  return agg;
+}
+
+function deletePaymentRequest(paymentId, _session) {
+  if (!_hasMinRole_('finance', _session) && !_hasMinRole_('admin', _session)) {
+    throw new Error('Access denied: You must be an Admin or Finance user to delete a payment request.');
+  }
+  var sh = _prSheet();
+  var last = sh.getLastRow();
+  if (last < 2) throw new Error('No payments exist.');
+  
+  var data = sh.getRange(2, 1, last - 1, _PR_NCOLS).getValues();
+  var rowIndex = -1;
+  var rec = null;
+  
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][_PRC.ID - 1]) === String(paymentId)) {
+      rowIndex = i + 2;
+      rec = _prRowToObj(data[i]);
+      break;
+    }
+  }
+  
+  if (rowIndex === -1) throw new Error('Payment request not found.');
+  
+  // Actually delete the row
+  sh.deleteRow(rowIndex);
+  _invalidateAllCaches_();
+  
+  var u = getCurrentUser(_session);
+  _logAudit(u.email, 'Payment Deleted', 'Deleted payment ID: ' + paymentId + ' for PO#' + (rec.poNo || ''), 'Finance');
+  
+  return { ok: true };
+}
