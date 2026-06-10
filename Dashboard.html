@@ -8240,7 +8240,9 @@ async function renderAuditLog(seq){
     +'</tbody></table></div></div>';
   var btnExportAudit = el('btnExportAudit');
   btnExportAudit.addEventListener('click', function(){ exportTableToCSV(el('tblAudit'), 'AuditLog'); });
+  hideLoading();
 }
+
 
 async function renderDashboard(seq){
   seq = seq || S._renderSeq;
