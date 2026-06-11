@@ -416,7 +416,8 @@ function _poKey_(value) {
   if (k.indexOf('laiplpo') === 0) k = k.substring(7);
   else if (k.indexOf('laipl') === 0) k = k.substring(5);
   else if (k.indexOf('po') === 0) k = k.substring(2);
-  return k;
+  if (/^(2425|2526|2627|2728|2829)/.test(k)) k = k.substring(4);
+  return k.replace(/^0+/, '');
 }
 
 
