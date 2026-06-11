@@ -329,14 +329,20 @@ function getPOsByVendor(vendorName) {
     return vendorCol > 0 && _vendorIdentityKey_(safeString(r[vendorCol-1]))===key;
   });
   
+  var poAgg = null;
   var result = filtered.map(function(r) {
     var poVal = valCol > 0 ? _num(r[valCol-1]) : 0;
     var revVal = revisedCol > 0 ? _num(r[revisedCol-1]) : poVal;
     var paid = paidCol > 0 ? _num(r[paidCol-1]) : 0;
-    var bal = balCol > 0 ? _num(r[balCol-1]) : (revVal - paid);
+    var poNo = poCol > 0 ? safeString(r[poCol-1]) : '';
+    
+    if (!poAgg) poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
+    var agg = poAgg[typeof _poKey_ === 'function' ? _poKey_(poNo) : String(poNo).toUpperCase()] || { remitted: 0, requested: 0 };
+    paid = Math.max(paid, agg.remitted);
+    var bal = revVal - paid - agg.requested;
     
     return {
-      poNo: poCol > 0 ? safeString(r[poCol-1]) : '',
+      poNo: poNo,
       vendor: vendorCol > 0 ? safeString(r[vendorCol-1]) : '',
       vendorCode: codeCol > 0 ? safeString(r[codeCol-1]) : '',
       project: projCol > 0 ? safeString(r[projCol-1]) : '',
