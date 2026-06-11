@@ -329,15 +329,14 @@ function getPOsByVendor(vendorName) {
     return vendorCol > 0 && _vendorIdentityKey_(safeString(r[vendorCol-1]))===key;
   });
   
-  var poAgg = null;
+  var poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
+  var sysMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
+  
   var result = filtered.map(function(r) {
     var poVal = valCol > 0 ? _num(r[valCol-1]) : 0;
     var revVal = revisedCol > 0 ? _num(r[revisedCol-1]) : poVal;
     var paid = paidCol > 0 ? _num(r[paidCol-1]) : 0;
     var poNo = poCol > 0 ? safeString(r[poCol-1]) : '';
-    
-    if (!poAgg) poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
-    var sysMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
     
     var poKeyStr = typeof _poKey_ === 'function' ? _poKey_(poNo) : String(poNo).toUpperCase();
     var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0 };
@@ -367,7 +366,8 @@ function getPOsByVendor(vendorName) {
       var hdrFull = shFull.getRange(1, 1, 1, shFull.getLastColumn()).getValues()[0];
       hdrFull.forEach(function(h, idx) { mapFull[String(h).trim()] = idx; });
       var rowsFull = shFull.getRange(2, 1, shFull.getLastRow() - 1, shFull.getLastColumn()).getValues();
-      var poAgg = null;
+      var poAgg2 = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
+      var sysMap2 = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
       rowsFull.forEach(function(r) {
         if (_vendorIdentityKey_(safeString(r[mapFull['Vendor Name']])) === key) {
           var poNo = safeString(r[mapFull['PO No']]);
@@ -378,11 +378,9 @@ function getPOsByVendor(vendorName) {
           }
           var poVal = _num(r[mapFull['Grand Total']]);
           
-          if (!poAgg) poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
-          var sysMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
           var poKeyStr = typeof _poKey_ === 'function' ? _poKey_(poNo) : String(poNo).toUpperCase();
-          var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0 };
-          var sysPaid = sysMap[poKeyStr] || 0;
+          var agg = poAgg2[poKeyStr] || { remitted: 0, requested: 0 };
+          var sysPaid = sysMap2[poKeyStr] || 0;
           
           if (existing) {
              existing.vendorCode = existing.vendorCode || safeString(r[mapFull['Vendor Code']]);
