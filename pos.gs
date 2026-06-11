@@ -410,7 +410,6 @@ function _poKey_(value) {
   var k = String(value || '')
     .trim()
     .toLowerCase()
-    .replace(/[‐‑‒–—]/g, '-')
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
   if (k.indexOf('laiplpo') === 0) k = k.substring(7);
