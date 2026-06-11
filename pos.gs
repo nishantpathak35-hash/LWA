@@ -46,7 +46,7 @@ function _loadBaselinePaidMap_() {
 }
 
 function _loadSystemPaidMap_() {
-  var cached = _cacheGet_('PO_SYS_PAID_V6');
+  var cached = _cacheGet_('PO_SYS_PAID_V7');
   if (cached) return cached;
   
   var ss = _ss();

@@ -204,6 +204,7 @@ function createPaymentRequest(payload, _session) {
     var rowNum = sh.getLastRow();
     _invalidateAllCaches_();
     _logAudit(u.email,'Payment Request','Requested '+reqAmt+' for PO#'+payload.poNo,'Procurement');
+    try { reconcileRemittedPaymentsToPOLedger(_session); } catch(e) { Logger.log('Error reconciling on create: ' + e); }
     return { ok:true, sNo:newSNo, id:newId, rowNumber:rowNum };
   } finally { try { lock.releaseLock(); } catch(_){} }
 }
@@ -284,6 +285,7 @@ function approvePaymentRequest(rowNumber, stage, approvedAmount, action, _sessio
     sh.getRange(shRow,1,1,_PR_NCOLS).setValues([rowData]);
     _invalidateAllCaches_();
     _logAudit(u.email, verdict+' Payment', 'Row '+shRow+' stage:'+stage, stage);
+    try { reconcileRemittedPaymentsToPOLedger(_session); } catch(e) { Logger.log('Error reconciling on approve: ' + e); }
     return { ok:true, stage:stage, action:verdict };
   } finally { try { lock.releaseLock(); } catch(_){} }
 }
@@ -591,6 +593,11 @@ function reconcileRemittedPaymentsToPOLedger(_session) {
       poPaidMap[key] = (poPaidMap[key] || 0) + (r.amountRequested || 0);
     }
   });
+  
+  var sysMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
+  for (var sysKey in sysMap) {
+    poPaidMap[sysKey] = (poPaidMap[sysKey] || 0) + sysMap[sysKey];
+  }
   
   var sh = _sheet(SHEETS.PO);
   var hdrRow = _detectHeaderRow(sh, ['po', 'vendor', 'value', 'paid'], [], 10);

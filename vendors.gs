@@ -337,8 +337,13 @@ function getPOsByVendor(vendorName) {
     var poNo = poCol > 0 ? safeString(r[poCol-1]) : '';
     
     if (!poAgg) poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
-    var agg = poAgg[typeof _poKey_ === 'function' ? _poKey_(poNo) : String(poNo).toUpperCase()] || { remitted: 0, requested: 0 };
-    paid = Math.max(paid, agg.remitted);
+    var sysMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
+    
+    var poKeyStr = typeof _poKey_ === 'function' ? _poKey_(poNo) : String(poNo).toUpperCase();
+    var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0 };
+    var sysPaid = sysMap[poKeyStr] || 0;
+    
+    paid = Math.max(paid, agg.remitted + sysPaid);
     var bal = revVal - paid - agg.requested;
     
     return {
@@ -374,7 +379,10 @@ function getPOsByVendor(vendorName) {
           var poVal = _num(r[mapFull['Grand Total']]);
           
           if (!poAgg) poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
-          var agg = poAgg[_poKey_(poNo)] || { remitted: 0, requested: 0 };
+          var sysMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
+          var poKeyStr = typeof _poKey_ === 'function' ? _poKey_(poNo) : String(poNo).toUpperCase();
+          var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0 };
+          var sysPaid = sysMap[poKeyStr] || 0;
           
           if (existing) {
              existing.vendorCode = existing.vendorCode || safeString(r[mapFull['Vendor Code']]);
@@ -382,7 +390,7 @@ function getPOsByVendor(vendorName) {
              existing.status = safeString(r[mapFull['Status']]) || existing.status;
              existing.poValue = poVal;
              existing.revisedPOValue = poVal;
-             existing.paid = Math.max(existing.paid, agg.remitted);
+             existing.paid = Math.max(existing.paid, agg.remitted + sysPaid);
              existing.balance = poVal - existing.paid - agg.requested;
           } else {
             result.push({
@@ -394,8 +402,8 @@ function getPOsByVendor(vendorName) {
               status: safeString(r[mapFull['Status']]) || 'Open',
               poValue: poVal,
               revisedPOValue: poVal,
-              paid: agg.remitted,
-              balance: poVal - agg.remitted - agg.requested
+              paid: agg.remitted + sysPaid,
+              balance: poVal - (agg.remitted + sysPaid) - agg.requested
             });
           }
         }
