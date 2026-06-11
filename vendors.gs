@@ -740,6 +740,7 @@ function getVendorSummary(query) {
   }
 
   // 3. Build summary
+  var poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
   var list = vendors.map(function(v) {
     var key = _vendorIdentityKey_(v.legalName);
     var vPOs = poMap[key] || [];
@@ -763,7 +764,6 @@ function getVendorSummary(query) {
     var totalPayable = totalPOValue - trueTotalPaid - totalRequested;
     
     // Ensure pos array reflects the updated live balances
-    var poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
     var updatedPOs = vPOs.map(function(p) {
       var agg = poAgg[typeof _poKey_ === 'function' ? _poKey_(p.poNo) : String(p.poNo||'').toUpperCase()] || { remitted: 0, requested: 0 };
       var pPaid = Math.max(p.paid, agg.remitted);
@@ -815,16 +815,6 @@ function getVendorSummary(query) {
              (v.code||'').toLowerCase().indexOf(q)>=0;
     });
   }
-
-  var debugStr = Object.keys(systemMap).map(function(k) { return k + ':' + systemMap[k]; }).slice(0, 10).join(' | ');
-  list.unshift({
-    vendor: 'DEBUG: systemMap size = ' + Object.keys(systemMap).length,
-    code: 'SYS-MAP',
-    totalPOValue: Object.keys(systemMap).length,
-    totalPaid: 0,
-    totalPayable: 0,
-    pos: [{ poNo: 'KEYS -> ' + debugStr, status: 'Debug', poValue: 0, paid: 0, payable: 0, project: '' }]
-  });
 
   _cacheSet_(cacheKey, list, 30);
   return list.sort(function(a,b) { 
