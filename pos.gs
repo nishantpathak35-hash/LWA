@@ -12,7 +12,11 @@
 
 // ─── PO Sheet Helpers ─────────────────────────────────────────────────────────
 function _poKey_(poNo) {
-  return safeString(poNo).toLowerCase().replace(/[^a-z0-9]/g,'');
+  var k = String(poNo || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (k.indexOf('laiplpo') === 0) k = k.substring(7);
+  else if (k.indexOf('po') === 0) k = k.substring(2);
+  if (/^(2425|2526|2627|2728|2829)/.test(k)) k = k.substring(4);
+  return k.replace(/^0+/, '');
 }
 
 function _poCurrentUserEmail_(_session) {
@@ -21,28 +25,61 @@ function _poCurrentUserEmail_(_session) {
 
 // ─── Baseline & System-Paid Maps (cached) ────────────────────────────────────
 function _loadBaselinePaidMap_() {
-  var cached = _cacheGet_('PO_BASELINE_MAP');
+  var cached = _cacheGet_('PO_BASE_MAP_V3');
   if (cached) return cached;
-  var sh = _ss().getSheetByName(SHEETS.PO_BASE);
+  
+  var ss = _ss();
+  var sheets = ss.getSheets();
+  var sh = null;
+  for (var i = 0; i < sheets.length; i++) {
+    var n = sheets[i].getName().toLowerCase().replace(/[^a-z]/g, '');
+    if (n.indexOf('popaidbaseline') >= 0 || n.indexOf('baseline') >= 0) { sh = sheets[i]; break; }
+  }
+  
   var map = {};
-  if (sh && sh.getLastRow()>=2) {
-    var data = sh.getRange(2,1,sh.getLastRow()-1,2).getValues();
+  if (sh && sh.getLastRow() >= 2) {
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
     data.forEach(function(r){ var k=_poKey_(r[0]); if(k) map[k]=_num(r[1]); });
   }
-  _cacheSet_('PO_BASELINE_MAP', map, 300);
+  _cacheSet_('PO_BASE_MAP_V3', map, 120);
   return map;
 }
 
 function _loadSystemPaidMap_() {
-  var cached = _cacheGet_('PO_SYSTEM_PAID_MAP');
+  var cached = _cacheGet_('PO_SYS_PAID_V6');
   if (cached) return cached;
-  var sh = _ss().getSheetByName(SHEETS.SYS_PAY);
+  
+  var ss = _ss();
+  var sheets = ss.getSheets();
   var map = {};
-  if (sh && sh.getLastRow()>=2) {
-    var data = sh.getRange(2,1,sh.getLastRow()-1,2).getValues();
-    data.forEach(function(r){ var k=_poKey_(r[0]); if(k) map[k]=(_num(map[k])||0)+_num(r[1]); });
+  
+  // Aggressively scan EVERY sheet that might be system payments and merge their data
+  for (var i = 0; i < sheets.length; i++) {
+    var n = sheets[i].getName().toLowerCase().replace(/[^a-z]/g, '');
+    if (n.indexOf('systempayment') >= 0 || n.indexOf('syspay') >= 0) {
+      var sh = sheets[i];
+      if (sh.getLastRow() >= 2) {
+        var maxCol = Math.max(3, sh.getLastColumn());
+        var headers = sh.getRange(1, 1, 1, maxCol).getValues()[0];
+        var poIdx = 1, amtIdx = 2; 
+        
+        for (var c = 0; c < headers.length; c++) {
+          var h = String(headers[c]).toLowerCase().replace(/[^a-z]/g, '');
+          if (h === 'pono' || h === 'ponumber' || h === 'po' || h === 'bill' || h === 'billno' || h === 'order') poIdx = c;
+          if (h === 'amount' || h === 'paid' || h === 'paidamount' || h === 'value') amtIdx = c;
+        }
+        
+        var data = sh.getRange(2, 1, sh.getLastRow() - 1, maxCol).getValues();
+        data.forEach(function(r) {
+          var k = _poKey_(r[poIdx]); 
+          if (k) map[k] = (_num(map[k])||0) + _num(r[amtIdx]); 
+        });
+      }
+    }
   }
-  _cacheSet_('PO_SYSTEM_PAID_MAP', map, 120);
+  
+  // Cache busting: change key slightly to force fresh load
+  _cacheSet_('PO_SYS_PAID_V7', map, 120);
   return map;
 }
 
@@ -370,12 +407,16 @@ function _poRound_(n) { return Math.round(Number(n || 0) * 100) / 100; }
 function _poMoney_(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 function _poKey_(value) {
-  return String(value || '')
+  var k = String(value || '')
     .trim()
     .toLowerCase()
     .replace(/[‐‑‒–—]/g, '-')
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
+  if (k.indexOf('laiplpo') === 0) k = k.substring(7);
+  else if (k.indexOf('laipl') === 0) k = k.substring(5);
+  else if (k.indexOf('po') === 0) k = k.substring(2);
+  return k;
 }
 
 

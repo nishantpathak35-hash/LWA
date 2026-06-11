@@ -21,8 +21,8 @@ var SHEETS = {
   PROJECT:      'Project Wise Detail',
   PR:           'Payment Tracker',
   USERS:        '_Users',
-  SYS_PAY:      '_SystemPayments',
-  PO_BASE:      '_POPaidBaseline',
+  SYS_PAY:      'System Payments',
+  PO_BASE:      'POPaidBaseline',
   VENDORS:      '_Vendors',
   AUDIT:        '_AuditLogs',
   APPROVAL_LOGS:'_ApprovalLogs',
@@ -267,7 +267,12 @@ function _num(v) {
   if (typeof v==='number') return v;
   var s = String(v).replace(/[₹,]/g,'').trim();
   if (s.indexOf('%')>=0) return (parseFloat(s.replace('%',''))||0)/100;
-  return parseFloat(s)||0;
+  
+  // Bulletproof extractor for messy currency strings like "Rs. 25,990" or "Paid 50.00"
+  var match = String(v).match(/-?[0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?/);
+  if (!match) return 0;
+  var n = parseFloat(match[0].replace(/,/g, ''));
+  return isNaN(n) ? 0 : n;
 }
 
 function safeString(value) {
@@ -445,30 +450,40 @@ function _logAudit(userEmail, actionType, details, department) {
     setV(['Details','Description'], String(details||''));
     setV(['Department','Dept'], String(department||''));
     
-    sh.appendRow(row);
+    var maxRows = sh.getMaxRows();
+    var vals = sh.getRange(1, 1, maxRows, 1).getValues();
+    var lastPopulatedRow = 1;
+    for (var r = vals.length - 1; r >= 0; r--) {
+      if (vals[r][0] !== "" && vals[r][0] !== null && vals[r][0] !== undefined) {
+        lastPopulatedRow = r + 1;
+        break;
+      }
+    }
+    var writeRow = lastPopulatedRow + 1;
+    sh.getRange(writeRow, 1, 1, row.length).setValues([row]);
+    
+    var trailingRows = maxRows - writeRow;
+    if (trailingRows > 50) {
+      sh.deleteRows(writeRow + 1, trailingRows);
+    }
   } catch (e) { Logger.log('Audit log failed: ' + e.message); }
 }
 
 // ─── Boot Bundle ──────────────────────────────────────────────────────────────
 /**
  * Single round-trip boot: returns user, KPIs, master data, permissions.
- * Results cached per user for BOOT TTL seconds to survive rapid re-opens.
  */
 function getBootBundle() {
   var t0   = _perf();
   var user = getCurrentUser();
-  var bKey = 'BOOT_' + String(user.email||'unknown').replace(/[^a-zA-Z0-9]/g,'_');
 
-  var cached = _cacheGet_(bKey);
-  if (cached) {
-    cached.user        = user;
-    cached.permissions = getUserPermissions(user.email);
-    return cached;
-  }
-
-  var kpis = null, master = null;
   // Ensure legacy vendors are migrated on first boot/load
   try { _runSafeInitialMigrationOnlyOnce(); } catch(e) { Logger.log('boot migration: '+e); }
+  
+  // Reconcile remitted payments to PO ledger on boot to ensure fresh up-to-date data
+  try { reconcileRemittedPaymentsToPOLedger('internal_system_bypass'); } catch (e) { Logger.log('boot reconcile: '+e); }
+
+  var kpis = null, master = null;
   try { kpis   = _getKPIs();   } catch (e) { Logger.log('boot kpis: '+e); }
   try { master = _getMaster(); } catch (e) { Logger.log('boot master: '+e); }
   var permissions = getUserPermissions(user.email);
@@ -479,7 +494,6 @@ function getBootBundle() {
     permissions: permissions, _bootMs: _perf(t0),
     _sheetWarnings: sheetWarnings
   };
-  _cacheSet_(bKey, result, _CACHE_TTL_.BOOT);
   _perf(t0, 'getBootBundle TOTAL');
   return result;
 }

@@ -712,16 +712,7 @@ function listAuditLog(filters, _session) {
   var ss = _ss();
   var sh = ss.getSheetByName(SHEETS.AUDIT) || ss.getSheetByName('Audit Log') || ss.getSheetByName('Audit Logs') || ss.getSheetByName('Audit logs');
   if (!sh) return [];
-  
-  var maxRows = sh.getMaxRows();
-  var vals = sh.getRange(1, 1, maxRows, 1).getValues();
-  var lastRow = 1;
-  for (var r = vals.length - 1; r >= 0; r--) {
-    if (vals[r][0] !== "" && vals[r][0] !== null && vals[r][0] !== undefined) {
-      lastRow = r + 1;
-      break;
-    }
-  }
+  var lastRow = sh.getLastRow();
   if (lastRow < 2) return [];
   
   var hdrRow = _detectHeaderRow(sh,['timestamp','user','department'],[],5);
@@ -759,32 +750,8 @@ function sendEmailNotification(p, _session)      { return { ok:true }; }
 function sendSMSNotification(p, _session)        { return { ok:true }; }
 function sendPaymentAdvice(rowNumber, _session) {
   var sh = _prSheet();
-  var last = sh.getLastRow();
-  var shRow = -1;
-  if (last >= 2) {
-    var ids = sh.getRange(2, _PRC.ID, last-1, 1).getValues();
-    var targetId = String(rowNumber).trim();
-    var targetNum = _num(targetId);
-    if (targetId) {
-      for (var i = 0; i < ids.length; i++) {
-        var val = ids[i][0];
-        if (val !== "" && val !== null && val !== undefined) {
-          if (_num(val) === targetNum || String(val).trim() === targetId) {
-            shRow = i + 2;
-            break;
-          }
-        }
-      }
-    }
-    if (shRow === -1) {
-      var physicalRow = Number(rowNumber);
-      if (physicalRow >= 2 && physicalRow <= last) {
-        shRow = physicalRow;
-      }
-    }
-  }
-
-  if (shRow < 2) throw new Error('Invalid payment request row or ID: ' + rowNumber);
+  var shRow = Number(rowNumber);
+  if (!shRow || shRow < 2) throw new Error('Invalid payment request row.');
   
   var rowData = sh.getRange(shRow, 1, 1, _PR_NCOLS).getValues()[0];
   var r = _prRowToObj(rowData);

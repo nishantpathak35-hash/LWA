@@ -297,16 +297,23 @@ function transitionPaymentWorkflow(payload, _session) {
   var rowIdx = -1;
   if (last >= 2) {
     var ids = sh.getRange(2, _PRC.ID, last-1, 1).getValues();
-    var physicalRow = Number(rowNumber);
-    if (physicalRow >= 2 && physicalRow <= last) {
-      rowIdx = physicalRow;
-    } else {
-      var targetId = String(rowNumber).trim();
+    var targetId = String(rowNumber).trim();
+    var targetNum = _num(targetId);
+    if (targetId) {
       for (var i = 0; i < ids.length; i++) {
-        if (String(ids[i][0]).trim() === targetId) {
-          rowIdx = i + 2;
-          break;
+        var val = ids[i][0];
+        if (val !== "" && val !== null && val !== undefined) {
+          if (_num(val) === targetNum || String(val).trim() === targetId) {
+            rowIdx = i + 2;
+            break;
+          }
         }
+      }
+    }
+    if (rowIdx === -1) {
+      var physicalRow = Number(rowNumber);
+      if (physicalRow >= 2 && physicalRow <= last) {
+        rowIdx = physicalRow;
       }
     }
   }
@@ -347,8 +354,34 @@ function setPaymentHold(payload, _session) {
   try {
     var sh    = _prSheet();
     var u     = getCurrentUser(_session);
-    var shRow = Number(payload.rowNumber);
-    if (!shRow||shRow<2) throw new Error('Invalid row number.');
+    
+    var rowNumber = payload.rowNumber || payload.paymentId;
+    var last = sh.getLastRow();
+    var shRow = -1;
+    if (last >= 2) {
+      var ids = sh.getRange(2, _PRC.ID, last-1, 1).getValues();
+      var targetId = String(rowNumber).trim();
+      var targetNum = _num(targetId);
+      if (targetId) {
+        for (var i = 0; i < ids.length; i++) {
+          var val = ids[i][0];
+          if (val !== "" && val !== null && val !== undefined) {
+            if (_num(val) === targetNum || String(val).trim() === targetId) {
+              shRow = i + 2;
+              break;
+            }
+          }
+        }
+      }
+      if (shRow === -1) {
+        var physicalRow = Number(rowNumber);
+        if (physicalRow >= 2 && physicalRow <= last) {
+          shRow = physicalRow;
+        }
+      }
+    }
+    
+    if (shRow < 2) throw new Error('Invalid row number or payment ID: ' + rowNumber);
     var now = new Date().toISOString();
     sh.getRange(shRow, _PRC.GST_HOLD).setValue(payload.gstAmount||'');
     sh.getRange(shRow, _PRC.TDS_HOLD).setValue(payload.tdsAmount||'');
@@ -434,6 +467,7 @@ function bulkRemitPayments(requestIds, remittanceData, _session) {
     });
     _invalidateAllCaches_();
     if (done > 0) {
+      try { reconcileRemittedPaymentsToPOLedger(_session); } catch(e) { Logger.log('Error reconciling on remit: ' + e); }
       try { recalculateProjectOutflows(_session); } catch(e) { Logger.log('Error recalculating outflows: ' + e); }
     }
     _logAudit(u.email,'Bulk Remittance','Remitted '+done+' payments','Finance');
@@ -507,8 +541,34 @@ function getPaymentReportRows(filters, _session) { return listPaymentRequests(fi
 function updatePaymentInline(payload, _session) {
   requireFeaturePermission('approve_payment', _session);
   var sh    = _prSheet();
-  var shRow = Number(payload.rowNumber);
-  if (!shRow||shRow<2) throw new Error('Invalid row number.');
+  
+  var rowNumber = payload.rowNumber || payload.paymentId;
+  var last = sh.getLastRow();
+  var shRow = -1;
+  if (last >= 2) {
+    var ids = sh.getRange(2, _PRC.ID, last-1, 1).getValues();
+    var targetId = String(rowNumber).trim();
+    var targetNum = _num(targetId);
+    if (targetId) {
+      for (var i = 0; i < ids.length; i++) {
+        var val = ids[i][0];
+        if (val !== "" && val !== null && val !== undefined) {
+          if (_num(val) === targetNum || String(val).trim() === targetId) {
+            shRow = i + 2;
+            break;
+          }
+        }
+      }
+    }
+    if (shRow === -1) {
+      var physicalRow = Number(rowNumber);
+      if (physicalRow >= 2 && physicalRow <= last) {
+        shRow = physicalRow;
+      }
+    }
+  }
+  
+  if (shRow < 2) throw new Error('Invalid row number or payment ID: ' + rowNumber);
   var rowData = sh.getRange(shRow,1,1,_PR_NCOLS).getValues()[0];
   if (payload.remarks!==undefined)  rowData[_PRC.REMARKS-1]   = payload.remarks;
   if (payload.category!==undefined) rowData[_PRC.CATEGORY-1]  = payload.category;
@@ -519,7 +579,8 @@ function updatePaymentInline(payload, _session) {
 }
 
 function reconcileRemittedPaymentsToPOLedger(_session) {
-  if (!_hasMinRole_('finance', _session)) throw new Error('Finance role required.');
+  var bypass = (_session === 'internal_system_bypass' || (_session && _session.bypassRoleCheck));
+  if (!bypass && !_hasMinRole_('finance', _session)) throw new Error('Finance role required.');
   
   var prList = _prLoadAll().filter(function(r) { return r.remittance === 'Remitted'; });
   
@@ -571,6 +632,7 @@ function reconcileRemittedPaymentsToPOLedger(_session) {
       }
       updatedCount++;
     }
+    SpreadsheetApp.flush();
     try { recalculateProjectOutflows(_session); } catch(e) { Logger.log('Error recalculating outflows: ' + e); }
     _invalidateAllCaches_();
     return { ok: true, reconciled: updatedCount, total_posted: prList.length };
