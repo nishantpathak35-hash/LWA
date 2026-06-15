@@ -1,4 +1,4 @@
-import { supabase } from '../api/db';
+import { supabase } from './lib/db';
 import { ArrowUpRight, DollarSign, Activity, FileCheck, AlertCircle } from 'lucide-react';
 
 // Force dynamic rendering to avoid static caching of DB queries

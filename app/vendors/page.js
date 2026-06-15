@@ -1,4 +1,4 @@
-import { supabase } from '../../api/db';
+import { supabase } from '../lib/db';
 import { Search, Plus, Download } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
