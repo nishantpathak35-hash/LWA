@@ -13,6 +13,11 @@
  *   - _headerMap() results are memoised per-execution in core.gs.
  */
 
+// ─── Local Helpers ────────────────────────────────────────────────────────────
+function _dashboardPoKey_(value) {
+  return _poKey_(value);
+}
+
 // ─── KPIs ─────────────────────────────────────────────────────────────────────
 function getDashboardKPIs() { return _getKPIs(); }
 
@@ -273,9 +278,9 @@ function updateProjectFinancials(payload, _session) {
 }
 
 // ─── Master Data ──────────────────────────────────────────────────────────────
-function getMasterData() { return _getMaster(); }
+function getMasterData(_session) { return _getMaster(_session); }
 
-function _getMaster() {
+function _getMaster(_session) {
   var cached = _cacheGet_('MASTER_DATA');
   if (cached) return cached;
 
@@ -285,7 +290,7 @@ function _getMaster() {
     kpis: null,
     categories: ['Materials', 'Services', 'Consultancy', 'Subcontracting', 'Overheads', 'Machinery', 'Others']
   };
-  try { result.vendors  = getVendorsList();    } catch(e){ Logger.log('_getMaster vendors: '+e); }
+  try { result.vendors  = getAllVendors(_session);    } catch(e){ Logger.log('_getMaster vendors: '+e); }
   try { result.projects = getProjectDetails(); } catch(e){ Logger.log('_getMaster projects: '+e); }
   try { result.kpis     = _getKPIs();          } catch(e){ Logger.log('_getMaster kpis: '+e); }
 
@@ -297,6 +302,8 @@ function _getMaster() {
 function listPOs(filters, _session) {
   var cached = _cacheGet_('LIST_POS_ALL');
   if (cached) return cached;
+
+  var poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
 
   var sh = _sheet(SHEETS.PO, false);
   if (!sh) return [];
@@ -323,6 +330,12 @@ function listPOs(filters, _session) {
     var po = poCol ? safeString(r[poCol-1]) : '';
     if (!po) return;
     var poVal = valCol ? _num(r[valCol-1]) : 0;
+    var legacyPaid = paidCol ? _num(r[paidCol-1]) : 0;
+    var poKeyStr = _dashboardPoKey_(po);
+    var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+    var systemPaid = agg.remitted;
+    var totalPaid = Math.max(legacyPaid, systemPaid);
+    
     result.push({
       poNo:           po,
       vendor:         vCol       ? safeString(r[vCol-1])    : '',
@@ -333,7 +346,11 @@ function listPOs(filters, _session) {
       poDate:         dateCol    ? r[dateCol-1] : '',
       revisedPOValue: revisedCol ? _num(r[revisedCol-1]) : poVal,
       certifiedValue: certCol    ? _num(r[certCol-1])    : 0,
-      amountPaid:     paidCol    ? _num(r[paidCol-1])    : 0,
+      amountPaid:     totalPaid,
+      legacyPaid:     legacyPaid,
+      systemPaid:     systemPaid,
+      pendingPaid:    agg.requested,
+      approvedPendingRemit: agg.approvedPendingRemit || 0,
       advance:        advCol     ? _num(r[advCol-1])     : 0,
       finalPayables:  finalCol   ? _num(r[finalCol-1])   : 0
     });
@@ -352,17 +369,19 @@ function listPOs(filters, _session) {
         var poNo = r[mapFull['PO No']];
         if (!poNo) return;
         var existing = null;
-        var normKey = _poKey_(poNo);
+        var normKey = _dashboardPoKey_(poNo);
         for (var i = 0; i < result.length; i++) {
-          if (_poKey_(result[i].poNo) === normKey) {
+          var iterKey = _dashboardPoKey_(result[i].poNo);
+          if (iterKey === normKey) {
             existing = result[i];
             break;
           }
         }
         var poVal = _num(r[mapFull['Grand Total']]);
-        var poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
-        var agg = poAgg[_poKey_(poNo)] || { remitted: 0, requested: 0 };
-        var totalPaid = existing ? Math.max(existing.amountPaid, agg.remitted) : agg.remitted;
+        var agg        = poAgg[normKey] || { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+        var legacyPaid = existing ? existing.legacyPaid : 0;
+        var systemPaid = agg.remitted;                      // now includes baseline and system payments
+        var totalPaid  = Math.max(legacyPaid, systemPaid);  // safe: systemPaid >= legacyPaid always
         
         var item = {
           poNo:           poNo,
@@ -375,6 +394,10 @@ function listPOs(filters, _session) {
           revisedPOValue: poVal,
           certifiedValue: poVal,
           amountPaid:     totalPaid,
+          legacyPaid:     legacyPaid,
+          systemPaid:     systemPaid,
+          pendingPaid:    agg.requested,
+          approvedPendingRemit: agg.approvedPendingRemit || 0,
           advance:        0,
           finalPayables:  poVal
         };
@@ -388,6 +411,10 @@ function listPOs(filters, _session) {
           existing.revisedPOValue = item.revisedPOValue || existing.revisedPOValue;
           existing.finalPayables = item.finalPayables || existing.finalPayables;
           existing.amountPaid = totalPaid;
+          existing.legacyPaid  = legacyPaid;
+          existing.systemPaid  = systemPaid;
+          existing.pendingPaid = agg.requested;
+          existing.approvedPendingRemit = agg.approvedPendingRemit || 0;
         } else {
           result.push(item);
         }
@@ -713,15 +740,7 @@ function listAuditLog(filters, _session) {
   var sh = ss.getSheetByName(SHEETS.AUDIT) || ss.getSheetByName('Audit Log') || ss.getSheetByName('Audit Logs') || ss.getSheetByName('Audit logs');
   if (!sh) return [];
   
-  var maxRows = sh.getMaxRows();
-  var vals = sh.getRange(1, 1, maxRows, 1).getValues();
-  var lastRow = 1;
-  for (var r = vals.length - 1; r >= 0; r--) {
-    if (vals[r][0] !== "" && vals[r][0] !== null && vals[r][0] !== undefined) {
-      lastRow = r + 1;
-      break;
-    }
-  }
+  var lastRow = sh.getLastRow();
   if (lastRow < 2) return [];
   
   var hdrRow = _detectHeaderRow(sh,['timestamp','user','department'],[],5);
@@ -789,13 +808,13 @@ function sendPaymentAdvice(rowNumber, _session) {
   var rowData = sh.getRange(shRow, 1, 1, _PR_NCOLS).getValues()[0];
   var r = _prRowToObj(rowData);
   
-  var vendor = findVendorMasterRecord(r.vendor);
+  var vendor = findVendorMasterRecord(r.vendor, _session);
   var email = vendor ? vendor.email : '';
   if (!email) {
     throw new Error('No email address configured in Vendors master for "' + r.vendor + '". Configure the vendor\'s email first.');
   }
   
-  MailApp.sendEmail({
+  _sendSystemEmail({
     to: email,
     subject: 'Payment Advice: PO #' + r.poNo + ' — Luxeworx Atelier',
     htmlBody: '<h2>Payment Advice</h2>'

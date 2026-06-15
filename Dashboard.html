@@ -4714,7 +4714,7 @@ async function renderIndirectPayments(seq){
   seq = seq || S._renderSeq;
   var roles = (S.user && S.user.roles) || [];
   
-  showLoading('Loading indirect payments…');
+  el('content').innerHTML = '<div class="section-head"><div class="card-title">Indirect Payments</div></div>' + skeletonTable(8);
   try{
     var bundle = await call('getIndirectPaymentsBundle', S.indirectStartDate, S.indirectEndDate);
     S.indirectCategories = (bundle && bundle.categories) || [];
@@ -4735,8 +4735,6 @@ async function renderIndirectPayments(seq){
       S.indirectPayments = [];
       return;
     }
-  }finally{
-    hideLoading();
   }
   if(seq !== S._renderSeq) return;
   
@@ -5882,40 +5880,10 @@ function startAutoRefresh(){
   // startWebSocketSync();
 }
 
-async function refreshData(){
-  try{
-    S.payments = null;
-    S.vendors = null;
-    S.pos = null;
-    S.projects = null;
-    _lastSyncTime = new Date().toISOString();
-    await boot();
-    toast('Data refreshed', 'ok');
-  }catch(e){
-    console.error('Failed to refresh data:', e);
-    toast('Failed to refresh data: ' + errMsg(e), 'error');
-  }
-}
-
 function stopAutoRefresh(){
   if(_autoRefreshTimer){
     clearInterval(_autoRefreshTimer);
     _autoRefreshTimer = null;
-  }
-}
-
-async function refreshData(){
-  try{
-    S.payments = null;
-    S.vendors = null;
-    S.pos = null;
-    S.projects = null;
-    _lastSyncTime = new Date().toISOString();
-    await boot();
-    toast('Data refreshed', 'ok');
-  }catch(e){
-    console.error('Failed to refresh data:', e);
-    toast('Failed to refresh data: ' + errMsg(e), 'error');
   }
 }
 
@@ -7481,7 +7449,33 @@ async function renderMobileHome(seq){
   seq = seq || S._renderSeq;
   // Lazily fetch only what we need — we don't pull projects on mobile home.
   if(!S.kpis){
-    showLoading('Loading…');
+    var skeletonHtml = ''
+      + '<section class="mh-greet">'
+      +   '<div class="skeleton" style="height:20px; width:120px; margin-bottom:8px;"></div>'
+      +   '<div class="skeleton" style="height:32px; width:200px; margin-bottom:8px;"></div>'
+      +   '<div class="skeleton" style="height:14px; width:80px;"></div>'
+      + '</section>'
+      + '<div class="mh-section-label">Snapshot</div>'
+      + '<div class="kpi-grid">'
+      +   '<div class="kpi-card skeleton" style="height:80px;"></div>'
+      +   '<div class="kpi-card skeleton" style="height:80px;"></div>'
+      +   '<div class="kpi-card skeleton" style="height:80px;"></div>'
+      +   '<div class="kpi-card skeleton" style="height:80px;"></div>'
+      + '</div>'
+      + '<div class="mh-section-label">Quick actions</div>'
+      + '<div class="mh-tiles">'
+      +   '<div class="mh-tile skeleton" style="height:60px;"></div>'
+      +   '<div class="mh-tile skeleton" style="height:60px;"></div>'
+      +   '<div class="mh-tile skeleton" style="height:60px;"></div>'
+      + '</div>'
+      + '<div class="mh-section-label">Recent requests</div>'
+      + '<div class="mh-list">'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      + '</div>';
+    el('content').innerHTML = skeletonHtml;
+
     try{ S.kpis = await call('getDashboardKPIs'); }
     catch(e){
       console.error('Failed to load KPIs:', e);
@@ -7668,7 +7662,22 @@ function mobileListShell(opts){
 async function renderMobilePayments(seq){
   seq = seq || S._renderSeq;
   if(!S.payments){
-    showLoading('Loading requests…');
+    var skeletonHtml = ''
+      + '<div class="mobile-search-bar skeleton" style="height:40px; margin:16px; border-radius:8px;"></div>'
+      + '<div class="mobile-filter-chips" style="display:flex; gap:8px; margin:0 16px 16px; overflow:hidden;">'
+      +   '<div class="skeleton" style="height:32px; width:60px; border-radius:16px;"></div>'
+      +   '<div class="skeleton" style="height:32px; width:80px; border-radius:16px;"></div>'
+      +   '<div class="skeleton" style="height:32px; width:90px; border-radius:16px;"></div>'
+      +   '<div class="skeleton" style="height:32px; width:70px; border-radius:16px;"></div>'
+      + '</div>'
+      + '<div class="mh-list" style="margin: 0 16px;">'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      + '</div>';
+    el('content').innerHTML = skeletonHtml;
+
     try{ setPayments(await call('listPaymentRequests',{})); }
     catch(e){
       console.error('Failed to load payment requests:', e);
@@ -7748,7 +7757,21 @@ function renderMobileApprovals(seq){
 async function renderMobilePOs(seq){
   seq = seq || S._renderSeq;
   if(!S.pos){
-    showLoading('Loading PO ledger…');
+    var skeletonHtml = ''
+      + '<div class="mobile-search-bar skeleton" style="height:40px; margin:16px; border-radius:8px;"></div>'
+      + '<div class="mobile-filter-chips" style="display:flex; gap:8px; margin:0 16px 16px; overflow:hidden;">'
+      +   '<div class="skeleton" style="height:32px; width:60px; border-radius:16px;"></div>'
+      +   '<div class="skeleton" style="height:32px; width:80px; border-radius:16px;"></div>'
+      +   '<div class="skeleton" style="height:32px; width:90px; border-radius:16px;"></div>'
+      + '</div>'
+      + '<div class="mh-list" style="margin: 0 16px;">'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      +   '<div class="skeleton-row" style="height:60px; margin-bottom:8px; border-radius:8px;"></div>'
+      + '</div>';
+    el('content').innerHTML = skeletonHtml;
+
     try{
       var poJson = await call('listPOsJson',{});
       S.pos = JSON.parse(poJson || '[]');
@@ -8161,7 +8184,18 @@ document.head.appendChild(timelineStyle);
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 async function renderCommandCenter(seq){
   seq = seq || S._renderSeq;
-  showLoading('Building command center…');
+  el('content').innerHTML = ''
+    + '<div class="section-head"><div class="card-title">Finance Command Center</div></div>'
+    + '<div class="kpi-grid">'
+    +   '<div class="kpi-card skeleton" style="height:100px;"></div>'
+    +   '<div class="kpi-card skeleton" style="height:100px;"></div>'
+    +   '<div class="kpi-card skeleton" style="height:100px;"></div>'
+    +   '<div class="kpi-card skeleton" style="height:100px;"></div>'
+    + '</div>'
+    + '<div class="chart-grid" style="margin-top:16px">'
+    +   '<div class="card"><div class="skeleton-header" style="height:40px; margin-bottom:16px;"></div><div class="skeleton-row" style="height:48px;"></div></div>'
+    +   '<div class="card"><div class="skeleton-header" style="height:40px; margin-bottom:16px;"></div><div class="skeleton-row" style="height:48px;"></div></div>'
+    + '</div>';
   var cc;
   try{ cc = await call('getCommandCenter'); }catch(e){ showErr(errMsg(e)); return; }
   if(seq !== S._renderSeq) return;
@@ -8204,7 +8238,20 @@ async function renderCommandCenter(seq){
 
 async function renderMasterHealth(seq){
   seq = seq || S._renderSeq;
-  showLoading('Auditing master data…');
+  el('content').innerHTML = ''
+    + '<div class="section-head"><div class="card-title">Master Data Health Check</div></div>'
+    + '<div class="kpi-grid">'
+    +   '<div class="kpi-card skeleton" style="height:100px;"></div>'
+    +   '<div class="kpi-card skeleton" style="height:100px;"></div>'
+    +   '<div class="kpi-card skeleton" style="height:100px;"></div>'
+    +   '<div class="kpi-card skeleton" style="height:100px;"></div>'
+    + '</div>'
+    + '<div class="card" style="margin-top:16px">'
+    +   '<div class="skeleton-header" style="height:40px; margin-bottom:16px;"></div>'
+    +   '<div class="skeleton-row" style="height:48px; margin-bottom:8px;"></div>'
+    +   '<div class="skeleton-row" style="height:48px; margin-bottom:8px;"></div>'
+    +   '<div class="skeleton-row" style="height:48px; margin-bottom:8px;"></div>'
+    + '</div>';
   var h;
   try{ h = await call('getMasterHealth'); }catch(e){ showErr(errMsg(e)); return; }
   if(seq !== S._renderSeq) return;
@@ -8224,7 +8271,9 @@ async function renderMasterHealth(seq){
 
 async function renderAuditLog(seq){
   seq = seq || S._renderSeq;
-  showLoading('Loading audit trail…');
+  el('content').innerHTML = ''
+    + '<div class="section-head"><div class="card-title">Audit Log</div></div>'
+    + skeletonTable(10);
   var rows;
   try{ rows = await call('listAuditLog',{limit:250}); }
   catch(e){
@@ -10753,7 +10802,27 @@ async function renderNewPayment(seq){
     return;
   }
   if(!S.master){
-    showLoading('Loading master data…');
+    var skeletonHtml = ''
+      + '<div class="section-head"><div class="card-title">New Payment Request</div></div>'
+      + '<div class="card" style="max-width:800px;">'
+      +   '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">'
+      +     '<div><div class="skeleton" style="height:14px; width:80px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div></div>'
+      +     '<div><div class="skeleton" style="height:14px; width:80px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div></div>'
+      +   '</div>'
+      +   '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">'
+      +     '<div><div class="skeleton" style="height:14px; width:100px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div></div>'
+      +     '<div><div class="skeleton" style="height:14px; width:100px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div></div>'
+      +   '</div>'
+      +   '<div style="margin-bottom:16px;">'
+      +     '<div class="skeleton" style="height:14px; width:120px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div>'
+      +   '</div>'
+      +   '<div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px;">'
+      +     '<div class="skeleton" style="height:38px; width:80px; border-radius:6px;"></div>'
+      +     '<div class="skeleton" style="height:38px; width:140px; border-radius:6px;"></div>'
+      +   '</div>'
+      + '</div>';
+    el('content').innerHTML = skeletonHtml;
+
     try{ S.master = await call('getMasterData'); }
     catch(e){ showErr(errMsg(e)); return; }
     if(seq !== S._renderSeq) return;
@@ -10935,17 +11004,6 @@ async function renderNewPayment(seq){
 }
 
 // ─── PO LEDGER ────────────────────────────────────────────────────────────────
-function _relTime(iso){
-  if(!iso) return '';
-  var t=new Date(iso).getTime(); if(isNaN(t)) return '';
-  var s=Math.max(0,Math.floor((Date.now()-t)/1000));
-  if(s<60) return s+'s ago';
-  if(s<3600) return Math.floor(s/60)+'m ago';
-  if(s<86400) return Math.floor(s/3600)+'h ago';
-  if(s<604800) return Math.floor(s/86400)+'d ago';
-  return new Date(iso).toLocaleDateString();
-  hideLoading();
-}
 
 
 // ─── PO LEDGER ────────────────────────────────────────────────────────────────
@@ -11262,7 +11320,27 @@ function poBadge(s){
 async function renderNewPO(seq){
   seq = seq || S._renderSeq;
   if(!S.master){
-    showLoading('Loading master data…');
+    var skeletonHtml = ''
+      + '<div class="section-head"><div class="card-title">New Purchase Order</div></div>'
+      + '<div class="card" style="max-width:900px;">'
+      +   '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">'
+      +     '<div><div class="skeleton" style="height:14px; width:80px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div></div>'
+      +     '<div><div class="skeleton" style="height:14px; width:80px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div></div>'
+      +   '</div>'
+      +   '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">'
+      +     '<div><div class="skeleton" style="height:14px; width:100px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div></div>'
+      +     '<div><div class="skeleton" style="height:14px; width:100px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div></div>'
+      +   '</div>'
+      +   '<div style="margin-bottom:16px;">'
+      +     '<div class="skeleton" style="height:14px; width:120px; margin-bottom:8px;"></div><div class="skeleton" style="height:38px; border-radius:6px;"></div>'
+      +   '</div>'
+      +   '<div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px;">'
+      +     '<div class="skeleton" style="height:38px; width:80px; border-radius:6px;"></div>'
+      +     '<div class="skeleton" style="height:38px; width:140px; border-radius:6px;"></div>'
+      +   '</div>'
+      + '</div>';
+    el('content').innerHTML = skeletonHtml;
+
     try{ S.master = await call('getMasterData'); }
     catch(e){ showErr(errMsg(e)); return; }
     if(seq !== S._renderSeq) return;
@@ -11774,8 +11852,10 @@ async function renderSettings(seq){
     +'</div>';
 
   if(activeTab === 'users'){
+    el('content').innerHTML = html + '<div class="section-head" style="align-items:center"><div class="card-title">Users &amp; Access</div></div>' + skeletonTable(6);
     html += await renderUsersTab(seq);
   } else if(activeTab === 'permissions'){
+    el('content').innerHTML = html + '<div class="section-head" style="align-items:center"><div class="card-title">Feature Permissions</div></div>' + skeletonTable(8);
     html += await renderPermissionsTab(seq);
   } else if(activeTab === 'system'){
     html += renderSystemTab();
@@ -11905,7 +11985,6 @@ function wireSystemTab(){
 }
 
 async function renderUsersTab(seq){
-  showLoading('Loading users…');
   var users=[];
   try{ users=await call('listUsersAdmin'); }
   catch(e){ return '<div style="padding:20px"><div class="err-box"><strong>Error loading users</strong><br>'+esc(errMsg(e))+'</div></div>'; }
@@ -12033,7 +12112,6 @@ function wireUsersTab(){
 }
 
 async function renderPermissionsTab(seq){
-  showLoading('Loading permissions…');
   var permissions={};
   try{ permissions=await call('getFeaturePermissions'); }
   catch(e){ return '<div style="padding:20px"><div class="err-box"><strong>Error loading permissions</strong><br>'+esc(errMsg(e))+'</div></div>'; }
@@ -12857,7 +12935,7 @@ async function renderReports(seq){
           +'<td style="color:'+(p.rejectedBy?'var(--red)':'var(--fog)')+'">'+rejBy+'</td>'
           +'<td><div style="display:flex;gap:4px">'
           +'<button class="btn btn-ghost btn-xs" onclick="openPaymentModal('+p.rowNumber+')">View</button>'
-          +((Permissions.canAccessRole('admin') || Permissions.canAccessRole('finance')) ? '<button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="_deletePayment('+p.id+')">Delete</button>' : '')
+          +((Permissions.hasRole('admin') || Permissions.hasRole('finance')) ? '<button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="_deletePayment('+p.id+')">Delete</button>' : '')
           +'</div></td>'
           +'</tr>';
       }).join(''):emptyState('No Records Found', 'There are no items matching your current filters.'))

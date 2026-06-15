@@ -43,6 +43,19 @@ function _prSheet() {
     sh.getRange(1,1,1,_PR_NCOLS).setValues([_PR_HEADERS]);
     sh.setFrozenRows(1);
     sh.getRange(1,1,1,_PR_NCOLS).setBackground('#1a1a2e').setFontColor('#ffffff').setFontWeight('bold');
+  } else {
+    var maxCols = sh.getMaxColumns();
+    if (maxCols < _PR_NCOLS) {
+      sh.insertColumnsAfter(maxCols, _PR_NCOLS - maxCols);
+    }
+    var lastCol = sh.getLastColumn();
+    var existingHeaders = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+    for (var i = 0; i < _PR_HEADERS.length; i++) {
+      if (i >= existingHeaders.length || String(existingHeaders[i]).trim() === "") {
+        sh.getRange(1, i + 1).setValue(_PR_HEADERS[i]);
+      }
+    }
+    sh.getRange(1, 1, 1, _PR_NCOLS).setBackground('#1a1a2e').setFontColor('#ffffff').setFontWeight('bold');
   }
   try { sh.showSheet(); } catch(e){}
   return sh;
@@ -137,9 +150,15 @@ function _prStatus(r) {
 function _prLoadAll() {
   var sh = _prSheet(), last = sh.getLastRow();
   if (last<2) return [];
-  var data = sh.getRange(2,1,last-1,_PR_NCOLS).getValues();
+  var maxCols = sh.getMaxColumns();
+  var colsToRead = Math.min(_PR_NCOLS, maxCols);
+  var data = sh.getRange(2,1,last-1,colsToRead).getValues();
   return data.map(function(r,i){
-    var obj = _prRowToObj(r);
+    var paddedRow = r.slice();
+    while (paddedRow.length < _PR_NCOLS) {
+      paddedRow.push('');
+    }
+    var obj = _prRowToObj(paddedRow);
     obj._sheetRow = i+2;
     return obj;
   });
@@ -170,10 +189,10 @@ function createPaymentRequest(payload, _session) {
       });
 
       // Duplicate detection: same PO, same amount, same day
-      var allRows = sh.getRange(2,1,last-1,_PR_NCOLS).getValues();
+      var allPRs = _prLoadAll();
       var today = new Date().toISOString().split('T')[0];
-      for (var i=0;i<allRows.length;i++) {
-        var r = _prRowToObj(allRows[i]);
+      for (var i=0;i<allPRs.length;i++) {
+        var r = allPRs[i];
         if (r.poNo.toLowerCase()!==String(payload.poNo).trim().toLowerCase()) continue;
         var cd = r.createdAt instanceof Date
           ? r.createdAt.toISOString().split('T')[0]
@@ -444,7 +463,11 @@ function checkApprovalAuthority(payload, _session) {
   return { canApprove: _hasMinRole_('proc', _session), roles: u.roles };
 }
 
-// ─── Remittance ───────────────────────────────────────────────────────────────
+function _paymentsPoKey_(value) {
+  return _poKey_(value);
+}
+
+// ─── Constants & Init ───────────────────────────────────────────────────────────────
 function bulkRemitPayments(requestIds, remittanceData, _session) {
   requireFeaturePermission('remit_payment', _session);
   var lock = LockService.getScriptLock();
@@ -542,42 +565,48 @@ function getPaymentReportRows(filters, _session) { return listPaymentRequests(fi
 
 function updatePaymentInline(payload, _session) {
   requireFeaturePermission('approve_payment', _session);
-  var sh    = _prSheet();
-  
-  var rowNumber = payload.rowNumber || payload.paymentId;
-  var last = sh.getLastRow();
-  var shRow = -1;
-  if (last >= 2) {
-    var ids = sh.getRange(2, _PRC.ID, last-1, 1).getValues();
-    var targetId = String(rowNumber).trim();
-    var targetNum = _num(targetId);
-    if (targetId) {
-      for (var i = 0; i < ids.length; i++) {
-        var val = ids[i][0];
-        if (val !== "" && val !== null && val !== undefined) {
-          if (_num(val) === targetNum || String(val).trim() === targetId) {
-            shRow = i + 2;
-            break;
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy.'); }
+  try {
+    var sh    = _prSheet();
+    
+    var rowNumber = payload.rowNumber || payload.paymentId;
+    var last = sh.getLastRow();
+    var shRow = -1;
+    if (last >= 2) {
+      var ids = sh.getRange(2, _PRC.ID, last-1, 1).getValues();
+      var targetId = String(rowNumber).trim();
+      var targetNum = _num(targetId);
+      if (targetId) {
+        for (var i = 0; i < ids.length; i++) {
+          var val = ids[i][0];
+          if (val !== "" && val !== null && val !== undefined) {
+            if (_num(val) === targetNum || String(val).trim() === targetId) {
+              shRow = i + 2;
+              break;
+            }
           }
         }
       }
-    }
-    if (shRow === -1) {
-      var physicalRow = Number(rowNumber);
-      if (physicalRow >= 2 && physicalRow <= last) {
-        shRow = physicalRow;
+      if (shRow === -1) {
+        var physicalRow = Number(rowNumber);
+        if (physicalRow >= 2 && physicalRow <= last) {
+          shRow = physicalRow;
+        }
       }
     }
+    
+    if (shRow < 2) throw new Error('Invalid row number or payment ID: ' + rowNumber);
+    var rowData = sh.getRange(shRow,1,1,_PR_NCOLS).getValues()[0];
+    if (payload.remarks!==undefined)  rowData[_PRC.REMARKS-1]   = payload.remarks;
+    if (payload.category!==undefined) rowData[_PRC.CATEGORY-1]  = payload.category;
+    rowData[_PRC.UPDATED_AT-1] = new Date().toISOString();
+    sh.getRange(shRow,1,1,_PR_NCOLS).setValues([rowData]);
+    _invalidateAllCaches_();
+    return { ok:true };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
   }
-  
-  if (shRow < 2) throw new Error('Invalid row number or payment ID: ' + rowNumber);
-  var rowData = sh.getRange(shRow,1,1,_PR_NCOLS).getValues()[0];
-  if (payload.remarks!==undefined)  rowData[_PRC.REMARKS-1]   = payload.remarks;
-  if (payload.category!==undefined) rowData[_PRC.CATEGORY-1]  = payload.category;
-  rowData[_PRC.UPDATED_AT-1] = new Date().toISOString();
-  sh.getRange(shRow,1,1,_PR_NCOLS).setValues([rowData]);
-  _invalidateAllCaches_();
-  return { ok:true };
 }
 
 function reconcileRemittedPaymentsToPOLedger(_session) {
@@ -587,13 +616,22 @@ function reconcileRemittedPaymentsToPOLedger(_session) {
   var prList = _prLoadAll().filter(function(r) { return r.remittance === 'Remitted'; });
   
   var poPaidMap = {};
+  
+  // 1. Add baseline payments from _POPaidBaseline
+  var baselineMap = (typeof _loadBaselinePaidMap_ === 'function') ? _loadBaselinePaidMap_() : {};
+  for (var baseKey in baselineMap) {
+    poPaidMap[baseKey] = (poPaidMap[baseKey] || 0) + baselineMap[baseKey];
+  }
+  
+  // 2. Add remitted payment requests from Payment Tracker
   prList.forEach(function(r) {
     var key = _poKey_(r.poNo);
     if (key) {
-      poPaidMap[key] = (poPaidMap[key] || 0) + (r.amountRequested || 0);
+      poPaidMap[key] = (poPaidMap[key] || 0) + (r.dirAmt || r.finAmt || r.procAmt || r.amountRequested || 0);
     }
   });
   
+  // 3. Add system payments from _SystemPayments (which excludes already counted PRs)
   var sysMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
   for (var sysKey in sysMap) {
     poPaidMap[sysKey] = (poPaidMap[sysKey] || 0) + sysMap[sysKey];
@@ -622,23 +660,36 @@ function reconcileRemittedPaymentsToPOLedger(_session) {
   try { lock.waitLock(15000); } catch(_) { throw new Error('System busy.'); }
   
   try {
+    var paidValues = [];
+    var balValues = [];
+    
     for (var i = 0; i < data.length; i++) {
       var poNo = safeString(data[i][poCol - 1]);
       var key = _poKey_(poNo);
-      if (!key) continue;
+      if (!key) {
+        paidValues.push([data[i][paidCol - 1]]);
+        if (balCol > 0) balValues.push([data[i][balCol - 1]]);
+        continue;
+      }
       
       var totalPaid = poPaidMap[key] || 0;
-      var rowNum = hdrRow + 1 + i;
-      
-      sh.getRange(rowNum, paidCol).setValue(totalPaid);
+      paidValues.push([totalPaid]);
       
       if (balCol > 0) {
         var poVal = valCol > 0 ? _num(data[i][valCol - 1]) : 0;
         var revisedVal = revisedCol > 0 ? _num(data[i][revisedCol - 1]) : poVal;
-        sh.getRange(rowNum, balCol).setValue(revisedVal - totalPaid);
+        balValues.push([revisedVal - totalPaid]);
       }
       updatedCount++;
     }
+    
+    if (paidValues.length > 0) {
+      sh.getRange(hdrRow + 1, paidCol, paidValues.length, 1).setValues(paidValues);
+    }
+    if (balCol > 0 && balValues.length > 0) {
+      sh.getRange(hdrRow + 1, balCol, balValues.length, 1).setValues(balValues);
+    }
+    
     SpreadsheetApp.flush();
     try { recalculateProjectOutflows(_session); } catch(e) { Logger.log('Error recalculating outflows: ' + e); }
     _invalidateAllCaches_();
@@ -680,14 +731,19 @@ function repairPaymentRequestData(_session) {
   if (last<2) return { ok:true, repaired:0 };
   var data = sh.getRange(2,1,last-1,_PR_NCOLS).getValues();
   var repaired = 0;
+  
+  var stageValues = [];
   data.forEach(function(row,i){
     var r = _prRowToObj(row);
     var stage = _prStage(r);
+    stageValues.push([stage]);
     if (row[_PRC.STAGE-1]!==stage) {
-      sh.getRange(i+2,_PRC.STAGE).setValue(stage);
       repaired++;
     }
   });
+  if (stageValues.length > 0) {
+    sh.getRange(2, _PRC.STAGE, stageValues.length, 1).setValues(stageValues);
+  }
   _invalidateAllCaches_();
   return { ok:true, repaired:repaired };
 }
@@ -724,11 +780,14 @@ function recalculateProjectOutflows(_session) {
   }
 
   var data = sh.getRange(3, 1, last - 2, lastCol).getValues();
+  var outflowValues = [];
   for (var j = 0; j < data.length; j++) {
     var projName = String(data[j][projColIdx - 1] || '').trim().toLowerCase();
     var remittedOutflow = outflowByProj[projName] || 0;
-    var rowNumber = j + 3;
-    sh.getRange(rowNumber, outflowColIdx).setValue(remittedOutflow);
+    outflowValues.push([remittedOutflow]);
+  }
+  if (outflowValues.length > 0) {
+    sh.getRange(3, outflowColIdx, outflowValues.length, 1).setValues(outflowValues);
   }
   _invalidateAllCaches_();
 }
@@ -736,10 +795,25 @@ function recalculateProjectOutflows(_session) {
 function getPOPaymentsAggregated() {
   var prList = _prLoadAll();
   var agg = {};
+  
+  // Seed with baseline (legacy) paid amounts so agg.remitted represents total historical outflow
+  var baselineMap = (typeof _loadBaselinePaidMap_ === 'function') ? _loadBaselinePaidMap_() : {};
+  for (var bk in baselineMap) {
+    if (!agg[bk]) agg[bk] = { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+    agg[bk].remitted += baselineMap[bk];
+  }
+
+  // Seed with system payments from _SystemPayments
+  var systemMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
+  for (var sk in systemMap) {
+    if (!agg[sk]) agg[sk] = { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+    agg[sk].remitted += systemMap[sk];
+  }
+
   prList.forEach(function(r) {
-    var po = typeof _poKey_ === 'function' ? _poKey_(r.poNo) : String(r.poNo || '').trim().toUpperCase();
+    var po = _paymentsPoKey_(r.poNo);
     if (!po) return;
-    if (!agg[po]) agg[po] = { remitted: 0, requested: 0 };
+    if (!agg[po]) agg[po] = { remitted: 0, requested: 0, approvedPendingRemit: 0 };
     
     var amt = r.dirAmt || r.finAmt || r.procAmt || r.amountRequested || 0;
     var isRemitted = /Remitted/i.test(String(r.remittance||''));
@@ -750,7 +824,11 @@ function getPOPaymentsAggregated() {
     if (isRemitted) {
       agg[po].remitted += amt;
     } else if (!isRejected) {
-      agg[po].requested += amt; // Pending amounts
+      if (_prStage(r) === 'Ready to Remit') {
+        agg[po].approvedPendingRemit = (agg[po].approvedPendingRemit || 0) + amt;
+      } else {
+        agg[po].requested += amt; // Pending approval
+      }
     }
   });
   return agg;

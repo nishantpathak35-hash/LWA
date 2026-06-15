@@ -110,8 +110,13 @@ function _invalidateVendorCache_() {
   _invalidateAllCaches_();
 }
 
+function _vendorPoKey_(value) {
+  return _poKey_(value);
+}
+
 // ─── Core CRUD ────────────────────────────────────────────────────────────────
-function getVendorsList() {
+function getVendorsList(_session) {
+  requireFeaturePermission('vendors', _session);
   try { _runSafeInitialMigrationOnlyOnce(); } catch(e) { Logger.log('getVendorsList migration: '+e); }
 
   var cached = _cacheGet_(_vendorCacheKey_());
@@ -135,147 +140,167 @@ function getVendorsList() {
   return result;
 }
 
-function getVendorByName(legalName) {
+function getVendorByName(legalName, _session) {
+  requireFeaturePermission('vendors', _session);
   var key = _vendorIdentityKey_(legalName);
   if (!key) return null;
-  return getVendorsList().filter(function(v) {
+  return getVendorsList(_session).filter(function(v) {
     return _vendorIdentityKey_(v.legalName)===key ||
            _vendorIdentityKey_(v.tradeName)===key;
   })[0] || null;
 }
 
-function findVendorMasterRecord(vendorName) { return getVendorByName(vendorName); }
+function findVendorMasterRecord(vendorName, _session) { return getVendorByName(vendorName, _session); }
 
 /**
  * getAllVendors — returns master vendors PLUS any names found in PO Wise Details
  * that don't yet have a master record (isLegacy=true).
  * After migration, the legacy fallback list should be empty.
  */
-function getAllVendors() {
+function getAllVendors(_session) {
+  requireFeaturePermission('vendors', _session);
   var byKey = {};
-  getVendorsList().forEach(function(v) {
+  getVendorsList(_session).forEach(function(v) {
     var key = _vendorIdentityKey_(v.legalName||v.tradeName||v.vendorName);
     if (key) byKey[key] = v;
   });
   // Legacy fallback scan (removed after initializeVendorMasterMigration runs)
   var sh = _sheet(SHEETS.PO, false);
-  if (sh && sh.getLastRow()>1 && sh.getLastColumn()>0) {
+  if (sh && sh.getLastRow() > 0 && sh.getLastColumn() > 0) {
     var hdrRow    = _detectHeaderRow(sh,['po','vendor'],[],10);
-    var hmap      = _headerMap(sh, hdrRow);
-    var vendorCol = _requireCol_(hmap,['Vendor Name','Vendor'],'Vendor Name');
-    var poCol     = _findCol(hmap,['PO No.','PO No','PO Number','P.O No']);
-    var data      = sh.getRange(hdrRow+1,1,sh.getLastRow()-hdrRow,sh.getLastColumn()).getValues();
-    data.forEach(function(r) {
-      var vn  = safeString(r[vendorCol-1]);
-      var key = _vendorIdentityKey_(vn);
-      if (!key||byKey[key]) return;
-      byKey[key] = {
-        vendorId:'', vendorName:vn, name:vn, legalName:vn, tradeName:'',
-        source:'po_legacy', isLegacy:true,
-        legacyPOReferences: poCol ? safeString(r[poCol-1]) : ''
-      };
-    });
+    if (sh.getLastRow() > hdrRow) {
+      var hmap      = _headerMap(sh, hdrRow);
+      var vendorCol = _requireCol_(hmap,['Vendor Name','Vendor'],'Vendor Name');
+      var poCol     = _findCol(hmap,['PO No.','PO No','PO Number','P.O No']);
+      var data      = sh.getRange(hdrRow+1,1,sh.getLastRow()-hdrRow,sh.getLastColumn()).getValues();
+      data.forEach(function(r) {
+        var vn  = safeString(r[vendorCol-1]);
+        var key = _vendorIdentityKey_(vn);
+        if (!key||byKey[key]) return;
+        byKey[key] = {
+          vendorId:'', vendorName:vn, name:vn, legalName:vn, tradeName:'',
+          source:'po_legacy', isLegacy:true,
+          legacyPOReferences: poCol ? safeString(r[poCol-1]) : ''
+        };
+      });
+    }
   }
   return Object.keys(byKey).map(function(k){return byKey[k];})
     .sort(function(a,b){ return String(a.legalName).localeCompare(String(b.legalName)); });
 }
 
-function addVendor(payload, options) {
+function addVendor(payload, options, _session) {
+  requireFeaturePermission('vendors', _session);
   options = options||{};
   payload = payload||{};
   var legalName = requireField(payload.legalName||payload.vendorName||payload.name,'Legal Name');
 
-  // Duplicate detection
-  var dupCheck = _detectDuplicateVendor_(legalName, payload.gstin, payload.pan);
-  if (dupCheck && !options.force) {
-    throw new Error('Duplicate vendor detected: "'+dupCheck.legalName+'" ('+dupCheck.vendorId+'). Use force:true to override.');
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy. Try again.'); }
+  try {
+    // Duplicate detection
+    var dupCheck = _detectDuplicateVendor_(legalName, payload.gstin, payload.pan, _session);
+    if (dupCheck && !options.force) {
+      throw new Error('Duplicate vendor detected: "'+dupCheck.legalName+'" ('+dupCheck.vendorId+'). Use force:true to override.');
+    }
+
+    var meta = _vendorIdx_(), sh = meta.sheet, idx = meta.idx;
+    var vendorId = payload.vendorId || _nextVendorId_();
+    var now = new Date(), u = getCurrentUser(_session);
+
+    var gstin = payload.gstin ? validateGST(payload.gstin)  : '';
+    var pan   = payload.pan   ? validatePAN(payload.pan)     : '';
+
+    var row = new Array(VENDOR_HEADERS.length).fill('');
+    function set(field, val) { if (idx[field]!==undefined) row[idx[field]] = val||''; }
+
+    set('Vendor ID',             vendorId);
+    set('Legal Name',            legalName);
+    set('Trade Name',            safeString(payload.tradeName));
+    set('GSTIN',                 gstin);
+    set('PAN',                   pan);
+    set('Status',                payload.status||'Active');
+    set('Address',               safeString(payload.address));
+    set('State Code',            safeString(payload.stateCode));
+    set('Vendor Type',           safeString(payload.vendorType));
+    set('Bank Name',             safeString(payload.bankName));
+    set('Bank Branch',           safeString(payload.bankBranch));
+    set('Account No',            safeString(payload.accountNo));
+    set('IFSC',                  safeString(payload.ifsc));
+    set('Email',                 safeString(payload.email));
+    set('Mobile',                safeString(payload.mobile));
+    set('Contact Person',        safeString(payload.contactPerson));
+    set('Phone',                 safeString(payload.phone));
+    set('Created At',            now);
+    set('Created By',            u.email);
+    set('Migrated From',         safeString(payload.migratedFrom));
+    set('Legacy PO References',  safeString(payload.legacyPOReferences));
+    set('Normalized Vendor Key', _vendorIdentityKey_(legalName));
+    set('Source',                payload.source||'app');
+    set('Is Legacy',             !!(payload.isLegacy));
+    set('Updated At',            now);
+    set('Updated By',            u.email);
+
+    sh.appendRow(row);
+    _invalidateVendorCache_();
+    _logAudit(u.email, 'Vendor Added', vendorId+' '+legalName, 'Vendors');
+    return { ok:true, vendorId:vendorId, legalName:legalName };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
   }
-
-  var meta = _vendorIdx_(), sh = meta.sheet, idx = meta.idx;
-  var vendorId = payload.vendorId || _nextVendorId_();
-  var now = new Date(), u = getCurrentUser();
-
-  var gstin = payload.gstin ? validateGST(payload.gstin)  : '';
-  var pan   = payload.pan   ? validatePAN(payload.pan)     : '';
-
-  var row = new Array(VENDOR_HEADERS.length).fill('');
-  function set(field, val) { if (idx[field]!==undefined) row[idx[field]] = val||''; }
-
-  set('Vendor ID',             vendorId);
-  set('Legal Name',            legalName);
-  set('Trade Name',            safeString(payload.tradeName));
-  set('GSTIN',                 gstin);
-  set('PAN',                   pan);
-  set('Status',                payload.status||'Active');
-  set('Address',               safeString(payload.address));
-  set('State Code',            safeString(payload.stateCode));
-  set('Vendor Type',           safeString(payload.vendorType));
-  set('Bank Name',             safeString(payload.bankName));
-  set('Bank Branch',           safeString(payload.bankBranch));
-  set('Account No',            safeString(payload.accountNo));
-  set('IFSC',                  safeString(payload.ifsc));
-  set('Email',                 safeString(payload.email));
-  set('Mobile',                safeString(payload.mobile));
-  set('Contact Person',        safeString(payload.contactPerson));
-  set('Phone',                 safeString(payload.phone));
-  set('Created At',            now);
-  set('Created By',            u.email);
-  set('Migrated From',         safeString(payload.migratedFrom));
-  set('Legacy PO References',  safeString(payload.legacyPOReferences));
-  set('Normalized Vendor Key', _vendorIdentityKey_(legalName));
-  set('Source',                payload.source||'app');
-  set('Is Legacy',             !!(payload.isLegacy));
-  set('Updated At',            now);
-  set('Updated By',            u.email);
-
-  sh.appendRow(row);
-  _invalidateVendorCache_();
-  _logAudit(u.email, 'Vendor Added', vendorId+' '+legalName, 'Vendors');
-  return { ok:true, vendorId:vendorId, legalName:legalName };
 }
 
-function updateVendor(payload) {
+function updateVendor(payload, _session) {
+  requireFeaturePermission('vendors', _session);
   payload = payload||{};
   var vendorId = requireField(payload.vendorId,'Vendor ID');
-  var meta = _vendorIdx_(), sh = meta.sheet, idx = meta.idx;
-  _requireIndex_(idx['Vendor ID'], 'Vendor ID');
-  var lastRow = sh.getLastRow();
-  if (lastRow<2) throw new Error('Vendor not found: '+vendorId);
-  var ids = sh.getRange(2, idx['Vendor ID']+1, lastRow-1, 1).getValues();
-  var targetRow = -1;
-  for (var i=0;i<ids.length;i++) {
-    if (safeString(ids[i][0])===vendorId) { targetRow=i+2; break; }
+  
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy. Try again.'); }
+  try {
+    var meta = _vendorIdx_(), sh = meta.sheet, idx = meta.idx;
+    _requireIndex_(idx['Vendor ID'], 'Vendor ID');
+    var lastRow = sh.getLastRow();
+    if (lastRow<2) throw new Error('Vendor not found: '+vendorId);
+    var ids = sh.getRange(2, idx['Vendor ID']+1, lastRow-1, 1).getValues();
+    var targetRow = -1;
+    for (var i=0;i<ids.length;i++) {
+      if (safeString(ids[i][0])===vendorId) { targetRow=i+2; break; }
+    }
+    if (targetRow<0) throw new Error('Vendor not found: '+vendorId);
+
+    var row = sh.getRange(targetRow,1,1,sh.getLastColumn()).getValues()[0];
+    function upd(field, val) { if (idx[field]!==undefined && val!==undefined) row[idx[field]]=val; }
+
+    if (payload.legalName)   upd('Legal Name',  requireField(payload.legalName,'Legal Name'));
+    if (payload.tradeName)   upd('Trade Name',  safeString(payload.tradeName));
+    if (payload.gstin)       upd('GSTIN',       validateGST(payload.gstin));
+    if (payload.pan)         upd('PAN',         validatePAN(payload.pan));
+    if (payload.status)      upd('Status',      payload.status);
+    if (payload.address)     upd('Address',     safeString(payload.address));
+    if (payload.bankName)    upd('Bank Name',   safeString(payload.bankName));
+    if (payload.accountNo)   upd('Account No',  safeString(payload.accountNo));
+    if (payload.ifsc)        upd('IFSC',        safeString(payload.ifsc));
+    if (payload.email)       upd('Email',       safeString(payload.email));
+    if (payload.mobile)      upd('Mobile',      safeString(payload.mobile));
+
+    var now = new Date(), u = getCurrentUser(_session);
+    upd('Updated At', now);
+    upd('Updated By', u.email);
+    if (idx['Legal Name']!==undefined)
+      row[idx['Normalized Vendor Key']] = _vendorIdentityKey_(row[idx['Legal Name']]);
+
+    sh.getRange(targetRow,1,1,row.length).setValues([row]);
+    _invalidateVendorCache_();
+    _logAudit(u.email, 'Vendor Updated', vendorId, 'Vendors');
+    return { ok:true, vendorId:vendorId };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
   }
-  if (targetRow<0) throw new Error('Vendor not found: '+vendorId);
-
-  var row = sh.getRange(targetRow,1,1,sh.getLastColumn()).getValues()[0];
-  function upd(field, val) { if (idx[field]!==undefined && val!==undefined) row[idx[field]]=val; }
-
-  if (payload.legalName)   upd('Legal Name',  requireField(payload.legalName,'Legal Name'));
-  if (payload.tradeName)   upd('Trade Name',  safeString(payload.tradeName));
-  if (payload.gstin)       upd('GSTIN',       validateGST(payload.gstin));
-  if (payload.pan)         upd('PAN',         validatePAN(payload.pan));
-  if (payload.status)      upd('Status',      payload.status);
-  if (payload.address)     upd('Address',     safeString(payload.address));
-  if (payload.bankName)    upd('Bank Name',   safeString(payload.bankName));
-  if (payload.accountNo)   upd('Account No',  safeString(payload.accountNo));
-  if (payload.ifsc)        upd('IFSC',        safeString(payload.ifsc));
-  if (payload.email)       upd('Email',       safeString(payload.email));
-  if (payload.mobile)      upd('Mobile',      safeString(payload.mobile));
-
-  var now = new Date(), u = getCurrentUser();
-  upd('Updated At', now);
-  upd('Updated By', u.email);
-  if (idx['Legal Name']!==undefined)
-    row[idx['Normalized Vendor Key']] = _vendorIdentityKey_(row[idx['Legal Name']]);
-
-  sh.getRange(targetRow,1,1,row.length).setValues([row]);
-  _invalidateVendorCache_();
-  _logAudit(u.email, 'Vendor Updated', vendorId, 'Vendors');
-  return { ok:true, vendorId:vendorId };
 }
 
-function getVendorByPO(poNumber) {
+function getVendorByPO(poNumber, _session) {
+  requireFeaturePermission('vendors', _session);
   poNumber = safeString(poNumber);
   if (!poNumber) return null;
   var sh = _sheet(SHEETS.PO, false);
@@ -285,21 +310,77 @@ function getVendorByPO(poNumber) {
   var vendorCol = _findCol(hmap, ['Vendor Name','Vendor']);
   var poCol     = _findCol(hmap, ['PO No.','PO No','PO Number','P.O No']);
   if (!vendorCol||!poCol) return null;
-  var data = sh.getRange(hdrRow+1,1,sh.getLastRow()-hdrRow,sh.getLastColumn()).getValues();
+  var lastRow = sh.getLastRow();
+  if (lastRow <= hdrRow) return null;
+  var data = sh.getRange(hdrRow+1,1,lastRow-hdrRow,sh.getLastColumn()).getValues();
   for (var i=0;i<data.length;i++) {
     if (safeString(data[i][poCol-1]).toLowerCase()===poNumber.toLowerCase()) {
       var vn = safeString(data[i][vendorCol-1]);
-      if (vn) return findVendorMasterRecord(vn) || { legalName:vn, source:'po_legacy' };
+      if (vn) return findVendorMasterRecord(vn, _session) || { legalName:vn, source:'po_legacy' };
     }
   }
   return null;
 }
 
-function getPOsByVendor(vendorName) {
+function _getSystemPRPaidForVendorKey_(vKey) {
+  var prList = (typeof _prLoadAll === 'function') ? _prLoadAll() : [];
+  var prVendorMap = {};
+  var remittedPRs = {};
+  prList.forEach(function(pr) {
+    if (pr.vendor && pr.id) {
+      var vk = _vendorIdentityKey_(pr.vendor);
+      prVendorMap["PR#" + pr.id] = vk;
+      prVendorMap[String(pr.id)] = vk;
+      
+      var isRemitted = /Remitted/i.test(String(pr.remittance||''));
+      if (isRemitted) {
+        remittedPRs[String(pr.id)] = true;
+      }
+    }
+  });
+
+  Logger.log('[DIAG_HELPER] vKey=' + vKey);
+  Logger.log('[DIAG_HELPER] prVendorMap keys=' + JSON.stringify(Object.keys(prVendorMap)));
+
+  var systemPRPaid = 0;
+  var sysSh = _ss().getSheetByName('_SystemPayments');
+  if (sysSh && sysSh.getLastRow() >= 2) {
+    var sysHmap = _headerMap(sysSh, 1);
+    var sysAmtCol = sysHmap['Amount'] || 3;
+    var sysPrCol = sysHmap['PR Key'] || 4;
+    
+    var sysData = sysSh.getRange(2, 1, sysSh.getLastRow()-1, sysSh.getLastColumn()).getValues();
+    sysData.forEach(function(r) {
+      var amt = _num(r[sysAmtCol-1]);
+      var prKey = safeString(r[sysPrCol-1]);
+      if (prKey && amt > 0) {
+        // Skip if linked to a remitted PR
+        var match = prKey.match(/\d+/);
+        var prId = match ? parseInt(match[0], 10) : 0;
+        if (prId > 0 && remittedPRs[String(prId)]) {
+          return;
+        }
+        
+        var vk = prVendorMap[prKey];
+        Logger.log('[DIAG_HELPER] row prKey=' + prKey + ' amt=' + amt + ' matched_vk=' + vk);
+        if (vk === vKey) {
+          systemPRPaid += amt;
+        }
+      }
+    });
+  }
+  Logger.log('[DIAG_HELPER] returning systemPRPaid=' + systemPRPaid);
+  return systemPRPaid;
+}
+
+function getPOsByVendor(vendorName, _session) {
+  requireFeaturePermission('vendors', _session);
   vendorName = safeString(vendorName);
   if (!vendorName) return [];
   var key = _vendorIdentityKey_(vendorName);
-  var sh  = _sheet(SHEETS.PO, false);
+  
+  // 1. Load all POs from PO Wise Details sheet
+  var sh = _sheet(SHEETS.PO, false);
   var data = [];
   var poCol=0, vendorCol=0, valCol=0, revisedCol=0, projCol=0, statusCol=0, paidCol=0, balCol=0, catCol=0, codeCol=0;
 
@@ -319,46 +400,61 @@ function getPOsByVendor(vendorName) {
       codeCol     = _findCol(hmap,['Vendor Code','Vendor code']);
 
       var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
-      if (lastRow > hdrRow) {
+      if (lastRow > hdrRow && lastCol > 0) {
         data = sh.getRange(hdrRow+1,1,lastRow-hdrRow,lastCol).getValues();
       }
     }
   }
-  
-  var filtered = data.filter(function(r){
-    return vendorCol > 0 && _vendorIdentityKey_(safeString(r[vendorCol-1]))===key;
-  });
-  
+
   var poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
   var sysMap = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
+  var baselineMap = (typeof _loadBaselinePaidMap_ === 'function') ? _loadBaselinePaidMap_() : {};
   
-  var result = filtered.map(function(r) {
+  var remainingSys = Object.assign({}, sysMap);
+  var remainingBase = Object.assign({}, baselineMap);
+
+  // Group all POs by vendor key
+  var poMap = {};
+  data.forEach(function(r) {
+    var poNo = poCol > 0 ? safeString(r[poCol-1]) : '';
+    if (!poNo) return;
+    var vName = vendorCol > 0 ? safeString(r[vendorCol-1]) : '';
+    var vKey = _vendorIdentityKey_(vName);
+    if (!vKey) return;
+    
+    if (!poMap[vKey]) poMap[vKey] = [];
+    
     var poVal = valCol > 0 ? _num(r[valCol-1]) : 0;
     var revVal = revisedCol > 0 ? _num(r[revisedCol-1]) : poVal;
     var paid = paidCol > 0 ? _num(r[paidCol-1]) : 0;
-    var poNo = poCol > 0 ? safeString(r[poCol-1]) : '';
     
-    var poKeyStr = typeof _poKey_ === 'function' ? _poKey_(poNo) : String(poNo).toUpperCase();
-    var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0 };
+    var poKeyStr = _vendorPoKey_(poNo);
     var sysPaid = sysMap[poKeyStr] || 0;
+    var basePaid = baselineMap[poKeyStr] || 0;
+    var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0 };
     
-    paid = Math.max(paid, agg.remitted + sysPaid);
-    var bal = revVal - paid - agg.requested;
+    if (sysMap[poKeyStr] !== undefined) delete remainingSys[poKeyStr];
+    if (baselineMap[poKeyStr] !== undefined) delete remainingBase[poKeyStr];
     
-    return {
+    var hasBase = (baselineMap[poKeyStr] !== undefined);
+    var truePaid = hasBase ? agg.remitted : Math.max(paid, agg.remitted);
+    
+    poMap[vKey].push({
       poNo: poNo,
-      vendor: vendorCol > 0 ? safeString(r[vendorCol-1]) : '',
+      vendor: vName,
       vendorCode: codeCol > 0 ? safeString(r[codeCol-1]) : '',
       project: projCol > 0 ? safeString(r[projCol-1]) : '',
       category: catCol > 0 ? safeString(r[catCol-1]) : '',
       status: statusCol > 0 ? safeString(r[statusCol-1]) : 'Open',
       poValue: poVal,
       revisedPOValue: revVal,
-      paid: paid,
-      balance: bal
-    };
+      paid: truePaid, 
+      balance: 0, 
+      poKeyStr: poKeyStr
+    });
   });
 
+  // Merge structured POs from _POHeaders globally
   try {
     var shFull = _ss().getSheetByName('_POHeaders');
     if (shFull && shFull.getLastRow() >= 2) {
@@ -366,58 +462,164 @@ function getPOsByVendor(vendorName) {
       var hdrFull = shFull.getRange(1, 1, 1, shFull.getLastColumn()).getValues()[0];
       hdrFull.forEach(function(h, idx) { mapFull[String(h).trim()] = idx; });
       var rowsFull = shFull.getRange(2, 1, shFull.getLastRow() - 1, shFull.getLastColumn()).getValues();
-      var poAgg2 = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
-      var sysMap2 = (typeof _loadSystemPaidMap_ === 'function') ? _loadSystemPaidMap_() : {};
       rowsFull.forEach(function(r) {
-        if (_vendorIdentityKey_(safeString(r[mapFull['Vendor Name']])) === key) {
-          var poNo = safeString(r[mapFull['PO No']]);
-          if (!poNo) return;
-          var existing = null;
-          for (var j = 0; j < result.length; j++) {
-            if (_poKey_(result[j].poNo) === _poKey_(poNo)) { existing = result[j]; break; }
-          }
-          var poVal = _num(r[mapFull['Grand Total']]);
-          
-          var poKeyStr = typeof _poKey_ === 'function' ? _poKey_(poNo) : String(poNo).toUpperCase();
-          var agg = poAgg2[poKeyStr] || { remitted: 0, requested: 0 };
-          var sysPaid = sysMap2[poKeyStr] || 0;
-          
-          if (existing) {
-             existing.vendorCode = existing.vendorCode || safeString(r[mapFull['Vendor Code']]);
-             existing.category = existing.category || safeString(r[mapFull['Category']]);
-             existing.status = safeString(r[mapFull['Status']]) || existing.status;
-             existing.poValue = poVal;
-             existing.revisedPOValue = poVal;
-             existing.paid = Math.max(existing.paid, agg.remitted + sysPaid);
-             existing.balance = poVal - existing.paid - agg.requested;
-          } else {
-            result.push({
-              poNo: poNo,
-              vendor: safeString(r[mapFull['Vendor Name']]),
-              vendorCode: safeString(r[mapFull['Vendor Code']]),
-              project: safeString(r[mapFull['Project']]),
-              category: safeString(r[mapFull['Category']]),
-              status: safeString(r[mapFull['Status']]) || 'Open',
-              poValue: poVal,
-              revisedPOValue: poVal,
-              paid: agg.remitted + sysPaid,
-              balance: poVal - (agg.remitted + sysPaid) - agg.requested
-            });
-          }
+        var poNo = safeString(r[mapFull['PO No']]);
+        if (!poNo) return;
+        var vName = safeString(r[mapFull['Vendor Name']]);
+        var vKey = _vendorIdentityKey_(vName);
+        if (!vKey) return;
+        
+        if (!poMap[vKey]) poMap[vKey] = [];
+        var existing = null;
+        for (var j = 0; j < poMap[vKey].length; j++) {
+          if (_vendorPoKey_(poMap[vKey][j].poNo) === _vendorPoKey_(poNo)) { existing = poMap[vKey][j]; break; }
+        }
+        var poVal = _num(r[mapFull['Grand Total']]);
+        var poKeyStr = _vendorPoKey_(poNo);
+        var sysPaid = sysMap[poKeyStr] || 0;
+        var basePaid = baselineMap[poKeyStr] || 0;
+        var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0 };
+        
+        if (sysMap[poKeyStr] !== undefined) delete remainingSys[poKeyStr];
+        if (baselineMap[poKeyStr] !== undefined) delete remainingBase[poKeyStr];
+        
+        var hasBase = (baselineMap[poKeyStr] !== undefined);
+        
+        if (existing) {
+           existing.vendorCode = existing.vendorCode || safeString(r[mapFull['Vendor Code']]);
+           existing.category = existing.category || safeString(r[mapFull['Category']]);
+           existing.status = safeString(r[mapFull['Status']]) || existing.status;
+           existing.poValue = poVal;
+           existing.revisedPOValue = poVal;
+           existing.paid = hasBase ? agg.remitted : Math.max(existing.paid, agg.remitted);
+        } else {
+          poMap[vKey].push({
+            poNo: poNo,
+            vendor: vName,
+            vendorCode: safeString(r[mapFull['Vendor Code']]),
+            project: safeString(r[mapFull['Project']]),
+            category: safeString(r[mapFull['Category']]),
+            status: safeString(r[mapFull['Status']]) || 'Open',
+            poValue: poVal,
+            revisedPOValue: poVal,
+            paid: agg.remitted,
+            balance: 0,
+            poKeyStr: poKeyStr
+          });
         }
       });
     }
   } catch(e) { Logger.log('Error merging structured POs in getPOsByVendor: ' + e); }
 
+  // Fuzzy Matcher globally across all grouped POs
+  var fuzzyMatch = function(remainingMap) {
+    Object.keys(remainingMap).forEach(function(remKey) {
+      var amt = remainingMap[remKey];
+      if (amt <= 0) return;
+      
+      var matchedPO = null;
+      var vKeys = Object.keys(poMap);
+      for (var i = 0; i < vKeys.length; i++) {
+        var vKey = vKeys[i];
+        for (var j = 0; j < poMap[vKey].length; j++) {
+          var p = poMap[vKey][j];
+          if (p.poKeyStr.indexOf(remKey) >= 0 || remKey.indexOf(p.poKeyStr) >= 0) {
+            matchedPO = p;
+            break;
+          }
+        }
+        if (matchedPO) break;
+      }
+      if (matchedPO) {
+        matchedPO.paid += amt;
+        delete remainingMap[remKey];
+      }
+    });
+  };
+
+  fuzzyMatch(remainingSys);
+  fuzzyMatch(remainingBase);
+
+  // Now extract the POs for the selected vendor and add live payments from Payment Tracker
+  var result = poMap[key] || [];
+  var sysPaid = _getSystemPRPaidForVendorKey_(key);
+  Logger.log('[DIAG_LOOP] result count=' + result.length + ' key=' + key + ' sysPaid=' + sysPaid);
+
+  // ── Synthetic PO injection ───────────────────────────────────────────────────
+  // If this vendor has no POs in the sheet (e.g. system-generated vendor with PO
+  // = TEST-DEPLOYMENT-SUCCESS), synthesize virtual POs from the Payment Tracker.
+  if (result.length === 0) {
+    var prList = (typeof _prLoadAll === 'function') ? _prLoadAll() : [];
+    var prsByPO = {};
+    prList.forEach(function(pr) {
+      if (_vendorIdentityKey_(pr.vendor) !== key) return;
+      var poNo = String(pr.poNo || 'N/A').trim();
+      if (!prsByPO[poNo]) prsByPO[poNo] = { remitted: 0, requested: 0, project: pr.project || '', category: pr.category || '' };
+      var amt = pr.dirAmt || pr.finAmt || pr.procAmt || pr.amountRequested || 0;
+      var isRemitted = /Remitted/i.test(String(pr.remittance || ''));
+      var isRejected = /Rejected/i.test(String(pr.procApproval || '')) ||
+                       /Rejected/i.test(String(pr.financeApproval || '')) ||
+                       /Rejected/i.test(String(pr.directorApproval || ''));
+      if (isRemitted) {
+        prsByPO[poNo].remitted += amt;
+      } else if (!isRejected) {
+        prsByPO[poNo].requested += amt;
+      }
+    });
+    Object.keys(prsByPO).forEach(function(poNo) {
+      var poKeyStr = _vendorPoKey_(poNo);
+      var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+      var prData = prsByPO[poNo];
+      var directSysPaid = (sysMap && sysMap[poKeyStr]) || 0;
+      var paidForPO = Math.max(prData.remitted, agg.remitted) + directSysPaid;
+      sysPaid = Math.max(0, sysPaid - directSysPaid);
+      result.push({
+        poNo: poNo,
+        vendor: vendorName,
+        vendorCode: '',
+        project: prData.project,
+        category: prData.category,
+        status: 'Open',
+        poValue: paidForPO + Math.max(prData.requested, agg.requested),
+        revisedPOValue: paidForPO + Math.max(prData.requested, agg.requested),
+        paid: paidForPO,
+        balance: Math.max(prData.requested, agg.requested),
+        approvedPendingRemit: agg.approvedPendingRemit || 0,
+        poKeyStr: poKeyStr
+      });
+    });
+    Logger.log('[DIAG_LOOP] Synthesized ' + result.length + ' virtual PO(s) for key=' + key);
+  }
+
+  result.forEach(function(p) {
+    var agg = poAgg[p.poKeyStr] || { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+    var pPaid = p.paid;
+    Logger.log('[DIAG_LOOP] PO=' + p.poNo + ' p.paid=' + p.paid + ' p.poValue=' + p.poValue + ' revised=' + p.revisedPOValue);
+
+    // Apply floating system payment to this PO
+    if (sysPaid > 0) {
+       var bal = (p.revisedPOValue || p.poValue) - pPaid;
+       var apply = Math.min(sysPaid, bal);
+       pPaid += apply;
+       sysPaid -= apply;
+       Logger.log('[DIAG_LOOP]   Applied applied=' + apply + ' new_pPaid=' + pPaid + ' remaining_sysPaid=' + sysPaid);
+    }
+
+    p.paid = pPaid;
+    p.balance = (p.revisedPOValue || p.poValue) - p.paid - agg.requested - (agg.approvedPendingRemit || 0);
+    p.approvedPendingRemit = agg.approvedPendingRemit || 0;
+    delete p.poKeyStr;
+  });
+
   return result;
 }
 
 // ─── Duplicate Detection ──────────────────────────────────────────────────────
-function _detectDuplicateVendor_(legalName, gstin, pan) {
+function _detectDuplicateVendor_(legalName, gstin, pan, _session) {
   var key   = _vendorIdentityKey_(legalName);
   var gstIn = safeString(gstin).toUpperCase();
   var panIn = safeString(pan).toUpperCase();
-  var list  = getVendorsList();
+  var list  = getVendorsList(_session);
   for (var i=0;i<list.length;i++) {
     var v = list[i];
     if (_vendorIdentityKey_(v.legalName)===key) return v;
@@ -427,7 +629,8 @@ function _detectDuplicateVendor_(legalName, gstin, pan) {
   return null;
 }
 
-function detectDuplicatePO(poNo, vendorName) {
+function detectDuplicatePO(poNo, vendorName, _session) {
+  requireFeaturePermission('vendors', _session);
   var sh = _sheet(SHEETS.PO, false);
   if (!sh) return { isDuplicate:false };
   var hdrRow = _detectHeaderRow(sh,['po','vendor'],[],10);
@@ -435,7 +638,9 @@ function detectDuplicatePO(poNo, vendorName) {
   var poCol     = _findCol(hmap,['PO No.','PO No','PO Number']);
   var vendorCol = _findCol(hmap,['Vendor Name','Vendor']);
   if (!poCol) return { isDuplicate:false };
-  var data = sh.getRange(hdrRow+1,1,sh.getLastRow()-hdrRow,sh.getLastColumn()).getValues();
+  var lastRow = sh.getLastRow();
+  if (lastRow <= hdrRow) return { isDuplicate:false };
+  var data = sh.getRange(hdrRow+1,1,lastRow-hdrRow,sh.getLastColumn()).getValues();
   var poNorm = safeString(poNo).toLowerCase();
   var vkNorm = _vendorIdentityKey_(vendorName);
   for (var i=0;i<data.length;i++) {
@@ -448,12 +653,13 @@ function detectDuplicatePO(poNo, vendorName) {
 }
 
 // ─── migrateLegacyVendor (single name) ───────────────────────────────────────
-function migrateLegacyVendor(vendorName) {
+function migrateLegacyVendor(vendorName, _session) {
+  requireFeaturePermission('vendors', _session);
   requireField(vendorName,'Vendor name');
-  var existing = findVendorMasterRecord(vendorName);
+  var existing = findVendorMasterRecord(vendorName, _session);
   if (existing) return existing;
   // Collect any PO references for this vendor
-  var pos = getPOsByVendor(vendorName);
+  var pos = getPOsByVendor(vendorName, _session);
   var poRefs = pos.map(function(r){return safeString(r.poNo || r[0]);}).filter(Boolean).slice(0,20).join(', ');
   var result = addVendor({
     legalName: safeString(vendorName),
@@ -462,8 +668,8 @@ function migrateLegacyVendor(vendorName) {
     isLegacy: true,
     migratedFrom: 'PO Wise Details',
     legacyPOReferences: poRefs
-  });
-  return getVendorByName(vendorName);
+  }, {}, _session);
+  return getVendorByName(vendorName, _session);
 }
 
 // ─── ONE-TIME VENDOR MASTER MIGRATION ────────────────────────────────────────
@@ -605,12 +811,13 @@ function initializeVendorMasterMigration(_session) {
 }
 
 // ─── Vendor Summary / Lookup ──────────────────────────────────────────────────
-function getVendorSummary(query) {
+function getVendorSummary(query, _session) {
+  requireFeaturePermission('vendors', _session);
   // Safe initial migration check
   try { _runSafeInitialMigrationOnlyOnce(); } catch(e) { Logger.log('getVendorSummary migration: '+e); }
 
-  var vendors = getVendorsList();
   var poSh = _sheet(SHEETS.PO, false);
+  var poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
   
   // 1. Gather all live payment data
   var prList = (typeof _prLoadAll === 'function') ? _prLoadAll() : [];
@@ -631,13 +838,19 @@ function getVendorSummary(query) {
     }
   });
 
-  // 1b. Map PR Keys from Payment Tracker
+  // 1b. Map PR Keys from Payment Tracker and track remitted ones
   var prVendorMap = {};
+  var remittedPRs = {};
   prList.forEach(function(pr) {
     if (pr.vendor && pr.id) {
       var vKey = _vendorIdentityKey_(pr.vendor);
       prVendorMap["PR#" + pr.id] = vKey;
       prVendorMap[String(pr.id)] = vKey;
+      
+      var isRemitted = /Remitted/i.test(String(pr.remittance||''));
+      if (isRemitted) {
+        remittedPRs[String(pr.id)] = true;
+      }
     }
   });
 
@@ -653,6 +866,13 @@ function getVendorSummary(query) {
       var amt = _num(r[sysAmtCol-1]);
       var prKey = safeString(r[sysPrCol-1]);
       if (prKey && amt > 0) {
+        // Skip if linked to a remitted PR
+        var match = prKey.match(/\d+/);
+        var prId = match ? parseInt(match[0], 10) : 0;
+        if (prId > 0 && remittedPRs[String(prId)]) {
+          return;
+        }
+        
         var vKey = prVendorMap[prKey];
         if (vKey) {
           if (!vendorPRs[vKey]) vendorPRs[vKey] = { remitted: 0, requested: 0, systemPRPaid: 0 };
@@ -695,13 +915,15 @@ function getVendorSummary(query) {
         var paid = paidCol > 0 ? _num(r[paidCol-1]) : 0;
         
         var pNo = poCol > 0 ? safeString(r[poCol-1]) : '';
-        var poKeyStr = (typeof _poKey_ === 'function') ? _poKey_(pNo) : String(pNo||'').toUpperCase();
-        var basePaid = (baselineMap[poKeyStr] !== undefined) ? baselineMap[poKeyStr] : paid;
+        var poKeyStr = _vendorPoKey_(pNo);
+        var hasBase = (baselineMap[poKeyStr] !== undefined);
+        var basePaid = hasBase ? baselineMap[poKeyStr] : paid;
         var sysPaid = systemMap[poKeyStr] || 0;
+        var agg = poAgg[poKeyStr] || { remitted: 0, requested: 0, approvedPendingRemit: 0 };
         
         if (systemMap[poKeyStr] !== undefined) delete remainingPayments[poKeyStr];
         
-        var truePaid = basePaid + sysPaid;
+        var truePaid = hasBase ? agg.remitted : Math.max(paid, agg.remitted);
         
         poMap[key].push({
           poNo: pNo,
@@ -710,6 +932,7 @@ function getVendorSummary(query) {
           poValue: poVal,
           revisedPOValue: revVal,
           paid: truePaid,
+          approvedPendingRemit: agg.approvedPendingRemit || 0,
           poKeyStr: poKeyStr // Keep for fuzzy matcher
         });
       });
@@ -739,34 +962,163 @@ function getVendorSummary(query) {
     }
   }
 
+  // Merge structured POs from _POHeaders (new software-created POs not yet in PO Wise Details)
+  try {
+    var shFull = _ss().getSheetByName('_POHeaders');
+    if (shFull && shFull.getLastRow() >= 2) {
+      var mapFull = {};
+      var hdrFull = shFull.getRange(1, 1, 1, shFull.getLastColumn()).getValues()[0];
+      hdrFull.forEach(function(h, i) { mapFull[String(h).trim()] = i; });
+      var rowsFull = shFull.getRange(2, 1, shFull.getLastRow() - 1, shFull.getLastColumn()).getValues();
+      rowsFull.forEach(function(r) {
+        var poNo = safeString(r[mapFull['PO No']]);
+        if (!poNo) return;
+        var vName = safeString(r[mapFull['Vendor Name']]);
+        var vKey = _vendorIdentityKey_(vName);
+        if (!vKey) return;
+        if (!poMap[vKey]) poMap[vKey] = [];
+        // Check if this PO already exists in poMap (from PO Wise Details)
+        var existing = null;
+        var poKeyStr = _vendorPoKey_(poNo);
+        for (var j = 0; j < poMap[vKey].length; j++) {
+          if (_vendorPoKey_(poMap[vKey][j].poNo) === poKeyStr) { existing = poMap[vKey][j]; break; }
+        }
+        var poVal = _num(r[mapFull['Grand Total']]);
+        var aggFull = poAgg[poKeyStr] || { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+        var hasBaseFull = (baselineMap[poKeyStr] !== undefined);
+        if (existing) {
+          // Update existing entry with _POHeaders data
+          existing.status = safeString(r[mapFull['Status']]) || existing.status;
+          if (poVal > 0) { existing.poValue = poVal; existing.revisedPOValue = poVal; }
+          existing.paid = hasBaseFull ? aggFull.remitted : Math.max(existing.paid, aggFull.remitted);
+        } else {
+          // New PO only in _POHeaders — add it
+          poMap[vKey].push({
+            poNo: poNo,
+            vendor: vName,
+            project: safeString(r[mapFull['Project']]) || '',
+            status: safeString(r[mapFull['Status']]) || 'Open',
+            poValue: poVal,
+            revisedPOValue: poVal,
+            paid: aggFull.remitted,
+            approvedPendingRemit: aggFull.approvedPendingRemit || 0,
+            poKeyStr: poKeyStr
+          });
+        }
+      });
+    }
+  } catch(e) { Logger.log('Error merging _POHeaders in getVendorSummary: ' + e); }
+
+  // Build a union of all unique vendors from Master, POs, and PRs
+  var vendorsByKey = {};
+  // A. From Master List
+  getVendorsList(_session).forEach(function(v) {
+    var vName = v.legalName || v.tradeName || v.vendorName || v.name;
+    var key = _vendorIdentityKey_(vName);
+    if (key && !vendorsByKey[key]) {
+      vendorsByKey[key] = {
+        rowNumber: v.rowNumber,
+        vendorId: v.vendorId,
+        legalName: vName,
+        tradeName: v.tradeName || '',
+        gstin: v.gstin || '',
+        pan: v.pan || '',
+        status: v.status || 'Active',
+        address: v.address || '',
+        email: v.email || '',
+        mobile: v.mobile || ''
+      };
+    }
+  });
+  // B. From POs (poMap)
+  Object.keys(poMap).forEach(function(key) {
+    if (!vendorsByKey[key]) {
+      var firstPO = poMap[key][0];
+      vendorsByKey[key] = {
+        rowNumber: 0,
+        vendorId: '',
+        legalName: firstPO.vendor || key,
+        tradeName: '', gstin: '', pan: '', status: 'Active', address: '', email: '', mobile: ''
+      };
+    }
+  });
+  // C. From PRs (prList)
+  prList.forEach(function(pr) {
+    if (pr.vendor) {
+      var key = _vendorIdentityKey_(pr.vendor);
+      if (key && !vendorsByKey[key]) {
+        vendorsByKey[key] = {
+          rowNumber: 0,
+          vendorId: '',
+          legalName: pr.vendor,
+          tradeName: '', gstin: '', pan: '', status: 'Active', address: '', email: '', mobile: ''
+        };
+      }
+    }
+  });
+  var vendors = Object.keys(vendorsByKey).map(function(k) { return vendorsByKey[k]; });
+
   // 3. Build summary
-  var poAgg = (typeof getPOPaymentsAggregated === 'function') ? getPOPaymentsAggregated() : {};
+  // poAgg already declared at the top of getVendorSummary
   var list = vendors.map(function(v) {
     var key = _vendorIdentityKey_(v.legalName);
     var vPOs = poMap[key] || [];
     var prs = vendorPRs[key] || { remitted: 0, requested: 0 };
     
-    var totalPOValue = 0;
-    var legacyTotalPaid = 0;
-    
-    vPOs.forEach(function(p) {
-      totalPOValue += p.revisedPOValue || p.poValue;
-      legacyTotalPaid += p.paid;
-    });
-    
-    // Combine Legacy PO Paid, Live Payment Tracker, and _SystemPayments via PR
-    var totalPaid = Math.max(legacyTotalPaid, prs.remitted);
-    var totalRequested = prs.requested;
     var sysPaid = prs.systemPRPaid || 0;
     
-    // Total true payments includes the manually injected system amounts linked via PR
-    var trueTotalPaid = totalPaid + sysPaid;
-    var totalPayable = totalPOValue - trueTotalPaid - totalRequested;
-    
+    // ── Synthetic PO injection ──────────────────────────────────────────────
+    // If this vendor has PRs or system payments but NO PO in the sheet
+    // (e.g. system-generated vendor like Vipul Ahuja with PO = TEST-DEPLOYMENT-SUCCESS),
+    // synthesize virtual PO entries from the PR data so amounts are visible.
+    if (vPOs.length === 0 && (prs.remitted > 0 || prs.requested > 0 || sysPaid > 0)) {
+      // Group PRs by their PO number for this vendor
+      var prsByPO = {};
+      prList.forEach(function(pr) {
+        if (_vendorIdentityKey_(pr.vendor) !== key) return;
+        var poNo = String(pr.poNo || 'N/A').trim();
+        if (!prsByPO[poNo]) prsByPO[poNo] = { remitted: 0, requested: 0, project: pr.project || '' };
+        var amt = pr.dirAmt || pr.finAmt || pr.procAmt || pr.amountRequested || 0;
+        var isRemitted = /Remitted/i.test(String(pr.remittance || ''));
+        var isRejected = /Rejected/i.test(String(pr.procApproval || '')) ||
+                         /Rejected/i.test(String(pr.financeApproval || '')) ||
+                         /Rejected/i.test(String(pr.directorApproval || ''));
+        if (isRemitted) {
+          prsByPO[poNo].remitted += amt;
+        } else if (!isRejected) {
+          prsByPO[poNo].requested += amt;
+        }
+      });
+      Object.keys(prsByPO).forEach(function(poNo) {
+        var poAggKey = _poKey_(poNo);
+        var agg = poAgg[poAggKey] || { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+        var prData = prsByPO[poNo];
+        // sysMap may have a direct PO-keyed entry for this PO even though it's not in PO Wise Details
+        var directSysPaid = systemMap[poAggKey] || 0;
+        var paidForPO = Math.max(prData.remitted, agg.remitted) + directSysPaid;
+        vPOs.push({
+          poNo: poNo,
+          project: prData.project,
+          status: 'Open',
+          poValue: paidForPO + Math.max(prData.requested, agg.requested),
+          revisedPOValue: paidForPO + Math.max(prData.requested, agg.requested),
+          paid: paidForPO,
+          approvedPendingRemit: agg.approvedPendingRemit || 0,
+          poKeyStr: poAggKey
+        });
+      });
+      // Deduct direct sys paid from floating sysPaid to avoid double-count
+      Object.keys(prsByPO).forEach(function(poNo) {
+        var poAggKey = _poKey_(poNo);
+        var directSysPaid = systemMap[poAggKey] || 0;
+        sysPaid = Math.max(0, sysPaid - directSysPaid);
+      });
+    }
+
     // Ensure pos array reflects the updated live balances
     var updatedPOs = vPOs.map(function(p) {
-      var agg = poAgg[typeof _poKey_ === 'function' ? _poKey_(p.poNo) : String(p.poNo||'').toUpperCase()] || { remitted: 0, requested: 0 };
-      var pPaid = Math.max(p.paid, agg.remitted);
+      var agg = poAgg[typeof _poKey_ === 'function' ? _poKey_(p.poNo) : String(p.poNo||'').toUpperCase()] || { remitted: 0, requested: 0, approvedPendingRemit: 0 };
+      var pPaid = p.paid;
       
       // If we have floating system payment money for this vendor, start attaching it to the oldest POs
       if (sysPaid > 0) {
@@ -776,12 +1128,27 @@ function getVendorSummary(query) {
          sysPaid -= apply;
       }
       
-      var pBal = (p.revisedPOValue || p.poValue) - pPaid - agg.requested;
+      var pBal = (p.revisedPOValue || p.poValue) - pPaid - agg.requested - (agg.approvedPendingRemit || 0);
       p.paid = pPaid;
       p.payable = Math.max(0, pBal);
       p.requested = agg.requested;
+      p.approvedPendingRemit = agg.approvedPendingRemit || 0;
       return p;
     });
+
+    var totalPOValue = 0;
+    var trueTotalPaid = 0;
+    var totalPayable = 0;
+    
+    updatedPOs.forEach(function(p) {
+      totalPOValue += p.revisedPOValue || p.poValue;
+      trueTotalPaid += p.paid;
+      totalPayable += p.payable;
+    });
+    
+    trueTotalPaid += sysPaid; // Add any remaining undistributed sysPaid
+
+    var totalRequested = prs.requested;
 
     // Add summary fields to the vendor object
     return {
@@ -811,8 +1178,8 @@ function getVendorSummary(query) {
   if (query) {
     var q = safeString(query).toLowerCase();
     list = list.filter(function(v) {
-      return (v.name||'').toLowerCase().indexOf(q)>=0 ||
-             (v.code||'').toLowerCase().indexOf(q)>=0;
+      return (v.vendorName||v.vendor||v.legalName||'').toLowerCase().indexOf(q)>=0 ||
+             (v.code||v.vendorId||'').toLowerCase().indexOf(q)>=0;
     });
   }
 

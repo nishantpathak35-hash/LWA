@@ -79,6 +79,12 @@ function ping() {
 }
 
 function testSetup() {
+  // Clear all caches first to ensure fresh data
+  try {
+    _invalidateAllCaches_();
+    Logger.log('[OK] Caches cleared.');
+  } catch(e) { Logger.log('[WARN] Cache clearing failed: ' + e.message); }
+
   var ss;
   try {
     ss = _ss();
@@ -111,9 +117,57 @@ function testSetup() {
 
   try {
     var poSh = _sheet(SHEETS.PO);
-    var hdr  = _detectHeaderRow(poSh,['po','vendor','value','paid'],[],10);
+    var hdr  = _detectHeaderRow(poSh,['po','vendor'],[],10);
     Logger.log('[OK]  PO header row: '+hdr);
-  } catch(e) { Logger.log('[WARN] PO header: '+e.message); }
+    
+    // Log all sheet names in spreadsheet
+    var sheets = ss.getSheets();
+    var sheetNames = sheets.map(function(s) { return s.getName(); });
+    Logger.log('[DIAG] Sheets in spreadsheet: ' + sheetNames.join(', '));
+    
+    // Log headers and first 2 rows of _SystemPayments if it exists
+    var sysSh = ss.getSheetByName('_SystemPayments') || ss.getSheetByName('System Payments');
+    if (sysSh) {
+      Logger.log('[DIAG] Found System Payments sheet: ' + sysSh.getName() + ' (' + sysSh.getLastRow() + ' rows)');
+      if (sysSh.getLastRow() >= 1) {
+        var sampleRows = sysSh.getRange(1, 1, Math.min(3, sysSh.getLastRow()), Math.min(10, sysSh.getLastColumn())).getValues();
+        Logger.log('[DIAG] System Payments sample (rows 1-3): ' + JSON.stringify(sampleRows));
+      }
+    } else {
+      Logger.log('[DIAG] No System Payments sheet found!');
+    }
+    
+    // Run diagnostics for target vendors
+    var targets = [
+      "Aarvi Glass Scratch Solutions",
+      "Co-offiz Noida",
+      "Annapurna Interiors Decorator",
+      "Vipul Ahuja"
+    ];
+    targets.forEach(function(vName) {
+      var list = getPOsByVendor(vName) || [];
+      Logger.log('[DIAG] getPOsByVendor("' + vName + '") returned ' + list.length + ' PO(s).');
+      list.forEach(function(po) {
+        Logger.log('  [DIAG] PO: ' + po.poNo + ' | Value: ' + po.poValue + ' | Paid: ' + po.paid + ' | Balance: ' + po.balance + ' | Status: ' + po.status);
+      });
+    });
+
+    // Also check getVendorSummary for Vipul Ahuja
+    try {
+      var summary = getVendorSummary('Vipul');
+      if (summary && summary.length > 0) {
+        Logger.log('[DIAG] getVendorSummary("Vipul") found ' + summary.length + ' vendor(s).');
+        summary.forEach(function(v) {
+          Logger.log('[DIAG] Vendor: ' + v.vendor + ' | TotalPaid: ' + v.totalPaid + ' | TotalPOValue: ' + v.totalPOValue + ' | POs: ' + v.poCount);
+          (v.pos||[]).forEach(function(p) {
+            Logger.log('  [DIAG] PO: ' + p.poNo + ' | Paid: ' + p.paid + ' | Payable: ' + p.payable);
+          });
+        });
+      } else {
+        Logger.log('[DIAG] getVendorSummary("Vipul") returned 0 results - PROBLEM!');
+      }
+    } catch(e) { Logger.log('[DIAG] getVendorSummary Vipul failed: ' + e.message); }
+  } catch(e) { Logger.log('[WARN] PO diagnostic failed: '+e.message); }
 
   Logger.log('════ testSetup complete. Deploy → Manage deployments → copy /exec URL.');
 }
@@ -237,4 +291,74 @@ function api(token, method, args) {
     _logError('api() method "'+method+'" failed', { error: e.message });
     throw e;
   }
+}
+
+function runForensicDiag() {
+  Logger.log('=== START FORENSIC DIAGNOSTICS ===');
+  var ss = _ss();
+  
+  // 1. Log all sheet names
+  var sheets = ss.getSheets();
+  var sheetNames = sheets.map(function(s) { return s.getName(); });
+  Logger.log('Sheet Names: ' + sheetNames.join(', '));
+  
+  // 2. Scan Payment Tracker
+  var prList = (typeof _prLoadAll === 'function') ? _prLoadAll() : [];
+  Logger.log('Payment Tracker records count: ' + prList.length);
+  prList.forEach(function(pr) {
+    if (pr.id == 1 || pr.id == 2) {
+      Logger.log('[DIAG_PR_DETAIL] ' + JSON.stringify(pr));
+    } else {
+      Logger.log('PR: ID=' + pr.id + ' | Vendor=' + pr.vendor + ' | PO=' + pr.poNo + ' | Remit=' + pr.remittance);
+    }
+  });
+  
+  // 3. Scan System Payments
+  var sysSh = ss.getSheetByName('_SystemPayments') || ss.getSheetByName('System Payments');
+  if (sysSh) {
+    Logger.log('Found System Payments: ' + sysSh.getName() + ' (' + sysSh.getLastRow() + ' rows)');
+    if (sysSh.getLastRow() >= 1) {
+      var data = sysSh.getRange(1, 1, sysSh.getLastRow(), sysSh.getLastColumn()).getValues();
+      Logger.log('System Payments Headers: ' + JSON.stringify(data[0]));
+      data.forEach(function(row, idx) {
+        var rowStr = JSON.stringify(row);
+        if (rowStr.indexOf('Aarvi') >= 0 || rowStr.indexOf('Co-offiz') >= 0 || rowStr.indexOf('Annapurna') >= 0 || 
+            rowStr.indexOf('072') >= 0 || rowStr.indexOf('010') >= 0 || rowStr.indexOf('PR#') >= 0) {
+          Logger.log('Row ' + (idx + 1) + ': ' + rowStr);
+        }
+      });
+    }
+  } else {
+    Logger.log('System Payments sheet NOT found!');
+  }
+  
+  // 4. Scan Baseline map
+  var baseSh = ss.getSheetByName('POPaidBaseline') || ss.getSheetByName('_POPaidBaseline');
+  if (baseSh) {
+    Logger.log('Found Baseline Sheet: ' + baseSh.getName() + ' (' + baseSh.getLastRow() + ' rows)');
+    var data = baseSh.getRange(1, 1, baseSh.getLastRow(), Math.min(5, baseSh.getLastColumn())).getValues();
+    data.forEach(function(row, idx) {
+      var rowStr = JSON.stringify(row);
+      if (rowStr.indexOf('072') >= 0 || rowStr.indexOf('010') >= 0) {
+        Logger.log('Baseline Row ' + (idx + 1) + ': ' + rowStr);
+      }
+    });
+  }
+  
+  // 5. Run getVendorSummary
+  Logger.log('Source of getVendorSummary: ' + getVendorSummary.toString());
+  Logger.log('Source of getPOsByVendor: ' + getPOsByVendor.toString());
+  
+  var summary = getVendorSummary();
+  summary.forEach(function(v) {
+    if (v.vendorName.indexOf('Aarvi') >= 0 || v.vendorName.indexOf('Co-offiz') >= 0 || v.vendorName.indexOf('Annapurna') >= 0) {
+      Logger.log('Vendor Summary for ' + v.vendorName + ':');
+      Logger.log('  Total PO Value: ' + v.totalPOValue);
+      Logger.log('  Total Paid: ' + v.totalPaid);
+      Logger.log('  Total Payable: ' + v.totalPayable);
+      Logger.log('  POs: ' + JSON.stringify(v.pos));
+    }
+  });
+  
+  Logger.log('=== END FORENSIC DIAGNOSTICS ===');
 }

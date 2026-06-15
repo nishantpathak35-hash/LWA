@@ -11,21 +11,13 @@
  */
 
 // ─── PO Sheet Helpers ─────────────────────────────────────────────────────────
-function _poKey_(poNo) {
-  var k = String(poNo || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (k.indexOf('laiplpo') === 0) k = k.substring(7);
-  else if (k.indexOf('po') === 0) k = k.substring(2);
-  if (/^(2425|2526|2627|2728|2829)/.test(k)) k = k.substring(4);
-  return k.replace(/^0+/, '');
-}
-
 function _poCurrentUserEmail_(_session) {
-  try { return getCurrentUser(_session).email; } catch(e){ return 'unknown'; }
+  try { return getCurrentUser(_session).email || ''; } catch(e){ return ''; }
 }
 
 // ─── Baseline & System-Paid Maps (cached) ────────────────────────────────────
 function _loadBaselinePaidMap_() {
-  var cached = _cacheGet_('PO_BASE_MAP_V3');
+  var cached = _cacheGet_('PO_BASELINE_MAP');
   if (cached) return cached;
   
   var ss = _ss();
@@ -37,18 +29,40 @@ function _loadBaselinePaidMap_() {
   }
   
   var map = {};
-  if (sh && sh.getLastRow() >= 2) {
+  if (sh && sh.getLastRow() >= 2 && sh.getLastColumn() >= 2) {
     var data = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
     data.forEach(function(r){ var k=_poKey_(r[0]); if(k) map[k]=_num(r[1]); });
   }
-  _cacheSet_('PO_BASE_MAP_V3', map, 120);
+  _cacheSet_('PO_BASELINE_MAP', map, 120);
   return map;
 }
 
 function _loadSystemPaidMap_() {
-  var cached = _cacheGet_('PO_SYS_PAID_V7');
+  var cached = _cacheGet_('PO_SYSTEM_PAID_MAP_V9');
   if (cached) return cached;
   
+  // 1. Load PR to PO No mapping from Payment Tracker
+  var prPOMap = {};
+  var remittedPRs = {};
+  try {
+    var prList = (typeof _prLoadAll === 'function') ? _prLoadAll() : [];
+    prList.forEach(function(pr) {
+      if (pr.id && pr.poNo) {
+        var match = String(pr.id).match(/\d+/);
+        var numericId = match ? parseInt(match[0], 10) : 0;
+        if (numericId > 0) {
+          prPOMap[numericId] = String(pr.poNo).trim();
+          var isRemitted = /Remitted/i.test(String(pr.remittance||''));
+          if (isRemitted) {
+            remittedPRs[numericId] = true;
+          }
+        }
+      }
+    });
+  } catch (prErr) {
+    Logger.log('Error loading PR PO map in _loadSystemPaidMap_: ' + prErr.message);
+  }
+
   var ss = _ss();
   var sheets = ss.getSheets();
   var map = {};
@@ -59,27 +73,65 @@ function _loadSystemPaidMap_() {
     if (n.indexOf('systempayment') >= 0 || n.indexOf('syspay') >= 0) {
       var sh = sheets[i];
       if (sh.getLastRow() >= 2) {
-        var maxCol = Math.max(3, sh.getLastColumn());
-        var headers = sh.getRange(1, 1, 1, maxCol).getValues()[0];
-        var poIdx = 1, amtIdx = 2; 
+        var maxCol = sh.getLastColumn();
+        if (maxCol < 1) continue;
+        
+        // Dynamically locate the header row
+        var hdrRow = 1;
+        var values = sh.getRange(1, 1, Math.min(10, sh.getLastRow()), maxCol).getValues();
+        for (var r = 0; r < values.length; r++) {
+          var hasKeys = values[r].some(function(cell) {
+            var s = String(cell).toLowerCase();
+            return s.indexOf('pr') >= 0 || s.indexOf('amount') >= 0 || s.indexOf('po') >= 0 || s.indexOf('paid') >= 0;
+          });
+          if (hasKeys) {
+            hdrRow = r + 1;
+            break;
+          }
+        }
+        
+        var headers = values[hdrRow - 1];
+        var poIdx = 0, amtIdx = Math.min(1, maxCol - 1), prIdx = -1; 
         
         for (var c = 0; c < headers.length; c++) {
           var h = String(headers[c]).toLowerCase().replace(/[^a-z]/g, '');
           if (h === 'pono' || h === 'ponumber' || h === 'po' || h === 'bill' || h === 'billno' || h === 'order') poIdx = c;
           if (h === 'amount' || h === 'paid' || h === 'paidamount' || h === 'value') amtIdx = c;
+          if (h === 'prkey' || h === 'pr' || h === 'prnumber' || h === 'prid' || h === 'requestid' || h === 'prno') prIdx = c;
         }
         
-        var data = sh.getRange(2, 1, sh.getLastRow() - 1, maxCol).getValues();
+        var data = sh.getRange(hdrRow + 1, 1, sh.getLastRow() - hdrRow, maxCol).getValues();
         data.forEach(function(r) {
-          var k = _poKey_(r[poIdx]); 
+          var rawPo = String(r[poIdx] || '').trim();
+          var prKeyStr = prIdx >= 0 ? safeString(r[prIdx]) : '';
+          
+          var poNo = rawPo;
+          var isFromRemittedPR = false;
+          if (prKeyStr) {
+            var match = prKeyStr.match(/\d+/);
+            var prId = match ? parseInt(match[0], 10) : 0;
+            if (prId > 0) {
+              if (prPOMap[prId]) {
+                poNo = prPOMap[prId];
+              }
+              if (remittedPRs[prId]) {
+                isFromRemittedPR = true;
+              }
+            }
+          }
+          
+          if (isFromRemittedPR) {
+            return;
+          }
+          
+          var k = _poKey_(poNo); 
           if (k) map[k] = (_num(map[k])||0) + _num(r[amtIdx]); 
         });
       }
     }
   }
   
-  // Cache busting: change key slightly to force fresh load
-  _cacheSet_('PO_SYS_PAID_V7', map, 120);
+  _cacheSet_('PO_SYSTEM_PAID_MAP_V9', map, 120);
   return map;
 }
 
@@ -327,10 +379,6 @@ function _getPOPdfFolder_() {
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════
 
-function _poCurrentUserEmail_() {
-  try { return getCurrentUser().email || ''; } catch (e) { return ''; }
-}
-
 function _poHasRole_(role, _session) {
   try {
     return _hasMinRole_(role, _session);
@@ -406,18 +454,7 @@ function _poFindHeaderRow_(poNo) {
 function _poRound_(n) { return Math.round(Number(n || 0) * 100) / 100; }
 function _poMoney_(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-function _poKey_(value) {
-  var k = String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/[^a-z0-9]/g, '');
-  if (k.indexOf('laiplpo') === 0) k = k.substring(7);
-  else if (k.indexOf('laipl') === 0) k = k.substring(5);
-  else if (k.indexOf('po') === 0) k = k.substring(2);
-  if (/^(2425|2526|2627|2728|2829)/.test(k)) k = k.substring(4);
-  return k.replace(/^0+/, '');
-}
+
 
 
 function _poComputeTotals_(items, gstMode) {
@@ -888,7 +925,7 @@ function sendPOToVendor(poNo, email, _session) {
     }
     var to = String(email || '').trim();
     if (!to) {
-      var vendors = getVendorsList();
+      var vendors = getVendorsList(_session);
       var name = String(h['Vendor Name'] || '').trim().toLowerCase();
       for (var i = 0; i < vendors.length; i++) {
         var vn = String(vendors[i].legalName || vendors[i].tradeName || '').trim().toLowerCase();
@@ -932,7 +969,7 @@ function sendPOToVendor(poNo, email, _session) {
     if (size <= SAFE_LIMIT) mailOpts.attachments = [blob];
 
     var sendErr = null;
-    try { MailApp.sendEmail(mailOpts); }
+    try { _sendSystemEmail(mailOpts); }
     catch(e) { sendErr = e; }
 
     _logAudit(

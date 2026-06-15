@@ -310,46 +310,60 @@ function _normEmail_(email) { return String(email||'').trim().toLowerCase(); }
 
 // ─── Auth Endpoints ───────────────────────────────────────────────────────────
 function loginUser(email, password) {
-  email = _normEmail_(email);
-  var u = _findUserByEmail_(email);
-  if (!u) { Utilities.sleep(400); throw new Error('Invalid email or password.'); }
-  if (!u.active) throw new Error('This account is deactivated.');
-  if (u.lockedUntil && u.lockedUntil > new Date()) {
-    var mins = Math.ceil((u.lockedUntil - new Date())/60000);
-    throw new Error('Account locked. Try again in '+mins+' min.');
-  }
-  if (_hashPassword_(password, u.salt) !== u.passwordHash) {
-    var fa = u.failedAttempts+1;
-    _saveUserCell_(u.rowNum, 9, fa);
-    if (fa >= AUTH.LOCKOUT_THRESHOLD)
-      _saveUserCell_(u.rowNum, 10, new Date(Date.now()+AUTH.LOCKOUT_MINUTES*60000));
-    throw new Error('Invalid email or password.');
-  }
-  _saveUserCell_(u.rowNum, 9, 0);
-  _saveUserCell_(u.rowNum, 10, '');
-  _saveUserCell_(u.rowNum, 8, new Date());
-
-  var roles = u.roles.length ? u.roles : (u.role ? [u.role] : []);
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy. Try again.'); }
   try {
-    if (!_anyDirectorExists_() || !roles.length) {
-      _saveUserCell_(u.rowNum, 5, ROLE_KEYS.join(','));
-      _saveUserCell_(u.rowNum, 6, true);
-      roles = ROLE_KEYS.slice();
-      Logger.log('Auto-promoted ' + u.email);
+    email = _normEmail_(email);
+    var u = _findUserByEmail_(email);
+    if (!u) { Utilities.sleep(400); throw new Error('Invalid email or password.'); }
+    if (!u.active) throw new Error('This account is deactivated.');
+    if (u.lockedUntil && u.lockedUntil > new Date()) {
+      var mins = Math.ceil((u.lockedUntil - new Date())/60000);
+      throw new Error('Account locked. Try again in '+mins+' min.');
     }
-  } catch(e) {}
+    if (_hashPassword_(password, u.salt) !== u.passwordHash) {
+      var fa = u.failedAttempts+1;
+      _saveUserCell_(u.rowNum, 9, fa);
+      if (fa >= AUTH.LOCKOUT_THRESHOLD)
+        _saveUserCell_(u.rowNum, 10, new Date(Date.now()+AUTH.LOCKOUT_MINUTES*60000));
+      throw new Error('Invalid email or password.');
+    }
+    _saveUserCell_(u.rowNum, 9, 0);
+    _saveUserCell_(u.rowNum, 10, '');
+    _saveUserCell_(u.rowNum, 8, new Date());
 
-  var token   = _genToken_();
-  var expires = new Date(Date.now() + AUTH.SESSION_TTL_DAYS*86400000);
-  PropertiesService.getScriptProperties().setProperty(
-    AUTH.SESSION_PREFIX + token,
-    JSON.stringify({ email:u.email, role:roles[0]||'', roles:roles, name:u.name, expires:expires.toISOString() })
-  );
-  return { token:token, email:u.email, role:roles[0]||'', roles:roles, name:u.name, expires:expires.toISOString() };
+    var roles = u.roles.length ? u.roles : (u.role ? [u.role] : []);
+    try {
+      if (!_anyDirectorExists_() || !roles.length) {
+        _saveUserCell_(u.rowNum, 5, ROLE_KEYS.join(','));
+        _saveUserCell_(u.rowNum, 6, true);
+        roles = ROLE_KEYS.slice();
+        Logger.log('Auto-promoted ' + u.email);
+      }
+    } catch(e) {}
+
+    var token   = _genToken_();
+    var expires = new Date(Date.now() + AUTH.SESSION_TTL_DAYS*86400000);
+    PropertiesService.getScriptProperties().setProperty(
+      AUTH.SESSION_PREFIX + token,
+      JSON.stringify({ email:u.email, role:roles[0]||'', roles:roles, name:u.name, expires:expires.toISOString() })
+    );
+    return { token:token, email:u.email, role:roles[0]||'', roles:roles, name:u.name, expires:expires.toISOString() };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
+  }
 }
 
 function logoutUser(token) {
-  if (token) PropertiesService.getScriptProperties().deleteProperty(AUTH.SESSION_PREFIX+token);
+  if (token) {
+    var lock = LockService.getScriptLock();
+    try { lock.waitLock(10000); } catch(_){}
+    try {
+      PropertiesService.getScriptProperties().deleteProperty(AUTH.SESSION_PREFIX+token);
+    } finally {
+      try { lock.releaseLock(); } catch(_){}
+    }
+  }
   return { ok:true };
 }
 
@@ -387,29 +401,41 @@ function changeMyPassword(token, oldPassword, newPassword) {
   var s = _requireSession_(token);
   if (!newPassword || String(newPassword).length < 8)
     throw new Error('New password must be at least 8 characters.');
-  var u = _findUserByEmail_(s.email);
-  if (!u) throw new Error('User not found.');
-  if (_hashPassword_(oldPassword, u.salt) !== u.passwordHash)
-    throw new Error('Current password is incorrect.');
-  var salt = Utilities.getUuid(), hash = _hashPassword_(newPassword, salt);
-  _saveUserCell_(u.rowNum, 3, hash);
-  _saveUserCell_(u.rowNum, 4, salt);
-  return { ok:true };
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy. Try again.'); }
+  try {
+    var u = _findUserByEmail_(s.email);
+    if (!u) throw new Error('User not found.');
+    if (_hashPassword_(oldPassword, u.salt) !== u.passwordHash)
+      throw new Error('Current password is incorrect.');
+    var salt = Utilities.getUuid(), hash = _hashPassword_(newPassword, salt);
+    _saveUserCell_(u.rowNum, 3, hash);
+    _saveUserCell_(u.rowNum, 4, salt);
+    return { ok:true };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
+  }
 }
 
 function cleanupExpiredSessions() {
-  var props = PropertiesService.getScriptProperties();
-  var all = props.getProperties(), now = new Date(), purged = 0;
-  for (var key in all) {
-    if (key.indexOf(AUTH.SESSION_PREFIX) === 0) {
-      try {
-        var s = JSON.parse(all[key]);
-        if (s && s.expires && new Date(s.expires) < now) { props.deleteProperty(key); purged++; }
-      } catch(e) { props.deleteProperty(key); purged++; }
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy.'); }
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var all = props.getProperties(), now = new Date(), purged = 0;
+    for (var key in all) {
+      if (key.indexOf(AUTH.SESSION_PREFIX) === 0) {
+        try {
+          var s = JSON.parse(all[key]);
+          if (s && s.expires && new Date(s.expires) < now) { props.deleteProperty(key); purged++; }
+        } catch(e) { props.deleteProperty(key); purged++; }
+      }
     }
+    Logger.log('cleanupExpiredSessions: purged ' + purged);
+    return { ok:true, purged:purged };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
   }
-  Logger.log('cleanupExpiredSessions: purged ' + purged);
-  return { ok:true, purged:purged };
 }
 
 // ─── Admin Endpoints ──────────────────────────────────────────────────────────
@@ -487,7 +513,7 @@ function inviteUserAdmin(token, payload) {
 
     // Send email invitation with login details
     try {
-      MailApp.sendEmail({
+      _sendSystemEmail({
         to: email,
         subject: 'Welcome to Luxeworx Atelier Payment Tracker',
         htmlBody: '<h2>Account Created!</h2>'
@@ -518,106 +544,118 @@ function sendInvite(email, role, _session) {
   email = _normEmail_(email);
   if (!email || email.indexOf('@')<0) throw new Error('Valid email required.');
 
-  // ── INVITE BUG FIX (server-side) ──────────────────────────────────────
-  // Normalise then assert — catches blank, undefined, wrong-type inputs
-  var cleanRole = _assertValidRole_(role);
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy. Try again.'); }
+  try {
+    // ── INVITE BUG FIX (server-side) ──────────────────────────────────────
+    // Normalise then assert — catches blank, undefined, wrong-type inputs
+    var cleanRole = _assertValidRole_(role);
 
-  var sh = _ensureInviteSheet_();
-  var u  = getCurrentUser(_session);
-  var inviteToken = Utilities.getUuid();
-  var now         = new Date();
-  var expiresAt   = new Date(now.getTime() + 7*24*3600*1000);
+    var sh = _ensureInviteSheet_();
+    var u  = getCurrentUser(_session);
+    var inviteToken = Utilities.getUuid();
+    var now         = new Date();
+    var expiresAt   = new Date(now.getTime() + 7*24*3600*1000);
 
-  // Existing-user check
-  var uSh = _ensureUsersSheet_(), uLast = uSh.getLastRow();
-  if (uLast>1) {
-    var uData = uSh.getRange(2,1,uLast-1,1).getValues();
-    for (var i=0;i<uData.length;i++) {
-      if (_normEmail_(uData[i][0])===email) throw new Error('User already exists.');
-    }
-  }
-
-  // Duplicate-invite check
-  var last = sh.getLastRow();
-  if (last>1) {
-    var iData = sh.getRange(2,1,last-1,8).getValues();
-    for (var j=0;j<iData.length;j++) {
-      var row = iData[j];
-      if (_normEmail_(row[1])===email && !row[6]) {
-        var exp = row[7] instanceof Date ? row[7] : new Date(row[7]);
-        if (exp>now) throw new Error('Invite already pending. Wait for it to expire or be accepted.');
+    // Existing-user check
+    var uSh = _ensureUsersSheet_(), uLast = uSh.getLastRow();
+    if (uLast>1) {
+      var uData = uSh.getRange(2,1,uLast-1,1).getValues();
+      for (var i=0;i<uData.length;i++) {
+        if (_normEmail_(uData[i][0])===email) throw new Error('User already exists.');
       }
     }
-  }
 
-  sh.appendRow([Utilities.getUuid(), email, cleanRole, inviteToken, u.email, now, '', expiresAt]);
+    // Duplicate-invite check
+    var last = sh.getLastRow();
+    if (last>1) {
+      var iData = sh.getRange(2,1,last-1,8).getValues();
+      for (var j=0;j<iData.length;j++) {
+        var row = iData[j];
+        if (_normEmail_(row[1])===email && !row[6]) {
+          var exp = row[7] instanceof Date ? row[7] : new Date(row[7]);
+          if (exp>now) throw new Error('Invite already pending. Wait for it to expire or be accepted.');
+        }
+      }
+    }
 
-  var scriptUrl = '';
-  try {
-    scriptUrl = ScriptApp.getService().getUrl() || '';
-  } catch(e) {
-    Logger.log('Could not get script URL: ' + e);
+    sh.appendRow([Utilities.getUuid(), email, cleanRole, inviteToken, u.email, now, '', expiresAt]);
+
+    var scriptUrl = '';
+    try {
+      scriptUrl = ScriptApp.getService().getUrl() || '';
+    } catch(e) {
+      Logger.log('Could not get script URL: ' + e);
+    }
+    
+    var inviteUrl = scriptUrl ? (scriptUrl + '?invite=' + inviteToken) : '';
+    
+    var emailSent = false;
+    var emailError = '';
+    try {
+      _sendSystemEmail({
+        to: email,
+        subject: 'Invitation to join Luxeworx Atelier Payment Tracker',
+        htmlBody: '<h2>You are invited!</h2>'
+          + '<p><strong>'+(u.name||u.email)+'</strong> has invited you with role: <strong>'
+          + cleanRole.toUpperCase()+'</strong></p>'
+          + '<p><a href="'+inviteUrl+'" style="background:#1a1a2e;color:white;padding:12px 24px;text-decoration:none;border-radius:6px">Accept Invitation</a></p>'
+          + '<p style="color:#666;font-size:12px">Link expires in 7 days.</p>'
+          + (inviteUrl ? '<p style="font-size:11px;color:#999">Direct link: ' + inviteUrl + '</p>' : ''),
+        name: 'Luxeworx Atelier'
+      });
+      emailSent = true;
+    } catch(e) {
+      emailError = e.message || String(e);
+      Logger.log('Failed to send invite email: ' + e);
+    }
+    
+    return { 
+      success: true, 
+      email: email, 
+      role: cleanRole, 
+      expiresAt: expiresAt.toISOString(), 
+      inviteUrl: inviteUrl, 
+      emailSent: emailSent, 
+      emailError: emailError 
+    };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
   }
-  
-  var inviteUrl = scriptUrl ? (scriptUrl + '?invite=' + inviteToken) : '';
-  
-  var emailSent = false;
-  var emailError = '';
-  try {
-    MailApp.sendEmail({
-      to: email,
-      subject: 'Invitation to join Luxeworx Atelier Payment Tracker',
-      htmlBody: '<h2>You are invited!</h2>'
-        + '<p><strong>'+(u.name||u.email)+'</strong> has invited you with role: <strong>'
-        + cleanRole.toUpperCase()+'</strong></p>'
-        + '<p><a href="'+inviteUrl+'" style="background:#1a1a2e;color:white;padding:12px 24px;text-decoration:none;border-radius:6px">Accept Invitation</a></p>'
-        + '<p style="color:#666;font-size:12px">Link expires in 7 days.</p>'
-        + (inviteUrl ? '<p style="font-size:11px;color:#999">Direct link: ' + inviteUrl + '</p>' : ''),
-      name: 'Luxeworx Atelier'
-    });
-    emailSent = true;
-  } catch(e) {
-    emailError = e.message || String(e);
-    Logger.log('Failed to send invite email: ' + e);
-  }
-  
-  return { 
-    success: true, 
-    email: email, 
-    role: cleanRole, 
-    expiresAt: expiresAt.toISOString(), 
-    inviteUrl: inviteUrl, 
-    emailSent: emailSent, 
-    emailError: emailError 
-  };
 }
 
 function acceptInvite(inviteToken, password) {
-  var sh = _ensureInviteSheet_(), lastRow = sh.getLastRow();
-  if (lastRow<=1) throw new Error('Invalid invite token.');
-  var now = new Date(), invite = null, inviteRow = -1;
-  var data = sh.getRange(2,1,lastRow-1,8).getValues();
-  for (var i=0;i<data.length;i++) {
-    var row = data[i];
-    if (String(row[3])===String(inviteToken)) {
-      var exp = row[7] instanceof Date ? row[7] : new Date(row[7]);
-      if (exp<now)  throw new Error('Invite has expired.');
-      if (row[6])   throw new Error('Invite already accepted.');
-      invite = { email:row[1], role:row[2], invitedBy:row[4] };
-      inviteRow = i+2;
-      break;
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy. Try again.'); }
+  try {
+    var sh = _ensureInviteSheet_(), lastRow = sh.getLastRow();
+    if (lastRow<=1) throw new Error('Invalid invite token.');
+    var now = new Date(), invite = null, inviteRow = -1;
+    var data = sh.getRange(2,1,lastRow-1,8).getValues();
+    for (var i=0;i<data.length;i++) {
+      var row = data[i];
+      if (String(row[3])===String(inviteToken)) {
+        var exp = row[7] instanceof Date ? row[7] : new Date(row[7]);
+        if (exp<now)  throw new Error('Invite has expired.');
+        if (row[6])   throw new Error('Invite already accepted.');
+        invite = { email:row[1], role:row[2], invitedBy:row[4] };
+        inviteRow = i+2;
+        break;
+      }
     }
-  }
-  if (!invite) throw new Error('Invalid invite token.');
-  if (!password || String(password).length<8) throw new Error('Password must be at least 8 characters.');
-  if (_findUserByEmail_(invite.email)) throw new Error('Account already exists.');
+    if (!invite) throw new Error('Invalid invite token.');
+    if (!password || String(password).length<8) throw new Error('Password must be at least 8 characters.');
+    if (_findUserByEmail_(invite.email)) throw new Error('Account already exists.');
 
-  var uSh  = _ensureUsersSheet_();
-  var salt = Utilities.getUuid(), hash = _hashPassword_(password, salt);
-  var cleanRole = _assertValidRole_(invite.role);
-  uSh.appendRow([invite.email,'',hash,salt,cleanRole,true,new Date(),'',0,'']);
-  sh.getRange(inviteRow, 7).setValue(new Date());
-  return { ok:true, email:invite.email };
+    var uSh  = _ensureUsersSheet_();
+    var salt = Utilities.getUuid(), hash = _hashPassword_(password, salt);
+    var cleanRole = _assertValidRole_(invite.role);
+    uSh.appendRow([invite.email,'',hash,salt,cleanRole,true,new Date(),'',0,'']);
+    sh.getRange(inviteRow, 7).setValue(new Date());
+    return { ok:true, email:invite.email };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
+  }
 }
 
 function _ensureInviteSheet_() {
@@ -667,60 +705,66 @@ function setUserActiveAdmin(token, email, active) {
 function deleteUserAdmin(token, email) {
   requireFeaturePermission('manage_users');
   _requireAdmin_(token);
-  var u = _findUserByEmail_(email);
-  if (!u) throw new Error('User not found.');
-  
-  if (u.roles.indexOf('director') >= 0) {
-    var sh2 = _ensureUsersSheet_(), lr2 = sh2.getLastRow();
-    var d2  = lr2>=2 ? sh2.getRange(2,1,lr2-1,10).getValues() : [];
-    var otherDirs = 0;
-    d2.forEach(function(r){
-      if (_normEmail_(r[0])===u.email) return;
-      var act = r[5]===true||String(r[5]).toLowerCase()==='true';
-      if (act && String(r[4]||'').toLowerCase().indexOf('director')>=0) otherDirs++;
-    });
-    if (otherDirs===0) throw new Error('Cannot delete the last active director.');
-  }
-
-  var sh = _ensureUsersSheet_();
-  sh.deleteRow(u.rowNum);
-  
-  var props = PropertiesService.getScriptProperties();
-  
-  // Remove user from ROLES config mapping
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(_){ throw new Error('System busy. Try again.'); }
   try {
-    var roleConfig = getRoleConfig();
-    var modified = false;
-    ROLE_KEYS.forEach(function(r) {
-      if (roleConfig[r]) {
-        var idx = roleConfig[r].indexOf(u.email);
-        if (idx >= 0) {
-          roleConfig[r].splice(idx, 1);
-          modified = true;
+    var u = _findUserByEmail_(email);
+    if (!u) throw new Error('User not found.');
+    
+    if (u.roles.indexOf('director') >= 0) {
+      var sh2 = _ensureUsersSheet_(), lr2 = sh2.getLastRow();
+      var d2  = lr2>=2 ? sh2.getRange(2,1,lr2-1,10).getValues() : [];
+      var otherDirs = 0;
+      d2.forEach(function(r){
+        if (_normEmail_(r[0])===u.email) return;
+        var act = r[5]===true||String(r[5]).toLowerCase()==='true';
+        if (act && String(r[4]||'').toLowerCase().indexOf('director')>=0) otherDirs++;
+      });
+      if (otherDirs===0) throw new Error('Cannot delete the last active director.');
+    }
+
+    var sh = _ensureUsersSheet_();
+    sh.deleteRow(u.rowNum);
+    
+    var props = PropertiesService.getScriptProperties();
+    
+    // Remove user from ROLES config mapping
+    try {
+      var roleConfig = getRoleConfig();
+      var modified = false;
+      ROLE_KEYS.forEach(function(r) {
+        if (roleConfig[r]) {
+          var idx = roleConfig[r].indexOf(u.email);
+          if (idx >= 0) {
+            roleConfig[r].splice(idx, 1);
+            modified = true;
+          }
         }
+      });
+      if (modified) {
+        props.setProperty('ROLES', JSON.stringify(roleConfig));
+      }
+    } catch(e) {
+      Logger.log('Failed to remove user from role config: ' + e);
+    }
+
+    // Delete sessions
+    var keys = props.getKeys();
+    keys.forEach(function(k) {
+      if (k.indexOf(AUTH.SESSION_PREFIX) === 0) {
+        try {
+          var s = JSON.parse(props.getProperty(k) || '{}');
+          if (s && _normEmail_(s.email) === u.email) props.deleteProperty(k);
+        } catch (e) {}
       }
     });
-    if (modified) {
-      props.setProperty('ROLES', JSON.stringify(roleConfig));
-    }
-  } catch(e) {
-    Logger.log('Failed to remove user from role config: ' + e);
+
+    _invalidateAllCaches_();
+
+    return { ok: true, email: email };
+  } finally {
+    try { lock.releaseLock(); } catch(_){}
   }
-
-  // Delete sessions
-  var keys = props.getKeys();
-  keys.forEach(function(k) {
-    if (k.indexOf(AUTH.SESSION_PREFIX) === 0) {
-      try {
-        var s = JSON.parse(props.getProperty(k) || '{}');
-        if (s && _normEmail_(s.email) === u.email) props.deleteProperty(k);
-      } catch (e) {}
-    }
-  });
-
-  _invalidateAllCaches_();
-
-  return { ok: true, email: email };
 }
 
 function unlockAccountAdmin(token, email) {

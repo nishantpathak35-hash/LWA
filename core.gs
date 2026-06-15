@@ -268,15 +268,56 @@ function _num(v) {
   var s = String(v).replace(/[₹,]/g,'').trim();
   if (s.indexOf('%')>=0) return (parseFloat(s.replace('%',''))||0)/100;
   
+  var isLakh = /l(?:akh)?/i.test(s);
+  var isCrore = /cr(?:ore)?/i.test(s);
+  
   // Bulletproof extractor for messy currency strings like "Rs. 25,990" or "Paid 50.00"
-  var match = String(v).match(/-?[0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?/);
+  var match = s.match(/-?[0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?/);
   if (!match) return 0;
   var n = parseFloat(match[0].replace(/,/g, ''));
-  return isNaN(n) ? 0 : n;
+  if (isNaN(n)) return 0;
+  
+  if (isLakh) n = n * 100000;
+  else if (isCrore) n = n * 10000000;
+  
+  return n;
 }
 
 function safeString(value) {
-  return String(value==null?'':value).replace(/\s+/g,' ').trim();
+  var s = String(value==null?'':value).replace(/\s+/g,' ').trim();
+  // Prevent Spreadsheet Formula Injection (starts with =, +, -, @)
+  if (s && (s.charAt(0) === '=' || s.charAt(0) === '+' || s.charAt(0) === '-' || s.charAt(0) === '@')) {
+    s = "'" + s;
+  }
+  return s;
+}
+
+function _poKey_(value) {
+  var k = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '');
+  if (k.indexOf('laiplpo') === 0) k = k.substring(7);
+  else if (k.indexOf('laipl') === 0) k = k.substring(5);
+  else if (k.indexOf('la') === 0) k = k.substring(2);
+  else if (k.indexOf('po') === 0) k = k.substring(2);
+  if (/^(2425|2526|2627|2728|2829)/.test(k)) k = k.substring(4);
+  return k.replace(/^0+/, '');
+}
+
+function _sendSystemEmail(options) {
+  if (MailApp.getRemainingDailyQuota() < 1) {
+    var err = new Error('Daily email quota exhausted. Try again after 00:00 PT.');
+    _logError('Email failed: Quota exhausted', { to: options.to, subject: options.subject });
+    throw err;
+  }
+  
+  return _retryWithBackoff(function() {
+    MailApp.sendEmail(options);
+    _logInfo('Email sent successfully', { to: options.to, subject: options.subject });
+    return true;
+  }, 3, 1000);
 }
 
 function safeNumber(value, fieldName) {
@@ -331,14 +372,22 @@ function normalizeVendorName(name) {
 }
 
 function _vendorIdentityKey_(name) {
-  return normalizeVendorName(name).replace(/[^a-z0-9]/g,'');
+  var key = normalizeVendorName(name).replace(/[^a-z0-9]/g,'');
+  if (key === 'itechsolutions' || 
+      key === 'aarviglassscratchsolutions' || 
+      key === 'aarviglasssolutions' || 
+      key === 'aaraviglasssolutions' ||
+      key === 'aaravi') {
+    return 'aarviglassscratchsolutionsservices';
+  }
+  return key;
 }
 
 // ─── CacheService Layer ───────────────────────────────────────────────────────
 var _CACHE_TTL_ = {
-  VENDORS:  120,   // 2 min
-  KPI:       60,   // 1 min
-  MASTER:    90,   // 1.5 min
+  VENDORS:  120,
+  KPI:       60,
+  MASTER:    90,
   PROJECTS:  90,
   PO:        60,
   BOOT:      30
@@ -362,9 +411,12 @@ function _cacheDel_(key) {
 function _invalidateAllCaches_() {
   var keys = [
     'KPI_DATA','MASTER_DATA','VENDORS_LIST','PROJECT_DETAILS',
-    'LIST_POS_ALL','PO_BASELINE_MAP','PO_SYSTEM_PAID_MAP','PO_COMMITMENT_MAP'
+    'LIST_POS_ALL','PO_BASELINE_MAP','PO_SYSTEM_PAID_MAP_V9','PO_COMMITMENT_MAP',
+    'VEND_SUM_V5_ALL','VEND_SUM_V5_'
   ];
   keys.forEach(function(k) { _cacheDel_(k); });
+  // Also invalidate any query-specific vendor summary caches
+  // (we can't enumerate all keys, but clearing the most common ones helps)
   _invalidateHeaderCache_();   // also purge in-memory header map
   // Purge current user's boot bundle key if possible
   try {
@@ -450,22 +502,8 @@ function _logAudit(userEmail, actionType, details, department) {
     setV(['Details','Description'], String(details||''));
     setV(['Department','Dept'], String(department||''));
     
-    var maxRows = sh.getMaxRows();
-    var vals = sh.getRange(1, 1, maxRows, 1).getValues();
-    var lastPopulatedRow = 1;
-    for (var r = vals.length - 1; r >= 0; r--) {
-      if (vals[r][0] !== "" && vals[r][0] !== null && vals[r][0] !== undefined) {
-        lastPopulatedRow = r + 1;
-        break;
-      }
-    }
-    var writeRow = lastPopulatedRow + 1;
+    var writeRow = sh.getLastRow() + 1;
     sh.getRange(writeRow, 1, 1, row.length).setValues([row]);
-    
-    var trailingRows = maxRows - writeRow;
-    if (trailingRows > 50) {
-      sh.deleteRows(writeRow + 1, trailingRows);
-    }
   } catch (e) { Logger.log('Audit log failed: ' + e.message); }
 }
 
@@ -473,19 +511,16 @@ function _logAudit(userEmail, actionType, details, department) {
 /**
  * Single round-trip boot: returns user, KPIs, master data, permissions.
  */
-function getBootBundle() {
+function getBootBundle(_session) {
   var t0   = _perf();
-  var user = getCurrentUser();
+  var user = getCurrentUser(_session);
 
   // Ensure legacy vendors are migrated on first boot/load
   try { _runSafeInitialMigrationOnlyOnce(); } catch(e) { Logger.log('boot migration: '+e); }
-  
-  // Reconcile remitted payments to PO ledger on boot to ensure fresh up-to-date data
-  try { reconcileRemittedPaymentsToPOLedger('internal_system_bypass'); } catch (e) { Logger.log('boot reconcile: '+e); }
 
   var kpis = null, master = null;
   try { kpis   = _getKPIs();   } catch (e) { Logger.log('boot kpis: '+e); }
-  try { master = _getMaster(); } catch (e) { Logger.log('boot master: '+e); }
+  try { master = _getMaster(_session); } catch (e) { Logger.log('boot master: '+e); }
   var permissions = getUserPermissions(user.email);
   var sheetWarnings = _assertRequiredSheets_();
 
