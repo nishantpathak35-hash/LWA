@@ -78,6 +78,111 @@ function ping() {
   Logger.log('pong — script loaded and authorized');
 }
 
+/**
+ * diagPaymentsNow()
+ * Run this directly from the Apps Script editor (no deploy needed).
+ * It traces the full paid-amount pipeline and shows exactly where the break is.
+ */
+function diagPaymentsNow() {
+  Logger.log('══════════════════════════════════════');
+  Logger.log('PAYMENT DIAGNOSTIC — ' + new Date().toLocaleString());
+  Logger.log('══════════════════════════════════════');
+
+  // STEP 1: Read Payment Tracker sheet headers directly (raw)
+  var ss = _ss();
+  var ptSh = ss.getSheetByName(SHEETS.PR);
+  if (!ptSh) { Logger.log('[FAIL] Payment Tracker sheet not found!'); return; }
+  var lastCol = ptSh.getLastColumn();
+  var lastRow = ptSh.getLastRow();
+  Logger.log('[PT] Rows: ' + (lastRow-1) + '  Columns: ' + lastCol + '  (schema expects ' + _PR_NCOLS + ')');
+
+  var headers = ptSh.getRange(1,1,1,lastCol).getValues()[0];
+  Logger.log('[PT] Headers: ' + headers.map(function(h,i){return (i+1)+'='+String(h||'').trim();}).join(' | '));
+
+  // Locate critical columns by name
+  var remitCol=-1, stageCol=-1, vendorCol=-1, poNoCol=-1, amtReqCol=-1, dirAmtCol=-1, finAmtCol=-1, procAmtCol=-1;
+  headers.forEach(function(h,i){
+    var k=String(h||'').trim().toLowerCase();
+    if(/remit/.test(k) && remitCol===-1) remitCol=i+1;
+    if(/stage|status/.test(k) && stageCol===-1) stageCol=i+1;
+    if(k==='vendor'||k==='vendor name') vendorCol=i+1;
+    if(/po no|po number/.test(k) && poNoCol===-1) poNoCol=i+1;
+    if(/amount requested|amt req/.test(k) && amtReqCol===-1) amtReqCol=i+1;
+    if(/director amt|dir amt/.test(k) && dirAmtCol===-1) dirAmtCol=i+1;
+    if(/finance amt|fin amt/.test(k) && finAmtCol===-1) finAmtCol=i+1;
+    if(/proc amt/.test(k) && procAmtCol===-1) procAmtCol=i+1;
+  });
+  Logger.log('[PT] remitCol='+remitCol+' stageCol='+stageCol+' vendorCol='+vendorCol+' poNoCol='+poNoCol);
+  Logger.log('[PT] amtReqCol='+amtReqCol+' dirAmtCol='+dirAmtCol+' finAmtCol='+finAmtCol+' procAmtCol='+procAmtCol);
+
+  if (remitCol===-1 && stageCol===-1) {
+    Logger.log('[FAIL] CRITICAL: Neither Remittance nor Stage column found in Payment Tracker!');
+    Logger.log('       Payments CANNOT be read as Remitted. This is your bug.');
+    return;
+  }
+
+  // STEP 2: Find remitted rows directly from raw sheet data
+  if (lastRow < 2) { Logger.log('[WARN] No data rows in Payment Tracker.'); return; }
+  var rawData = ptSh.getRange(2,1,lastRow-1,lastCol).getValues();
+  var remittedRows = [];
+  rawData.forEach(function(r, idx) {
+    var remVal  = remitCol  > 0 ? String(r[remitCol-1] ||'').trim() : '';
+    var stgVal  = stageCol  > 0 ? String(r[stageCol-1] ||'').trim() : '';
+    var isRem   = /Remitted/i.test(remVal) || /Remitted/i.test(stgVal);
+    if (isRem) {
+      var vendor  = vendorCol  > 0 ? String(r[vendorCol-1] ||'') : '';
+      var poNo    = poNoCol    > 0 ? String(r[poNoCol-1]   ||'') : '';
+      var amtReq  = amtReqCol  > 0 ? _num(r[amtReqCol-1])  : 0;
+      var dirAmt  = dirAmtCol  > 0 ? _num(r[dirAmtCol-1])  : 0;
+      var finAmt  = finAmtCol  > 0 ? _num(r[finAmtCol-1])  : 0;
+      var procAmt = procAmtCol > 0 ? _num(r[procAmtCol-1]) : 0;
+      var finalAmt= dirAmt || finAmt || procAmt || amtReq;
+      remittedRows.push({ row:idx+2, vendor:vendor, poNo:poNo, amount:finalAmt, poKey:_poKey_(poNo), remVal:remVal, stgVal:stgVal });
+    }
+  });
+  Logger.log('[PT] Found ' + remittedRows.length + ' remitted rows (raw scan).');
+  remittedRows.forEach(function(r){
+    Logger.log('  ROW '+r.row+': vendor="'+r.vendor+'" poNo="'+r.poNo+'" poKey="'+r.poKey+'" amt='+r.amount+' remit="'+r.remVal+'" stage="'+r.stgVal+'"');
+  });
+
+  if (remittedRows.length === 0) {
+    Logger.log('[FAIL] No remitted rows found. Either no payments have been remitted yet,');
+    Logger.log('       or the Remittance/Stage columns are empty. Check your Payment Tracker sheet.');
+    return;
+  }
+
+  // STEP 3: Run getPOPaymentsAggregated and check the agg values
+  Logger.log('');
+  Logger.log('[AGG] Running getPOPaymentsAggregated()...');
+  var agg = getPOPaymentsAggregated();
+  Logger.log('[AGG] agg has ' + Object.keys(agg).length + ' PO keys total.');
+  remittedRows.forEach(function(r){
+    var a = agg[r.poKey] || null;
+    Logger.log('  poKey="'+r.poKey+'" → agg='+(a?JSON.stringify(a):'NOT FOUND in agg!'));
+  });
+
+  // STEP 4: Run getVendorSummary for the first remitted vendor
+  Logger.log('');
+  var firstVendor = remittedRows[0].vendor;
+  Logger.log('[VS] Running getVendorSummary("'+firstVendor+'")...');
+  _cacheDel_('VEND_SUM_V5_ALL');
+  _cacheDel_('VEND_SUM_V5_'+firstVendor);
+  try {
+    var vs = getVendorSummary(firstVendor);
+    if (!vs || vs.length === 0) {
+      Logger.log('[VS] PROBLEM: No vendor summary result for "'+firstVendor+'"');
+    } else {
+      vs.forEach(function(v){
+        Logger.log('[VS] vendor="'+v.vendor+'" totalPaid='+v.totalPaid+' totalPOValue='+v.totalPOValue+' poCount='+v.poCount);
+        (v.pos||[]).forEach(function(p){ Logger.log('     PO='+p.poNo+' paid='+p.paid+' payable='+p.payable); });
+      });
+    }
+  } catch(e) { Logger.log('[VS] ERROR: '+e.message); }
+
+  Logger.log('══════════════════════════════════════');
+  Logger.log('DIAGNOSTIC COMPLETE');
+}
+
 function testSetup() {
   // Clear all caches first to ensure fresh data
   try {
