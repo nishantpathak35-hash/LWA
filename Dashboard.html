@@ -3054,7 +3054,11 @@ var Mobile = (function(){
   var touchHandlers = {};
 
   function detectMobile() {
-    return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // Use clientWidth as primary (more reliable inside GAS iframe than window.innerWidth)
+    var w = document.documentElement.clientWidth || window.innerWidth || screen.width || 1200;
+    var isTouchDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // Threshold raised to 900 to match the CSS @media(max-width:900px) breakpoint
+    return w <= 900 && isTouchDevice;
   }
 
   function updateMobileState() {
