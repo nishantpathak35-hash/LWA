@@ -137,40 +137,41 @@ function testSetup() {
       Logger.log('[DIAG] No System Payments sheet found!');
     }
     
-    // Run diagnostics for target vendors
-    var targets = [
-      "Aarvi Glass Scratch Solutions",
-      "Co-offiz Noida",
-      "Annapurna Interiors Decorator",
-      "Vipul Ahuja"
-    ];
-    targets.forEach(function(vName) {
-      var list = getPOsByVendor(vName) || [];
-      Logger.log('[DIAG] getPOsByVendor("' + vName + '") returned ' + list.length + ' PO(s).');
-      list.forEach(function(po) {
-        Logger.log('  [DIAG] PO: ' + po.poNo + ' | Value: ' + po.poValue + ' | Paid: ' + po.paid + ' | Balance: ' + po.balance + ' | Status: ' + po.status);
-      });
-    });
-
-    // Also check getVendorSummary for Vipul Ahuja
+    // ── Payment Tracker column diagnostic ──────────────────────────────────
     try {
-      var summary = getVendorSummary('Vipul');
-      if (summary && summary.length > 0) {
-        Logger.log('[DIAG] getVendorSummary("Vipul") found ' + summary.length + ' vendor(s).');
-        summary.forEach(function(v) {
-          Logger.log('[DIAG] Vendor: ' + v.vendor + ' | TotalPaid: ' + v.totalPaid + ' | TotalPOValue: ' + v.totalPOValue + ' | POs: ' + v.poCount);
-          (v.pos||[]).forEach(function(p) {
-            Logger.log('  [DIAG] PO: ' + p.poNo + ' | Paid: ' + p.paid + ' | Payable: ' + p.payable);
-          });
+      var ptSh = ss.getSheetByName(SHEETS.PR);
+      if (ptSh && ptSh.getLastColumn() > 0) {
+        var ptHeaders = ptSh.getRange(1, 1, 1, ptSh.getLastColumn()).getValues()[0];
+        Logger.log('[DIAG] Payment Tracker has ' + ptSh.getLastColumn() + ' columns (expected ' + _PR_NCOLS + ')');
+        Logger.log('[DIAG] PT Headers: ' + ptHeaders.map(function(h,i){return (i+1)+':'+h;}).join(' | '));
+
+        // Find where Remittance and Stage columns actually are
+        var remCol = -1, stageCol = -1;
+        ptHeaders.forEach(function(h, i) {
+          var hn = String(h||'').trim();
+          if (/remit/i.test(hn) && remCol === -1) remCol = i + 1;
+          if (/stage|status/i.test(hn) && stageCol === -1) stageCol = i + 1;
+        });
+        Logger.log('[DIAG] PT Remittance column: actual=' + remCol + ' (schema expects ' + _PRC.REMIT + ')');
+        Logger.log('[DIAG] PT Stage column: actual=' + stageCol + ' (schema expects ' + _PRC.STAGE + ')');
+
+        // Count remitted PRs using the resolved column positions
+        var allPRs = _prLoadAll();
+        var remittedPRs = allPRs.filter(function(r){ return r.remittance === 'Remitted'; });
+        Logger.log('[DIAG] Total PRs: ' + allPRs.length + ' | Remitted: ' + remittedPRs.length);
+        remittedPRs.slice(0, 5).forEach(function(r) {
+          var amt = r.dirAmt || r.finAmt || r.procAmt || r.amountRequested || 0;
+          Logger.log('  [DIAG] Remitted PR: Vendor=' + r.vendor + ' PO=' + r.poNo + ' Amt=' + amt + ' PoKey=' + _poKey_(r.poNo));
         });
       } else {
-        Logger.log('[DIAG] getVendorSummary("Vipul") returned 0 results - PROBLEM!');
+        Logger.log('[DIAG] Payment Tracker sheet not found or empty!');
       }
-    } catch(e) { Logger.log('[DIAG] getVendorSummary Vipul failed: ' + e.message); }
+    } catch(e) { Logger.log('[WARN] PT diagnostic failed: ' + e.message); }
   } catch(e) { Logger.log('[WARN] PO diagnostic failed: '+e.message); }
 
   Logger.log('════ testSetup complete. Deploy → Manage deployments → copy /exec URL.');
 }
+
 
 // ─── API Allowlist ────────────────────────────────────────────────────────────
 var API_ALLOWLIST = {

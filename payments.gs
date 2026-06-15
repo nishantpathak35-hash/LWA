@@ -141,26 +141,124 @@ function _prStatus(r) {
   return 'pending';
 }
 
-// ─── Bulk Load (single sheet read) ───────────────────────────────────────────
+// ─── Bulk Load (header-aware, single sheet read) ─────────────────────────────
 /**
  * _prLoadAll — reads ALL rows once and returns them as objects.
- * Use this as the single data access point for any operation
- * that doesn't need to write immediately.
+ * Detects actual column positions from the sheet header row so the
+ * function works correctly even if the Payment Tracker sheet has
+ * columns in a different order than the hardcoded _PRC schema.
  */
 function _prLoadAll() {
   var sh = _prSheet(), last = sh.getLastRow();
-  if (last<2) return [];
-  var maxCols = sh.getMaxColumns();
-  var colsToRead = Math.min(_PR_NCOLS, maxCols);
-  var data = sh.getRange(2,1,last-1,colsToRead).getValues();
-  return data.map(function(r,i){
-    var paddedRow = r.slice();
-    while (paddedRow.length < _PR_NCOLS) {
-      paddedRow.push('');
+  if (last < 2) return [];
+
+  var actualLastCol = sh.getLastColumn();
+  if (actualLastCol < 1) return [];
+
+  // Read the actual header row to build a live column map
+  var headerRow = sh.getRange(1, 1, 1, actualLastCol).getValues()[0];
+  var colByHeader = {};
+  headerRow.forEach(function(h, i) {
+    var key = String(h || '').trim();
+    if (key) colByHeader[key] = i + 1; // 1-based
+  });
+
+  // Build a resolved column map: prefer live header positions, fall back to _PRC schema
+  function liveCol(headerNames, fallback) {
+    for (var k = 0; k < headerNames.length; k++) {
+      if (colByHeader[headerNames[k]]) return colByHeader[headerNames[k]];
     }
-    var obj = _prRowToObj(paddedRow);
-    obj._sheetRow = i+2;
-    return obj;
+    return fallback;
+  }
+
+  var C = {
+    ID:          liveCol(['ID'], _PRC.ID),
+    SNO:         liveCol(['S.No', 'SNO'], _PRC.SNO),
+    CREATED_AT:  liveCol(['Created At'], _PRC.CREATED_AT),
+    CREATED_BY:  liveCol(['Created By'], _PRC.CREATED_BY),
+    VENDOR:      liveCol(['Vendor', 'Vendor Name'], _PRC.VENDOR),
+    VENDOR_CODE: liveCol(['Vendor Code'], _PRC.VENDOR_CODE),
+    PROJECT:     liveCol(['Project'], _PRC.PROJECT),
+    PO_NO:       liveCol(['PO No', 'PO No.', 'PO Number'], _PRC.PO_NO),
+    CATEGORY:    liveCol(['Category'], _PRC.CATEGORY),
+    PO_VALUE:    liveCol(['PO Value', 'PO Amount'], _PRC.PO_VALUE),
+    AMT_REQ:     liveCol(['Amount Requested', 'Amount'], _PRC.AMT_REQ),
+    REMARKS:     liveCol(['Remarks'], _PRC.REMARKS),
+    PROC_APR:    liveCol(['Proc Approval', 'Procurement Approval'], _PRC.PROC_APR),
+    PROC_BY:     liveCol(['Proc By'], _PRC.PROC_BY),
+    PROC_AT:     liveCol(['Proc At'], _PRC.PROC_AT),
+    PROC_AMT:    liveCol(['Proc Amt', 'Proc Amount'], _PRC.PROC_AMT),
+    FIN_APR:     liveCol(['Finance Approval', 'Fin Approval'], _PRC.FIN_APR),
+    FIN_BY:      liveCol(['Finance By', 'Fin By'], _PRC.FIN_BY),
+    FIN_AT:      liveCol(['Finance At', 'Fin At'], _PRC.FIN_AT),
+    FIN_AMT:     liveCol(['Finance Amt', 'Fin Amt', 'Finance Amount'], _PRC.FIN_AMT),
+    DIR_APR:     liveCol(['Director Approval', 'Dir Approval'], _PRC.DIR_APR),
+    DIR_BY:      liveCol(['Director By', 'Dir By'], _PRC.DIR_BY),
+    DIR_AT:      liveCol(['Director At', 'Dir At'], _PRC.DIR_AT),
+    DIR_AMT:     liveCol(['Director Amt', 'Dir Amt', 'Director Amount'], _PRC.DIR_AMT),
+    REMIT:       liveCol(['Remittance', 'Remit', 'Payment Status'], _PRC.REMIT),
+    REMIT_BY:    liveCol(['Remitted By', 'Remit By'], _PRC.REMIT_BY),
+    REMIT_AT:    liveCol(['Remitted At', 'Remit At'], _PRC.REMIT_AT),
+    GST_HOLD:    liveCol(['GST Hold', 'GST'], _PRC.GST_HOLD),
+    TDS_HOLD:    liveCol(['TDS Hold', 'TDS'], _PRC.TDS_HOLD),
+    HOLD_REMARKS:liveCol(['Hold Remarks'], _PRC.HOLD_REMARKS),
+    APPROVAL_CHAIN: liveCol(['Approval Chain'], _PRC.APPROVAL_CHAIN),
+    STAGE:       liveCol(['Stage', 'Status'], _PRC.STAGE),
+    UPDATED_AT:  liveCol(['Updated At'], _PRC.UPDATED_AT)
+  };
+
+  var colsToRead = actualLastCol;
+  var data = sh.getRange(2, 1, last - 1, colsToRead).getValues();
+
+  return data.map(function(r, i) {
+    function s(col) { return col > 0 && col <= r.length ? String(r[col - 1] || '') : ''; }
+    function n(col) { return col > 0 && col <= r.length ? _num(r[col - 1]) : 0; }
+
+    // isRemitted: check Remittance column first, fall back to Stage column
+    var remittanceVal = s(C.REMIT);
+    var stageVal      = s(C.STAGE);
+    var isRemitted    = /Remitted/i.test(remittanceVal) || /Remitted/i.test(stageVal);
+    var resolvedRemittance = isRemitted ? 'Remitted' : remittanceVal;
+
+    return {
+      id:          r[C.ID - 1],
+      sNo:         r[C.SNO - 1],
+      createdAt:   s(C.CREATED_AT),
+      createdBy:   s(C.CREATED_BY),
+      vendor:      s(C.VENDOR),
+      vendorCode:  s(C.VENDOR_CODE),
+      project:     s(C.PROJECT),
+      poNo:        s(C.PO_NO),
+      category:    s(C.CATEGORY),
+      poValue:     n(C.PO_VALUE),
+      amountRequested: n(C.AMT_REQ),
+      remarks:     s(C.REMARKS),
+      procApproval:    s(C.PROC_APR),
+      procBy:      s(C.PROC_BY),
+      procAt:      s(C.PROC_AT),
+      procAmt:     n(C.PROC_AMT),
+      financeApproval: s(C.FIN_APR),
+      finBy:       s(C.FIN_BY),
+      finAt:       s(C.FIN_AT),
+      finAmt:      n(C.FIN_AMT),
+      directorApproval: s(C.DIR_APR),
+      dirBy:       s(C.DIR_BY),
+      dirAt:       s(C.DIR_AT),
+      dirAmt:      n(C.DIR_AMT),
+      remittance:  resolvedRemittance,
+      remittedBy:  s(C.REMIT_BY),
+      remittedAt:  s(C.REMIT_AT),
+      gstHold:     s(C.GST_HOLD) === 'Yes' || n(C.GST_HOLD) > 0,
+      gstAmount:   n(C.GST_HOLD),
+      tdsHold:     s(C.TDS_HOLD) === 'Yes' || n(C.TDS_HOLD) > 0,
+      tdsAmount:   n(C.TDS_HOLD),
+      holdRemarks: s(C.HOLD_REMARKS),
+      approvalChain: s(C.APPROVAL_CHAIN),
+      stage:       stageVal,
+      updatedAt:   s(C.UPDATED_AT),
+      _sheetRow:   i + 2,
+      _colMap:     C  // attach resolved map for write-back
+    };
   });
 }
 
