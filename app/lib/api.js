@@ -84,7 +84,17 @@ export async function getDashboardKPIs(session) {
     totalPOValue,
     totalPaid,
     pendingRemit,
-    pendingApproval
+    pendingApproval,
+    payments: {
+      total: prResult.length,
+      pendingProc: 0,
+      pendingFinance: 0,
+      pendingDirector: 0,
+      remitted: 0,
+      rejected: 0,
+      sumPending: pendingApproval,
+      sumRemitted: totalPaid
+    }
   };
 }
 
