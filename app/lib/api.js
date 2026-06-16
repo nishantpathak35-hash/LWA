@@ -107,7 +107,7 @@ export async function getMasterData(session) {
   pos.forEach(p => { if (p.project) projectSet.add(p.project); });
 
   return {
-    vendors: vendors.map(v => ({ vendor_code: v.vendor_code, legal_name: v.legal_name, status: v.status })),
+    vendors: vendors.map(v => ({ vendor_code: v.vendor_code, name: v.legal_name, legal_name: v.legal_name, status: v.status })),
     projects: Array.from(projectSet).map(p => ({ name: p })),
     pos: pos.map(p => ({ po_no: p.po_no, vendor_key: p.vendor_key, po_value: p.po_value, status: p.status }))
   };
@@ -136,7 +136,7 @@ export async function getVendorSummary(vendor = '', session) {
 
 export async function listPOsJson(filters = {}, session) {
   const rows = await queryAll(`SELECT * FROM purchase_orders`);
-  return rows.map(r => ({
+  const results = rows.map(r => ({
     poNo: r.po_no,
     vendor: r.vendor_name,
     project: r.project,
@@ -144,6 +144,28 @@ export async function listPOsJson(filters = {}, session) {
     status: r.status,
     date: r.po_date,
     paid: r.legacy_paid
+  }));
+  return JSON.stringify(results);
+}
+
+export async function getPOsByVendor(vendor, session) {
+  let sql = `SELECT * FROM purchase_orders`;
+  let params = [];
+  if (vendor) {
+    sql += ` WHERE vendor_key = ? OR vendor_name = ?`;
+    params = [vendor, vendor];
+  }
+  const rows = await queryAll(sql, params);
+  return rows.map(r => ({
+    poNo: r.po_no,
+    project: r.project,
+    vendorCode: r.vendor_key,
+    vendor: r.vendor_name,
+    category: '',
+    status: r.status,
+    poValue: r.po_value,
+    paid: r.legacy_paid,
+    balance: Number(r.po_value) - Number(r.legacy_paid)
   }));
 }
 
