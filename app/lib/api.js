@@ -80,10 +80,17 @@ export async function getDashboardKPIs(session) {
 }
 
 export async function getMasterData(session) {
+  const vendors = await queryAll(`SELECT * FROM vendors`);
+  const pos = await queryAll(`SELECT * FROM purchase_orders`);
+  
+  // Extract unique projects from POs
+  const projectSet = new Set();
+  pos.forEach(p => { if (p.project) projectSet.add(p.project); });
+
   return {
-    vendors: [],
-    projects: [],
-    pos: []
+    vendors: vendors.map(v => ({ vendor_code: v.vendor_code, legal_name: v.legal_name, status: v.status })),
+    projects: Array.from(projectSet).map(p => ({ name: p })),
+    pos: pos.map(p => ({ po_no: p.po_no, vendor_key: p.vendor_key, po_value: p.po_value, status: p.status }))
   };
 }
 
@@ -92,7 +99,20 @@ export async function getProjectDetails(session) {
 }
 
 export async function getVendorSummary(vendor = '', session) {
-  return [];
+  let sql = `SELECT * FROM vendors`;
+  let params = [];
+  if (vendor) {
+    sql += ` WHERE vendor_code = ? OR legal_name = ?`;
+    params = [vendor, vendor];
+  }
+  const rows = await queryAll(sql, params);
+  return rows.map(r => ({
+    vendor_code: r.vendor_code,
+    legal_name: r.legal_name,
+    status: r.status,
+    pan: r.pan,
+    gstin: r.gstin
+  }));
 }
 
 export async function listPOsJson(filters = {}, session) {
