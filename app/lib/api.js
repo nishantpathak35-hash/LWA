@@ -23,7 +23,7 @@ export async function getMySession(token) {
 
 export async function getBootData(session) {
   return {
-    session: {
+    user: {
       email: 'admin@luxeworx.com',
       name: 'Admin User',
       roles: ['director', 'admin', 'finance', 'procurement'],
@@ -33,7 +33,16 @@ export async function getBootData(session) {
 }
 
 export async function getBootBundle(session) {
-  return getBootData(session);
+  const bootData = await getBootData(session);
+  const kpis = await getDashboardKPIs(session);
+  const master = await getMasterData(session);
+  
+  return {
+    user: bootData.user,
+    session: bootData.user,
+    kpis: kpis,
+    master: master
+  };
 }
 
 export async function clearCacheAndGetMaster(session) {
