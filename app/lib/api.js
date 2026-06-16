@@ -136,15 +136,21 @@ export async function getVendorSummary(vendor = '', session) {
 
 export async function listPOsJson(filters = {}, session) {
   const rows = await queryAll(`SELECT * FROM purchase_orders`);
-  const results = rows.map(r => ({
-    poNo: r.po_no,
-    vendor: r.vendor_name,
-    project: r.project,
-    value: r.po_value,
-    status: r.status,
-    date: r.po_date,
-    paid: r.legacy_paid
-  }));
+  const results = rows.map(r => {
+    const val = Number(r.po_value) || 0;
+    const pd = Number(r.legacy_paid) || 0;
+    return {
+      poNo: r.po_no,
+      vendor: r.vendor_name,
+      project: r.project,
+      poValue: val,
+      revisedPOValue: val,
+      status: r.status,
+      poDate: r.po_date,
+      amountPaid: pd,
+      finalPayables: val - pd
+    };
+  });
   return JSON.stringify(results);
 }
 
