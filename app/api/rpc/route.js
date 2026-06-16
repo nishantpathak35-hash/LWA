@@ -12,7 +12,7 @@ export async function POST(request) {
 
     if (typeof api[method] !== 'function') {
       console.warn(`Unimplemented method requested: ${method}`);
-      return NextResponse.json({}); // Return empty object for unimplemented methods
+      return NextResponse.json([]); // Return empty array to prevent .filter is not a function errors
     }
 
     // Invoke the requested method
