@@ -6572,7 +6572,7 @@ async function renderMobileVendors(seq){
   var q=(S.filters.vendors.q||'').trim().toLowerCase();
   var all=(S.vendors||[]).filter(function(v){
     if(!q) return true;
-    return (v.vendor||'').toLowerCase().indexOf(q)>=0 || (v.code||'').toLowerCase().indexOf(q)>=0;
+    return String(v.vendor||'').toLowerCase().indexOf(q)>=0 || String(v.code||'').toLowerCase().indexOf(q)>=0;
   });
   var html = ''
     + '<div class="mh-section-label">Vendors</div>'
@@ -7323,7 +7323,7 @@ async function renderVendors(seq){
   var all=(S.vendors||[]);
   var list=all.filter(function(v){
     if(!q) return true;
-    return (v.vendor||'').toLowerCase().indexOf(q)>=0 || (v.code||'').toLowerCase().indexOf(q)>=0;
+    return String(v.vendor||'').toLowerCase().indexOf(q)>=0 || String(v.code||'').toLowerCase().indexOf(q)>=0;
   });
   var pageSize = 50;
   var page = S.filters.vendors.page || 1;
@@ -7878,7 +7878,7 @@ function projectApprovalSnapshotHtml(p){
   var name = String((p && p.project) || '').trim();
   if(!name || !Array.isArray(S.projects)) return '';
   var fin = (S.projects || []).find(function(x){
-    return String(x.project || x.projectName || '').trim().toLowerCase() === name.toLowerCase();
+    return String(x.project || x.projectName || '').trim().toLowerCase() === String(name).toLowerCase();
   });
   if(!fin) return '';
   var projectValue = num(fin.projectValueTax || fin.projectValue || 0);
@@ -8104,7 +8104,7 @@ function calculateProjectSummary(filtered, projects) {
   (projects || []).forEach(function(p){
     var name = String(p.project || p.projectName || '').trim();
     if(!name) return;
-    projectFinancialMap[name.toLowerCase()] = p;
+    projectFinancialMap[String(name).toLowerCase()] = p;
   });
   var projectSummaryMap = {};
   filtered.forEach(function(r){
@@ -8118,7 +8118,7 @@ function calculateProjectSummary(filtered, projects) {
         net: 0,
         overBudget: 0,
         highRisk: 0,
-        financial: projectFinancialMap[projectName.toLowerCase()] || {}
+        financial: projectFinancialMap[String(projectName).toLowerCase()] || {}
       };
     }
     projectSummaryMap[projectName].count++;
@@ -8491,7 +8491,7 @@ async function openFinancialImpactModal(){
     (S.projects || []).forEach(function(p){
       var name = String(p.project || p.projectName || '').trim();
       if(!name) return;
-      projectFinancialMap[name.toLowerCase()] = p;
+      projectFinancialMap[String(name).toLowerCase()] = p;
     });
     
     // Build real projects impact array
@@ -8503,7 +8503,7 @@ async function openFinancialImpactModal(){
     
     for (var pName in projectData) {
       var data = projectData[pName];
-      var fin = projectFinancialMap[pName.toLowerCase()] || {};
+      var fin = projectFinancialMap[String(pName).toLowerCase()] || {};
       
       var fundAvailable = num(fin.balanceAvailable || 0); // Fund Available / Outflow Available
       var outflow = num(fin.outflow || 0); // Outflow / Approved Outflow
