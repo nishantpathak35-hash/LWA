@@ -102,12 +102,39 @@ export async function getMasterData(session) {
   const vendors = await queryAll(`SELECT * FROM vendors`);
   const pos = await queryAll(`SELECT * FROM purchase_orders`);
   
-  // Extract unique projects from POs
+  // Extract unique projects and vendors from POs
   const projectSet = new Set();
-  pos.forEach(p => { if (p.project) projectSet.add(p.project); });
+  const poVendorMap = {};
+  
+  pos.forEach(p => { 
+    if (p.project) projectSet.add(p.project); 
+    if (p.vendor_name && !poVendorMap[p.vendor_name]) {
+      poVendorMap[p.vendor_name] = {
+        code: p.vendor_key || '',
+        vendorId: p.vendor_key || '',
+        name: p.vendor_name,
+        legalName: p.vendor_name,
+        status: 'Active'
+      };
+    }
+  });
+
+  const masterVendors = vendors.map(v => ({ 
+    code: v.vendor_code,
+    vendorId: v.vendor_code, 
+    name: v.legal_name || v.name || v.vendor_code, 
+    legalName: v.legal_name || v.name || v.vendor_code, 
+    status: v.status,
+    gstin: v.gstin || '',
+    address: v.address || ''
+  }));
+  
+  masterVendors.forEach(v => {
+    if (v.name) poVendorMap[v.name] = v;
+  });
 
   return {
-    vendors: vendors.map(v => ({ vendor_code: v.vendor_code, name: v.legal_name, legal_name: v.legal_name, status: v.status })),
+    vendors: Object.values(poVendorMap),
     projects: Array.from(projectSet).map(p => ({ name: p })),
     pos: pos.map(p => ({ po_no: p.po_no, vendor_key: p.vendor_key, po_value: p.po_value, status: p.status })),
     categories: ['Goods', 'Services', 'Consulting', 'IT', 'Marketing', 'Admin', 'Capex', 'Opex', 'Other']
@@ -126,13 +153,33 @@ export async function getVendorSummary(vendor = '', session) {
     params = [vendor, vendor];
   }
   const rows = await queryAll(sql, params);
-  return rows.map(r => ({
-    vendor_code: r.vendor_code,
-    legal_name: r.legal_name,
-    status: r.status,
-    pan: r.pan,
-    gstin: r.gstin
-  }));
+  
+  // Also get vendors from POs if they aren't in the vendors table
+  const pos = await queryAll(`SELECT vendor_key, vendor_name FROM purchase_orders`);
+  const poVendorMap = {};
+  pos.forEach(p => {
+    if (p.vendor_name) {
+      poVendorMap[p.vendor_name] = {
+        code: p.vendor_key || '-',
+        vendor: p.vendor_name,
+        status: 'Active',
+        pan: '',
+        gstin: ''
+      };
+    }
+  });
+  
+  rows.forEach(r => {
+    poVendorMap[r.legal_name] = {
+      code: r.vendor_code || '-',
+      vendor: r.legal_name || r.name,
+      status: r.status,
+      pan: r.pan,
+      gstin: r.gstin
+    };
+  });
+  
+  return Object.values(poVendorMap);
 }
 
 export async function listPOsJson(filters = {}, session) {
