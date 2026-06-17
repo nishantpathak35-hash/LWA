@@ -201,12 +201,15 @@ export async function getVendorSummary(vendor = '', session) {
   });
   
   rows.forEach(r => {
-    poVendorMap[r.legal_name] = {
-      code: r.vendor_code || '-',
-      vendor: r.legal_name || r.name,
-      status: r.status,
-      pan: r.pan,
-      gstin: r.gstin
+    const name = r.legal_name || r.name || '';
+    if (!name) return; // skip rows with no name
+    poVendorMap[name] = {
+      code: r.vendor_code || '',
+      vendor: name,
+      status: r.status || 'Active',
+      pan: r.pan || '',
+      gstin: r.gstin || '',
+      address: r.address || ''
     };
   });
   
