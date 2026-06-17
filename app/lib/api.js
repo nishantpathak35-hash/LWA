@@ -109,7 +109,8 @@ export async function getMasterData(session) {
   return {
     vendors: vendors.map(v => ({ vendor_code: v.vendor_code, name: v.legal_name, legal_name: v.legal_name, status: v.status })),
     projects: Array.from(projectSet).map(p => ({ name: p })),
-    pos: pos.map(p => ({ po_no: p.po_no, vendor_key: p.vendor_key, po_value: p.po_value, status: p.status }))
+    pos: pos.map(p => ({ po_no: p.po_no, vendor_key: p.vendor_key, po_value: p.po_value, status: p.status })),
+    categories: ['Goods', 'Services', 'Consulting', 'IT', 'Marketing', 'Admin', 'Capex', 'Opex', 'Other']
   };
 }
 
@@ -195,4 +196,94 @@ export async function getCommandCenter(session) {
 
 export async function getMasterHealth(session) {
   return { status: 'OK' };
+}
+
+// --- PO CREATION & UPDATING ---
+export async function createPOFull(payload, session) {
+  const poNo = payload.poNo || `PO-${Date.now()}`;
+  await queryRun(
+    `INSERT INTO purchase_orders (po_no, vendor_key, vendor_name, project, po_value, revised_po_value, status, po_date) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [poNo, payload.vendorCode || payload.vendor || 'UNKNOWN', payload.vendor || 'Unknown', payload.project || '', 
+     payload.grandTotal || payload.poValue || 0, payload.grandTotal || payload.poValue || 0, 'Draft', payload.poDate || new Date().toISOString().split('T')[0]]
+  );
+
+  if (payload.items && payload.items.length) {
+    for (const item of payload.items) {
+      await queryRun(
+        `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [poNo, item.desc || '', item.hsn || '', item.qty || 0, item.unit || '', item.rate || 0, item.disc || 0, item.tax || 0, item.amount || 0]
+      );
+    }
+  }
+
+  return { ok: true, poNo };
+}
+
+export async function updatePOFull(poNo, payload, session) {
+  if (!poNo) throw new Error("PO Number missing");
+  await queryRun(
+    `UPDATE purchase_orders SET vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ? WHERE po_no = ?`,
+    [payload.vendor || '', payload.project || '', payload.grandTotal || payload.poValue || 0, payload.grandTotal || payload.poValue || 0, payload.poDate || '', poNo]
+  );
+  
+  await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [poNo]);
+  if (payload.items && payload.items.length) {
+    for (const item of payload.items) {
+      await queryRun(
+        `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [poNo, item.desc || '', item.hsn || '', item.qty || 0, item.unit || '', item.rate || 0, item.disc || 0, item.tax || 0, item.amount || 0]
+      );
+    }
+  }
+
+  return { ok: true, poNo };
+}
+
+// --- USER MANAGEMENT & INVITES ---
+export async function inviteUserAdmin(payload, session) {
+  const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  await queryRun(
+    `INSERT INTO users (email, name, roles, invite_token, active) VALUES (?, ?, ?, ?, ?)`,
+    [payload.email, payload.name || '', JSON.stringify(payload.roles || []), token, true]
+  );
+  
+  const inviteUrl = `https://lwa-iota.vercel.app/?invite=${token}`;
+  console.log(`\n\n--- INVITE EMAIL SENT TO: ${payload.email} ---\nInvite URL: ${inviteUrl}\n-----------------------------------\n`);
+  
+  return { ok: true, inviteUrl };
+}
+
+export async function sendInvite(payload, session) {
+  return inviteUserAdmin(payload, session);
+}
+
+export async function listUsersAdmin(session) {
+  const users = await queryAll(`SELECT email, name, roles, active, invite_token FROM users`);
+  return users.map(u => ({
+    email: u.email,
+    name: u.name,
+    roles: JSON.parse(u.roles || '[]'),
+    active: u.active === 1 || u.active === true,
+    hasPassword: u.password_hash ? true : false,
+    hasToken: !!u.invite_token
+  }));
+}
+
+export async function deleteUserAdmin(email, session) {
+  await queryRun(`DELETE FROM users WHERE email = ?`, [email]);
+  return { ok: true };
+}
+
+export async function acceptInvite(token, password) {
+  const user = await queryGet(`SELECT * FROM users WHERE invite_token = ?`, [token]);
+  if (!user) throw new Error("Invalid or expired invite token");
+  
+  // In a real app we would hash the password. Mock for now.
+  await queryRun(
+    `UPDATE users SET password_hash = ?, invite_token = NULL WHERE email = ?`,
+    [password, user.email]
+  );
+  
+  return { ok: true, email: user.email };
 }
