@@ -154,6 +154,28 @@ export async function addVendor(payload, session) {
   return { ok: true, code };
 }
 
+export async function getVendorByName(name, session) {
+  const row = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [name, name]);
+  if (!row) return null;
+  return {
+    vendorId: row.vendor_code || '',
+    legalName: row.legal_name || '',
+    tradeName: row.trade_name || '',
+    gstin: row.gstin || '',
+    pan: row.pan || '',
+    status: row.status || 'Active',
+    address: row.address || '',
+    stateCode: '',
+    vendorType: row.vendor_type || '',
+    email: '',
+    mobile: '',
+    bankName: '',
+    bankBranch: '',
+    accountNo: row.bank_account || '',
+    ifsc: row.ifsc || ''
+  };
+}
+
 export async function getVendorSummary(vendor = '', session) {
   let sql = `SELECT * FROM vendors`;
   let params = [];

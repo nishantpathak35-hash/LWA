@@ -7463,7 +7463,7 @@ function openVendorModal(name){
     +'<div class="kpi-card a"><div class="kpi-label">Payable</div><div class="kpi-value" style="color:var(--amber);font-size:16px">'+fmt(v.totalPayable)+'</div></div>'
     +'</div>'
     +'<div class="table-wrap" style="max-height:60vh"><table><thead><tr><th>PO No</th><th>Project</th><th>Category</th><th>Status</th><th class="num">Value</th><th class="num">Paid</th><th class="num">Payable</th></tr></thead><tbody>'
-    +v.pos.map(function(p){return '<tr><td class="mono" style="color:var(--gold)">'+esc(p.poNo)+'</td><td>'+esc(p.project||'—')+'</td><td>'+esc(p.category||'—')+'</td><td>'+poBadge(p.status)+'</td><td class="num">'+fmt(p.poValue)+'</td><td class="num" style="color:var(--green)">'+fmt(p.paid)+'</td><td class="num">'+fmt(p.payable)+'</td></tr>';}).join('')
+    +((v.pos||[]).length ? (v.pos||[]).map(function(p){return '<tr><td class="mono" style="color:var(--gold)">'+esc(p.poNo)+'</td><td>'+esc(p.project||'—')+'</td><td>'+esc(p.category||'—')+'</td><td>'+poBadge(p.status)+'</td><td class="num">'+fmt(p.poValue)+'</td><td class="num" style="color:var(--green)">'+fmt(p.paid)+'</td><td class="num">'+fmt(p.payable)+'</td></tr>';}).join('') : '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--fog)">No PO details available for this vendor.</td></tr>')
     +'</tbody></table></div></div>'
     +'<div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>');
 }
