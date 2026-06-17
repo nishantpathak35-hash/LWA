@@ -145,6 +145,15 @@ export async function getProjectDetails(session) {
   return [];
 }
 
+export async function addVendor(payload, session) {
+  const code = \`VEN-\${Date.now()}\`;
+  await queryRun(
+    \`INSERT INTO vendors (legal_name, trade_name, vendor_code, vendor_type, pan, gstin, status, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)\`,
+    [payload.legalName, payload.tradeName || '', code, payload.vendorType || '', payload.pan || '', payload.gstin || '', payload.status || 'Active', payload.address || '']
+  );
+  return { ok: true, code };
+}
+
 export async function getVendorSummary(vendor = '', session) {
   let sql = `SELECT * FROM vendors`;
   let params = [];
