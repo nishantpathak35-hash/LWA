@@ -1969,7 +1969,7 @@ var SHORTCUTS = {
 };
 
 document.addEventListener('keydown', function(e){
-  var key = (e.ctrlKey ? 'ctrl+' : '') + (e.altKey ? 'alt+' : '') + (e.shiftKey ? 'shift+' : '') + e.key.toLowerCase();
+  var key = (e.ctrlKey ? 'ctrl+' : '') + (e.altKey ? 'alt+' : '') + (e.shiftKey ? 'shift+' : '') + String(e.key || '').toLowerCase();
   if(SHORTCUTS[key]){
     e.preventDefault();
     SHORTCUTS[key]();
