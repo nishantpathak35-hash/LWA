@@ -1,4 +1,5 @@
 import { queryAll, queryGet, queryRun } from './db.js';
+import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from './email.js';
 
 // --- AUTH ---
 export async function loginUser(email, password) {
@@ -324,15 +325,38 @@ export async function updatePOFull(poNo, payload, session) {
 // --- USER MANAGEMENT & INVITES ---
 export async function inviteUserAdmin(payload, session) {
   const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  await queryRun(
-    `INSERT INTO users (email, name, roles, invite_token, active) VALUES (?, ?, ?, ?, ?)`,
-    [payload.email, payload.name || '', JSON.stringify(payload.roles || []), token, true]
-  );
-  
+
+  // Check if user already exists
+  const existing = await queryGet(`SELECT email FROM users WHERE email = ?`, [payload.email]);
+  if (existing) {
+    // Update roles and reset token if re-invited
+    await queryRun(
+      `UPDATE users SET name = ?, roles = ?, invite_token = ? WHERE email = ?`,
+      [payload.name || '', JSON.stringify(payload.roles || []), token, payload.email]
+    );
+  } else {
+    await queryRun(
+      `INSERT INTO users (email, name, roles, invite_token, active) VALUES (?, ?, ?, ?, ?)`,
+      [payload.email, payload.name || '', JSON.stringify(payload.roles || []), token, true]
+    );
+  }
+
   const inviteUrl = `https://lwa-iota.vercel.app/?invite=${token}`;
-  console.log(`\n\n--- INVITE EMAIL SENT TO: ${payload.email} ---\nInvite URL: ${inviteUrl}\n-----------------------------------\n`);
-  
-  return { ok: true, inviteUrl };
+
+  let emailSent = false;
+  try {
+    await sendInviteEmail({
+      toEmail: payload.email,
+      toName: payload.name || payload.email,
+      inviteUrl,
+      roles: payload.roles || []
+    });
+    emailSent = true;
+  } catch (emailErr) {
+    console.error('Invite email failed:', emailErr.message);
+  }
+
+  return { ok: true, inviteUrl, emailSent };
 }
 
 export async function sendInvite(payload, session) {
@@ -367,4 +391,53 @@ export async function acceptInvite(token, password) {
   );
   
   return { ok: true, email: user.email };
+}
+
+// --- EMAIL ACTIONS ---
+export async function sendPaymentAdvice(rowNumberOrId, session) {
+  // rowNumberOrId can be a payment request id or row index
+  const rows = await queryAll(`SELECT * FROM payment_requests`);
+  const pr = rows.find(r => String(r.pr_id) === String(rowNumberOrId) || String(r.rowid) === String(rowNumberOrId)) || rows[Number(rowNumberOrId) - 1];
+  if (!pr) throw new Error('Payment request not found');
+
+  // Get vendor email from vendors table
+  const vendor = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [pr.vendor_name, pr.vendor_key]);
+  const toEmail = vendor?.email || pr.vendor_email;
+  if (!toEmail) throw new Error('No email address found for vendor: ' + (pr.vendor_name || ''));
+
+  await sendPaymentAdviceEmail({
+    toEmail,
+    vendorName: pr.vendor_name || 'Vendor',
+    poNo: pr.po_no,
+    project: pr.project,
+    amount: pr.amount_requested,
+    remittanceRef: pr.remittance_ref || pr.utr || '',
+    paymentDate: pr.remittance_date || new Date().toLocaleDateString('en-IN')
+  });
+
+  return { ok: true, vendorEmail: toEmail };
+}
+
+export async function sendPOToVendor(poNo, emailOverride, session) {
+  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  if (!po) throw new Error('PO not found: ' + poNo);
+
+  const vendor = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [po.vendor_name, po.vendor_key]);
+  const toEmail = emailOverride || vendor?.email || po.vendor_email;
+  if (!toEmail) throw new Error('No email address provided for vendor');
+
+  const items = await queryAll(`SELECT * FROM po_items WHERE po_no = ?`, [poNo]);
+
+  await sendPOEmail({
+    toEmail,
+    vendorName: po.vendor_name || 'Vendor',
+    poNo: po.po_no,
+    project: po.project,
+    poDate: po.po_date,
+    items: items.map(it => ({ desc: it.description, qty: it.qty, rate: it.rate, amount: it.amount })),
+    grandTotal: po.po_value,
+    terms: po.terms || ''
+  });
+
+  return { ok: true, email: toEmail };
 }

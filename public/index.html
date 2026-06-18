@@ -11211,8 +11211,14 @@ function openInviteUserModal(){
 
     createBtn.disabled = true; createBtn.textContent = 'Creating…';
     try{
-      await call('inviteUserAdmin', { email: email, name: name, roles: roles, password: pwd });
-      closeModal(); toast('User created: '+email,'ok'); renderSettings();
+      var res = await call('inviteUserAdmin', { email: email, name: name, roles: roles, password: pwd });
+      closeModal();
+      if (res && res.emailSent) {
+        toast('User created & invite email sent to '+email,'ok');
+      } else {
+        toast('User created: '+email+' (email could not be sent)','ok');
+      }
+      renderSettings();
     }catch(e){
       errDiv.textContent = errMsg(e); errDiv.style.display = '';
       createBtn.disabled = false; createBtn.textContent = 'Create User';
