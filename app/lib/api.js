@@ -584,3 +584,56 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
 
   return { ok: true, email: toEmail };
 }
+
+export async function createPaymentRequest(payload, session) {
+  if (!payload.vendor) throw new Error("Vendor name is required");
+  if (!payload.poNo) throw new Error("PO number is required");
+  const reqAmt = Number(payload.amountRequested);
+  if (isNaN(reqAmt) || reqAmt <= 0) {
+    throw new Error("Amount Requested must be greater than zero");
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const normalizedPoNo = String(payload.poNo).trim().toLowerCase();
+
+  // Duplicate check
+  const existingPRs = await queryAll(
+    `SELECT * FROM payment_requests WHERE LOWER(TRIM(po_no)) = ? AND amount_requested = ? AND (remittance IS NULL OR remittance != 'Remitted')`,
+    [normalizedPoNo, reqAmt]
+  );
+
+  for (const pr of existingPRs) {
+    const prDate = String(pr.created_at || '').split('T')[0];
+    if (prDate === today) {
+      throw new Error(`Duplicate: A request for ₹${reqAmt.toLocaleString('en-IN')} on PO# ${payload.poNo} already exists today.`);
+    }
+  }
+
+  const now = new Date().toISOString();
+
+  const result = await queryRun(
+    `INSERT INTO payment_requests (
+      po_no, vendor_name, project, category, amount_requested, stage, remittance, created_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      payload.poNo,
+      payload.vendor,
+      payload.project || '',
+      payload.category || '',
+      reqAmt,
+      'Pending Procurement',
+      '',
+      now
+    ]
+  );
+
+  const insertedId = result.lastInsertRowid ? Number(result.lastInsertRowid) : Date.now();
+
+  return {
+    ok: true,
+    sNo: insertedId,
+    id: insertedId,
+    rowNumber: insertedId
+  };
+}
+

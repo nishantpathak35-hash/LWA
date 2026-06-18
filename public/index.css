@@ -1337,7 +1337,7 @@ body.is-mobile .view-title{font-weight:700}
 
 /* ── 2. Global Typography & Backgrounds ── */
 body {
-  background: radial-gradient(circle at top right, #111622, var(--ink) 40%);
+  background: var(--body-bg, radial-gradient(circle at top right, #111622, var(--ink) 40%));
   background-attachment: fixed;
 }
 
@@ -1368,9 +1368,9 @@ body {
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--hover-bg, rgba(255, 255, 255, 0.04));
   transform: translateX(6px);
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--hover-border, rgba(255, 255, 255, 0.08));
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
@@ -1461,7 +1461,7 @@ body {
 
 .table-wrap th {
   background: transparent;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--line);
   font-weight: 800;
   color: var(--mist);
   padding: 16px 20px;
@@ -1470,21 +1470,21 @@ body {
 
 .table-wrap td {
   background: rgba(255,255,255,0.015);
-  border-top: 1px solid rgba(255,255,255,0.03);
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   padding: 18px 20px;
   transition: all 0.3s ease;
 }
 
 /* Rounded corners for rows */
 .table-wrap td:first-child {
-  border-left: 1px solid rgba(255,255,255,0.03);
+  border-left: 1px solid var(--line);
   border-top-left-radius: 12px;
   border-bottom-left-radius: 12px;
 }
 
 .table-wrap td:last-child {
-  border-right: 1px solid rgba(255,255,255,0.03);
+  border-right: 1px solid var(--line);
   border-top-right-radius: 12px;
   border-bottom-right-radius: 12px;
 }
@@ -1503,7 +1503,7 @@ body {
 
 .table-wrap tbody tr:hover td {
   background: rgba(255,255,255,0.04);
-  border-color: rgba(255,255,255,0.1);
+  border-color: var(--line-2, var(--line));
 }
 
 /* ── 7. Modals & Drawers ── */

@@ -2,9 +2,22 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = 'Luxeworx Finance <onboarding@resend.dev>';
+const FROM = process.env.RESEND_FROM_EMAIL || 'Luxeworx Finance <onboarding@resend.dev>';
 const COMPANY = 'Luxeworx Atelier Interiors Pvt Ltd';
 const APP_URL = 'https://lwa-iota.vercel.app';
+
+function handleResendError(error, defaultMsg) {
+  if (!error) return;
+  let msg = error.message || defaultMsg;
+  if (
+    /sandbox|verify|restriction|permission|onboarding|domain|authenticate/i.test(msg) ||
+    error.statusCode === 403 ||
+    error.status === 403
+  ) {
+    msg += ' (Tip: In Resend sandbox/onboarding mode, you can only send to your verified account email address. To send to anyone, verify your custom domain in Resend and set RESEND_FROM_EMAIL in .env)';
+  }
+  throw new Error(msg);
+}
 
 // ── User Invite Email ────────────────────────────────────────────────────────
 export async function sendInviteEmail({ toEmail, toName, inviteUrl, roles }) {
@@ -44,7 +57,7 @@ export async function sendInviteEmail({ toEmail, toName, inviteUrl, roles }) {
     html
   });
 
-  if (error) throw new Error(error.message || 'Failed to send invite email');
+  if (error) handleResendError(error, 'Failed to send invite email');
   return { sent: true, id: data?.id };
 }
 
@@ -86,7 +99,7 @@ export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, projec
     html
   });
 
-  if (error) throw new Error(error.message || 'Failed to send payment advice');
+  if (error) handleResendError(error, 'Failed to send payment advice');
   return { sent: true, id: data?.id };
 }
 
@@ -166,6 +179,6 @@ export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, 
     html
   });
 
-  if (error) throw new Error(error.message || 'Failed to send PO email');
+  if (error) handleResendError(error, 'Failed to send PO email');
   return { sent: true, id: data?.id };
 }
