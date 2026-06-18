@@ -15,8 +15,20 @@ export async function POST(request) {
       return NextResponse.json([]); // Return empty array to prevent .filter is not a function errors
     }
 
-    // Invoke the requested method
-    const result = await api[method](...args);
+    // Resolve user session from Authorization header
+    let session = null;
+    try {
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        session = await api.getMySession(token);
+      }
+    } catch (e) {
+      console.warn('RPC session lookup failed:', e.message);
+    }
+
+    // Invoke the requested method with resolved session
+    const result = await api[method](...args, session);
     return NextResponse.json(result);
 
   } catch (error) {

@@ -8874,16 +8874,19 @@ async function openFinancialImpactModal(){
       +'<div>Vendor / Project</div><div class="num">Gross</div><div>TDS %</div><div>TDS ₹</div><div class="num">Net</div>'
       +'</div>';
     selectedRequests.forEach(function(r){
-      var defaultPct = (r.tds_percentage !== undefined && r.tds_percentage !== null) ? r.tds_percentage : 5;
+      var defaultPct = (r.tds_percentage !== undefined && r.tds_percentage !== null) ? r.tds_percentage : 0.05;
+      if (defaultPct > 1) {
+        defaultPct = defaultPct / 100;
+      }
       tdsRowsHtml += '<div class="fi-tds-row" data-id="'+esc(r.id)+'" style="display:grid;grid-template-columns:1.5fr 80px 100px 120px 1fr;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-2)">'
         +'<div><div style="font-weight:600;font-size:13px">'+esc(r.vendor_name)+'</div><div style="font-size:11px;color:var(--fog)">'+esc(r.project_name)+' · '+esc(r.po_number)+'</div></div>'
         +'<div class="num" style="font-size:13px;font-weight:600">'+fmtRupees(r.gross_amount)+'</div>'
         +'<div><select class="sel fi-tds-pct" data-id="'+esc(r.id)+'" style="width:90px;font-size:12px;padding:4px 6px">'
         +'<option value="0"'+(defaultPct==0?' selected':'')+'>0%</option>'
-        +'<option value="0.01"'+(defaultPct==1?' selected':'')+'>1%</option>'
-        +'<option value="0.02"'+(defaultPct==2?' selected':'')+'>2%</option>'
-        +'<option value="0.05"'+(defaultPct==5?' selected':'')+'>5%</option>'
-        +'<option value="0.10"'+(defaultPct==10?' selected':'')+'>10%</option>'
+        +'<option value="0.01"'+(defaultPct==0.01?' selected':'')+'>1%</option>'
+        +'<option value="0.02"'+(defaultPct==0.02?' selected':'')+'>2%</option>'
+        +'<option value="0.05"'+(defaultPct==0.05?' selected':'')+'>5%</option>'
+        +'<option value="0.10"'+(defaultPct==0.10?' selected':'')+'>10%</option>'
         +'</select></div>'
         +'<div><input class="inp fi-tds-amt" data-id="'+esc(r.id)+'" type="number" min="0" step="any" value="'+((r.tds_amount||0).toFixed(2))+'" style="width:110px;font-size:12px;padding:4px 8px" placeholder="TDS ₹"></div>'
         +'<div class="num fi-tds-net" data-id="'+esc(r.id)+'" style="font-size:13px;font-weight:700;color:var(--green)">'+fmtRupees((r.gross_amount||0)-(r.tds_amount||0))+'</div>'

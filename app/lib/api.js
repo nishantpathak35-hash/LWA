@@ -368,6 +368,7 @@ export async function listPaymentRequests(filters = {}, session) {
     return {
       id: r.pr_id,
       pr_id: r.pr_id,
+      rowNumber: r.pr_id,
       poNo: r.po_no,
       po_number: r.po_no,
       vendor: r.vendor_name,
@@ -392,6 +393,23 @@ export async function listPaymentRequests(filters = {}, session) {
       vendor_code: r.vendor_code || ''
     };
   });
+}
+
+export async function getApprovalQueue(filters = {}, session) {
+  const roles = session?.roles || ['director', 'admin', 'finance', 'procurement', 'proc'];
+  const all = await listPaymentRequests(filters, session);
+  return all.filter(r => {
+    const stage = r.stage || 'Pending Procurement';
+    if ((roles.includes('procurement') || roles.includes('proc')) && stage === 'Pending Procurement') return true;
+    if (roles.includes('finance') && stage === 'Pending Finance') return true;
+    if (roles.includes('director') && stage === 'Pending Director') return true;
+    return false;
+  });
+}
+
+export async function getRemittanceQueue(filters = {}, session) {
+  const all = await listPaymentRequests(filters, session);
+  return all.filter(r => r.stage === 'Ready to Remit');
 }
 
 // --- ADMIN / SYSTEM ---
@@ -836,10 +854,22 @@ export async function approvePaymentWithChain(paymentId, session) {
 export async function transitionPaymentWorkflow(payload, session) {
   const rowNumber = payload.rowNumber || payload.paymentId;
   const action = payload.action || 'approve';
+  let result;
   if (action === 'reject') {
-    return bulkRejectPayments([rowNumber], payload, session);
+    result = await bulkRejectPayments([rowNumber], payload, session);
+  } else {
+    result = await bulkApprovePayments([rowNumber], payload, session);
   }
-  return bulkApprovePayments([rowNumber], payload, session);
+
+  const all = await listPaymentRequests({}, session);
+  const updated = all.find(p => String(p.id) === String(rowNumber));
+
+  return {
+    success: result.ok,
+    payment: updated,
+    previousState: '',
+    newState: updated ? updated.stage : ''
+  };
 }
 
 export async function setPaymentHold(payload, session) {
