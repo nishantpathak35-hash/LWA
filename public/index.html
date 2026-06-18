@@ -7576,6 +7576,9 @@ function renderNewVendor(seq){
     +'    <div class="field"><label>GST Status</label><select class="sel" id="nv_status"><option>Active</option><option>Inactive</option><option>Unregistered</option></select></div>'
     +'    <div class="field"><label>State Code</label><input class="inp" id="nv_state"></div>'
     +'    <div class="field"><label>Vendor Type</label><select class="sel" id="nv_type"><option>Regular</option><option>Composite</option><option>Unregistered</option></select></div>'
+    +'    <div class="field" style="grid-column:1/-1"><label>Email *</label><input class="inp" id="nv_email" type="email" placeholder="vendor@example.com"></div>'
+    +'    <div class="field"><label>Bank Account Number</label><input class="inp" id="nv_acct" placeholder="Enter bank account number"></div>'
+    +'    <div class="field"><label>IFSC Code</label><input class="inp" id="nv_ifsc" style="text-transform:uppercase" placeholder="e.g. UTIB0000262"></div>'
     +'    <div class="field" style="grid-column:1/-1"><label>Registered Address</label><textarea class="inp" id="nv_address" rows="3" style="resize:vertical"></textarea></div>'
     +'  </div>'
     +'  <div id="nv_sv_err" style="color:var(--red); font-size:12px; margin-top:12px; display:none"></div>'
@@ -7609,6 +7612,9 @@ function renderNewVendor(seq){
     var nvStatus = el('nv_status');
     var nvState = el('nv_state');
     var nvType = el('nv_type');
+    var nvEmail = el('nv_email');
+    var nvAcct = el('nv_acct');
+    var nvIfsc = el('nv_ifsc');
     var nvAddress = el('nv_address');
     var payload = {
       gstin: gstinInp ? gstinInp.value.trim().toUpperCase() : '',
@@ -7618,11 +7624,20 @@ function renderNewVendor(seq){
       status: nvStatus ? nvStatus.value : '',
       stateCode: nvState ? nvState.value.trim() : '',
       vendorType: nvType ? nvType.value : '',
+      email: nvEmail ? nvEmail.value.trim() : '',
+      accountNo: nvAcct ? nvAcct.value.trim() : '',
+      ifsc: nvIfsc ? nvIfsc.value.trim().toUpperCase() : '',
       address: nvAddress ? nvAddress.value.trim() : ''
     };
 
     if(!payload.legalName){
       errBox.textContent = 'Legal Name is required.';
+      errBox.style.display = '';
+      return;
+    }
+
+    if(!payload.email){
+      errBox.textContent = 'Email is required.';
       errBox.style.display = '';
       return;
     }

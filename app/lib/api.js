@@ -149,10 +149,54 @@ export async function getProjectDetails(session) {
 export async function addVendor(payload, session) {
   const code = `VEN-${Date.now()}`;
   await queryRun(
-    `INSERT INTO vendors (legal_name, trade_name, vendor_code, vendor_type, pan, gstin, status, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [payload.legalName, payload.tradeName || '', code, payload.vendorType || '', payload.pan || '', payload.gstin || '', payload.status || 'Active', payload.address || '']
+    `INSERT INTO vendors (legal_name, trade_name, vendor_code, vendor_type, pan, gstin, status, address, email, bank_account, ifsc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      payload.legalName,
+      payload.tradeName || '',
+      code,
+      payload.vendorType || '',
+      payload.pan || '',
+      payload.gstin || '',
+      payload.status || 'Active',
+      payload.address || '',
+      payload.email || '',
+      payload.accountNo || '',
+      payload.ifsc || ''
+    ]
   );
   return { ok: true, code };
+}
+
+export async function updateVendor(payload, session) {
+  if (!payload.vendorId) throw new Error("Vendor ID is required");
+  await queryRun(
+    `UPDATE vendors SET 
+      legal_name = ?, 
+      trade_name = ?, 
+      gstin = ?, 
+      pan = ?, 
+      status = ?, 
+      address = ?, 
+      vendor_type = ?, 
+      email = ?, 
+      bank_account = ?, 
+      ifsc = ?
+     WHERE vendor_code = ?`,
+    [
+      payload.legalName || '',
+      payload.tradeName || '',
+      payload.gstin || '',
+      payload.pan || '',
+      payload.status || 'Active',
+      payload.address || '',
+      payload.vendorType || '',
+      payload.email || '',
+      payload.accountNo || '',
+      payload.ifsc || '',
+      payload.vendorId
+    ]
+  );
+  return { ok: true, vendorId: payload.vendorId };
 }
 
 export async function getVendorByName(name, session) {
@@ -168,7 +212,7 @@ export async function getVendorByName(name, session) {
     address: row.address || '',
     stateCode: '',
     vendorType: row.vendor_type || '',
-    email: '',
+    email: row.email || '',
     mobile: '',
     bankName: '',
     bankBranch: '',
@@ -210,7 +254,8 @@ export async function getVendorSummary(vendor = '', session) {
       status: r.status || 'Active',
       pan: r.pan || '',
       gstin: r.gstin || '',
-      address: r.address || ''
+      address: r.address || '',
+      email: r.email || ''
     };
   });
   
