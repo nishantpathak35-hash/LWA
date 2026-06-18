@@ -888,4 +888,52 @@ export async function setPaymentHold(payload, session) {
   return { ok: true };
 }
 
+export async function getApprovalHistory(requestId, session) {
+  const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [requestId]);
+  if (!pr) return [];
+  
+  const history = [];
+  if (pr.proc_approval) {
+    history.push({
+      stage: 'Procurement',
+      action: String(pr.proc_approval).toLowerCase() === 'approved' ? 'approve' : 'reject',
+      performed_by: pr.created_by || 'Procurement User',
+      previous_status: 'Pending Procurement',
+      new_status: 'Pending Finance',
+      timestamp: pr.created_at || null
+    });
+  }
+  if (pr.finance_approval) {
+    history.push({
+      stage: 'Finance',
+      action: String(pr.finance_approval).toLowerCase() === 'approved' ? 'approve' : 'reject',
+      performed_by: 'Finance User',
+      previous_status: 'Pending Finance',
+      new_status: 'Pending Director',
+      timestamp: null
+    });
+  }
+  if (pr.director_approval) {
+    history.push({
+      stage: 'Director',
+      action: String(pr.director_approval).toLowerCase() === 'approved' ? 'approve' : 'reject',
+      performed_by: 'Director User',
+      previous_status: 'Pending Director',
+      new_status: 'Ready to Remit',
+      timestamp: null
+    });
+  }
+  if (pr.remittance === 'Remitted') {
+    history.push({
+      stage: 'Remittance',
+      action: 'remit',
+      performed_by: 'Finance User',
+      previous_status: 'Ready to Remit',
+      new_status: 'Remitted',
+      timestamp: null
+    });
+  }
+  return history;
+}
+
 

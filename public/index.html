@@ -9420,7 +9420,8 @@ async function viewApprovalDetails(requestId){
   }
   
   try{
-    var request = S.approvalQueue ? S.approvalQueue.find(function(r){ return r.id === requestId; }) : null;
+    var request = (S.approvalQueue ? S.approvalQueue.find(function(r){ return String(r.id) === String(requestId); }) : null) ||
+                  (S.payments ? S.payments.find(function(r){ return String(r.id) === String(requestId); }) : null);
     
     // Create body with request information
     var body = document.createElement('div');
@@ -9538,6 +9539,8 @@ async function viewApprovalDetails(requestId){
   }catch(e){
     console.error('Failed to load approval history:', e);
     showErr(errMsg(e));
+  }finally{
+    hideLoading();
   }
 }
 
