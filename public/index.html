@@ -150,7 +150,7 @@
           <input class="inp" id="globalSearchInput" placeholder="Search all…" style="padding:6px 10px 6px 32px;width:200px;font-size:12.5px;background:var(--ink-3);border:1px solid var(--line);border-radius:8px;transition:width var(--t2) var(--ease)">
         </div>
         <button class="btn btn-ghost btn-sm" id="themeToggleBtn" title="Toggle theme"><span class="icon" data-icon="sun" style="font-size:14px"></span></button>
-        <button class="btn btn-ghost btn-sm" id="refreshBtn"><span class="icon" data-icon="refresh" style="font-size:14px"></span><span>Refresh</span></button>
+
       </div>
     </header>
     <div class="content" id="content"></div>
@@ -4598,8 +4598,10 @@ function closeSendInviteModal(){
 
 function startAutoRefresh(){
   stopAutoRefresh();
-  // Temporarily disabled WebSocket-like sync to prevent rate limit errors
-  // startWebSocketSync();
+  // Auto-refresh data every 60 seconds silently
+  _autoRefreshTimer = setInterval(function(){
+    if(document.visibilityState !== 'hidden') refreshData();
+  }, 60000);
 }
 
 function stopAutoRefresh(){
@@ -4688,13 +4690,11 @@ async function fetchLiveUpdates(){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
-  // Temporarily disabled auto-refresh to prevent rate limit errors
-  // startAutoRefresh();
-  // document.addEventListener('visibilitychange', function(){
-  //   if(document.visibilityState === 'visible'){
-  //     refreshData();
-  //   }
-  // });
+  // Auto-refresh on tab focus + every 60s
+  startAutoRefresh();
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') refreshData();
+  });
   
   // Initialize tooltips
   initTooltips();
@@ -4826,11 +4826,7 @@ actionSheetBack.addEventListener('click', function(e){
   });
   obs.observe(sidebarBadge, { attributes:true, childList:true, characterData:true, subtree:true });
 })();
-var refreshBtn = el('refreshBtn');
-refreshBtn.addEventListener('click',function(){
-  S.payments=null;S.pos=null;S.projects=null;S.vendors=null;S.kpis=null;S.master=null;
-  refreshData();
-});
+// Data auto-refreshes every 60 seconds
 
 // Reload heavy data without re-fetching the user/role config (which boot() does).
 function refreshData(){
@@ -11214,11 +11210,28 @@ function openInviteUserModal(){
       var res = await call('inviteUserAdmin', { email: email, name: name, roles: roles, password: pwd });
       closeModal();
       if (res && res.emailSent) {
-        toast('User created & invite email sent to '+email,'ok');
+        toast('✅ User created & invite email sent to '+email,'ok');
+        renderSettings();
       } else {
-        toast('User created: '+email+' (email could not be sent)','ok');
+        var inviteUrl = (res && res.inviteUrl) ? res.inviteUrl : 'https://lwa-iota.vercel.app/';
+        var mb = el('modalBox'); var mbk = el('modalBack');
+        mb.innerHTML =
+          '<div class="modal-head"><div class="modal-title">User Created</div></div>'
+          +'<div class="modal-body" style="display:grid;gap:14px">'
+          +'<div style="display:flex;align-items:center;gap:10px;padding:14px;background:rgba(61,214,140,.1);border-radius:8px;border:1px solid rgba(61,214,140,.3)">'
+          +'<span style="font-size:20px">✅</span>'
+          +'<div><div style="color:var(--green);font-weight:700">User Created Successfully</div>'
+          +'<div style="color:var(--fog);font-size:12px">'+esc(email)+'</div></div></div>'
+          +'<div style="padding:14px;background:rgba(251,191,36,.08);border-radius:8px;border:1px solid rgba(251,191,36,.3)">'
+          +'<div style="color:var(--amber);font-weight:700;margin-bottom:8px">⚠ Email not sent — share invite link manually</div>'
+          +'<div style="color:var(--fog);font-size:12px;margin-bottom:10px">Copy this link and send it to the user:</div>'
+          +'<div style="display:flex;gap:8px;align-items:center">'
+          +'<input class="inp" id="inviteLinkBox" value="'+esc(inviteUrl)+'" readonly style="flex:1;font-size:11px;font-family:monospace">'
+          +'<button class="btn btn-primary btn-sm" onclick="var b=el(\'inviteLinkBox\');b.select();document.execCommand(\'copy\');toast(\'Link copied!\',\'ok\')">Copy</button>'
+          +'</div></div></div>'
+          +'<div class="modal-foot"><button class="btn btn-primary" onclick="closeModal();renderSettings()">Done</button></div>';
+        mb.style.display=''; mbk.style.display='';
       }
-      renderSettings();
     }catch(e){
       errDiv.textContent = errMsg(e); errDiv.style.display = '';
       createBtn.disabled = false; createBtn.textContent = 'Create User';
