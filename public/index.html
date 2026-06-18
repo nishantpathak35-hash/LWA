@@ -4840,7 +4840,7 @@ function refreshData(){
       if(S.view==='dashboard'||S.view==='projects') render();
     }).catch(function(e){ toast('Project refresh failed: '+errMsg(e),'err'); })
     ,
-    (S.master ? Promise.resolve(S.master) : call('getMasterData')).then(function(m){
+    call('getMasterData').then(function(m){
       S.master = m;
     }).catch(function(e){ toast('Master data refresh failed: '+errMsg(e),'err'); })
   ]).then(function(){

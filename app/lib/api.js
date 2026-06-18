@@ -143,7 +143,48 @@ export async function getMasterData(session) {
 }
 
 export async function getProjectDetails(session) {
-  return [];
+  const [pos, prs] = await Promise.all([
+    queryAll(`SELECT * FROM purchase_orders`),
+    queryAll(`SELECT * FROM payment_requests`)
+  ]);
+
+  const projectsMap = {};
+
+  pos.forEach(po => {
+    const name = po.project;
+    if (!name) return;
+    if (!projectsMap[name]) {
+      projectsMap[name] = {
+        project: name,
+        name: name,
+        projectValue: 0,
+        inflow: 0,
+        pendingInflow: 0,
+        invoiceValue: 0,
+        pendingInvoice: 0,
+        bcs: 0,
+        plannedGM: 0,
+        plannedGMPct: 0,
+        poIssued: 0,
+        actualGM: 0,
+        actualGMPct: 0,
+        pendingOutflow: 0,
+        balanceAvailable: 0,
+        outflowLimit: 0,
+        outflow: 0,
+        vendorInvoiceBooked: 0,
+        tds: 0
+      };
+    }
+    const val = Number(po.po_value) || 0;
+    const paid = Number(po.legacy_paid) || 0;
+    projectsMap[name].poIssued += val;
+    projectsMap[name].projectValue += val;
+    projectsMap[name].outflow += paid;
+    projectsMap[name].pendingOutflow += Math.max(0, val - paid);
+  });
+
+  return Object.values(projectsMap);
 }
 
 export async function addVendor(payload, session) {
