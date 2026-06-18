@@ -344,17 +344,54 @@ export async function getPOsByVendor(vendor, session) {
   }));
 }
 
+function getPRStatus(stage, remittance) {
+  if (String(remittance || '').toLowerCase().includes('remitted') || String(stage || '').toLowerCase().includes('remitted')) {
+    return 'approved';
+  }
+  if (String(stage || '').toLowerCase().includes('rejected')) {
+    return 'rejected';
+  }
+  if (String(stage || '').toLowerCase().includes('ready to remit')) {
+    return 'approved';
+  }
+  return 'pending';
+}
+
 export async function listPaymentRequests(filters = {}, session) {
   const rows = await queryAll(`SELECT * FROM payment_requests`);
-  return rows.map(r => ({
-    id: r.pr_id,
-    poNo: r.po_no,
-    vendor: r.vendor_name,
-    project: r.project,
-    amountRequested: r.amount_requested,
-    stage: r.stage,
-    remittance: r.remittance
-  }));
+  return rows.map(r => {
+    const stage = r.stage || 'Pending Procurement';
+    const status = getPRStatus(stage, r.remittance);
+    const gross = Number(r.amount_requested || 0);
+    const tds = Number(r.tds_amount || 0);
+    const net = gross - tds;
+    return {
+      id: r.pr_id,
+      pr_id: r.pr_id,
+      poNo: r.po_no,
+      po_number: r.po_no,
+      vendor: r.vendor_name,
+      vendor_name: r.vendor_name,
+      project: r.project,
+      project_name: r.project,
+      category: r.category || '',
+      amountRequested: gross,
+      gross_amount: gross,
+      tds_amount: tds,
+      tds_percentage: r.tds_percentage || 0,
+      tds_section: r.tds_section || '',
+      net_payment_amount: net,
+      stage: stage,
+      approval_stage: stage,
+      status: status,
+      approval_status: status,
+      remittance: r.remittance || '',
+      created_at: r.created_at,
+      remarks: r.remarks || '',
+      created_by: r.created_by || '',
+      vendor_code: r.vendor_code || ''
+    };
+  });
 }
 
 // --- ADMIN / SYSTEM ---
@@ -588,7 +625,7 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
 export async function createPaymentRequest(payload, session) {
   if (!payload.vendor) throw new Error("Vendor name is required");
   if (!payload.poNo) throw new Error("PO number is required");
-  const reqAmt = Number(payload.amountRequested);
+  const reqAmt = Number(payload.amountRequested || payload.gross_amount);
   if (isNaN(reqAmt) || reqAmt <= 0) {
     throw new Error("Amount Requested must be greater than zero");
   }
@@ -613,8 +650,8 @@ export async function createPaymentRequest(payload, session) {
 
   const result = await queryRun(
     `INSERT INTO payment_requests (
-      po_no, vendor_name, project, category, amount_requested, stage, remittance, created_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      po_no, vendor_name, project, category, amount_requested, stage, remittance, created_at, remarks, created_by, vendor_code
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       payload.poNo,
       payload.vendor,
@@ -623,7 +660,10 @@ export async function createPaymentRequest(payload, session) {
       reqAmt,
       'Pending Procurement',
       '',
-      now
+      now,
+      payload.remarks || '',
+      session?.email || 'admin@luxeworx.com',
+      payload.vendorCode || ''
     ]
   );
 
@@ -636,4 +676,186 @@ export async function createPaymentRequest(payload, session) {
     rowNumber: insertedId
   };
 }
+
+export async function bulkApprovePayments(ids, approvalData, session) {
+  const approvedIds = [];
+  const failedIds = [];
+  const errors = [];
+
+  for (const id of ids) {
+    try {
+      const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
+      if (!pr) throw new Error(`Payment request not found: ${id}`);
+
+      const tdsConfig = approvalData?.tds_configs?.[id] || {};
+      const tdsAmount = tdsConfig.amount !== undefined ? Number(tdsConfig.amount) : (pr.tds_amount || 0);
+      const tdsPct = tdsConfig.percentage !== undefined ? Number(tdsConfig.percentage) : (pr.tds_percentage || 0);
+      const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '194C');
+
+      let procApp = pr.proc_approval;
+      let finApp = pr.finance_approval;
+      let dirApp = pr.director_approval;
+      let stage = pr.stage || 'Pending Procurement';
+
+      if (stage === 'Pending Procurement') {
+        procApp = 'Approved';
+        stage = 'Pending Finance';
+      } else if (stage === 'Pending Finance') {
+        finApp = 'Approved';
+        stage = 'Pending Director';
+      } else if (stage === 'Pending Director') {
+        dirApp = 'Approved';
+        stage = 'Ready to Remit';
+      }
+
+      await queryRun(
+        `UPDATE payment_requests SET 
+          proc_approval = ?, 
+          finance_approval = ?, 
+          director_approval = ?, 
+          stage = ?, 
+          tds_amount = ?, 
+          tds_percentage = ?, 
+          tds_section = ? 
+         WHERE pr_id = ?`,
+        [
+          procApp,
+          finApp,
+          dirApp,
+          stage,
+          tdsAmount,
+          tdsPct,
+          tdsSec,
+          id
+        ]
+      );
+      approvedIds.push(id);
+    } catch (e) {
+      failedIds.push(id);
+      errors.push(e.message);
+    }
+  }
+
+  return {
+    ok: true,
+    approved: approvedIds.map(id => ({ id, ok: true })),
+    failed: failedIds.map((id, idx) => ({ id, error: errors[idx] })),
+    errors: errors,
+    total_approved: approvedIds.length,
+    total_failed: failedIds.length
+  };
+}
+
+export async function bulkRejectPayments(ids, rejectionData, session) {
+  const rejectedIds = [];
+  const failedIds = [];
+  const errors = [];
+
+  for (const id of ids) {
+    try {
+      const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
+      if (!pr) throw new Error(`Payment request not found: ${id}`);
+
+      let procApp = pr.proc_approval;
+      let finApp = pr.finance_approval;
+      let dirApp = pr.director_approval;
+      let stage = pr.stage || 'Pending Procurement';
+
+      if (stage === 'Pending Procurement') {
+        procApp = 'Rejected';
+      } else if (stage === 'Pending Finance') {
+        finApp = 'Rejected';
+      } else if (stage === 'Pending Director') {
+        dirApp = 'Rejected';
+      }
+      stage = 'Rejected';
+
+      await queryRun(
+        `UPDATE payment_requests SET 
+          proc_approval = ?, 
+          finance_approval = ?, 
+          director_approval = ?, 
+          stage = ? 
+         WHERE pr_id = ?`,
+        [procApp, finApp, dirApp, stage, id]
+      );
+      rejectedIds.push(id);
+    } catch (e) {
+      failedIds.push(id);
+      errors.push(e.message);
+    }
+  }
+
+  return {
+    ok: true,
+    rejected: rejectedIds.map(id => ({ id, ok: true })),
+    failed: failedIds.map((id, idx) => ({ id, error: errors[idx] })),
+    errors: errors,
+    total_rejected: rejectedIds.length,
+    total_failed: failedIds.length
+  };
+}
+
+export async function bulkRemitPayments(requestIds, remittanceData, session) {
+  const remittedIds = [];
+  const failedIds = [];
+  const errors = [];
+  const ids = Array.isArray(requestIds) ? requestIds : [requestIds];
+
+  for (const id of ids) {
+    try {
+      const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
+      if (!pr) throw new Error(`Payment request not found: ${id}`);
+
+      await queryRun(
+        `UPDATE payment_requests SET 
+          remittance = 'Remitted', 
+          stage = 'Remitted' 
+         WHERE pr_id = ?`,
+        [id]
+      );
+      remittedIds.push(id);
+    } catch (e) {
+      failedIds.push(id);
+      errors.push(e.message);
+    }
+  }
+
+  return {
+    ok: true,
+    remitted: remittedIds.length,
+    failed: failedIds,
+    errors: errors
+  };
+}
+
+export async function approvePaymentWithChain(paymentId, session) {
+  return bulkApprovePayments([paymentId], {}, session);
+}
+
+export async function transitionPaymentWorkflow(payload, session) {
+  const rowNumber = payload.rowNumber || payload.paymentId;
+  const action = payload.action || 'approve';
+  if (action === 'reject') {
+    return bulkRejectPayments([rowNumber], payload, session);
+  }
+  return bulkApprovePayments([rowNumber], payload, session);
+}
+
+export async function setPaymentHold(payload, session) {
+  const rowNumber = payload.rowNumber || payload.paymentId;
+  await queryRun(
+    `UPDATE payment_requests SET 
+      tds_amount = ?, 
+      remarks = ? 
+     WHERE pr_id = ?`,
+    [
+      payload.tdsAmount || 0,
+      payload.holdRemarks || '',
+      rowNumber
+    ]
+  );
+  return { ok: true };
+}
+
 
