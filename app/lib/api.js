@@ -369,18 +369,47 @@ export async function getMasterHealth(session) {
 // --- PO CREATION & UPDATING ---
 export async function createPOFull(payload, session) {
   const poNo = payload.poNo || `PO-${Date.now()}`;
+  
+  let totalVal = payload.grandTotal || payload.poValue || 0;
+  if (!totalVal && payload.items && payload.items.length) {
+    let subt = 0;
+    let cgst = 0;
+    let sgst = 0;
+    let igst = 0;
+    payload.items.forEach(item => {
+      const q = Number(item.qty) || 0;
+      const r = Number(item.rate) || 0;
+      const dPct = Number(item.disc || item.discount) || 0;
+      const tPct = Number(item.tax || item.gstPct || item.tax_pct || item.taxPct) || 0;
+      const gross = q * r;
+      const taxable = gross * (1 - dPct / 100);
+      const taxAmt = taxable * (tPct / 100);
+      subt += taxable;
+      if (payload.gstMode === 'intra') {
+        cgst += taxAmt / 2;
+        sgst += taxAmt / 2;
+      } else {
+        igst += taxAmt;
+      }
+    });
+    totalVal = Math.round(subt + cgst + sgst + igst);
+  }
+
+  const vendorName = payload.vendorName || payload.vendor || 'Unknown';
+  const vendorKey = payload.vendorCode || payload.vendor_key || 'UNKNOWN';
+
   await queryRun(
     `INSERT INTO purchase_orders (po_no, vendor_key, vendor_name, project, po_value, revised_po_value, status, po_date) 
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [poNo, payload.vendorCode || payload.vendor || 'UNKNOWN', payload.vendor || 'Unknown', payload.project || '', 
-     payload.grandTotal || payload.poValue || 0, payload.grandTotal || payload.poValue || 0, 'Draft', payload.poDate || new Date().toISOString().split('T')[0]]
+    [poNo, vendorKey, vendorName, payload.project || '', 
+     totalVal, totalVal, 'Draft', payload.poDate || new Date().toISOString().split('T')[0]]
   );
 
   if (payload.items && payload.items.length) {
     for (const item of payload.items) {
       await queryRun(
         `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNo, item.desc || '', item.hsn || '', item.qty || 0, item.unit || '', item.rate || 0, item.disc || 0, item.tax || 0, item.amount || 0]
+        [poNo, item.description || item.desc || '', item.hsn || '', item.qty || 0, item.unit || '', item.rate || 0, item.disc || item.discount || 0, item.tax || item.gstPct || item.tax_pct || item.taxPct || 0, item.amount || 0]
       );
     }
   }
@@ -390,9 +419,37 @@ export async function createPOFull(payload, session) {
 
 export async function updatePOFull(poNo, payload, session) {
   if (!poNo) throw new Error("PO Number missing");
+
+  let totalVal = payload.grandTotal || payload.poValue || 0;
+  if (!totalVal && payload.items && payload.items.length) {
+    let subt = 0;
+    let cgst = 0;
+    let sgst = 0;
+    let igst = 0;
+    payload.items.forEach(item => {
+      const q = Number(item.qty) || 0;
+      const r = Number(item.rate) || 0;
+      const dPct = Number(item.disc || item.discount) || 0;
+      const tPct = Number(item.tax || item.gstPct || item.tax_pct || item.taxPct) || 0;
+      const gross = q * r;
+      const taxable = gross * (1 - dPct / 100);
+      const taxAmt = taxable * (tPct / 100);
+      subt += taxable;
+      if (payload.gstMode === 'intra') {
+        cgst += taxAmt / 2;
+        sgst += taxAmt / 2;
+      } else {
+        igst += taxAmt;
+      }
+    });
+    totalVal = Math.round(subt + cgst + sgst + igst);
+  }
+
+  const vendorName = payload.vendorName || payload.vendor || 'Unknown';
+
   await queryRun(
     `UPDATE purchase_orders SET vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ? WHERE po_no = ?`,
-    [payload.vendor || '', payload.project || '', payload.grandTotal || payload.poValue || 0, payload.grandTotal || payload.poValue || 0, payload.poDate || '', poNo]
+    [vendorName, payload.project || '', totalVal, totalVal, payload.poDate || '', poNo]
   );
   
   await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [poNo]);
@@ -400,7 +457,7 @@ export async function updatePOFull(poNo, payload, session) {
     for (const item of payload.items) {
       await queryRun(
         `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNo, item.desc || '', item.hsn || '', item.qty || 0, item.unit || '', item.rate || 0, item.disc || 0, item.tax || 0, item.amount || 0]
+        [poNo, item.description || item.desc || '', item.hsn || '', item.qty || 0, item.unit || '', item.rate || 0, item.disc || item.discount || 0, item.tax || item.gstPct || item.tax_pct || item.taxPct || 0, item.amount || 0]
       );
     }
   }
