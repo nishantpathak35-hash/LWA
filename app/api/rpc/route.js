@@ -30,7 +30,7 @@ export async function POST(request) {
         session = await api.getMySession(token);
       }
     } catch (e) {
-      console.warn('RPC session lookup failed:', e.message);
+      console.error('RPC session lookup failed. Token resolution error:', e);
     }
 
     // Invoke the requested method with resolved session
