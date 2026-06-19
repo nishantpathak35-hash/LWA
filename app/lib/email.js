@@ -1,22 +1,40 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-const FROM = process.env.RESEND_FROM_EMAIL || 'Luxeworx Finance <onboarding@resend.dev>';
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'admin@luxeworx.com';
+const FROM_NAME = 'Luxeworx Finance';
 const COMPANY = 'Luxeworx Atelier Interiors Pvt Ltd';
 const APP_URL = 'https://lwa-iota.vercel.app';
 
-function handleResendError(error, defaultMsg) {
-  if (!error) return;
-  let msg = error.message || defaultMsg;
-  if (
-    /sandbox|verify|restriction|permission|onboarding|domain|authenticate/i.test(msg) ||
-    error.statusCode === 403 ||
-    error.status === 403
-  ) {
-    msg += ' (Tip: In Resend sandbox/onboarding mode, you can only send to your verified account email address. To send to anyone, verify your custom domain in Resend and set RESEND_FROM_EMAIL in .env)';
+async function sendViaBrevo({ toEmail, toName, subject, html }) {
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'accept': 'application/json',
+      'api-key': BREVO_API_KEY,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      sender: {
+        name: FROM_NAME,
+        email: FROM_EMAIL
+      },
+      to: [
+        {
+          email: toEmail,
+          name: toName || toEmail
+        }
+      ],
+      subject: subject,
+      htmlContent: html
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Brevo send failed: ${errText}`);
   }
-  throw new Error(msg);
+
+  const data = await response.json();
+  return { sent: true, id: data.messageId };
 }
 
 // ── User Invite Email ────────────────────────────────────────────────────────
@@ -50,15 +68,16 @@ export async function sendInviteEmail({ toEmail, toName, inviteUrl, roles }) {
     </div>
   </div>`;
 
-  const { data, error } = await resend.emails.send({
-    from: FROM,
-    to: [toEmail],
-    subject: `You've been invited to ${COMPANY} Finance Platform`,
-    html
-  });
-
-  if (error) handleResendError(error, 'Failed to send invite email');
-  return { sent: true, id: data?.id };
+  try {
+    return await sendViaBrevo({
+      toEmail,
+      toName,
+      subject: `You've been invited to ${COMPANY} Finance Platform`,
+      html
+    });
+  } catch (err) {
+    throw new Error(`Failed to send invite email: ${err.message}`);
+  }
 }
 
 // ── Payment Advice Email ─────────────────────────────────────────────────────
@@ -92,15 +111,16 @@ export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, projec
     </div>
   </div>`;
 
-  const { data, error } = await resend.emails.send({
-    from: FROM,
-    to: [toEmail],
-    subject: `Payment Advice — ${poNo || 'Payment'} — ₹${Number(amount || 0).toLocaleString('en-IN')}`,
-    html
-  });
-
-  if (error) handleResendError(error, 'Failed to send payment advice');
-  return { sent: true, id: data?.id };
+  try {
+    return await sendViaBrevo({
+      toEmail,
+      toName: vendorName,
+      subject: `Payment Advice — ${poNo || 'Payment'} — ₹${Number(amount || 0).toLocaleString('en-IN')}`,
+      html
+    });
+  } catch (err) {
+    throw new Error(`Failed to send payment advice email: ${err.message}`);
+  }
 }
 
 // ── PO Email ─────────────────────────────────────────────────────────────────
@@ -172,13 +192,14 @@ export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, 
     </div>
   </div>`;
 
-  const { data, error } = await resend.emails.send({
-    from: FROM,
-    to: [toEmail],
-    subject: `Purchase Order ${poNo} — ${COMPANY}`,
-    html
-  });
-
-  if (error) handleResendError(error, 'Failed to send PO email');
-  return { sent: true, id: data?.id };
+  try {
+    return await sendViaBrevo({
+      toEmail,
+      toName: vendorName,
+      subject: `Purchase Order ${poNo} — ${COMPANY}`,
+      html
+    });
+  } catch (err) {
+    throw new Error(`Failed to send PO email: ${err.message}`);
+  }
 }

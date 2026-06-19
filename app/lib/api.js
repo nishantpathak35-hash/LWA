@@ -1,6 +1,18 @@
 import { queryAll, queryGet, queryRun } from './db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from './email.js';
 
+export async function logAudit(user, actionType, details, department) {
+  try {
+    await queryRun(
+      `INSERT INTO audit_logs (user, action_type, details, department, timestamp) VALUES (?, ?, ?, ?, ?)`,
+      [user || 'System', actionType, details, department || 'System', new Date().toISOString()]
+    );
+  } catch (e) {
+    console.error('Failed to log audit:', e.message);
+  }
+}
+
+
 // --- AUTH ---
 export async function loginUser(email, password) {
   // Mock login for now
@@ -205,6 +217,7 @@ export async function addVendor(payload, session) {
       payload.ifsc || ''
     ]
   );
+  await logAudit(session?.email || 'admin@luxeworx.com', 'Vendor Added', code + ' ' + payload.legalName, 'Vendors');
   return { ok: true, code };
 }
 
@@ -237,6 +250,7 @@ export async function updateVendor(payload, session) {
       payload.vendorId
     ]
   );
+  await logAudit(session?.email || 'admin@luxeworx.com', 'Vendor Updated', payload.vendorId, 'Vendors');
   return { ok: true, vendorId: payload.vendorId };
 }
 
@@ -469,6 +483,7 @@ export async function createPOFull(payload, session) {
     }
   }
 
+  await logAudit(session?.email || 'admin@luxeworx.com', 'PO Created', 'PO#' + poNo + ' vendor:' + vendorName + ' value:' + totalVal, 'Procurement');
   return { ok: true, poNo };
 }
 
@@ -517,6 +532,7 @@ export async function updatePOFull(poNo, payload, session) {
     }
   }
 
+  await logAudit(session?.email || 'admin@luxeworx.com', 'PO Updated', 'PO#' + poNo + ' value:' + totalVal, 'Procurement');
   return { ok: true, poNo };
 }
 
@@ -687,6 +703,13 @@ export async function createPaymentRequest(payload, session) {
 
   const insertedId = result.lastInsertRowid ? Number(result.lastInsertRowid) : Date.now();
 
+  await logAudit(
+    session?.email || 'admin@luxeworx.com',
+    'Payment Request',
+    'Requested ' + reqAmt + ' for PO#' + payload.poNo + ' (ID: ' + insertedId + ')',
+    'Procurement'
+  );
+
   return {
     ok: true,
     sNo: insertedId,
@@ -714,6 +737,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
       let finApp = pr.finance_approval;
       let dirApp = pr.director_approval;
       let stage = pr.stage || 'Pending Procurement';
+      let oldStage = stage;
 
       if (stage === 'Pending Procurement') {
         procApp = 'Approved';
@@ -747,6 +771,14 @@ export async function bulkApprovePayments(ids, approvalData, session) {
           id
         ]
       );
+      
+      await logAudit(
+        session?.email || 'admin@luxeworx.com',
+        'Approve Payment',
+        'Approved payment ID ' + id + ' (stage transitioned from ' + oldStage + ' to ' + stage + ')',
+        oldStage
+      );
+
       approvedIds.push(id);
     } catch (e) {
       failedIds.push(id);
@@ -778,6 +810,7 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
       let finApp = pr.finance_approval;
       let dirApp = pr.director_approval;
       let stage = pr.stage || 'Pending Procurement';
+      let oldStage = stage;
 
       if (stage === 'Pending Procurement') {
         procApp = 'Rejected';
@@ -797,6 +830,14 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
          WHERE pr_id = ?`,
         [procApp, finApp, dirApp, stage, id]
       );
+
+      await logAudit(
+        session?.email || 'admin@luxeworx.com',
+        'Reject Payment',
+        'Rejected payment ID ' + id + ' at stage ' + oldStage,
+        oldStage
+      );
+
       rejectedIds.push(id);
     } catch (e) {
       failedIds.push(id);
@@ -832,11 +873,47 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
          WHERE pr_id = ?`,
         [id]
       );
+
+      // Record in system payments
+      await queryRun(
+        `INSERT INTO system_payments (po_no, pr_key, amount, remitted_by, created_at) VALUES (?, ?, ?, ?, ?)`,
+        [
+          pr.po_no,
+          String(id),
+          pr.amount_requested,
+          session?.email || 'admin@luxeworx.com',
+          new Date().toISOString()
+        ]
+      );
+
+      await logAudit(
+        session?.email || 'admin@luxeworx.com',
+        'Payment Remitted',
+        'Remitted payment ID ' + id + ' for PO#' + pr.po_no + ' amount: ' + pr.amount_requested,
+        'Finance'
+      );
+
       remittedIds.push(id);
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
     }
+  }
+
+  // Trigger reconciliation automatically
+  try {
+    await reconcileRemittedPaymentsToPOLedger(session);
+  } catch (reconcileErr) {
+    console.error('Reconciliation error during bulk remittance:', reconcileErr.message);
+  }
+
+  if (remittedIds.length > 0) {
+    await logAudit(
+      session?.email || 'admin@luxeworx.com',
+      'Bulk Remittance',
+      'Completed bulk remittance of ' + remittedIds.length + ' payment(s)',
+      'Finance'
+    );
   }
 
   return {
@@ -934,6 +1011,297 @@ export async function getApprovalHistory(requestId, session) {
     });
   }
   return history;
+}
+
+export async function reconcileRemittedPaymentsToPOLedger(session) {
+  // Fetch all purchase orders
+  const pos = await queryAll(`SELECT po_no, revised_po_value, po_value FROM purchase_orders`);
+  let reconciledCount = 0;
+
+  for (const po of pos) {
+    const poNo = po.po_no;
+    
+    // Sum system_payments for this PO
+    const sysSumRow = await queryGet(
+      `SELECT SUM(amount) AS total FROM system_payments WHERE po_no = ?`,
+      [poNo]
+    );
+    const sysSum = Number(sysSumRow?.total) || 0;
+
+    // Sum payment_requests that are remitted but not in system_payments (to prevent double counting)
+    const prSumRow = await queryGet(
+      `SELECT SUM(amount_requested) AS total FROM payment_requests 
+       WHERE po_no = ? 
+         AND (stage = 'Remitted' OR remittance = 'Remitted') 
+         AND pr_id NOT IN (SELECT pr_key FROM system_payments WHERE pr_key IS NOT NULL)`,
+      [poNo]
+    );
+    const prSum = Number(prSumRow?.total) || 0;
+
+    const totalPaid = sysSum + prSum;
+    const poVal = Number(po.revised_po_value || po.po_value || 0);
+    const finalPayable = poVal - totalPaid;
+
+    // Update PO ledger
+    await queryRun(
+      `UPDATE purchase_orders SET legacy_paid = ?, final_payable = ? WHERE po_no = ?`,
+      [totalPaid, finalPayable, poNo]
+    );
+    
+    reconciledCount++;
+  }
+
+  const remittedPRs = await queryAll(`SELECT pr_id FROM payment_requests WHERE stage = 'Remitted' OR remittance = 'Remitted'`);
+
+  return {
+    ok: true,
+    reconciled: reconciledCount,
+    total_posted: remittedPRs.length,
+    total_reused: 0
+  };
+}
+
+export async function listAuditLog(filters = {}, session) {
+  const limit = Math.min(Number(filters.limit) || 250, 500);
+  const rows = await queryAll(
+    `SELECT timestamp, user, action_type AS actionType, details, department FROM audit_logs ORDER BY timestamp DESC LIMIT ?`,
+    [limit]
+  );
+  return rows;
+}
+
+export async function getPaymentReportRows(filters = {}, session) {
+  const all = await listPaymentRequests({}, session);
+  return all.filter(r => {
+    if (filters.type && filters.type !== 'All') {
+      if (filters.type.toLowerCase() === 'approved' && r.status !== 'approved') return false;
+      if (filters.type.toLowerCase() === 'rejected' && r.status !== 'rejected') return false;
+      if (filters.type.toLowerCase() === 'remitted') {
+        const isRem = String(r.stage).toLowerCase().includes('remit') || String(r.remittance).toLowerCase().includes('remit');
+        if (!isRem) return false;
+      }
+    }
+    if (filters.vendor && r.vendor !== filters.vendor) return false;
+    if (filters.project && r.project !== filters.project) return false;
+    return true;
+  });
+}
+
+export async function getTDSRegisterReport(startDate, endDate, session) {
+  let query = `SELECT * FROM payment_requests WHERE tds_amount > 0`;
+  const params = [];
+  if (startDate) {
+    query += ` AND created_at >= ?`;
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ` AND created_at <= ?`;
+    params.push(endDate);
+  }
+  const rows = await queryAll(query, params);
+
+  const entries = rows.map(r => {
+    const gross = Number(r.amount_requested || 0);
+    const tds = Number(r.tds_amount || 0);
+    return {
+      id: `TDS-${r.pr_id}`,
+      project_id: r.project || '—',
+      po_id: r.po_no || '—',
+      vendor_id: r.vendor_name || '—',
+      payment_request_id: r.pr_id,
+      gross_amount: gross,
+      tds_amount: tds,
+      tds_percentage: Number(r.tds_percentage || 0),
+      tds_section: r.tds_section || '194C',
+      deducted_by: 'Finance User',
+      deducted_at: r.created_at,
+      government_payment_status: r.stage === 'Remitted' ? 'paid' : 'pending',
+      government_payment_date: r.stage === 'Remitted' ? r.created_at : null,
+      remarks: r.remarks || ''
+    };
+  });
+
+  const summary = {};
+  entries.forEach(e => {
+    const sec = e.tds_section || 'Other';
+    if (!summary[sec]) {
+      summary[sec] = {
+        section: sec,
+        total_gross: 0,
+        total_tds: 0,
+        count: 0,
+        paid: 0,
+        pending: 0
+      };
+    }
+    summary[sec].total_gross += e.gross_amount;
+    summary[sec].total_tds += e.tds_amount;
+    summary[sec].count++;
+    if (e.government_payment_status === 'paid') {
+      summary[sec].paid += e.tds_amount;
+    } else {
+      summary[sec].pending += e.tds_amount;
+    }
+  });
+
+  return {
+    entries,
+    summary,
+    total_entries: entries.length,
+    total_tds_deducted: entries.reduce((sum, e) => sum + e.tds_amount, 0),
+    total_tds_paid: entries.filter(e => e.government_payment_status === 'paid').reduce((sum, e) => sum + e.tds_amount, 0),
+    total_tds_pending: entries.filter(e => e.government_payment_status !== 'paid').reduce((sum, e) => sum + e.tds_amount, 0)
+  };
+}
+
+export async function getVendorTDSReport(startDate, endDate, session) {
+  const report = await getTDSRegisterReport(startDate, endDate, session);
+  const vendorMap = {};
+  report.entries.forEach(e => {
+    const v = e.vendor_id;
+    if (!vendorMap[v]) {
+      vendorMap[v] = {
+        vendor_id: v,
+        total_gross: 0,
+        total_tds: 0,
+        total_paid: 0,
+        total_pending: 0,
+        entries: []
+      };
+    }
+    vendorMap[v].total_gross += e.gross_amount;
+    vendorMap[v].total_tds += e.tds_amount;
+    if (e.government_payment_status === 'paid') {
+      vendorMap[v].total_paid += e.tds_amount;
+    } else {
+      vendorMap[v].total_pending += e.tds_amount;
+    }
+    vendorMap[v].entries.push(e);
+  });
+  return { vendors: Object.values(vendorMap) };
+}
+
+export async function getProjectTDSReport(startDate, endDate, session) {
+  const report = await getTDSRegisterReport(startDate, endDate, session);
+  const projMap = {};
+  report.entries.forEach(e => {
+    const p = e.project_id;
+    if (!projMap[p]) {
+      projMap[p] = {
+        project_id: p,
+        total_gross: 0,
+        total_tds: 0,
+        total_paid: 0,
+        total_pending: 0,
+        entries: []
+      };
+    }
+    projMap[p].total_gross += e.gross_amount;
+    projMap[p].total_tds += e.tds_amount;
+    if (e.government_payment_status === 'paid') {
+      projMap[p].total_paid += e.tds_amount;
+    } else {
+      projMap[p].total_pending += e.tds_amount;
+    }
+    projMap[p].entries.push(e);
+  });
+  return { projects: Object.values(projMap) };
+}
+
+export async function getApprovalAuditReport(startDate, endDate, session) {
+  let query = `SELECT * FROM payment_requests`;
+  const params = [];
+  if (startDate) {
+    query += ` WHERE created_at >= ?`;
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += startDate ? ` AND created_at <= ?` : ` WHERE created_at <= ?`;
+    params.push(endDate);
+  }
+  const list = await queryAll(query, params);
+  
+  const summary = { total_count: 0, total_gross: 0, total_tds: 0, total_net: 0 };
+  const entries = list.map(r => {
+    const gross = Number(r.amount_requested || 0);
+    const tds = Number(r.tds_amount || 0);
+    const net = gross - tds;
+    
+    // Only count approved or rejected items
+    const status = getPRStatus(r.stage, r.remittance);
+    if (status === 'pending') return null;
+
+    summary.total_count++;
+    summary.total_gross += gross;
+    summary.total_tds += tds;
+    summary.total_net += net;
+
+    const performedBy = r.created_by || 'System';
+    const action = r.stage === 'Rejected' ? 'reject' : 'approve';
+
+    return {
+      timestamp: r.created_at,
+      action: action,
+      performed_by: performedBy,
+      project_id: r.project || '—',
+      vendor_id: r.vendor_name || '—',
+      gross_amount: gross,
+      tds_amount: tds,
+      net_amount: net,
+      override_flag: false
+    };
+  }).filter(Boolean);
+
+  return { entries, summary };
+}
+
+export async function getDayWiseApprovalReport(startDate, endDate, session) {
+  const auditReport = await getApprovalAuditReport(startDate, endDate, session);
+  const dayMap = {};
+  
+  auditReport.entries.forEach(e => {
+    if (e.action !== 'approve') return;
+    const dateStr = String(e.timestamp || '').split('T')[0];
+    if (!dateStr) return;
+    
+    if (!dayMap[dateStr]) {
+      dayMap[dateStr] = {
+        displayDate: new Date(dateStr).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        count: 0,
+        gross: 0,
+        tds: 0,
+        net: 0,
+        entries: []
+      };
+    }
+    
+    dayMap[dateStr].count++;
+    dayMap[dateStr].gross += e.gross_amount;
+    dayMap[dateStr].tds += e.tds_amount;
+    dayMap[dateStr].net += e.net_amount;
+    dayMap[dateStr].entries.push({
+      sNo: e.vendor_id + '-' + e.gross_amount,
+      vendor: e.vendor_id,
+      project: e.project_id,
+      poNo: e.po_id,
+      grossAmount: e.gross_amount,
+      tdsAmount: e.tds_amount,
+      netAmount: e.net_amount,
+      approvedBy: e.performed_by,
+      bankRef: '—'
+    });
+  });
+
+  const dates = Object.keys(dayMap).sort().reverse().map(dateKey => dayMap[dateKey]);
+  
+  const summary = {
+    total_count: dates.reduce((sum, d) => sum + d.count, 0),
+    total_gross: dates.reduce((sum, d) => sum + d.gross, 0),
+    total_tds: dates.reduce((sum, d) => sum + d.tds, 0),
+    total_net: dates.reduce((sum, d) => sum + d.net, 0)
+  };
+
+  return { dates, summary };
 }
 
 

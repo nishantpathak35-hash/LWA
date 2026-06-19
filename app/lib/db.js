@@ -10,6 +10,17 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
   console.log('Connected to Turso Cloud Database');
+  // Proactively ensure audit_logs table exists
+  tursoClient.execute(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+      user TEXT,
+      action_type TEXT,
+      details TEXT,
+      department TEXT
+    )
+  `).catch(err => console.error('Failed to create audit_logs table:', err.message));
 }
 
 export async function queryAll(sql, params = []) {
