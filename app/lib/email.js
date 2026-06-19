@@ -1,5 +1,5 @@
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'admin@luxeworx.com';
+const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'accounts@luxeworxatelier.com';
 const FROM_NAME = 'Luxeworx Finance';
 const COMPANY = 'Luxeworx Atelier Interiors Pvt Ltd';
 const APP_URL = 'https://lwa-iota.vercel.app';
