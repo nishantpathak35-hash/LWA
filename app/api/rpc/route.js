@@ -18,7 +18,7 @@ export async function POST(request) {
     // Resolve user session from Authorization header
     let session = null;
     try {
-      const authHeader = request.headers.get('Authorization');
+      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
         session = await api.getMySession(token);

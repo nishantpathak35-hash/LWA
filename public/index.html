@@ -5071,8 +5071,14 @@ async function boot(){
   }catch(e){
     console.error('[Boot] Fatal boot error:', e);
     _setProgress(0);
+    var msg = errMsg(e);
+    if (msg.indexOf('AUTH:') === 0 || msg.indexOf('Not signed in') >= 0 || msg.indexOf('active session') >= 0 || msg.indexOf('Session expired') >= 0) {
+      setAuthToken('');
+      showLoginScreen(msg.replace(/^AUTH:/,'').trim());
+      return;
+    }
     var bl = el('boot_loader');
-    if(bl){ bl.style.display='flex'; bl.innerHTML='<div class="err-box" style="max-width:420px;text-align:center"><strong style=\'color:var(--red)\'>Failed to load</strong><br><span style=\'color:var(--fog)\'>'+esc(errMsg(e))+'</span><br><br><button class=\'btn btn-primary\' onclick=\'boot()\'>↺ Retry</button></div>'; }
+    if(bl){ bl.style.display='flex'; bl.innerHTML='<div class="err-box" style="max-width:420px;text-align:center"><strong style=\'color:var(--red)\'>Failed to load</strong><br><span style=\'color:var(--fog)\'>'+esc(msg)+'</span><br><br><button class=\'btn btn-primary\' onclick=\'boot()\'>↺ Retry</button></div>'; }
   }
 }
 
