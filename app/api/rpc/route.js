@@ -4,7 +4,6 @@ import * as api from '../../lib/api.js';
 export async function POST(request) {
   try {
     const body = await request.json();
-    console.log('RPC Request Body:', JSON.stringify(body));
     const { method, args = [] } = body;
 
     if (!method) {
@@ -19,12 +18,6 @@ export async function POST(request) {
     // Resolve user session from custom header (to avoid Vercel SSO Authorization override)
     let session = null;
     try {
-      const headersObj = {};
-      request.headers.forEach((val, key) => {
-        headersObj[key] = val;
-      });
-      console.log('RPC Request Headers:', JSON.stringify(headersObj));
-
       let token = request.headers.get('x-lwa-token') || request.headers.get('X-LWA-Token');
       
       // Fallback to Bearer token if present and not overwritten by Vercel SSO JWT
@@ -39,18 +32,13 @@ export async function POST(request) {
       }
 
       if (token) {
-        console.log('Token found in headers:', token);
         session = await api.getMySession(token);
-        console.log('Resolved Session from getMySession:', JSON.stringify(session));
-      } else {
-        console.log('No token found in headers.');
       }
     } catch (e) {
       console.error('RPC session lookup failed. Token resolution error:', e);
     }
 
     // Invoke the requested method with resolved session
-    console.log(`Calling RPC method ${method} with args length:`, args.length, `args:`, JSON.stringify(args), `session present:`, !!session);
     const result = await api[method](...args, session);
     return NextResponse.json(result);
 

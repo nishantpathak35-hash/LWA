@@ -797,7 +797,6 @@ var API = (function(){
       while (args.length > 0 && (args[args.length - 1] === undefined || args[args.length - 1] === null)) {
         args.pop();
       }
-      console.log('[API.call] method:', method, 'args:', args);
       log('START', method, { args: args.length });
       return callWithRetry(method, args);
     },
