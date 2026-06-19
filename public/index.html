@@ -678,6 +678,9 @@ function setAuthToken(t){
 // server call goes through call() / api(token, method, args).
 function callDirect(method){
   var args=Array.prototype.slice.call(arguments,1);
+  while (args.length > 0 && (args[args.length - 1] === undefined || args[args.length - 1] === null)) {
+    args.pop();
+  }
   return new Promise(function(res,rej){
     fetch('/api/rpc', {
       method: 'POST',
@@ -791,6 +794,10 @@ var API = (function(){
   return {
     call: function(method) {
       var args = Array.prototype.slice.call(arguments, 1);
+      while (args.length > 0 && (args[args.length - 1] === undefined || args[args.length - 1] === null)) {
+        args.pop();
+      }
+      console.log('[API.call] method:', method, 'args:', args);
       log('START', method, { args: args.length });
       return callWithRetry(method, args);
     },
