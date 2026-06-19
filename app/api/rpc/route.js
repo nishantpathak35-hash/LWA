@@ -18,6 +18,12 @@ export async function POST(request) {
     // Resolve user session from Authorization header
     let session = null;
     try {
+      const headersObj = {};
+      request.headers.forEach((val, key) => {
+        headersObj[key] = val;
+      });
+      console.log('RPC Request Headers:', JSON.stringify(headersObj));
+
       const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
