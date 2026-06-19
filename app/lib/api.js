@@ -101,6 +101,7 @@ export async function getMySession(token) {
       active: true
     };
   } catch (e) {
+    console.error('getMySession validation failed:', e);
     throw new Error('AUTH:Invalid or expired token');
   }
 }
