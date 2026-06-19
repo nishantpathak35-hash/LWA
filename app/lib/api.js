@@ -52,12 +52,20 @@ export async function loginUser(email, password) {
 
   // Lazy initialize admin/invite password if password_hash is not yet set
   if (!user.password_hash) {
+    if (user.invite_token) {
+      throw new Error('Please accept the invitation email to set your password before logging in');
+    }
     await queryRun(`UPDATE users SET password_hash = ? WHERE email = ?`, [hash, user.email]);
     user.password_hash = hash;
   }
 
   if (user.password_hash !== hash && user.password_hash !== password) {
     throw new Error('Invalid credentials');
+  }
+
+  // Clear invite token upon successful login if still present
+  if (user.invite_token) {
+    await queryRun(`UPDATE users SET invite_token = NULL WHERE email = ?`, [user.email]);
   }
 
   const tokenPayload = {
@@ -598,19 +606,28 @@ export async function updatePOFull(poNo, payload, session) {
 // --- USER MANAGEMENT & INVITES ---
 export async function inviteUserAdmin(payload, session) {
   const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const normEmail = String(payload.email).trim().toLowerCase();
+  const hash = payload.password ? crypto.createHash('sha256').update(payload.password).digest('hex') : null;
 
   // Check if user already exists
-  const existing = await queryGet(`SELECT email FROM users WHERE email = ?`, [payload.email]);
+  const existing = await queryGet(`SELECT email FROM users WHERE LOWER(email) = ?`, [normEmail]);
   if (existing) {
-    // Update roles and reset token if re-invited
-    await queryRun(
-      `UPDATE users SET name = ?, roles = ?, invite_token = ? WHERE email = ?`,
-      [payload.name || '', JSON.stringify(payload.roles || []), token, payload.email]
-    );
+    // Update roles, reset token, and update password if re-invited
+    if (hash) {
+      await queryRun(
+        `UPDATE users SET name = ?, roles = ?, invite_token = ?, password_hash = ? WHERE LOWER(email) = ?`,
+        [payload.name || '', JSON.stringify(payload.roles || []), token, hash, normEmail]
+      );
+    } else {
+      await queryRun(
+        `UPDATE users SET name = ?, roles = ?, invite_token = ? WHERE LOWER(email) = ?`,
+        [payload.name || '', JSON.stringify(payload.roles || []), token, normEmail]
+      );
+    }
   } else {
     await queryRun(
-      `INSERT INTO users (email, name, roles, invite_token, active) VALUES (?, ?, ?, ?, ?)`,
-      [payload.email, payload.name || '', JSON.stringify(payload.roles || []), token, true]
+      `INSERT INTO users (email, name, roles, invite_token, password_hash, active) VALUES (?, ?, ?, ?, ?, ?)`,
+      [normEmail, payload.name || '', JSON.stringify(payload.roles || []), token, hash, true]
     );
   }
 
@@ -619,8 +636,8 @@ export async function inviteUserAdmin(payload, session) {
   let emailSent = false;
   try {
     await sendInviteEmail({
-      toEmail: payload.email,
-      toName: payload.name || payload.email,
+      toEmail: normEmail,
+      toName: payload.name || normEmail,
       inviteUrl,
       roles: payload.roles || []
     });
