@@ -1,5 +1,26 @@
 import { queryAll, queryGet, queryRun } from './db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from './email.js';
+import crypto from 'crypto';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'lwa-secure-secret-key-12345678901234567890';
+
+function encryptToken(data) {
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0')), Buffer.alloc(16, 0));
+  let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+}
+
+function decryptToken(token) {
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0')), Buffer.alloc(16, 0));
+    let decrypted = decipher.update(token, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return JSON.parse(decrypted);
+  } catch (e) {
+    throw new Error('Invalid token');
+  }
+}
 
 export async function logAudit(user, actionType, details, department) {
   try {
@@ -15,33 +36,71 @@ export async function logAudit(user, actionType, details, department) {
 
 // --- AUTH ---
 export async function loginUser(email, password) {
-  // Mock login for now
-  if (email && password) {
-    return { token: 'mock-token-123' };
+  if (!email || !password) {
+    throw new Error('Email and password are required');
   }
-  throw new Error('Invalid credentials');
+  const normEmail = String(email).trim().toLowerCase();
+  const user = await queryGet(`SELECT * FROM users WHERE LOWER(email) = ?`, [normEmail]);
+  if (!user) {
+    throw new Error('Invalid credentials');
+  }
+  if (!user.active) {
+    throw new Error('Account is inactive');
+  }
+
+  const hash = crypto.createHash('sha256').update(password).digest('hex');
+
+  // Lazy initialize admin/invite password if password_hash is not yet set
+  if (!user.password_hash) {
+    await queryRun(`UPDATE users SET password_hash = ? WHERE email = ?`, [hash, user.email]);
+    user.password_hash = hash;
+  }
+
+  if (user.password_hash !== hash && user.password_hash !== password) {
+    throw new Error('Invalid credentials');
+  }
+
+  const tokenPayload = {
+    email: user.email,
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+  };
+  const token = encryptToken(tokenPayload);
+
+  return { token };
 }
 
 export async function getMySession(token) {
-  if (token === 'mock-token-123') {
+  if (!token) throw new Error('AUTH:No token provided');
+  
+  try {
+    const payload = decryptToken(token);
+    if (payload.exp < Date.now()) {
+      throw new Error('AUTH:Token expired');
+    }
+    
+    const user = await queryGet(`SELECT * FROM users WHERE email = ?`, [payload.email]);
+    if (!user) {
+      throw new Error('AUTH:User not found');
+    }
+    if (!user.active) {
+      throw new Error('AUTH:User inactive');
+    }
+
     return {
-      email: 'admin@luxeworx.com',
-      name: 'Admin User',
-      roles: ['director', 'admin', 'finance', 'procurement'],
+      email: user.email,
+      name: user.name || user.email,
+      roles: JSON.parse(user.roles || '[]'),
       active: true
     };
+  } catch (e) {
+    throw new Error('AUTH:Invalid or expired token');
   }
-  throw new Error('AUTH:Invalid token');
 }
 
 export async function getBootData(session) {
+  if (!session) throw new Error('AUTH:No active session');
   return {
-    user: {
-      email: 'admin@luxeworx.com',
-      name: 'Admin User',
-      roles: ['director', 'admin', 'finance', 'procurement'],
-      active: true
-    }
+    user: session
   };
 }
 
@@ -598,10 +657,10 @@ export async function acceptInvite(token, password) {
   const user = await queryGet(`SELECT * FROM users WHERE invite_token = ?`, [token]);
   if (!user) throw new Error("Invalid or expired invite token");
   
-  // In a real app we would hash the password. Mock for now.
+  const hash = crypto.createHash('sha256').update(password).digest('hex');
   await queryRun(
     `UPDATE users SET password_hash = ?, invite_token = NULL WHERE email = ?`,
-    [password, user.email]
+    [hash, user.email]
   );
   
   return { ok: true, email: user.email };
