@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppState } from './StateProvider';
 import Sidebar from './Sidebar';
 import DashboardView from './views/DashboardView';
@@ -18,9 +18,36 @@ export default function MainLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState('dark');
 
+  // Load theme from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem('lx_theme') || 'dark';
+      setTheme(savedTheme);
+      const root = window.document.documentElement;
+      if (savedTheme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    } catch (e) {
+      console.error('Failed to initialize theme:', e);
+    }
+  }, []);
+
   const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
-    // In a real application, you might toggle document classes.
+    try {
+      const nextTheme = theme === 'dark' ? 'light' : 'dark';
+      setTheme(nextTheme);
+      localStorage.setItem('lx_theme', nextTheme);
+      const root = window.document.documentElement;
+      if (nextTheme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    } catch (e) {
+      console.error('Failed to toggle theme:', e);
+    }
   };
 
   const renderActiveView = () => {
@@ -45,7 +72,7 @@ export default function MainLayout() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 font-sans">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans transition-colors duration-200">
       {/* Mobile Sidebar Toggle Overlay */}
       {mobileMenuOpen && (
         <div 
@@ -60,7 +87,7 @@ export default function MainLayout() {
       {/* Main content frame */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* Header/Topbar */}
-        <header className="h-16 px-6 border-b border-slate-900/60 bg-slate-950/40 backdrop-blur-md flex items-center justify-between flex-shrink-0">
+        <header className="h-16 px-6 border-b border-border bg-card/45 backdrop-blur-md flex items-center justify-between flex-shrink-0 transition-colors duration-200">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -68,9 +95,9 @@ export default function MainLayout() {
               className="md:hidden"
               onClick={() => setMobileMenuOpen(true)}
             >
-              <Menu className="w-5 h-5 text-slate-400" />
+              <Menu className="w-5 h-5 text-muted-foreground" />
             </Button>
-            <h1 className="text-sm font-medium text-slate-200 capitalize font-serif tracking-wider">
+            <h1 className="text-sm font-medium text-foreground capitalize font-serif tracking-wider">
               {activeView === 'pos' ? 'Purchase Orders' : activeView}
             </h1>
           </div>
@@ -78,16 +105,16 @@ export default function MainLayout() {
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={toggleTheme} title="Toggle theme">
               {theme === 'dark' ? (
-                <Sun className="w-4.5 h-4.5 text-slate-400 hover:text-slate-200" />
+                <Sun className="w-4.5 h-4.5 text-muted-foreground hover:text-foreground" />
               ) : (
-                <Moon className="w-4.5 h-4.5 text-slate-400 hover:text-slate-200" />
+                <Moon className="w-4.5 h-4.5 text-muted-foreground hover:text-foreground" />
               )}
             </Button>
           </div>
         </header>
 
         {/* Scrollable View Area */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-950/20">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-background/30 transition-colors duration-200">
           <div className="max-w-7xl mx-auto space-y-6">
             {renderActiveView()}
           </div>

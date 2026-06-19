@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StateProvider, useAppState } from '../components/StateProvider';
 import LoginScreen from '../components/LoginScreen';
 import MainLayout from '../components/MainLayout';
@@ -8,6 +8,28 @@ import { Loader2 } from 'lucide-react';
 
 function AppContent() {
   const { token, loading } = useAppState();
+  const [inviteToken, setInviteToken] = useState('');
+
+  // Extract invite token on client side mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const invite = params.get('invite');
+      if (invite) {
+        setInviteToken(invite);
+      }
+    }
+  }, []);
+
+  const handleClearInvite = () => {
+    setInviteToken('');
+    if (typeof window !== 'undefined') {
+      // Clear URL parameter without reloading
+      const url = new URL(window.location);
+      url.searchParams.delete('invite');
+      window.history.replaceState({}, '', url);
+    }
+  };
 
   if (loading) {
     return (
@@ -19,7 +41,7 @@ function AppContent() {
   }
 
   if (!token) {
-    return <LoginScreen />;
+    return <LoginScreen inviteToken={inviteToken} clearInvite={handleClearInvite} />;
   }
 
   return <MainLayout />;
