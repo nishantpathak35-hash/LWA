@@ -735,7 +735,7 @@ var API = (function(){
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token
+          'x-lwa-token': token
         },
         body: JSON.stringify({ method: method, args: args })
       })

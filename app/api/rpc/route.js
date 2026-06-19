@@ -15,7 +15,7 @@ export async function POST(request) {
       return NextResponse.json([]); // Return empty array to prevent .filter is not a function errors
     }
 
-    // Resolve user session from Authorization header
+    // Resolve user session from custom header (to avoid Vercel SSO Authorization override)
     let session = null;
     try {
       const headersObj = {};
@@ -24,9 +24,20 @@ export async function POST(request) {
       });
       console.log('RPC Request Headers:', JSON.stringify(headersObj));
 
-      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
+      let token = request.headers.get('x-lwa-token') || request.headers.get('X-LWA-Token');
+      
+      // Fallback to Bearer token if present and not overwritten by Vercel SSO JWT
+      if (!token) {
+        const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          const possibleToken = authHeader.substring(7);
+          if (!possibleToken.startsWith('eyJ')) {
+            token = possibleToken;
+          }
+        }
+      }
+
+      if (token) {
         session = await api.getMySession(token);
       }
     } catch (e) {
