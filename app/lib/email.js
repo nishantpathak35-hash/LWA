@@ -1,40 +1,62 @@
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'accounts@luxeworxatelier.com';
-const FROM_NAME = 'Luxeworx Finance';
+import { Resend } from 'resend';
+
+let resend;
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+}
+
+const FROM = process.env.RESEND_FROM_EMAIL || 'Luxeworx Finance <onboarding@resend.dev>';
 const COMPANY = 'Luxeworx Atelier Interiors Pvt Ltd';
 const APP_URL = 'https://lwa-iota.vercel.app';
 
-async function sendViaBrevo({ toEmail, toName, subject, html }) {
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'accept': 'application/json',
-      'api-key': BREVO_API_KEY,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      sender: {
-        name: FROM_NAME,
-        email: FROM_EMAIL
-      },
-      to: [
-        {
-          email: toEmail,
-          name: toName || toEmail
-        }
-      ],
+function handleResendError(error, defaultMsg) {
+  if (!error) return;
+  let msg = error.message || defaultMsg;
+  if (
+    /sandbox|verify|restriction|permission|onboarding|domain|authenticate/i.test(msg) ||
+    error.statusCode === 403 ||
+    error.status === 403
+  ) {
+    msg += ' (Tip: In Resend sandbox mode, you can only send to your verified account email. Verify your domain in Resend to send to anyone)';
+  }
+  throw new Error(msg);
+}
+
+async function sendEmailData({ toEmail, subject, html }) {
+  if (process.env.BREVO_API_KEY) {
+    const brevoPayload = {
+      sender: { name: COMPANY, email: process.env.BREVO_FROM_EMAIL || 'accounts@luxeworxatelier.com' },
+      to: [{ email: toEmail }],
       subject: subject,
       htmlContent: html
-    })
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Brevo send failed: ${errText}`);
+    };
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(brevoPayload)
+    });
+    if (!response.ok) {
+      const errTxt = await response.text();
+      throw new Error(`Brevo API failed: ${errTxt}`);
+    }
+    const data = await response.json();
+    return { sent: true, id: data.messageId };
+  } else if (resend) {
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: [toEmail],
+      subject: subject,
+      html
+    });
+    if (error) handleResendError(error, 'Failed to send email via Resend');
+    return { sent: true, id: data?.id };
+  } else {
+    throw new Error('Email configuration missing: Neither BREVO_API_KEY nor RESEND_API_KEY is defined in environment variables.');
   }
-
-  const data = await response.json();
-  return { sent: true, id: data.messageId };
 }
 
 // ── User Invite Email ────────────────────────────────────────────────────────
@@ -68,16 +90,11 @@ export async function sendInviteEmail({ toEmail, toName, inviteUrl, roles }) {
     </div>
   </div>`;
 
-  try {
-    return await sendViaBrevo({
-      toEmail,
-      toName,
-      subject: `You've been invited to ${COMPANY} Finance Platform`,
-      html
-    });
-  } catch (err) {
-    throw new Error(`Failed to send invite email: ${err.message}`);
-  }
+  return sendEmailData({
+    toEmail,
+    subject: `You've been invited to ${COMPANY} Finance Platform`,
+    html
+  });
 }
 
 // ── Payment Advice Email ─────────────────────────────────────────────────────
@@ -111,16 +128,11 @@ export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, projec
     </div>
   </div>`;
 
-  try {
-    return await sendViaBrevo({
-      toEmail,
-      toName: vendorName,
-      subject: `Payment Advice — ${poNo || 'Payment'} — ₹${Number(amount || 0).toLocaleString('en-IN')}`,
-      html
-    });
-  } catch (err) {
-    throw new Error(`Failed to send payment advice email: ${err.message}`);
-  }
+  return sendEmailData({
+    toEmail,
+    subject: `Payment Advice — ${poNo || 'Payment'} — ₹${Number(amount || 0).toLocaleString('en-IN')}`,
+    html
+  });
 }
 
 // ── PO Email ─────────────────────────────────────────────────────────────────
@@ -192,14 +204,9 @@ export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, 
     </div>
   </div>`;
 
-  try {
-    return await sendViaBrevo({
-      toEmail,
-      toName: vendorName,
-      subject: `Purchase Order ${poNo} — ${COMPANY}`,
-      html
-    });
-  } catch (err) {
-    throw new Error(`Failed to send PO email: ${err.message}`);
-  }
+  return sendEmailData({
+    toEmail,
+    subject: `Purchase Order ${poNo} — ${COMPANY}`,
+    html
+  });
 }
