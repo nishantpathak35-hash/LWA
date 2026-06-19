@@ -605,6 +605,10 @@ export async function updatePOFull(poNo, payload, session) {
 
 // --- USER MANAGEMENT & INVITES ---
 export async function inviteUserAdmin(payload, session) {
+  if (!session || !session.roles.includes('admin')) {
+    throw new Error('AUTH:Unauthorized');
+  }
+
   const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const normEmail = String(payload.email).trim().toLowerCase();
   const hash = payload.password ? crypto.createHash('sha256').update(payload.password).digest('hex') : null;

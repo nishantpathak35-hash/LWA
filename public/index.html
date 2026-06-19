@@ -686,10 +686,14 @@ function callDirect(method){
     })
     .then(function(response) {
       if (!response.ok) {
-        return response.json().then(function(errBody) {
-          throw new Error(errBody.error || 'API Error');
-        }).catch(function() {
-          throw new Error('API Error');
+        return response.text().then(function(text) {
+          try {
+            var j = JSON.parse(text);
+            throw new Error(j.error || 'API Error');
+          } catch(e) {
+            if (e.message !== 'API Error' && j && j.error) throw e;
+            throw new Error('API Error');
+          }
         });
       }
       return response.json();
@@ -741,10 +745,14 @@ var API = (function(){
       })
       .then(function(response) {
         if (!response.ok) {
-          return response.json().then(function(errBody) {
-            throw new Error(errBody.error || 'API Error ' + response.status);
-          }).catch(function() {
-            throw new Error('API Error ' + response.status);
+          return response.text().then(function(text) {
+            try {
+              var j = JSON.parse(text);
+              throw new Error(j.error || 'API Error ' + response.status);
+            } catch(e) {
+              if (e.message.indexOf('API Error') === -1 && j && j.error) throw e;
+              throw new Error('API Error ' + response.status);
+            }
           });
         }
         return response.json();
