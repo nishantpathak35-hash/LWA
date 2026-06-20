@@ -1612,3 +1612,19 @@ export async function getDayWiseApprovalReport(startDate, endDate, session) {
 
   return { dates, summary };
 }
+
+export async function getPOFullDetails(poNo, session) {
+  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  if (!po) return null;
+  const items = await queryAll(`SELECT * FROM po_items WHERE po_no = ?`, [poNo]);
+  return {
+    ...po,
+    items: items.map(it => ({
+      description: it.description,
+      hsnSac: it.hsn_sac,
+      quantity: it.qty,
+      rate: it.rate,
+      amount: it.amount
+    }))
+  };
+}

@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Select, Dialog } from '../ui/core';
 import { formatCurrency } from '../../app/lib/utils';
-import { PlusCircle, Search, Receipt, Mail, Send, ShieldAlert, Plus, Trash2 } from 'lucide-react';
+import { PlusCircle, Search, Receipt, Mail, Send, ShieldAlert, Plus, Trash2, Edit2 } from 'lucide-react';
 
 export default function POsView() {
   const { pos, vendors, projects, user, call, refreshData } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingPoNo, setEditingPoNo] = useState(null);
 
   // PO creation form state
   const [poNo, setPoNo] = useState('');
@@ -44,18 +45,44 @@ export default function POsView() {
            (po.project || '').toLowerCase().includes(q);
   });
 
-  const handleOpenModal = () => {
-    setPoNo(`PO-${Math.floor(100000 + Math.random() * 900000)}`);
-    setProject(projects[0]?.name || '');
-    setVendorCode(vendors[0]?.code || '');
-    setPoDate(new Date().toISOString().substring(0, 10));
-    setCategory('Goods');
-    setItems([{ description: '', hsnSac: '', quantity: 1, rate: 0 }]);
-    setGstPct(18);
-    setTdsSection('194C');
-    setTdsPct(2);
-    setFormError(null);
-    setModalOpen(true);
+  const handleOpenModal = async (existingPoNo = null) => {
+    if (existingPoNo) {
+      setSubmitting(true);
+      try {
+        const poDetails = await call('getPOFullDetails', existingPoNo);
+        if (poDetails) {
+          setEditingPoNo(existingPoNo);
+          setPoNo(poDetails.po_no);
+          setProject(poDetails.project || '');
+          setVendorCode(poDetails.vendor_key || '');
+          setPoDate(poDetails.po_date || new Date().toISOString().substring(0, 10));
+          setCategory(poDetails.category || 'Goods');
+          setItems(poDetails.items && poDetails.items.length ? poDetails.items : [{ description: '', hsnSac: '', quantity: 1, rate: 0 }]);
+          setGstPct(Number(poDetails.tax_pct) || 18);
+          setTdsSection(poDetails.tds_section || '194C');
+          setTdsPct(Number(poDetails.tds_pct) || 2);
+          setFormError(null);
+          setModalOpen(true);
+        }
+      } catch (err) {
+        alert('Failed to load PO details: ' + err.message);
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      setEditingPoNo(null);
+      setPoNo(`PO-${Math.floor(100000 + Math.random() * 900000)}`);
+      setProject(projects[0]?.name || '');
+      setVendorCode(vendors[0]?.code || '');
+      setPoDate(new Date().toISOString().substring(0, 10));
+      setCategory('Goods');
+      setItems([{ description: '', hsnSac: '', quantity: 1, rate: 0 }]);
+      setGstPct(18);
+      setTdsSection('194C');
+      setTdsPct(2);
+      setFormError(null);
+      setModalOpen(true);
+    }
   };
 
   const handleAddItemLine = () => {
@@ -106,32 +133,42 @@ export default function POsView() {
     try {
       const selectedVendor = vendors.find(v => v.code === vendorCode);
       const payload = {
-        po_no: poNo.trim(),
+        poNo: poNo.trim(),
         project,
-        po_date: poDate,
+        poDate: poDate,
         category,
+        vendorCode: vendorCode,
         vendor_key: vendorCode,
-        vendor_name: selectedVendor ? selectedVendor.name : '',
-        po_value: totalValue,
+        vendorName: selectedVendor ? selectedVendor.name : '',
+        vendor: selectedVendor ? selectedVendor.name : '',
+        poValue: totalValue,
+        grandTotal: totalValue,
         tax_type: 'GST',
         tax_pct: gstPct,
+        gstPct: gstPct,
         tds_section: tdsSection,
+        tdsSection: tdsSection,
         tds_pct: tdsPct,
+        tdsPct: tdsPct,
         status: 'Active',
         items: items.map(item => ({
           description: item.description,
           hsn_sac: item.hsnSac,
           qty: Number(item.quantity),
           rate: Number(item.rate),
-          amt: Number(item.quantity) * Number(item.rate)
+          tax_pct: gstPct
         }))
       };
 
-      await call('createPOFull', payload);
+      if (editingPoNo) {
+        await call('updatePOFull', editingPoNo, payload);
+      } else {
+        await call('createPOFull', payload);
+      }
       await refreshData();
       setModalOpen(false);
     } catch (err) {
-      setFormError(err.message || 'Failed to create Purchase Order.');
+      setFormError(err.message || 'Failed to save Purchase Order.');
     } finally {
       setSubmitting(false);
     }
@@ -203,11 +240,17 @@ export default function POsView() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-medium text-slate-200">{formatCurrency(po.po_value)}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center flex justify-center gap-2">
                       <Button variant="ghost" size="sm" onClick={() => handleSendVendorEmail(po.po_no)} title="Email PO to Vendor">
                         <Send className="w-3.5 h-3.5" />
                         Email
                       </Button>
+                      {canCreate && (
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenModal(po.po_no)} title="Edit Purchase Order">
+                          <Edit2 className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -217,8 +260,8 @@ export default function POsView() {
         </CardContent>
       </Card>
 
-      {/* Create PO Dialog */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} title="Create Purchase Order">
+      {/* Create/Edit PO Dialog */}
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} title={editingPoNo ? "Edit Purchase Order" : "Create Purchase Order"}>
         <form onSubmit={handleCreatePOSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -399,7 +442,7 @@ export default function POsView() {
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? 'Creating...' : 'Create Purchase Order'}
+              {submitting ? (editingPoNo ? 'Saving...' : 'Creating...') : (editingPoNo ? 'Save Changes' : 'Create Purchase Order')}
             </Button>
           </div>
         </form>
