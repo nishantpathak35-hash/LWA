@@ -4,11 +4,20 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 const StateContext = createContext(null);
 
+function readStoredToken() {
+  if (typeof window === 'undefined') return '';
+  try {
+    return localStorage.getItem('lx_auth_token') || '';
+  } catch {
+    return '';
+  }
+}
+
 export function StateProvider({ children }) {
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(readStoredToken);
   const [user, setUser] = useState(null);
   const [activeView, setActiveView] = useState('dashboard');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(readStoredToken()));
   const [booting, setBooting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -18,20 +27,6 @@ export function StateProvider({ children }) {
   const [pos, setPos] = useState([]);
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
-
-  // Load token from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedToken = localStorage.getItem('lx_auth_token') || '';
-      if (savedToken) {
-        setToken(savedToken);
-      } else {
-        setLoading(false);
-      }
-    } catch (e) {
-      setLoading(false);
-    }
-  }, []);
 
   const logout = useCallback(async () => {
     const currentToken = token || localStorage.getItem('lx_auth_token');
@@ -135,8 +130,6 @@ export function StateProvider({ children }) {
   // Validate session when token changes
   useEffect(() => {
     if (!token) {
-      setUser(null);
-      setLoading(false);
       return;
     }
 

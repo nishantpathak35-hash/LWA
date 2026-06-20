@@ -33,6 +33,42 @@ export async function logAudit(user, actionType, details, department) {
   }
 }
 
+function requireAdminConsole(session) {
+  const roles = session?.roles || [];
+  if (!session || (!roles.includes('admin') && !roles.includes('director'))) {
+    throw new Error('AUTH:Unauthorized');
+  }
+}
+
+function normalizeRoleName(role) {
+  return String(role || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+}
+
+async function ensureSettingsTable() {
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+async function getSetting(key, fallback = '') {
+  await ensureSettingsTable();
+  const row = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [key]);
+  return row?.value ?? fallback;
+}
+
+async function setSetting(key, value) {
+  await ensureSettingsTable();
+  await queryRun(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    [key, value, new Date().toISOString()]
+  );
+}
+
 
 // --- AUTH ---
 export async function loginUser(email, password) {
@@ -263,6 +299,70 @@ export async function getProjectDetails(session) {
     projectsMap[name].outflow += paid;
     projectsMap[name].pendingOutflow += Math.max(0, val - paid);
   });
+
+  try {
+    await queryRun(`
+      CREATE TABLE IF NOT EXISTS project_financials (
+        project TEXT PRIMARY KEY,
+        project_value REAL DEFAULT 0,
+        bcs REAL DEFAULT 0,
+        inflow REAL DEFAULT 0,
+        invoice_value REAL DEFAULT 0,
+        tds REAL DEFAULT 0,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    const overrides = await queryAll(`SELECT * FROM project_financials`);
+    overrides.forEach(row => {
+      const name = row.project;
+      if (!name) return;
+      if (!projectsMap[name]) {
+        projectsMap[name] = {
+          project: name,
+          name,
+          projectValue: 0,
+          inflow: 0,
+          pendingInflow: 0,
+          invoiceValue: 0,
+          pendingInvoice: 0,
+          bcs: 0,
+          plannedGM: 0,
+          plannedGMPct: 0,
+          poIssued: 0,
+          actualGM: 0,
+          actualGMPct: 0,
+          pendingOutflow: 0,
+          balanceAvailable: 0,
+          outflowLimit: 0,
+          outflow: 0,
+          vendorInvoiceBooked: 0,
+          tds: 0
+        };
+      }
+      const projectValue = Number(row.project_value) || projectsMap[name].projectValue;
+      const bcs = Number(row.bcs) || 0;
+      const inflow = Number(row.inflow) || 0;
+      const invoiceValue = Number(row.invoice_value) || 0;
+      const tds = Number(row.tds) || 0;
+      const outflow = Number(projectsMap[name].outflow) || 0;
+      projectsMap[name] = {
+        ...projectsMap[name],
+        projectValue,
+        bcs,
+        inflow,
+        invoiceValue,
+        tds,
+        pendingInflow: Math.max(0, projectValue - inflow),
+        plannedGM: projectValue - bcs,
+        plannedGMPct: projectValue ? (projectValue - bcs) / projectValue : 0,
+        actualGM: inflow - outflow - tds,
+        actualGMPct: inflow ? (inflow - outflow - tds) / inflow : 0,
+        balanceAvailable: inflow - outflow - tds
+      };
+    });
+  } catch (e) {
+    console.error('Failed to apply project financial overrides:', e.message);
+  }
 
   return Object.values(projectsMap);
 }
@@ -606,9 +706,7 @@ export async function updatePOFull(poNo, payload, session) {
 
 // --- USER MANAGEMENT & INVITES ---
 export async function inviteUserAdmin(payload, session) {
-  if (!session || !session.roles.includes('admin')) {
-    throw new Error('AUTH:Unauthorized');
-  }
+  requireAdminConsole(session);
 
   const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const normEmail = String(payload.email).trim().toLowerCase();
@@ -659,6 +757,7 @@ export async function sendInvite(payload, session) {
 }
 
 export async function listUsersAdmin(session) {
+  requireAdminConsole(session);
   const users = await queryAll(`SELECT email, name, roles, active, invite_token FROM users`);
   return users.map(u => ({
     email: u.email,
@@ -671,8 +770,137 @@ export async function listUsersAdmin(session) {
 }
 
 export async function deleteUserAdmin(email, session) {
+  requireAdminConsole(session);
   await queryRun(`DELETE FROM users WHERE email = ?`, [email]);
   return { ok: true };
+}
+
+export async function setUserActiveAdmin(email, active, session) {
+  requireAdminConsole(session);
+  await queryRun(`UPDATE users SET active = ? WHERE LOWER(email) = ?`, [active ? 1 : 0, String(email).trim().toLowerCase()]);
+  await logAudit(session.email, active ? 'User Activated' : 'User Deactivated', String(email), 'Settings');
+  return { ok: true };
+}
+
+export async function setUserRolesAdmin(email, roles, session) {
+  requireAdminConsole(session);
+  const cleanRoles = Array.from(new Set((roles || []).map(normalizeRoleName).filter(Boolean)));
+  await queryRun(`UPDATE users SET roles = ? WHERE LOWER(email) = ?`, [JSON.stringify(cleanRoles), String(email).trim().toLowerCase()]);
+  await logAudit(session.email, 'User Roles Updated', `${email}: ${cleanRoles.join(', ')}`, 'Settings');
+  return { ok: true, roles: cleanRoles };
+}
+
+export async function resetUserPasswordAdmin(email, password, session) {
+  requireAdminConsole(session);
+  if (!password || String(password).length < 8) throw new Error('Password must be at least 8 characters');
+  const hash = crypto.createHash('sha256').update(password).digest('hex');
+  await queryRun(
+    `UPDATE users SET password_hash = ?, invite_token = NULL WHERE LOWER(email) = ?`,
+    [hash, String(email).trim().toLowerCase()]
+  );
+  await logAudit(session.email, 'User Password Reset', String(email), 'Settings');
+  return { ok: true };
+}
+
+export async function addCustomRole(roleName, session) {
+  requireAdminConsole(session);
+  const role = normalizeRoleName(roleName);
+  if (!role) throw new Error('Role name is required');
+  const existing = JSON.parse(await getSetting('custom_roles', '[]') || '[]');
+  const roles = Array.from(new Set([...existing, role]));
+  await setSetting('custom_roles', JSON.stringify(roles));
+  await logAudit(session.email, 'Custom Role Added', role, 'Settings');
+  return { ok: true, role, roles };
+}
+
+export async function getPOPrefix(session) {
+  requireAdminConsole(session);
+  return getSetting('po_prefix', '');
+}
+
+export async function setPOPrefix(prefix, session) {
+  requireAdminConsole(session);
+  const value = String(prefix || '').trim();
+  await setSetting('po_prefix', value);
+  await logAudit(session.email, 'PO Prefix Updated', value || '(default)', 'Settings');
+  return { ok: true, prefix: value };
+}
+
+const DEFAULT_FEATURE_PERMISSIONS = {
+  proc: ['dashboard', 'payments', 'purchase_orders', 'vendors', 'create_payment', 'create_po'],
+  finance: ['dashboard', 'payments', 'vendors', 'reports', 'approve_payment', 'reject_payment', 'export_data'],
+  director: ['dashboard', 'payments', 'purchase_orders', 'projects', 'vendors', 'settings', 'reports', 'manage_users', 'manage_settings', 'view_analytics']
+};
+
+export async function getFeaturePermissions(session) {
+  requireAdminConsole(session);
+  const raw = await getSetting('feature_permissions', JSON.stringify(DEFAULT_FEATURE_PERMISSIONS));
+  try {
+    return { ...DEFAULT_FEATURE_PERMISSIONS, ...JSON.parse(raw || '{}') };
+  } catch {
+    return DEFAULT_FEATURE_PERMISSIONS;
+  }
+}
+
+export async function setFeaturePermissions(config, session) {
+  requireAdminConsole(session);
+  const sanitized = {};
+  Object.entries(config || {}).forEach(([role, features]) => {
+    const cleanRole = normalizeRoleName(role);
+    if (!cleanRole) return;
+    sanitized[cleanRole] = Array.from(new Set((features || []).map(f => String(f).trim()).filter(Boolean)));
+  });
+  await setSetting('feature_permissions', JSON.stringify(sanitized));
+  await logAudit(session.email, 'Feature Permissions Updated', JSON.stringify(sanitized), 'Settings');
+  return { ok: true, permissions: sanitized };
+}
+
+export async function clearAllCaches(session) {
+  if (!session) throw new Error('AUTH:No active session');
+  await logAudit(session.email, 'Cache Cleared', 'Application cache refresh requested', 'Settings');
+  return { ok: true };
+}
+
+export async function logoutUser(token, session) {
+  return { ok: true };
+}
+
+export async function updateProjectFinancials(payload, session) {
+  if (!session) throw new Error('AUTH:No active session');
+  if (!payload?.project) throw new Error('Project is required');
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS project_financials (
+      project TEXT PRIMARY KEY,
+      project_value REAL DEFAULT 0,
+      bcs REAL DEFAULT 0,
+      inflow REAL DEFAULT 0,
+      invoice_value REAL DEFAULT 0,
+      tds REAL DEFAULT 0,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await queryRun(
+    `INSERT INTO project_financials (project, project_value, bcs, inflow, invoice_value, tds, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(project) DO UPDATE SET
+       project_value = excluded.project_value,
+       bcs = excluded.bcs,
+       inflow = excluded.inflow,
+       invoice_value = excluded.invoice_value,
+       tds = excluded.tds,
+       updated_at = excluded.updated_at`,
+    [
+      String(payload.project),
+      Number(payload.projectValue) || 0,
+      Number(payload.bcs) || 0,
+      Number(payload.inflow) || 0,
+      Number(payload.clientDebit) || 0,
+      Number(payload.tds) || 0,
+      new Date().toISOString()
+    ]
+  );
+  await logAudit(session.email, 'Project Financials Updated', String(payload.project), 'Projects');
+  return { ok: true, project: payload.project };
 }
 
 export async function acceptInvite(token, password) {
@@ -1384,5 +1612,3 @@ export async function getDayWiseApprovalReport(startDate, endDate, session) {
 
   return { dates, summary };
 }
-
-

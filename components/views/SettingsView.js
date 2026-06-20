@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Dialog } from '../ui/core';
 import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loader2 } from 'lucide-react';
@@ -39,7 +39,7 @@ export default function SettingsView() {
   const isDirector = user?.roles?.includes('director');
 
   // Load Users Tab Data
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const list = await call('listUsersAdmin');
@@ -49,30 +49,31 @@ export default function SettingsView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [call]);
 
   // Load System Tab Data
-  const loadSystem = async () => {
+  const loadSystem = useCallback(async () => {
     try {
       const prefix = await call('getPOPrefix', {});
       setPoPrefix(prefix || '');
     } catch (e) {
       console.error('Failed to load PO prefix:', e);
     }
-  };
+  }, [call]);
 
   // Load Permissions Tab Data
-  const loadPermissions = async () => {
+  const loadPermissions = useCallback(async () => {
     try {
       const perms = await call('getFeaturePermissions');
       setPermissions(perms || {});
     } catch (e) {
       console.error('Failed to load permissions:', e);
     }
-  };
+  }, [call]);
 
   useEffect(() => {
     if (!isDirector) return;
+    const timer = window.setTimeout(() => {
     if (activeTab === 'users') {
       loadUsers();
     } else if (activeTab === 'permissions') {
@@ -80,7 +81,9 @@ export default function SettingsView() {
     } else if (activeTab === 'system') {
       loadSystem();
     }
-  }, [activeTab, isDirector]);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, isDirector, loadPermissions, loadSystem, loadUsers]);
 
   if (!isDirector) {
     return (

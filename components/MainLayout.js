@@ -13,38 +13,35 @@ import SettingsView from './views/SettingsView';
 import { Menu, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/core';
 
+function readStoredTheme() {
+  if (typeof window === 'undefined') return 'dark';
+  try {
+    return localStorage.getItem('lx_theme') || 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
 export default function MainLayout() {
   const { activeView } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(readStoredTheme);
 
-  // Load theme from localStorage on mount
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem('lx_theme') || 'dark';
-      setTheme(savedTheme);
-      const root = window.document.documentElement;
-      if (savedTheme === 'dark') {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    } catch (e) {
-      console.error('Failed to initialize theme:', e);
+    if (typeof window === 'undefined') return;
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
     }
-  }, []);
+  }, [theme]);
 
   const toggleTheme = () => {
     try {
       const nextTheme = theme === 'dark' ? 'light' : 'dark';
       setTheme(nextTheme);
       localStorage.setItem('lx_theme', nextTheme);
-      const root = window.document.documentElement;
-      if (nextTheme === 'dark') {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
     } catch (e) {
       console.error('Failed to toggle theme:', e);
     }

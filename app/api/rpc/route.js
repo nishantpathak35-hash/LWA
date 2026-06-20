@@ -12,7 +12,7 @@ export async function POST(request) {
 
     if (typeof api[method] !== 'function') {
       console.warn(`Unimplemented method requested: ${method}`);
-      return NextResponse.json([]); // Return empty array to prevent .filter is not a function errors
+      return NextResponse.json({ error: `Unknown method: ${method}` }, { status: 404 });
     }
 
     // Resolve user session from custom header (to avoid Vercel SSO Authorization override)

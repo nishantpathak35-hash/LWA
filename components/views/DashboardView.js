@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId, useCallback } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog } from '../ui/core';
 import { PlusCircle, Search, Edit2, TrendingUp, AlertCircle, CheckCircle, XCircle, FileText, ArrowRight, DollarSign, Activity } from 'lucide-react';
@@ -30,6 +30,7 @@ const fmtPct = (amount) => {
 
 // React component version of Sparkline SVG
 function Sparkline({ data = [], color = 'rgba(197, 168, 106, 0.95)' }) {
+  const gradId = useId();
   const cleanData = data.map(num);
   if (cleanData.length < 2) return null;
   
@@ -56,7 +57,6 @@ function Sparkline({ data = [], color = 'rgba(197, 168, 106, 0.95)' }) {
   }
 
   const pointsStr = pts.join(' ');
-  const gradId = `sparkGrad-${Math.random().toString(16).slice(2)}`;
 
   return (
     <svg className="overflow-visible" viewBox={`0 0 ${w} ${h}`} width={w} height={h}>
@@ -88,16 +88,27 @@ function Sparkline({ data = [], color = 'rgba(197, 168, 106, 0.95)' }) {
 function DonutChart({ slices = [], totalVal = 0 }) {
   const r = 54;
   const c = 2 * Math.PI * r;
-  let off = 0;
+  const visibleSlices = slices.reduce((acc, s) => {
+    const v = num(s.value);
+    const len = c * (v / totalVal);
+    const strokeOffset = -acc.offset;
+    return {
+      offset: acc.offset + len,
+      items: [
+        ...acc.items,
+        {
+          ...s,
+          len,
+          strokeOffset,
+        },
+      ],
+    };
+  }, { offset: 0, items: [] }).items;
 
   return (
     <svg viewBox="0 0 132 132" width={132} height={132} className="relative z-10">
       <circle cx="66" cy="66" r={r} fill="transparent" stroke="rgba(255, 255, 255, 0.06)" strokeWidth="12" />
-      {slices.map((s, idx) => {
-        const v = num(s.value);
-        const len = c * (v / totalVal);
-        const strokeOffset = -off;
-        off += len;
+      {visibleSlices.map((s, idx) => {
         return (
           <circle
             key={idx}
@@ -108,8 +119,8 @@ function DonutChart({ slices = [], totalVal = 0 }) {
             stroke={s.color}
             strokeWidth="12"
             strokeLinecap="round"
-            strokeDasharray={`${len.toFixed(2)} ${(c - len).toFixed(2)}`}
-            strokeDashoffset={strokeOffset.toFixed(2)}
+            strokeDasharray={`${s.len.toFixed(2)} ${(c - s.len).toFixed(2)}`}
+            strokeDashoffset={s.strokeOffset.toFixed(2)}
             opacity={0.95}
           />
         );
@@ -139,7 +150,7 @@ export default function DashboardView() {
   const [savingFinancials, setSavingFinancials] = useState(false);
 
   // Load Dashboard Data
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       // 1. Project details (financial performance)
@@ -167,11 +178,14 @@ export default function DashboardView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [call]);
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    const timer = window.setTimeout(() => {
+      loadDashboardData();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadDashboardData]);
 
   // Filter projects by search
   const filteredProjects = projectsList.filter(r => {
