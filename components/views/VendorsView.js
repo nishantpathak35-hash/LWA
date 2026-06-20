@@ -52,9 +52,9 @@ export default function VendorsView() {
     setFormError(null);
     try {
       const payload = {
-        name,
-        legal_name: legalName || name,
-        vendor_code: vendorCode.trim().toUpperCase(),
+        legalName: legalName || name,
+        tradeName: name,
+        vendorCode: vendorCode.trim().toUpperCase(),
         gstin: gstin.trim(),
         address: address.trim(),
         status: 'Active'

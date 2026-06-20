@@ -39,6 +39,7 @@ export default function PaymentsView() {
   const isFinance = roles.includes('finance');
   const isProcurement = roles.includes('procurement') || roles.includes('maker');
   const isAdmin = roles.includes('admin');
+  const canOnboard = isProcurement || isAdmin;
 
   // Find POs for selected vendor
   const vendorPOs = pos.filter(po => po.vendor_key === vendorCode);
@@ -108,11 +109,12 @@ export default function PaymentsView() {
     try {
       const selectedPO = pos.find(p => p.po_no === poNo);
       const payload = {
-        vendor_key: vendorCode,
-        vendor_name: vendors.find(v => v.code === vendorCode)?.name || '',
-        po_no: poNo,
+        vendor: vendors.find(v => v.code === vendorCode)?.name || '',
+        vendorCode: vendorCode,
+        poNo: poNo,
         project: selectedPO ? selectedPO.project : '',
-        amount_requested: grossAmount,
+        amountRequested: grossAmount,
+        gross_amount: grossAmount,
         tds_deducted: tdsAmount,
         net_amount: netAmount,
         invoice_no: invoiceRef.trim(),
