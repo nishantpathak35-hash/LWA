@@ -22,7 +22,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const isAdmin = roles.includes('admin');
   const isDirector = roles.includes('director');
   const isFinance = roles.includes('finance');
-  const isProcurement = roles.includes('procurement') || roles.includes('maker');
+  const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
 
   // Compute pending counts dynamically
   const pendingPaymentsCount = payments.filter(p => {

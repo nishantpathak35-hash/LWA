@@ -38,7 +38,7 @@ export default function VendorsView() {
   const [submitting, setSubmitting] = useState(false);
 
   const roles = user?.roles || [];
-  const isProcurement = roles.includes('procurement') || roles.includes('maker');
+  const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
   const isAdmin = roles.includes('admin');
   const canOnboard = isProcurement || isAdmin;
 

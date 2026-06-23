@@ -6,6 +6,8 @@ import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody
 import { PlusCircle, Search, Edit2, TrendingUp, AlertCircle, CheckCircle, XCircle, FileText, ArrowRight, DollarSign, Activity } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 
+const ITEMS_PER_PAGE = 10;
+
 // Math/Number converters
 const num = (v) => {
   const n = parseFloat(v);
@@ -129,6 +131,53 @@ function DonutChart({ slices = [], totalVal = 0 }) {
   );
 }
 
+function paginateItems(items, page) {
+  const totalPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const start = (safePage - 1) * ITEMS_PER_PAGE;
+  return {
+    pageItems: items.slice(start, start + ITEMS_PER_PAGE),
+    totalPages,
+    currentPage: safePage
+  };
+}
+
+function PaginationControls({ currentPage, totalPages, totalItems, label, onPageChange }) {
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-[11px] font-semibold text-gold">
+        {totalItems === 0 ? `Showing 0 ${label}` : `Showing ${startItem}-${endItem} of ${totalItems} ${label}`}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}
+        >
+          Previous
+        </Button>
+        <span className="min-w-20 text-center text-[11px] text-muted-foreground">
+          Page {currentPage} / {totalPages}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardView() {
   const { kpis, user, setActiveView, call } = useAppState();
 
@@ -136,7 +185,10 @@ export default function DashboardView() {
   const [approvalMetrics, setApprovalMetrics] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, overBudget: 0, tdsApplicable: 0 });
   const [vendorsList, setVendorsList] = useState([]);
   
-  const [searchQ, setSearchQ] = useState('');
+  const [cashflowSearchQ, setCashflowSearchQ] = useState('');
+  const [financialSearchQ, setFinancialSearchQ] = useState('');
+  const [cashflowPage, setCashflowPage] = useState(1);
+  const [financialPage, setFinancialPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
   // Edit financials state
@@ -187,22 +239,30 @@ export default function DashboardView() {
     return () => window.clearTimeout(timer);
   }, [loadDashboardData]);
 
-  // Filter projects by search
-  const filteredProjects = projectsList.filter(r => {
-    const q = searchQ.trim().toLowerCase();
+  const filterProjects = (query) => projectsList.filter(r => {
+    const q = query.trim().toLowerCase();
     if (!q) return true;
     const haystack = [r.project, r.projectName, r.clientName, r.category].join(' ').toLowerCase();
     return haystack.includes(q);
   });
 
+  const filteredCashflowProjects = filterProjects(cashflowSearchQ);
+  const filteredFinancialProjects = filterProjects(financialSearchQ);
+
+  const cashflowPagination = paginateItems(filteredCashflowProjects, cashflowPage);
+  const financialPagination = paginateItems(filteredFinancialProjects, financialPage);
+
   // Calculate Totals
   let totPV = 0, totInflow = 0, totPendInflow = 0;
   let totBCS = 0, totPGM = 0, totPO = 0, totAGM = 0, totPendOut = 0, totBal = 0;
 
-  filteredProjects.forEach(r => {
+  filteredCashflowProjects.forEach(r => {
     totPV += num(r.projectValue);
     totInflow += num(r.inflow);
     totPendInflow += num(r.pendingInflow);
+  });
+
+  filteredFinancialProjects.forEach(r => {
     totBCS += num(r.bcs);
     totPGM += num(r.plannedGM);
     totPO += num(r.poIssued);
@@ -212,15 +272,15 @@ export default function DashboardView() {
   });
 
   // Generate sparklines datasets
-  const spPV = filteredProjects.map(r => num(r.projectValueTax || r.projectValue));
-  const spIn = filteredProjects.map(r => num(r.inflow));
-  const spPin = filteredProjects.map(r => num(r.pendingInflow));
-  const spBCS = filteredProjects.map(r => num(r.bcs));
-  const spPGM = filteredProjects.map(r => num(r.plannedGM));
-  const spPO = filteredProjects.map(r => num(r.poIssued));
-  const spAGM = filteredProjects.map(r => num(r.actualGM));
-  const spOut = filteredProjects.map(r => num(r.pendingOutflow));
-  const spBal = filteredProjects.map(r => num(r.balanceAvailable));
+  const spPV = filteredCashflowProjects.map(r => num(r.projectValueTax || r.projectValue));
+  const spIn = filteredCashflowProjects.map(r => num(r.inflow));
+  const spPin = filteredCashflowProjects.map(r => num(r.pendingInflow));
+  const spBCS = filteredFinancialProjects.map(r => num(r.bcs));
+  const spPGM = filteredFinancialProjects.map(r => num(r.plannedGM));
+  const spPO = filteredFinancialProjects.map(r => num(r.poIssued));
+  const spAGM = filteredFinancialProjects.map(r => num(r.actualGM));
+  const spOut = filteredFinancialProjects.map(r => num(r.pendingOutflow));
+  const spBal = filteredFinancialProjects.map(r => num(r.balanceAvailable));
 
   // Payment pipeline segments calculation
   const p = kpis?.payments || {};
@@ -371,11 +431,14 @@ export default function DashboardView() {
             <Input
               className="w-56 h-8 text-xs"
               placeholder="Search project name..."
-              value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
+              value={cashflowSearchQ}
+              onChange={e => {
+                setCashflowSearchQ(e.target.value);
+                setCashflowPage(1);
+              }}
             />
             <span className="text-[11px] font-semibold text-gold">
-              Showing {filteredProjects.length} of {projectsList.length} PROJECTS
+              {filteredCashflowProjects.length} MATCHING PROJECTS
             </span>
           </div>
         </div>
@@ -423,8 +486,8 @@ export default function DashboardView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProjects.length > 0 ? (
-              filteredProjects.map((r, idx) => (
+            {filteredCashflowProjects.length > 0 ? (
+              cashflowPagination.pageItems.map((r, idx) => (
                 <TableRow key={r.project || idx}>
                   <TableCell className="font-semibold text-slate-200">{r.project}</TableCell>
                   <TableCell className="text-right">{fmtLakhs(r.projectValueTax || r.projectValue)}</TableCell>
@@ -446,6 +509,13 @@ export default function DashboardView() {
             )}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={cashflowPagination.currentPage}
+          totalPages={cashflowPagination.totalPages}
+          totalItems={filteredCashflowProjects.length}
+          label="projects"
+          onPageChange={setCashflowPage}
+        />
       </div>
 
       {/* ── Business Summary Charts (Stacked Pipeline + Vendor Donut) ── */}
@@ -525,7 +595,24 @@ export default function DashboardView() {
 
       {/* ── Financial Performance Details ── */}
       <div className="space-y-4">
-        <h3 className="text-md font-light text-foreground font-serif">Financial Performance Metrics</h3>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-md font-light text-foreground font-serif">Financial Performance Metrics</h3>
+          <div className="flex items-center gap-2">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <Input
+              className="w-56 h-8 text-xs"
+              placeholder="Search financial metrics..."
+              value={financialSearchQ}
+              onChange={e => {
+                setFinancialSearchQ(e.target.value);
+                setFinancialPage(1);
+              }}
+            />
+            <span className="text-[11px] font-semibold text-gold">
+              {filteredFinancialProjects.length} MATCHING PROJECTS
+            </span>
+          </div>
+        </div>
 
         {/* Financial KPI Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
@@ -578,11 +665,12 @@ export default function DashboardView() {
               <TableHead className="text-right text-emerald-400">Achieved GM %</TableHead>
               <TableHead className="text-right text-amber-500">Pending Outflow</TableHead>
               <TableHead className="text-right">Balance Available</TableHead>
+              <TableHead className="text-center w-10">Edit</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProjects.length > 0 ? (
-              filteredProjects.map((r, idx) => {
+            {filteredFinancialProjects.length > 0 ? (
+              financialPagination.pageItems.map((r, idx) => {
                 const boq = num(r.projectValueTax || r.projectValue);
                 const bal = num(r.balanceAvailable);
                 return (
@@ -598,18 +686,36 @@ export default function DashboardView() {
                     <TableCell className={cn("text-right font-bold", bal < 0 ? "text-red-400" : "text-emerald-400")}>
                       {fmtLakhs(bal)}
                     </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenEditModal(r)}
+                        title={`Edit financials for ${r.project}`}
+                        className="text-gold/60 hover:text-gold hover:bg-gold/10"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-slate-500">
+                <TableCell colSpan={10} className="text-center py-10 text-slate-500">
                   No projects details found.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={financialPagination.currentPage}
+          totalPages={financialPagination.totalPages}
+          totalItems={filteredFinancialProjects.length}
+          label="projects"
+          onPageChange={setFinancialPage}
+        />
       </div>
 
       {/* Edit Financials Dialog */}

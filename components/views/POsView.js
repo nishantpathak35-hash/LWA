@@ -116,7 +116,7 @@ export default function POsView() {
 
   // ── User Roles ──
   const roles        = user?.roles || [];
-  const isProcurement = roles.includes('procurement') || roles.includes('maker');
+  const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
   const isAdmin      = roles.includes('admin');
   const isDirector   = roles.includes('director');
   const isFinance    = roles.includes('finance');

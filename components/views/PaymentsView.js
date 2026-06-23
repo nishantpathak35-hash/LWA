@@ -95,7 +95,7 @@ export default function PaymentsView() {
   const roles = user?.roles || [];
   const isDirector = roles.includes('director');
   const isFinance = roles.includes('finance');
-  const isProcurement = roles.includes('procurement') || roles.includes('maker');
+  const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
   const isAdmin = roles.includes('admin');
   const canOnboard = isProcurement || isAdmin;
 
