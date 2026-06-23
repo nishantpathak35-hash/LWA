@@ -23,20 +23,38 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
   `).catch(err => console.error('Failed to create audit_logs table:', err.message));
 }
 
+async function executeWithRetry(action, retries = 3, delay = 300) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await action();
+    } catch (err) {
+      const isNetwork = 
+        err.message?.toLowerCase().includes('fetch') ||
+        err.message?.toLowerCase().includes('socket') ||
+        err.message?.toLowerCase().includes('closed') ||
+        err.code === 'UND_ERR_SOCKET';
+      if (!isNetwork || i === retries - 1) {
+        throw err;
+      }
+      console.warn(`Turso query failed (attempt ${i + 1}/${retries}), retrying:`, err.message);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
+
 export async function queryAll(sql, params = []) {
   if (!tursoClient) throw new Error("Database not connected");
-  const { rows } = await tursoClient.execute({ sql, args: params });
+  const { rows } = await executeWithRetry(() => tursoClient.execute({ sql, args: params }));
   return rows;
 }
 
 export async function queryGet(sql, params = []) {
   if (!tursoClient) throw new Error("Database not connected");
-  const { rows } = await tursoClient.execute({ sql, args: params });
+  const { rows } = await executeWithRetry(() => tursoClient.execute({ sql, args: params }));
   return rows.length > 0 ? rows[0] : undefined;
 }
 
 export async function queryRun(sql, params = []) {
   if (!tursoClient) throw new Error("Database not connected");
-  const result = await tursoClient.execute({ sql, args: params });
-  return result;
+  return executeWithRetry(() => tursoClient.execute({ sql, args: params }));
 }

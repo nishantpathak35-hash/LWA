@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Select, Dialog } from '../ui/core';
 import { formatCurrency, formatDate } from '../../app/lib/utils';
-import { PlusCircle, Search, CreditCard, ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye } from 'lucide-react';
+import { PlusCircle, Search, CreditCard, ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail } from 'lucide-react';
 
 export default function PaymentsView() {
   const { payments, vendors, pos, user, call, refreshData } = useAppState();
@@ -28,6 +28,8 @@ export default function PaymentsView() {
   const [workflowAction, setWorkflowAction] = useState('approve'); // approve, reject, remit
   const [comment, setComment] = useState('');
   const [utr, setUtr] = useState('');
+  const [approvalTdsSec, setApprovalTdsSec] = useState('194C');
+  const [approvalTdsPct, setApprovalTdsPct] = useState(2);
 
   // History modal
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -41,8 +43,12 @@ export default function PaymentsView() {
   const isAdmin = roles.includes('admin');
   const canOnboard = isProcurement || isAdmin;
 
-  // Find POs for selected vendor
-  const vendorPOs = pos.filter(po => po.vendor_key === vendorCode);
+  // Find APPROVED POs only for payment request creation (only approved POs can have payment requests)
+  const vendorPOs = pos.filter(po => {
+    const st = String(po.approval_status || po.status || '').toLowerCase();
+    return (po.vendor_key === vendorCode) && (st === 'approved' || st === 'active');
+  });
+  const selectedPO = pos.find(p => p.po_no === poNo);
 
   // Handle PO selection to auto-calculate TDS
   const handlePOChange = (selectedPONo) => {
@@ -77,12 +83,15 @@ export default function PaymentsView() {
 
     // Filter pending for active user's roles
     const isPending = String(p.status || '').toLowerCase() === 'pending';
-    if (!isPending) return false;
+    const isRemitStage = String(p.approval_stage || p.stage || '').toLowerCase().includes('remit');
+    if (!isPending && !isRemitStage) return false;
     const stage = String(p.approval_stage || p.stage || '').toLowerCase();
     
+    if (isAdmin) return true;
     if (isProcurement && stage.includes('proc')) return true;
     if (isFinance && stage.includes('finance')) return true;
     if (isDirector && stage.includes('director')) return true;
+    if (isFinance && stage.includes('remit')) return true;
     return false;
   });
 
@@ -138,6 +147,8 @@ export default function PaymentsView() {
     setWorkflowAction(action);
     setComment('');
     setUtr('');
+    setApprovalTdsSec('194C');
+    setApprovalTdsPct(2);
     setFormError(null);
     setWorkflowModalOpen(true);
   };
@@ -148,10 +159,21 @@ export default function PaymentsView() {
     setFormError(null);
     try {
       if (workflowAction === 'approve') {
-        const payload = {
+        const stage = String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase();
+        let payload = {
           approval_status: 'Approved',
           comments: comment.trim()
         };
+        if (stage.includes('finance')) {
+          const calculatedTdsAmt = Math.round(Number(selectedRequest.gross_amount) * (Number(approvalTdsPct) / 100));
+          payload.tds_configs = {
+            [selectedRequest.id]: {
+              amount: calculatedTdsAmt,
+              percentage: Number(approvalTdsPct),
+              section: approvalTdsSec
+            }
+          };
+        }
         await call('bulkApprovePayments', [selectedRequest.id], payload);
       } else if (workflowAction === 'reject') {
         const payload = {
@@ -194,10 +216,29 @@ export default function PaymentsView() {
     }
   };
 
+  const handleSendPaymentAdvice = async (reqId) => {
+    const req = payments.find(p => p.id === reqId);
+    const vendor = vendors.find(v => v.code === req?.vendor_code || v.name === req?.vendor_name);
+    const defaultEmail = vendor?.email || '';
+    const email = prompt("Enter vendor's email address to send payment advice:", defaultEmail);
+    if (email === null) return;
+    if (!email.trim()) {
+      alert('Email address is required.');
+      return;
+    }
+    try {
+      await call('sendPaymentAdvice', reqId, email.trim());
+      alert('Payment advice email has been sent successfully to ' + email.trim() + '.');
+    } catch (err) {
+      alert('Failed to send payment advice: ' + err.message);
+    }
+  };
+
   const getWorkflowActionButton = (req) => {
     const stage = String(req.approval_stage || req.stage || '').toLowerCase();
     const isPending = String(req.status || '').toLowerCase() === 'pending';
-    if (!isPending) return null;
+    const isRemitStage = stage.includes('remit');
+    if (!isPending && !isRemitStage) return null;
 
     let showActions = false;
     let isRemit = false;
@@ -307,8 +348,10 @@ export default function PaymentsView() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
+                  <TableHead>Project</TableHead>
                   <TableHead>Vendor</TableHead>
                   <TableHead>PO Number</TableHead>
+                  <TableHead className="text-right">PO Amount</TableHead>
                   <TableHead className="text-right">Net Value</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Current Stage</TableHead>
@@ -316,12 +359,17 @@ export default function PaymentsView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.map((req, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="font-semibold text-xs text-slate-400">#{req.id}</TableCell>
-                    <TableCell className="font-medium text-slate-200">{req.vendor_name}</TableCell>
-                    <TableCell className="font-mono text-xs">{req.po_no}</TableCell>
-                    <TableCell className="text-right font-medium text-slate-200">{formatCurrency(req.net_amount)}</TableCell>
+                {filteredRequests.map((req, idx) => {
+                  const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
+                  const poValue = relatedPO ? relatedPO.po_value : 0;
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell className="font-semibold text-xs text-slate-400">#{req.id}</TableCell>
+                      <TableCell>{req.project || '—'}</TableCell>
+                      <TableCell className="font-medium text-slate-200">{req.vendor_name}</TableCell>
+                      <TableCell className="font-mono text-xs">{req.po_no}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(poValue)}</TableCell>
+                      <TableCell className="text-right font-medium text-slate-200">{formatCurrency(req.net_amount)}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -341,9 +389,22 @@ export default function PaymentsView() {
                       <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="View Logs Trail">
                         <History className="w-3.5 h-3.5" />
                       </Button>
+                      {/* Payment Advice — ONLY for successfully remitted payments, NEVER for rejected */}
+                      {String(req.stage).toLowerCase() === 'remitted' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleSendPaymentAdvice(req.id)} 
+                          title="Send Payment Advice Email"
+                          className="text-gold hover:text-gold/80"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
-                ))}
+                );
+              })}
               </TableBody>
             </Table>
           )}
@@ -373,30 +434,50 @@ export default function PaymentsView() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {selectedPO && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-900/40 border border-slate-900 rounded-xl">
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 tracking-wider block mb-1">PROJECT</label>
+                <div className="text-sm font-medium text-slate-200">{selectedPO.project || '—'}</div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 tracking-wider block mb-1">PO TOTAL VALUE</label>
+                <div className="text-sm font-semibold text-gold">{formatCurrency(selectedPO.po_value || 0)}</div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 tracking-wider block mb-1">AMOUNT ALREADY REMITTED</label>
+                <div className="text-sm font-semibold text-emerald-400">
+                  {formatCurrency(selectedPO.paid || 0)} ({selectedPO.po_value > 0 ? ((selectedPO.paid / selectedPO.po_value) * 100).toFixed(1) : 0}%)
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-400 tracking-wider block mb-1">PO OUTSTANDING BALANCE</label>
+                <div className="text-sm font-semibold text-amber-500">
+                  {formatCurrency(Math.max(0, (selectedPO.po_value || 0) - (selectedPO.paid || 0)))}
+                  <span className="text-xs font-light text-slate-500 ml-2">(updates only after remittance)</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">GROSS AMOUNT (INR) *</label>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">AMOUNT REQUESTED (INR) *</label>
               <Input
                 type="number"
                 min="1"
                 required
                 value={grossAmount}
-                onChange={(e) => handleGrossAmountChange(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS AMOUNT (INR)</label>
-              <Input
-                type="number"
-                min="0"
-                value={tdsAmount}
-                onChange={(e) => setTdsAmount(Number(e.target.value))}
+                onChange={(e) => {
+                  setGrossAmount(Number(e.target.value));
+                  setTdsAmount(0);
+                }}
               />
             </div>
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">NET AMOUNT PAYABLE</label>
               <div className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-900 rounded-lg text-gold text-sm font-semibold">
-                {formatCurrency(netAmount)}
+                {formatCurrency(grossAmount)}
               </div>
             </div>
           </div>
@@ -463,6 +544,41 @@ export default function PaymentsView() {
                 onChange={(e) => setUtr(e.target.value)}
                 placeholder="Enter bank transfer UTR number"
               />
+            </div>
+          )}
+
+          {workflowAction === 'approve' && String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase().includes('finance') && (
+            <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl space-y-4">
+              <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">TDS Deduction Details</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS SECTION</label>
+                  <Select value={approvalTdsSec} onChange={(e) => setApprovalTdsSec(e.target.value)}>
+                    <option value="194C">194C (Contractors - 2%)</option>
+                    <option value="194J">194J (Professional - 10%)</option>
+                    <option value="194I">194I (Rent - 10%)</option>
+                    <option value="194H">194H (Commission - 5%)</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS PERCENT (%)</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={approvalTdsPct}
+                    onChange={(e) => setApprovalTdsPct(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-900/60">
+                <span>Calculated TDS Amount:</span>
+                <span className="text-red-400 font-semibold">{formatCurrency(Math.round(Number(selectedRequest?.gross_amount || 0) * (Number(approvalTdsPct) / 100)))}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs text-slate-400">
+                <span>Net Payable After TDS:</span>
+                <span className="text-gold font-semibold">{formatCurrency(Number(selectedRequest?.gross_amount || 0) - Math.round(Number(selectedRequest?.gross_amount || 0) * (Number(approvalTdsPct) / 100)))}</span>
+              </div>
             </div>
           )}
 

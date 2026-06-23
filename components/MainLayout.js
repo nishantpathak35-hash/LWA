@@ -23,9 +23,20 @@ function readStoredTheme() {
 }
 
 export default function MainLayout() {
-  const { activeView } = useAppState();
+  const { activeView, hasPermission, user } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState(readStoredTheme);
+
+  // Map of view id → feature permission key
+  const VIEW_FEATURE_MAP = {
+    dashboard: 'dashboard',
+    projects: 'projects',
+    vendors: 'vendors',
+    pos: 'purchase_orders',
+    payments: 'payments',
+    reports: 'reports',
+    settings: 'settings'
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -48,6 +59,23 @@ export default function MainLayout() {
   };
 
   const renderActiveView = () => {
+    // Guard: check if user has permission for this view
+    const featureKey = VIEW_FEATURE_MAP[activeView];
+    if (featureKey && user && !hasPermission(featureKey)) {
+      return (
+        <div className="flex flex-col items-center justify-center h-96 text-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center">
+            <span className="text-3xl">🚫</span>
+          </div>
+          <div>
+            <h2 className="text-lg font-medium text-foreground">Access Restricted</h2>
+            <p className="text-sm text-muted-foreground mt-1">You don&apos;t have permission to view this module.</p>
+            <p className="text-xs text-muted-foreground mt-1">Contact your administrator to request access.</p>
+          </div>
+        </div>
+      );
+    }
+
     switch (activeView) {
       case 'dashboard':
         return <DashboardView />;

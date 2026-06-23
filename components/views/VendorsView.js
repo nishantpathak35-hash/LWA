@@ -117,7 +117,18 @@ export default function VendorsView() {
         setEditIfsc(fullVendor.ifsc || v.ifsc || '');
         setEditModalOpen(true);
       } else {
-        alert('Vendor details not found in master data.');
+        // Fallback: Populate form with list summary values
+        setEditVendorId(v.code || '');
+        setEditLegalName(v.legalName || v.name || '');
+        setEditTradeName(v.name || '');
+        setEditGstin(v.gstin || '');
+        setEditPan('');
+        setEditStatus(v.status || 'Active');
+        setEditAddress(v.address || '');
+        setEditEmail(v.email || '');
+        setEditAccountNo(v.accountNo || '');
+        setEditIfsc(v.ifsc || '');
+        setEditModalOpen(true);
       }
     } catch (err) {
       alert('Failed to load vendor: ' + err.message);

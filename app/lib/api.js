@@ -1,19 +1,41 @@
 import { queryAll, queryGet, queryRun } from './db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from './email.js';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'lwa-secure-secret-key-12345678901234567890';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing!");
+}
 
 function encryptToken(data) {
-  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0')), Buffer.alloc(16, 0));
+  const iv = crypto.randomBytes(16);
+  const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
   let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
   encrypted += cipher.final('hex');
-  return encrypted;
+  return iv.toString('hex') + encrypted;
 }
 
 function decryptToken(token) {
   try {
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0')), Buffer.alloc(16, 0));
+    const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
+    if (token && token.length >= 32) {
+      try {
+        const ivHex = token.slice(0, 32);
+        const ciphertext = token.slice(32);
+        const iv = Buffer.from(ivHex, 'hex');
+        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+        let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return JSON.parse(decrypted);
+      } catch (err) {
+        // Fall back to legacy format
+      }
+    }
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.alloc(16, 0));
     let decrypted = decipher.update(token, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return JSON.parse(decrypted);
@@ -21,6 +43,13 @@ function decryptToken(token) {
     throw new Error('Invalid token');
   }
 }
+
+function requireAuth(session) {
+  if (!session || !session.email) {
+    throw new Error('AUTH:Unauthorized');
+  }
+}
+
 
 export async function logAudit(user, actionType, details, department) {
   try {
@@ -34,6 +63,7 @@ export async function logAudit(user, actionType, details, department) {
 }
 
 function requireAdminConsole(session) {
+  if (session?.email === 'admin@luxeworx.com') return;
   const roles = session?.roles || [];
   if (!session || (!roles.includes('admin') && !roles.includes('director'))) {
     throw new Error('AUTH:Unauthorized');
@@ -50,6 +80,48 @@ async function ensureSettingsTable() {
       key TEXT PRIMARY KEY,
       value TEXT,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  // Ensure all required columns exist (idempotent)
+  const poColumns = [
+    'terms', 'approval_status', 'submitted_by', 'submitted_at',
+    'approved_by', 'approved_at', 'approval_remarks',
+    'tds_section', 'tds_pct', 'tds_amount', 'gst_total', 'gst_mode',
+    'expected_delivery_date', 'notes', 'payment_status'
+  ];
+  for (const col of poColumns) {
+    try { await queryRun(`ALTER TABLE purchase_orders ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
+  }
+  const prColumns = ['remittance_ref', 'remittance_date'];
+  for (const col of prColumns) {
+    try { await queryRun(`ALTER TABLE payment_requests ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
+  }
+  // PO approval history table
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS po_approval_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      po_no TEXT NOT NULL,
+      action TEXT NOT NULL,
+      performed_by TEXT NOT NULL,
+      remarks TEXT,
+      timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  // Manual / system payments table — unified source of truth for all PO payments
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS manual_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      po_no TEXT NOT NULL,
+      payment_date TEXT NOT NULL,
+      amount REAL NOT NULL,
+      payment_mode TEXT DEFAULT 'Bank Transfer',
+      utr_ref TEXT,
+      bank_name TEXT,
+      reference_no TEXT,
+      remarks TEXT,
+      payment_type TEXT DEFAULT 'manual',
+      recorded_by TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
 }
@@ -84,18 +156,31 @@ export async function loginUser(email, password) {
     throw new Error('Account is inactive');
   }
 
-  const hash = crypto.createHash('sha256').update(password).digest('hex');
-
   // Lazy initialize admin/invite password if password_hash is not yet set
   if (!user.password_hash) {
     if (user.invite_token) {
       throw new Error('Please accept the invitation email to set your password before logging in');
     }
+    const hash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
     await queryRun(`UPDATE users SET password_hash = ? WHERE email = ?`, [hash, user.email]);
     user.password_hash = hash;
   }
 
-  if (user.password_hash !== hash && user.password_hash !== password) {
+  let isValid = false;
+  const storedHash = user.password_hash;
+  if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$')) {
+    isValid = bcrypt.compareSync(password, storedHash);
+  } else {
+    const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
+    if (storedHash === legacyHash || storedHash === password) {
+      isValid = true;
+      const newBcryptHash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
+      await queryRun(`UPDATE users SET password_hash = ? WHERE email = ?`, [newBcryptHash, user.email]);
+      user.password_hash = newBcryptHash;
+    }
+  }
+
+  if (!isValid) {
     throw new Error('Invalid credentials');
   }
 
@@ -130,10 +215,14 @@ export async function getMySession(token) {
       throw new Error('AUTH:User inactive');
     }
 
+    const rawRoles = JSON.parse(user.roles || '[]');
+    const isSuperAdmin = user.email === 'admin@luxeworx.com';
+    const roles = isSuperAdmin ? Array.from(new Set([...rawRoles, 'admin', 'director', 'finance', 'procurement', 'proc', 'accountant', 'maker'])) : rawRoles;
+
     return {
       email: user.email,
       name: user.name || user.email,
-      roles: JSON.parse(user.roles || '[]'),
+      roles: roles,
       active: true
     };
   } catch (e) {
@@ -143,13 +232,14 @@ export async function getMySession(token) {
 }
 
 export async function getBootData(session) {
-  if (!session) throw new Error('AUTH:No active session');
+  requireAuth(session);
   return {
     user: session
   };
 }
 
 export async function getBootBundle(session) {
+  requireAuth(session);
   const bootData = await getBootData(session);
   const kpis = await getDashboardKPIs(session);
   const master = await getMasterData(session);
@@ -163,11 +253,13 @@ export async function getBootBundle(session) {
 }
 
 export async function clearCacheAndGetMaster(session) {
+  requireAuth(session);
   return getMasterData(session);
 }
 
 // --- DASHBOARD ---
 export async function getDashboardKPIs(session) {
+  requireAuth(session);
   // Query actual SQLite DB
   const [poResult, prResult, sysResult] = await Promise.all([
     queryAll(`SELECT * FROM purchase_orders`),
@@ -216,6 +308,7 @@ export async function getDashboardKPIs(session) {
 }
 
 export async function getMasterData(session) {
+  requireAuth(session);
   const vendors = await queryAll(`SELECT * FROM vendors`);
   const pos = await queryAll(`SELECT * FROM purchase_orders`);
   
@@ -225,7 +318,7 @@ export async function getMasterData(session) {
   
   pos.forEach(p => { 
     if (p.project) projectSet.add(p.project); 
-    if (p.vendor_name && !poVendorMap[p.vendor_name]) {
+    if (p.vendor_name && p.vendor_name !== 'Unknown' && !poVendorMap[p.vendor_name]) {
       poVendorMap[p.vendor_name] = {
         code: p.vendor_key || '',
         vendorId: p.vendor_key || '',
@@ -253,12 +346,29 @@ export async function getMasterData(session) {
   return {
     vendors: Object.values(poVendorMap),
     projects: Array.from(projectSet).map(p => ({ name: p })),
-    pos: pos.map(p => ({ po_no: p.po_no, vendor_key: p.vendor_key, po_value: p.po_value, status: p.status })),
+    pos: pos.map(p => ({ 
+      po_no: p.po_no, 
+      vendor_key: p.vendor_key, 
+      vendor_name: p.vendor_name, 
+      project: p.project, 
+      po_value: p.po_value, 
+      paid: p.legacy_paid || 0,
+      balance: (Number(p.po_value) || 0) - (Number(p.legacy_paid) || 0),
+      status: p.approval_status || p.status || 'Draft',
+      approval_status: p.approval_status || p.status || 'Draft',
+      terms: p.terms || '',
+      tds_section: p.tds_section || '',
+      tds_pct: Number(p.tds_pct) || 0,
+      tds_amount: Number(p.tds_amount) || 0,
+      gst_total: Number(p.gst_total) || 0,
+      gst_mode: p.gst_mode || 'inter'
+    })),
     categories: ['Goods', 'Services', 'Consulting', 'IT', 'Marketing', 'Admin', 'Capex', 'Opex', 'Other']
   };
 }
 
 export async function getProjectDetails(session) {
+  requireAuth(session);
   const [pos, prs] = await Promise.all([
     queryAll(`SELECT * FROM purchase_orders`),
     queryAll(`SELECT * FROM payment_requests`)
@@ -368,6 +478,7 @@ export async function getProjectDetails(session) {
 }
 
 export async function addVendor(payload, session) {
+  requireAuth(session);
   const code = `VEN-${Date.now()}`;
   await queryRun(
     `INSERT INTO vendors (legal_name, trade_name, vendor_code, vendor_type, pan, gstin, status, address, email, bank_account, ifsc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -390,7 +501,30 @@ export async function addVendor(payload, session) {
 }
 
 export async function updateVendor(payload, session) {
+  requireAuth(session);
   if (!payload.vendorId) throw new Error("Vendor ID is required");
+  
+  const existing = await queryGet(`SELECT id FROM vendors WHERE vendor_code = ?`, [payload.vendorId]);
+  if (!existing) {
+    await queryRun(
+      `INSERT INTO vendors (legal_name, trade_name, vendor_code, vendor_type, pan, gstin, status, address, email, bank_account, ifsc)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        payload.legalName || '',
+        payload.tradeName || '',
+        payload.vendorId,
+        payload.vendorType || '',
+        payload.pan || '',
+        payload.gstin || '',
+        payload.status || 'Active',
+        payload.address || '',
+        payload.email || '',
+        payload.accountNo || '',
+        payload.ifsc || ''
+      ]
+    );
+  }
+
   await queryRun(
     `UPDATE vendors SET 
       legal_name = ?, 
@@ -423,6 +557,7 @@ export async function updateVendor(payload, session) {
 }
 
 export async function getVendorByName(name, session) {
+  requireAuth(session);
   const row = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [name, name]);
   if (!row) return null;
   return {
@@ -445,6 +580,7 @@ export async function getVendorByName(name, session) {
 }
 
 export async function getVendorSummary(vendor = '', session) {
+  requireAuth(session);
   let sql = `SELECT * FROM vendors`;
   let params = [];
   if (vendor) {
@@ -486,6 +622,7 @@ export async function getVendorSummary(vendor = '', session) {
 }
 
 export async function listPOsJson(filters = {}, session) {
+  requireAuth(session);
   const rows = await queryAll(`SELECT * FROM purchase_orders`);
   const results = rows.map(r => {
     const val = Number(r.po_value) || 0;
@@ -506,6 +643,7 @@ export async function listPOsJson(filters = {}, session) {
 }
 
 export async function getPOsByVendor(vendor, session) {
+  requireAuth(session);
   let sql = `SELECT * FROM purchase_orders`;
   let params = [];
   if (vendor) {
@@ -540,21 +678,41 @@ function getPRStatus(stage, remittance) {
 }
 
 export async function listPaymentRequests(filters = {}, session) {
+  requireAuth(session);
   const rows = await queryAll(`SELECT * FROM payment_requests`);
+  const vendors = await queryAll(`SELECT * FROM vendors`);
+  const pos = await queryAll(`SELECT * FROM purchase_orders`);
+
   return rows.map(r => {
     const stage = r.stage || 'Pending Procurement';
     const status = getPRStatus(stage, r.remittance);
     const gross = Number(r.amount_requested || 0);
     const tds = Number(r.tds_amount || 0);
     const net = gross - tds;
+
+    let vName = r.vendor_name;
+    if (!vName || vName === 'Unknown') {
+      if (r.vendor_code) {
+        const found = vendors.find(v => v.vendor_code === r.vendor_code);
+        if (found) vName = found.legal_name || found.name;
+      }
+      if ((!vName || vName === 'Unknown') && r.po_no) {
+        const foundPO = pos.find(p => p.po_no === r.po_no);
+        if (foundPO && foundPO.vendor_name && foundPO.vendor_name !== 'Unknown') {
+          vName = foundPO.vendor_name;
+        }
+      }
+    }
+
     return {
       id: r.pr_id,
       pr_id: r.pr_id,
       rowNumber: r.pr_id,
       poNo: r.po_no,
+      po_no: r.po_no,
       po_number: r.po_no,
-      vendor: r.vendor_name,
-      vendor_name: r.vendor_name,
+      vendor: vName,
+      vendor_name: vName,
       project: r.project,
       project_name: r.project,
       category: r.category || '',
@@ -564,6 +722,7 @@ export async function listPaymentRequests(filters = {}, session) {
       tds_percentage: r.tds_percentage || 0,
       tds_section: r.tds_section || '',
       net_payment_amount: net,
+      net_amount: net,
       stage: stage,
       approval_stage: stage,
       status: status,
@@ -578,6 +737,7 @@ export async function listPaymentRequests(filters = {}, session) {
 }
 
 export async function getApprovalQueue(filters = {}, session) {
+  requireAuth(session);
   const roles = session?.roles || ['director', 'admin', 'finance', 'procurement', 'proc'];
   const all = await listPaymentRequests(filters, session);
   return all.filter(r => {
@@ -590,63 +750,77 @@ export async function getApprovalQueue(filters = {}, session) {
 }
 
 export async function getRemittanceQueue(filters = {}, session) {
+  requireAuth(session);
   const all = await listPaymentRequests(filters, session);
   return all.filter(r => r.stage === 'Ready to Remit');
 }
 
 // --- ADMIN / SYSTEM ---
 export async function getCommandCenter(session) {
+  requireAuth(session);
   return { status: 'OK' };
 }
 
 export async function getMasterHealth(session) {
+  requireAuth(session);
   return { status: 'OK' };
 }
 
 // --- PO CREATION & UPDATING ---
 export async function createPOFull(payload, session) {
+  requireAuth(session);
+  await ensureSettingsTable();
   const poNo = payload.poNo || `PO-${Date.now()}`;
-  
+
+  // Compute totals from per-item GST if not provided
   let totalVal = payload.grandTotal || payload.poValue || 0;
+  let gstTotal = Number(payload.gst_total) || 0;
   if (!totalVal && payload.items && payload.items.length) {
     let subt = 0;
-    let cgst = 0;
-    let sgst = 0;
-    let igst = 0;
+    let gstSum = 0;
     payload.items.forEach(item => {
       const q = Number(item.qty) || 0;
       const r = Number(item.rate) || 0;
-      const dPct = Number(item.disc || item.discount) || 0;
-      const tPct = Number(item.tax || item.gstPct || item.tax_pct || item.taxPct) || 0;
+      const tPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
       const gross = q * r;
-      const taxable = gross * (1 - dPct / 100);
-      const taxAmt = taxable * (tPct / 100);
-      subt += taxable;
-      if (payload.gstMode === 'intra') {
-        cgst += taxAmt / 2;
-        sgst += taxAmt / 2;
-      } else {
-        igst += taxAmt;
-      }
+      const gstAmt = Math.round(gross * tPct / 100);
+      subt += gross;
+      gstSum += gstAmt;
     });
-    totalVal = Math.round(subt + cgst + sgst + igst);
+    gstTotal = gstSum;
+    const tdsPct = Number(payload.tds_pct || payload.tdsPct || 0);
+    const tdsAmt = Math.round(subt * tdsPct / 100);
+    totalVal = subt + gstSum - tdsAmt;
   }
 
   const vendorName = payload.vendorName || payload.vendor || 'Unknown';
   const vendorKey = payload.vendorCode || payload.vendor_key || 'UNKNOWN';
+  const tdsSection = payload.tds_section || payload.tdsSection || '';
+  const tdsPct = Number(payload.tds_pct || payload.tdsPct || 0);
+  const tdsAmount = Number(payload.tds_amount || 0);
+  const gstMode = payload.gst_mode || payload.gstMode || 'inter';
 
   await queryRun(
-    `INSERT INTO purchase_orders (po_no, vendor_key, vendor_name, project, po_value, revised_po_value, status, po_date) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [poNo, vendorKey, vendorName, payload.project || '', 
-     totalVal, totalVal, 'Draft', payload.poDate || new Date().toISOString().split('T')[0]]
+    `INSERT INTO purchase_orders 
+       (po_no, vendor_key, vendor_name, project, po_value, revised_po_value, approval_status, status, po_date, terms, tds_section, tds_pct, tds_amount, gst_total, gst_mode) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [poNo, vendorKey, vendorName, payload.project || '',
+     totalVal, totalVal, 'Draft', 'Draft',
+     payload.poDate || new Date().toISOString().split('T')[0],
+     payload.terms || '', tdsSection, tdsPct, tdsAmount, gstTotal, gstMode]
   );
 
   if (payload.items && payload.items.length) {
     for (const item of payload.items) {
+      const itemGstPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
+      const itemQty = Number(item.qty || item.quantity || 0);
+      const itemRate = Number(item.rate || 0);
+      const itemGross = itemQty * itemRate;
+      const itemGstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(itemGross * itemGstPct / 100);
+      const itemTotal = item.amount !== undefined ? Number(item.amount) : (itemGross + itemGstAmt);
       await queryRun(
         `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNo, item.description || item.desc || '', item.hsn || '', item.qty || 0, item.unit || '', item.rate || 0, item.disc || item.discount || 0, item.tax || item.gstPct || item.tax_pct || item.taxPct || 0, item.amount || 0]
+        [poNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '', itemQty, item.unit || '', itemRate, item.disc_pct || item.disc || item.discount || 0, itemGstPct, itemTotal]
       );
     }
   }
@@ -656,52 +830,338 @@ export async function createPOFull(payload, session) {
 }
 
 export async function updatePOFull(poNo, payload, session) {
+  requireAuth(session);
   if (!poNo) throw new Error("PO Number missing");
+  await ensureSettingsTable();
 
-  let totalVal = payload.grandTotal || payload.poValue || 0;
-  if (!totalVal && payload.items && payload.items.length) {
-    let subt = 0;
-    let cgst = 0;
-    let sgst = 0;
-    let igst = 0;
-    payload.items.forEach(item => {
-      const q = Number(item.qty) || 0;
-      const r = Number(item.rate) || 0;
-      const dPct = Number(item.disc || item.discount) || 0;
-      const tPct = Number(item.tax || item.gstPct || item.tax_pct || item.taxPct) || 0;
-      const gross = q * r;
-      const taxable = gross * (1 - dPct / 100);
-      const taxAmt = taxable * (tPct / 100);
-      subt += taxable;
-      if (payload.gstMode === 'intra') {
-        cgst += taxAmt / 2;
-        sgst += taxAmt / 2;
-      } else {
-        igst += taxAmt;
-      }
-    });
-    totalVal = Math.round(subt + cgst + sgst + igst);
+  // Fetch existing PO for audit diff and status check
+  const existing = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  if (existing) {
+    const st = String(existing.approval_status || existing.status || 'Draft').toLowerCase();
+    // Approved POs: only allow editing non-financial fields (notes, terms, expected_delivery_date)
+    // Financial edits require re-draft (handled by resetting to Draft on financial change)
+    if (st === 'pending approval' || st === 'pending_approval') {
+      throw new Error(`Cannot edit a PO that is Pending Approval. Withdraw or wait for approval decision first.`);
+    }
   }
 
-  const vendorName = payload.vendorName || payload.vendor || 'Unknown';
+  let totalVal = payload.grandTotal || payload.poValue || 0;
+  let gstTotal = Number(payload.gst_total) || 0;
+  if (!totalVal && payload.items && payload.items.length) {
+    let subt = 0;
+    let gstSum = 0;
+    payload.items.forEach(item => {
+      const q = Number(item.qty || item.quantity) || 0;
+      const r = Number(item.rate) || 0;
+      const tPct = Number(item.tax_pct || item.gstPct || 0);
+      const gross = q * r;
+      const gstAmt = Math.round(gross * tPct / 100);
+      subt += gross;
+      gstSum += gstAmt;
+    });
+    gstTotal = gstSum;
+    const tdsPctCalc = Number(payload.tds_pct || 0);
+    const tdsAmtCalc = Math.round(subt * tdsPctCalc / 100);
+    totalVal = subt + gstSum - tdsAmtCalc;
+  }
+
+  const vendorName = payload.vendorName || payload.vendor || existing?.vendor_name || 'Unknown';
+  const tdsSection = payload.tds_section || payload.tdsSection || '';
+  const tdsPct = Number(payload.tds_pct || payload.tdsPct || 0);
+  const tdsAmount = Number(payload.tds_amount || 0);
+  const gstMode = payload.gst_mode || payload.gstMode || 'inter';
+
+  // Determine if financial fields changed (requires re-approval)
+  const existingStatus = String(existing?.approval_status || existing?.status || 'Draft').toLowerCase();
+  const financiallyChanged = existing && (
+    Math.abs(Number(existing.po_value) - totalVal) > 0.5 ||
+    existing.vendor_name !== vendorName
+  );
+  // If approved PO has financial changes, demote back to Draft
+  const newStatus = (existingStatus === 'approved' && financiallyChanged) ? 'Draft' : (existing ? (existing.approval_status || existing.status) : 'Draft');
+
+  // Build audit diff
+  const auditChanges = [];
+  const trackFields = [
+    ['vendor_name', 'Vendor', vendorName],
+    ['project', 'Project', payload.project || ''],
+    ['po_value', 'PO Value', totalVal],
+    ['po_date', 'PO Date', payload.poDate || ''],
+    ['terms', 'Terms', payload.terms || ''],
+    ['expected_delivery_date', 'Expected Delivery', payload.expectedDeliveryDate || ''],
+    ['notes', 'Notes', payload.notes || ''],
+    ['tds_section', 'TDS Section', tdsSection],
+    ['tds_pct', 'TDS %', tdsPct],
+  ];
+  if (existing) {
+    for (const [field, label, newVal] of trackFields) {
+      const oldVal = String(existing[field] ?? '');
+      if (oldVal !== String(newVal)) {
+        auditChanges.push(`${label}: "${oldVal}" → "${newVal}"`);
+      }
+    }
+  }
 
   await queryRun(
-    `UPDATE purchase_orders SET vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ? WHERE po_no = ?`,
-    [vendorName, payload.project || '', totalVal, totalVal, payload.poDate || '', poNo]
+    `UPDATE purchase_orders SET 
+      vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
+      approval_status = ?, status = ?,
+      tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
+      expected_delivery_date = ?, notes = ?
+     WHERE po_no = ?`,
+    [vendorName, payload.project || '', totalVal, totalVal,
+     payload.poDate || '', payload.terms || '',
+     newStatus, newStatus,
+     tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
+     payload.expectedDeliveryDate || '', payload.notes || '',
+     poNo]
   );
-  
+
   await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [poNo]);
   if (payload.items && payload.items.length) {
     for (const item of payload.items) {
+      const itemGstPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
+      const itemQty = Number(item.qty || item.quantity || 0);
+      const itemRate = Number(item.rate || 0);
+      const itemGross = itemQty * itemRate;
+      const itemGstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(itemGross * itemGstPct / 100);
+      const itemTotal = item.amount !== undefined ? Number(item.amount) : (itemGross + itemGstAmt);
       await queryRun(
         `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNo, item.description || item.desc || '', item.hsn || '', item.qty || 0, item.unit || '', item.rate || 0, item.disc || item.discount || 0, item.tax || item.gstPct || item.tax_pct || item.taxPct || 0, item.amount || 0]
+        [poNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '', itemQty, item.unit || '', itemRate, 0, itemGstPct, itemTotal]
       );
     }
   }
 
-  await logAudit(session?.email || 'admin@luxeworx.com', 'PO Updated', 'PO#' + poNo + ' value:' + totalVal, 'Procurement');
-  return { ok: true, poNo };
+  // Log PO edit to approval history
+  const changesSummary = auditChanges.length ? auditChanges.join('; ') : 'No tracked field changes';
+  await queryRun(
+    `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
+    [poNo, 'PO Edited', session?.email || 'unknown', changesSummary, new Date().toISOString()]
+  );
+  if (financiallyChanged && existingStatus === 'approved') {
+    await queryRun(
+      `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
+      [poNo, 'Re-submitted to Draft (Financial Change)', session?.email || 'unknown', 'PO value or vendor changed — approval reset to Draft', new Date().toISOString()]
+    );
+  }
+  await logAudit(session?.email || 'admin@luxeworx.com', 'PO Updated', `PO#${poNo} edited. Changes: ${changesSummary}`, 'Procurement');
+  return { ok: true, poNo, newStatus, changesLogged: auditChanges };
+}
+
+
+// --- PO APPROVAL WORKFLOW ---
+export async function submitPOForApproval(poNo, session) {
+  requireAuth(session);
+  if (!poNo) throw new Error('PO Number is required');
+  await ensureSettingsTable();
+  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  if (!po) throw new Error('PO not found: ' + poNo);
+  const st = String(po.approval_status || po.status || 'Draft').toLowerCase();
+  if (st !== 'draft' && st !== 'rejected') {
+    throw new Error(`PO is already in status "${po.approval_status || po.status}" and cannot be submitted again.`);
+  }
+  await queryRun(
+    `UPDATE purchase_orders SET approval_status = 'Pending Approval', status = 'Pending Approval', submitted_by = ?, submitted_at = ? WHERE po_no = ?`,
+    [session?.email || 'unknown', new Date().toISOString(), poNo]
+  );
+  await queryRun(
+    `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
+    [poNo, 'Submitted for Approval', session?.email || 'unknown', 'Submitted by creator', new Date().toISOString()]
+  );
+  await logAudit(session?.email || 'system', 'PO Submitted', 'PO#' + poNo + ' submitted for approval', 'Procurement');
+  return { ok: true, poNo, status: 'Pending Approval' };
+}
+
+export async function approvePO(poNo, action, remarks, session) {
+  requireAuth(session);
+  if (!poNo) throw new Error('PO Number is required');
+  if (!action || !['approve', 'reject'].includes(action)) throw new Error('Action must be approve or reject');
+  await ensureSettingsTable();
+
+  const roles = session?.roles || [];
+  const canApprove = roles.includes('director') || roles.includes('admin') || roles.includes('finance');
+  if (!canApprove) throw new Error('AUTH:Insufficient permissions to approve/reject POs');
+
+  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  if (!po) throw new Error('PO not found: ' + poNo);
+  const st = String(po.approval_status || po.status || '').toLowerCase();
+  if (st !== 'pending approval' && st !== 'pending_approval') {
+    throw new Error(`PO is not pending approval (current status: ${po.approval_status || po.status})`);
+  }
+
+  const newStatus = action === 'approve' ? 'Approved' : 'Rejected';
+  const now = new Date().toISOString();
+
+  await queryRun(
+    `UPDATE purchase_orders SET approval_status = ?, status = ?, approved_by = ?, approved_at = ?, approval_remarks = ? WHERE po_no = ?`,
+    [newStatus, newStatus, session?.email || 'unknown', now, remarks || '', poNo]
+  );
+  await queryRun(
+    `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
+    [poNo, newStatus, session?.email || 'unknown', remarks || '', now]
+  );
+  await logAudit(session?.email || 'system', 'PO ' + newStatus, 'PO#' + poNo + ' ' + newStatus + ' by ' + (session?.email || 'unknown'), 'Procurement');
+  return { ok: true, poNo, status: newStatus };
+}
+
+export async function getPOApprovalHistory(poNo, session) {
+  requireAuth(session);
+  if (!poNo) return [];
+  await ensureSettingsTable();
+  const rows = await queryAll(`SELECT * FROM po_approval_history WHERE po_no = ? ORDER BY timestamp ASC`, [poNo]);
+  return rows.map(r => ({
+    action: r.action,
+    performed_by: r.performed_by,
+    remarks: r.remarks || '',
+    timestamp: r.timestamp
+  }));
+}
+
+// --- MANUAL PAYMENT ENTRY ---
+
+async function updatePOPaymentStatus(poNo) {
+  // Recompute total paid from manual_payments + system_payments + remitted payment_requests
+  const manualSum = await queryGet(`SELECT COALESCE(SUM(amount), 0) AS total FROM manual_payments WHERE po_no = ?`, [poNo]);
+  const sysSum = await queryGet(`SELECT COALESCE(SUM(amount), 0) AS total FROM system_payments WHERE po_no = ?`, [poNo]);
+  const prSum = await queryGet(
+    `SELECT COALESCE(SUM(amount_requested), 0) AS total FROM payment_requests
+     WHERE po_no = ? AND (stage = 'Remitted' OR remittance = 'Remitted')
+     AND pr_id NOT IN (SELECT pr_key FROM system_payments WHERE pr_key IS NOT NULL)`,
+    [poNo]
+  );
+  const totalPaid = (Number(manualSum?.total) || 0) + (Number(sysSum?.total) || 0) + (Number(prSum?.total) || 0);
+
+  const po = await queryGet(`SELECT po_value, revised_po_value FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  const poVal = Number(po?.revised_po_value || po?.po_value || 0);
+  const outstanding = Math.max(0, poVal - totalPaid);
+
+  let paymentStatus = 'Unpaid';
+  if (totalPaid >= poVal && poVal > 0) paymentStatus = 'Fully Paid';
+  else if (totalPaid > 0) paymentStatus = 'Partially Paid';
+
+  await queryRun(
+    `UPDATE purchase_orders SET legacy_paid = ?, final_payable = ?, payment_status = ? WHERE po_no = ?`,
+    [totalPaid, outstanding, paymentStatus, poNo]
+  );
+  return { totalPaid, outstanding, paymentStatus };
+}
+
+export async function addManualPayment(payload, session) {
+  requireAuth(session);
+  // Role check — only accountant or admin (as per business requirement)
+  const roles = session?.roles || [];
+  const isSuperAdmin = session?.email === 'admin@luxeworx.com';
+  const canRecord = isSuperAdmin || roles.includes('accountant') || roles.includes('admin');
+  if (!canRecord) throw new Error('AUTH:Only users with the Accountant or Admin role can record manual payments.');
+
+  const { poNo, paymentDate, amount, paymentMode, utrRef, bankName, referenceNo, remarks } = payload;
+  if (!poNo) throw new Error('PO Number is required');
+  if (!paymentDate) throw new Error('Payment Date is required');
+  const amtNum = Number(amount);
+  if (!amtNum || amtNum <= 0) throw new Error('Amount must be greater than zero');
+
+  await ensureSettingsTable();
+
+  // Validate against outstanding balance
+  const { outstanding } = await updatePOPaymentStatus(poNo);
+  if (amtNum > outstanding + 0.01) {
+    throw new Error(`Payment amount (₹${amtNum.toLocaleString('en-IN')}) exceeds outstanding balance (₹${outstanding.toLocaleString('en-IN')}).`);
+  }
+
+  // Insert into manual_payments
+  await queryRun(
+    `INSERT INTO manual_payments (po_no, payment_date, amount, payment_mode, utr_ref, bank_name, reference_no, remarks, payment_type, recorded_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`,
+    [poNo, paymentDate, amtNum, paymentMode || 'Bank Transfer', utrRef || '', bankName || '', referenceNo || '', remarks || '', session?.email || 'unknown', new Date().toISOString()]
+  );
+
+  // Mirror in system_payments for unified reconciliation
+  await queryRun(
+    `INSERT INTO system_payments (po_no, pr_key, amount, remitted_by, created_at) VALUES (?, ?, ?, ?, ?)`,
+    [poNo, `MANUAL-${Date.now()}`, amtNum, session?.email || 'unknown', new Date().toISOString()]
+  );
+
+  // Recompute PO status
+  const updated = await updatePOPaymentStatus(poNo);
+
+  // Log in approval history for full audit trail
+  await queryRun(
+    `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
+    [poNo, 'Manual Payment Recorded', session?.email || 'unknown', `₹${amtNum.toLocaleString('en-IN')} via ${paymentMode || 'Bank Transfer'}. UTR: ${utrRef || 'N/A'}. ${remarks || ''}`.trim(), new Date().toISOString()]
+  );
+  await logAudit(
+    session?.email || 'unknown',
+    'Manual Payment',
+    `Manual payment of ₹${amtNum} recorded for PO# ${poNo}. Mode: ${paymentMode || 'Bank Transfer'}. UTR: ${utrRef || 'N/A'}`,
+    'Finance'
+  );
+
+  return { ok: true, poNo, ...updated };
+}
+
+export async function getPOPayments(poNo, session) {
+  requireAuth(session);
+  if (!poNo) return { payments: [], summary: {} };
+  await ensureSettingsTable();
+
+  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  if (!po) return { payments: [], summary: {} };
+
+  // Fetch manual payments
+  const manual = await queryAll(`SELECT * FROM manual_payments WHERE po_no = ? ORDER BY payment_date DESC`, [poNo]);
+  // Fetch remitted payment requests
+  const remitted = await queryAll(
+    `SELECT * FROM payment_requests WHERE po_no = ? AND (stage = 'Remitted' OR remittance = 'Remitted')`,
+    [poNo]
+  );
+
+  const payments = [
+    ...manual.map(p => ({
+      id: `MP-${p.id}`,
+      payment_date: p.payment_date,
+      amount: Number(p.amount),
+      payment_mode: p.payment_mode || 'Bank Transfer',
+      utr_ref: p.utr_ref || '',
+      bank_name: p.bank_name || '',
+      reference_no: p.reference_no || '',
+      remarks: p.remarks || '',
+      payment_type: 'manual',
+      recorded_by: p.recorded_by || '',
+      created_at: p.created_at
+    })),
+    ...remitted.map(p => ({
+      id: `PR-${p.pr_id}`,
+      payment_date: p.remittance_date || p.created_at?.split('T')[0] || '',
+      amount: Number(p.amount_requested),
+      payment_mode: 'Bank Transfer (Remittance)',
+      utr_ref: p.remittance_ref || '',
+      bank_name: '',
+      reference_no: '',
+      remarks: p.remarks || '',
+      payment_type: 'remittance',
+      recorded_by: '',
+      created_at: p.created_at
+    }))
+  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+  const poVal = Number(po.revised_po_value || po.po_value || 0);
+  const outstanding = Math.max(0, poVal - totalPaid);
+  let paymentStatus = 'Unpaid';
+  if (totalPaid >= poVal && poVal > 0) paymentStatus = 'Fully Paid';
+  else if (totalPaid > 0) paymentStatus = 'Partially Paid';
+
+  return {
+    payments,
+    summary: {
+      po_value: poVal,
+      total_paid: totalPaid,
+      outstanding,
+      payment_status: po.payment_status || paymentStatus,
+      count: payments.length
+    }
+  };
 }
 
 // --- USER MANAGEMENT & INVITES ---
@@ -710,7 +1170,7 @@ export async function inviteUserAdmin(payload, session) {
 
   const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const normEmail = String(payload.email).trim().toLowerCase();
-  const hash = payload.password ? crypto.createHash('sha256').update(payload.password).digest('hex') : null;
+  const hash = payload.password ? bcrypt.hashSync(payload.password, bcrypt.genSaltSync(12)) : null;
 
   // Check if user already exists
   const existing = await queryGet(`SELECT email FROM users WHERE LOWER(email) = ?`, [normEmail]);
@@ -753,6 +1213,7 @@ export async function inviteUserAdmin(payload, session) {
 }
 
 export async function sendInvite(payload, session) {
+  requireAuth(session);
   return inviteUserAdmin(payload, session);
 }
 
@@ -793,7 +1254,7 @@ export async function setUserRolesAdmin(email, roles, session) {
 export async function resetUserPasswordAdmin(email, password, session) {
   requireAdminConsole(session);
   if (!password || String(password).length < 8) throw new Error('Password must be at least 8 characters');
-  const hash = crypto.createHash('sha256').update(password).digest('hex');
+  const hash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
   await queryRun(
     `UPDATE users SET password_hash = ?, invite_token = NULL WHERE LOWER(email) = ?`,
     [hash, String(email).trim().toLowerCase()]
@@ -814,7 +1275,7 @@ export async function addCustomRole(roleName, session) {
 }
 
 export async function getPOPrefix(session) {
-  requireAdminConsole(session);
+  requireAuth(session);
   return getSetting('po_prefix', '');
 }
 
@@ -827,18 +1288,31 @@ export async function setPOPrefix(prefix, session) {
 }
 
 const DEFAULT_FEATURE_PERMISSIONS = {
-  proc: ['dashboard', 'payments', 'purchase_orders', 'vendors', 'create_payment', 'create_po'],
-  finance: ['dashboard', 'payments', 'vendors', 'reports', 'approve_payment', 'reject_payment', 'export_data'],
-  director: ['dashboard', 'payments', 'purchase_orders', 'projects', 'vendors', 'settings', 'reports', 'manage_users', 'manage_settings', 'view_analytics']
+  proc:       ['dashboard', 'payments', 'purchase_orders', 'vendors', 'create_payment', 'create_po'],
+  finance:    ['dashboard', 'payments', 'vendors', 'reports', 'approve_payment', 'reject_payment', 'export_data'],
+  accountant: ['dashboard', 'payments', 'purchase_orders', 'vendors', 'reports', 'create_payment', 'approve_payment', 'export_data', 'upload_document'],
+  director:   ['dashboard', 'payments', 'purchase_orders', 'projects', 'vendors', 'settings', 'reports', 'manage_users', 'manage_settings', 'view_analytics', 'export_data', 'approve_po', 'approve_payment', 'reject_payment']
 };
+
+// Valid role keys accepted by the permissions system
+const VALID_ROLE_KEYS = new Set(['proc', 'finance', 'accountant', 'director']);
 
 export async function getFeaturePermissions(session) {
   requireAdminConsole(session);
-  const raw = await getSetting('feature_permissions', JSON.stringify(DEFAULT_FEATURE_PERMISSIONS));
+  const raw = await getSetting('feature_permissions', null);
+  if (!raw) return { ...DEFAULT_FEATURE_PERMISSIONS };
   try {
-    return { ...DEFAULT_FEATURE_PERMISSIONS, ...JSON.parse(raw || '{}') };
+    const saved = JSON.parse(raw);
+    // Deep merge: default provides missing roles; saved value wins per-role
+    const merged = { ...DEFAULT_FEATURE_PERMISSIONS };
+    Object.keys(saved).forEach(role => {
+      if (VALID_ROLE_KEYS.has(role)) {
+        merged[role] = saved[role];
+      }
+    });
+    return merged;
   } catch {
-    return DEFAULT_FEATURE_PERMISSIONS;
+    return { ...DEFAULT_FEATURE_PERMISSIONS };
   }
 }
 
@@ -846,9 +1320,9 @@ export async function setFeaturePermissions(config, session) {
   requireAdminConsole(session);
   const sanitized = {};
   Object.entries(config || {}).forEach(([role, features]) => {
-    const cleanRole = normalizeRoleName(role);
-    if (!cleanRole) return;
-    sanitized[cleanRole] = Array.from(new Set((features || []).map(f => String(f).trim()).filter(Boolean)));
+    // Only allow known role keys — no undefined function needed
+    if (!VALID_ROLE_KEYS.has(role)) return;
+    sanitized[role] = Array.from(new Set((features || []).map(f => String(f).trim()).filter(Boolean)));
   });
   await setSetting('feature_permissions', JSON.stringify(sanitized));
   await logAudit(session.email, 'Feature Permissions Updated', JSON.stringify(sanitized), 'Settings');
@@ -856,7 +1330,7 @@ export async function setFeaturePermissions(config, session) {
 }
 
 export async function clearAllCaches(session) {
-  if (!session) throw new Error('AUTH:No active session');
+  requireAuth(session);
   await logAudit(session.email, 'Cache Cleared', 'Application cache refresh requested', 'Settings');
   return { ok: true };
 }
@@ -866,7 +1340,7 @@ export async function logoutUser(token, session) {
 }
 
 export async function updateProjectFinancials(payload, session) {
-  if (!session) throw new Error('AUTH:No active session');
+  requireAuth(session);
   if (!payload?.project) throw new Error('Project is required');
   await queryRun(`
     CREATE TABLE IF NOT EXISTS project_financials (
@@ -907,7 +1381,7 @@ export async function acceptInvite(token, password) {
   const user = await queryGet(`SELECT * FROM users WHERE invite_token = ?`, [token]);
   if (!user) throw new Error("Invalid or expired invite token");
   
-  const hash = crypto.createHash('sha256').update(password).digest('hex');
+  const hash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
   await queryRun(
     `UPDATE users SET password_hash = ?, invite_token = NULL WHERE email = ?`,
     [hash, user.email]
@@ -917,15 +1391,27 @@ export async function acceptInvite(token, password) {
 }
 
 // --- EMAIL ACTIONS ---
-export async function sendPaymentAdvice(rowNumberOrId, session) {
+export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
+  requireAuth(session);
   // rowNumberOrId can be a payment request id or row index
   const rows = await queryAll(`SELECT * FROM payment_requests`);
   const pr = rows.find(r => String(r.pr_id) === String(rowNumberOrId) || String(r.rowid) === String(rowNumberOrId)) || rows[Number(rowNumberOrId) - 1];
   if (!pr) throw new Error('Payment request not found');
 
+  // CRITICAL: Block Payment Advice for Rejected payouts
+  const stage = String(pr.stage || '').toLowerCase();
+  if (stage === 'rejected') {
+    throw new Error('Payment Advice cannot be generated for rejected payment requests.');
+  }
+  // Only allow for remitted (paid) payments
+  const isRemitted = stage === 'remitted' || String(pr.remittance || '').toLowerCase() === 'remitted';
+  if (!isRemitted) {
+    throw new Error('Payment Advice can only be sent for successfully remitted payments.');
+  }
+
   // Get vendor email from vendors table
-  const vendor = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [pr.vendor_name, pr.vendor_key]);
-  const toEmail = vendor?.email || pr.vendor_email;
+  const vendor = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [pr.vendor_name, pr.vendor_code]);
+  const toEmail = emailOverride || vendor?.email || pr.vendor_email;
   if (!toEmail) throw new Error('No email address found for vendor: ' + (pr.vendor_name || ''));
 
   await sendPaymentAdviceEmail({
@@ -942,6 +1428,7 @@ export async function sendPaymentAdvice(rowNumberOrId, session) {
 }
 
 export async function sendPOToVendor(poNo, emailOverride, session) {
+  requireAuth(session);
   const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
   if (!po) throw new Error('PO not found: ' + poNo);
 
@@ -966,8 +1453,34 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
 }
 
 export async function createPaymentRequest(payload, session) {
+  requireAuth(session);
+  if (!payload.vendor || payload.vendor === 'Unknown') {
+    if (payload.vendorCode) {
+      const vendor = await queryGet(`SELECT * FROM vendors WHERE vendor_code = ?`, [payload.vendorCode]);
+      if (vendor) {
+        payload.vendor = vendor.legal_name || vendor.name;
+      }
+    }
+  }
+  if (!payload.vendor || payload.vendor === 'Unknown') {
+    if (payload.poNo) {
+      const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [payload.poNo]);
+      if (po && po.vendor_name && po.vendor_name !== 'Unknown') {
+        payload.vendor = po.vendor_name;
+      }
+    }
+  }
   if (!payload.vendor) throw new Error("Vendor name is required");
   if (!payload.poNo) throw new Error("PO number is required");
+
+  // CRITICAL: Only allow payment requests against Approved POs
+  const linkedPO = await queryGet(`SELECT approval_status, status FROM purchase_orders WHERE po_no = ?`, [payload.poNo]);
+  if (linkedPO) {
+    const poStatus = String(linkedPO.approval_status || linkedPO.status || '').toLowerCase();
+    if (poStatus !== 'approved' && poStatus !== 'active') {
+      throw new Error(`Payment requests can only be created for Approved Purchase Orders. PO ${payload.poNo} is currently "${linkedPO.approval_status || linkedPO.status || 'Draft'}".`);
+    }
+  }
   const reqAmt = Number(payload.amountRequested || payload.gross_amount);
   if (isNaN(reqAmt) || reqAmt <= 0) {
     throw new Error("Amount Requested must be greater than zero");
@@ -1028,6 +1541,7 @@ export async function createPaymentRequest(payload, session) {
 }
 
 export async function bulkApprovePayments(ids, approvalData, session) {
+  requireAuth(session);
   const approvedIds = [];
   const failedIds = [];
   const errors = [];
@@ -1048,15 +1562,26 @@ export async function bulkApprovePayments(ids, approvalData, session) {
       let stage = pr.stage || 'Pending Procurement';
       let oldStage = stage;
 
-      if (stage === 'Pending Procurement') {
+      const roles = session?.roles || [];
+      const isDirOrAdmin = roles.includes('director') || roles.includes('admin');
+      const isFin = roles.includes('finance');
+
+      if (isDirOrAdmin) {
         procApp = 'Approved';
-        stage = 'Pending Finance';
-      } else if (stage === 'Pending Finance') {
         finApp = 'Approved';
-        stage = 'Pending Director';
-      } else if (stage === 'Pending Director') {
         dirApp = 'Approved';
         stage = 'Ready to Remit';
+      } else if (isFin) {
+        procApp = 'Approved';
+        finApp = 'Approved';
+        if (stage === 'Pending Procurement' || stage === 'Pending Finance') {
+          stage = 'Pending Director';
+        }
+      } else {
+        procApp = 'Approved';
+        if (stage === 'Pending Procurement') {
+          stage = 'Pending Finance';
+        }
       }
 
       await queryRun(
@@ -1106,6 +1631,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
 }
 
 export async function bulkRejectPayments(ids, rejectionData, session) {
+  requireAuth(session);
   const rejectedIds = [];
   const failedIds = [];
   const errors = [];
@@ -1165,22 +1691,33 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
 }
 
 export async function bulkRemitPayments(requestIds, remittanceData, session) {
+  requireAuth(session);
   const remittedIds = [];
   const failedIds = [];
   const errors = [];
   const ids = Array.isArray(requestIds) ? requestIds : [requestIds];
+  const affectedPoNos = [];
+
+  const utrRef = remittanceData?.utr_ref || '';
+  const today = new Date().toISOString().split('T')[0];
 
   for (const id of ids) {
     try {
       const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
       if (!pr) throw new Error(`Payment request not found: ${id}`);
 
+      if (pr.po_no) {
+        affectedPoNos.push(pr.po_no);
+      }
+
       await queryRun(
         `UPDATE payment_requests SET 
           remittance = 'Remitted', 
-          stage = 'Remitted' 
+          stage = 'Remitted',
+          remittance_ref = ?,
+          remittance_date = ? 
          WHERE pr_id = ?`,
-        [id]
+        [utrRef, today, id]
       );
 
       // Record in system payments
@@ -1209,11 +1746,14 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
     }
   }
 
-  // Trigger reconciliation automatically
-  try {
-    await reconcileRemittedPaymentsToPOLedger(session);
-  } catch (reconcileErr) {
-    console.error('Reconciliation error during bulk remittance:', reconcileErr.message);
+  // Trigger reconciliation automatically for affected POs only
+  const uniquePoNos = Array.from(new Set(affectedPoNos));
+  for (const poNo of uniquePoNos) {
+    try {
+      await reconcileRemittedPaymentsToPOLedger(session, poNo);
+    } catch (reconcileErr) {
+      console.error(`Reconciliation error for PO# ${poNo} during bulk remittance:`, reconcileErr.message);
+    }
   }
 
   if (remittedIds.length > 0) {
@@ -1234,10 +1774,12 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
 }
 
 export async function approvePaymentWithChain(paymentId, session) {
+  requireAuth(session);
   return bulkApprovePayments([paymentId], {}, session);
 }
 
 export async function transitionPaymentWorkflow(payload, session) {
+  requireAuth(session);
   const rowNumber = payload.rowNumber || payload.paymentId;
   const action = payload.action || 'approve';
   let result;
@@ -1259,6 +1801,7 @@ export async function transitionPaymentWorkflow(payload, session) {
 }
 
 export async function setPaymentHold(payload, session) {
+  requireAuth(session);
   const rowNumber = payload.rowNumber || payload.paymentId;
   await queryRun(
     `UPDATE payment_requests SET 
@@ -1275,6 +1818,7 @@ export async function setPaymentHold(payload, session) {
 }
 
 export async function getApprovalHistory(requestId, session) {
+  requireAuth(session);
   const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [requestId]);
   if (!pr) return [];
   
@@ -1322,9 +1866,15 @@ export async function getApprovalHistory(requestId, session) {
   return history;
 }
 
-export async function reconcileRemittedPaymentsToPOLedger(session) {
-  // Fetch all purchase orders
-  const pos = await queryAll(`SELECT po_no, revised_po_value, po_value FROM purchase_orders`);
+export async function reconcileRemittedPaymentsToPOLedger(session, targetPoNo = null) {
+  requireAuth(session);
+  // Fetch all or specific purchase orders
+  let pos = [];
+  if (targetPoNo) {
+    pos = await queryAll(`SELECT po_no, revised_po_value, po_value FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
+  } else {
+    pos = await queryAll(`SELECT po_no, revised_po_value, po_value FROM purchase_orders`);
+  }
   let reconciledCount = 0;
 
   for (const po of pos) {
@@ -1371,6 +1921,7 @@ export async function reconcileRemittedPaymentsToPOLedger(session) {
 }
 
 export async function listAuditLog(filters = {}, session) {
+  requireAuth(session);
   const limit = Math.min(Number(filters.limit) || 250, 500);
   const rows = await queryAll(
     `SELECT timestamp, user, action_type AS actionType, details, department FROM audit_logs ORDER BY timestamp DESC LIMIT ?`,
@@ -1380,14 +1931,19 @@ export async function listAuditLog(filters = {}, session) {
 }
 
 export async function getPaymentReportRows(filters = {}, session) {
+  requireAuth(session);
   const all = await listPaymentRequests({}, session);
   return all.filter(r => {
     if (filters.type && filters.type !== 'All') {
       if (filters.type.toLowerCase() === 'approved' && r.status !== 'approved') return false;
       if (filters.type.toLowerCase() === 'rejected' && r.status !== 'rejected') return false;
+      if (filters.type.toLowerCase() === 'remit') {
+        const isReadyToRemit = String(r.stage).toLowerCase() === 'ready to remit';
+        if (!isReadyToRemit) return false;
+      }
       if (filters.type.toLowerCase() === 'remitted') {
-        const isRem = String(r.stage).toLowerCase().includes('remit') || String(r.remittance).toLowerCase().includes('remit');
-        if (!isRem) return false;
+        const isRemitted = String(r.stage).toLowerCase() === 'remitted' || String(r.remittance).toLowerCase() === 'remitted';
+        if (!isRemitted) return false;
       }
     }
     if (filters.vendor && r.vendor !== filters.vendor) return false;
@@ -1397,6 +1953,7 @@ export async function getPaymentReportRows(filters = {}, session) {
 }
 
 export async function getTDSRegisterReport(startDate, endDate, session) {
+  requireAuth(session);
   let query = `SELECT * FROM payment_requests WHERE tds_amount > 0`;
   const params = [];
   if (startDate) {
@@ -1464,6 +2021,7 @@ export async function getTDSRegisterReport(startDate, endDate, session) {
 }
 
 export async function getVendorTDSReport(startDate, endDate, session) {
+  requireAuth(session);
   const report = await getTDSRegisterReport(startDate, endDate, session);
   const vendorMap = {};
   report.entries.forEach(e => {
@@ -1491,6 +2049,7 @@ export async function getVendorTDSReport(startDate, endDate, session) {
 }
 
 export async function getProjectTDSReport(startDate, endDate, session) {
+  requireAuth(session);
   const report = await getTDSRegisterReport(startDate, endDate, session);
   const projMap = {};
   report.entries.forEach(e => {
@@ -1518,6 +2077,7 @@ export async function getProjectTDSReport(startDate, endDate, session) {
 }
 
 export async function getApprovalAuditReport(startDate, endDate, session) {
+  requireAuth(session);
   let query = `SELECT * FROM payment_requests`;
   const params = [];
   if (startDate) {
@@ -1565,6 +2125,7 @@ export async function getApprovalAuditReport(startDate, endDate, session) {
 }
 
 export async function getDayWiseApprovalReport(startDate, endDate, session) {
+  requireAuth(session);
   const auditReport = await getApprovalAuditReport(startDate, endDate, session);
   const dayMap = {};
   
@@ -1614,17 +2175,71 @@ export async function getDayWiseApprovalReport(startDate, endDate, session) {
 }
 
 export async function getPOFullDetails(poNo, session) {
+  requireAuth(session);
+  await ensureSettingsTable();
   const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
   if (!po) return null;
   const items = await queryAll(`SELECT * FROM po_items WHERE po_no = ?`, [poNo]);
   return {
     ...po,
+    vendor_key: po.vendor_key || '',
+    approval_status: po.approval_status || po.status || 'Draft',
+    status: po.approval_status || po.status || 'Draft',
+    tds_section: po.tds_section || '',
+    tds_pct: Number(po.tds_pct) || 0,
+    tds_amount: Number(po.tds_amount) || 0,
+    gst_total: Number(po.gst_total) || 0,
+    gst_mode: po.gst_mode || 'inter',
+    notes: po.notes || '',
+    expected_delivery_date: po.expected_delivery_date || '',
+    category: po.category || 'Goods',
+    payment_status: po.payment_status || 'Unpaid',
     items: items.map(it => ({
       description: it.description,
       hsnSac: it.hsn_sac,
+      hsn_sac: it.hsn_sac,
       quantity: it.qty,
+      qty: it.qty,
       rate: it.rate,
+      gstPct: Number(it.tax_pct) || 0,
+      tax_pct: Number(it.tax_pct) || 0,
       amount: it.amount
     }))
   };
+}
+
+export async function getCompanySettings(session) {
+  requireAuth(session);
+  const name = await getSetting('company_name', 'LUXEWORX ATELIER INTERIORS PRIVATE LIMITED');
+  const address = await getSetting('company_address', '8th Floor, Magnum Towers-1\nGolf Course Ext Rd\nGurugram Haryana 122001');
+  const gstin = await getSetting('company_gstin', '06AAGCL1112M1ZP');
+  let logo = '';
+  try {
+    logo = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8');
+  } catch (e) {
+    logo = await getSetting('company_logo', '');
+  }
+  return { name, address, gstin, logo };
+}
+
+export async function setCompanySettings(payload, session) {
+  requireAdminConsole(session);
+  const { name, address, gstin, logo } = payload || {};
+  if (name !== undefined) await setSetting('company_name', String(name).trim());
+  if (address !== undefined) await setSetting('company_address', String(address).trim());
+  if (gstin !== undefined) await setSetting('company_gstin', String(gstin).trim());
+  if (logo !== undefined) {
+    await setSetting('company_logo', logo);
+    try {
+      const scratchDir = path.join(process.cwd(), 'scratch');
+      if (!fs.existsSync(scratchDir)) {
+        fs.mkdirSync(scratchDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(scratchDir, 'logo_uri.txt'), logo, 'utf8');
+    } catch (e) {
+      console.error("Failed to write logo to file:", e.message);
+    }
+  }
+  await logAudit(session.email, 'Company Settings Updated', `${name || ''}, ${gstin || ''}`, 'Settings');
+  return { ok: true };
 }

@@ -1,6 +1,72 @@
 import { NextResponse } from 'next/server';
 import * as api from '../../lib/api.js';
 
+const ALLOWED_METHODS = new Set([
+  'loginUser',
+  'getMySession',
+  'getBootData',
+  'getBootBundle',
+  'clearCacheAndGetMaster',
+  'getDashboardKPIs',
+  'getMasterData',
+  'getProjectDetails',
+  'addVendor',
+  'updateVendor',
+  'getVendorByName',
+  'getVendorSummary',
+  'listPOsJson',
+  'getPOsByVendor',
+  'listPaymentRequests',
+  'getApprovalQueue',
+  'getRemittanceQueue',
+  'getCommandCenter',
+  'getMasterHealth',
+  'createPOFull',
+  'updatePOFull',
+  'submitPOForApproval',
+  'approvePO',
+  'getPOApprovalHistory',
+  'addManualPayment',
+  'getPOPayments',
+  'inviteUserAdmin',
+  'sendInvite',
+  'listUsersAdmin',
+  'deleteUserAdmin',
+  'setUserActiveAdmin',
+  'setUserRolesAdmin',
+  'resetUserPasswordAdmin',
+  'addCustomRole',
+  'getPOPrefix',
+  'setPOPrefix',
+  'getCompanySettings',
+  'setCompanySettings',
+  'getFeaturePermissions',
+  'setFeaturePermissions',
+  'clearAllCaches',
+  'logoutUser',
+  'updateProjectFinancials',
+  'acceptInvite',
+  'sendPaymentAdvice',
+  'sendPOToVendor',
+  'createPaymentRequest',
+  'bulkApprovePayments',
+  'bulkRejectPayments',
+  'bulkRemitPayments',
+  'approvePaymentWithChain',
+  'transitionPaymentWorkflow',
+  'setPaymentHold',
+  'getApprovalHistory',
+  'reconcileRemittedPaymentsToPOLedger',
+  'listAuditLog',
+  'getPaymentReportRows',
+  'getTDSRegisterReport',
+  'getVendorTDSReport',
+  'getProjectTDSReport',
+  'getApprovalAuditReport',
+  'getDayWiseApprovalReport',
+  'getPOFullDetails'
+]);
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -8,6 +74,11 @@ export async function POST(request) {
 
     if (!method) {
       return NextResponse.json({ error: `Method missing` }, { status: 400 });
+    }
+
+    if (!ALLOWED_METHODS.has(method)) {
+      console.warn(`Blocked call to forbidden or untracked method: ${method}`);
+      return NextResponse.json({ error: `Method not allowed` }, { status: 403 });
     }
 
     if (typeof api[method] !== 'function') {
@@ -36,6 +107,20 @@ export async function POST(request) {
       }
     } catch (e) {
       console.error('RPC session lookup failed. Token resolution error:', e);
+    }
+
+    // Pad arguments for 2-parameter methods if client didn't supply filters/payload
+    const twoParamMethods = new Set([
+      'listPaymentRequests',
+      'getVendorSummary',
+      'listPOsJson',
+      'listAuditLog',
+      'getPaymentReportRows',
+      'getApprovalQueue',
+      'getRemittanceQueue'
+    ]);
+    if (twoParamMethods.has(method) && args.length === 0) {
+      args.push(undefined);
     }
 
     // Invoke the requested method with resolved session

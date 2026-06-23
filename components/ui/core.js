@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../app/lib/utils';
 import { X } from 'lucide-react';
 
@@ -142,9 +143,16 @@ export function TableCell({ className, ...props }) {
 
 // --- DIALOG / MODAL ---
 export function Dialog({ open, onClose, title, children }) {
-  if (!open) return null;
+  const [mounted, setMounted] = React.useState(false);
 
-  return (
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!open) return null;
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Overlay */}
       <div 
@@ -153,7 +161,10 @@ export function Dialog({ open, onClose, title, children }) {
       />
       
       {/* Content wrapper */}
-      <div className="relative w-full max-w-2xl bg-background border border-border rounded-xl shadow-2xl overflow-hidden z-10 animate-fade-in flex flex-col max-h-[90vh] transition-colors duration-200">
+      <div 
+        className="relative w-full max-w-2xl bg-background border border-border rounded-xl shadow-2xl overflow-hidden z-10 animate-fade-in flex flex-col transition-colors duration-200"
+        style={{ maxHeight: '90vh' }}
+      >
         {/* Header */}
         <div className="px-6 py-5 border-b border-border/60 flex items-center justify-between">
           <h3 className="text-lg font-light tracking-tight text-foreground font-serif">{title}</h3>
@@ -166,10 +177,11 @@ export function Dialog({ open, onClose, title, children }) {
         </div>
 
         {/* Scrollable Body */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

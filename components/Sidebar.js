@@ -16,7 +16,7 @@ import {
 import { Badge } from './ui/core';
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
-  const { user, activeView, setActiveView, logout, payments } = useAppState();
+  const { user, activeView, setActiveView, logout, payments, hasPermission } = useAppState();
 
   const roles = user?.roles || [];
   const isAdmin = roles.includes('admin');
@@ -37,18 +37,19 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   }).length;
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'projects', label: 'Projects', icon: FolderKanban },
-    { id: 'vendors', label: 'Vendors', icon: Users },
-    { id: 'pos', label: 'Purchase Orders', icon: Receipt },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, feature: 'dashboard' },
+    { id: 'projects', label: 'Projects', icon: FolderKanban, feature: 'projects' },
+    { id: 'vendors', label: 'Vendors', icon: Users, feature: 'vendors' },
+    { id: 'pos', label: 'Purchase Orders', icon: Receipt, feature: 'purchase_orders' },
     { 
       id: 'payments', 
       label: 'Payments', 
       icon: CreditCard,
+      feature: 'payments',
       badge: pendingPaymentsCount > 0 ? pendingPaymentsCount : null 
     },
-    { id: 'reports', label: 'Reports', icon: BarChart3 },
-    { id: 'settings', label: 'Settings', icon: Settings, roles: ['admin', 'director'] }
+    { id: 'reports', label: 'Reports', icon: BarChart3, feature: 'reports' },
+    { id: 'settings', label: 'Settings', icon: Settings, roles: ['admin', 'director'], feature: 'settings' }
   ];
 
   const handleNavClick = (viewId) => {
@@ -57,9 +58,16 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   };
 
   const filteredMenuItems = menuItems.filter(item => {
-    if (item.roles) {
-      return item.roles.some(role => roles.includes(role));
+    // Admin and Director always see all items
+    if (isAdmin || isDirector) {
+      // Still enforce the roles-only check for settings
+      if (item.roles) return item.roles.some(r => roles.includes(r));
+      return true;
     }
+    // Enforce role requirement for specific items (e.g. Settings)
+    if (item.roles && !item.roles.some(r => roles.includes(r))) return false;
+    // Enforce feature permissions from Settings matrix
+    if (item.feature && !hasPermission(item.feature)) return false;
     return true;
   });
 

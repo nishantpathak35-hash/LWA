@@ -14,12 +14,21 @@ function readStoredToken() {
 }
 
 export function StateProvider({ children }) {
-  const [token, setToken] = useState(readStoredToken);
+  const [token, setToken] = useState('');
   const [user, setUser] = useState(null);
   const [activeView, setActiveView] = useState('dashboard');
-  const [loading, setLoading] = useState(() => Boolean(readStoredToken()));
+  const [loading, setLoading] = useState(true);
   const [booting, setBooting] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const stored = readStoredToken();
+    if (stored) {
+      setToken(stored);
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
   // Cached data state
   const [kpis, setKpis] = useState(null);
@@ -27,6 +36,7 @@ export function StateProvider({ children }) {
   const [pos, setPos] = useState([]);
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [featurePermissions, setFeaturePermissions] = useState({});
 
   const logout = useCallback(async () => {
     const currentToken = token || localStorage.getItem('lx_auth_token');
@@ -118,10 +128,14 @@ export function StateProvider({ children }) {
           setProjects(bundle.master.projects || []);
         }
       }
-      
       // Load payment requests
       const prList = await call('listPaymentRequests');
       setPayments(prList || []);
+      // Load feature permissions for access control
+      try {
+        const perms = await call('getFeaturePermissions');
+        if (perms && typeof perms === 'object') setFeaturePermissions(perms);
+      } catch (e) { /* non-fatal */ }
     } catch (e) {
       console.error('Data refresh failed:', e);
     }
@@ -153,6 +167,11 @@ export function StateProvider({ children }) {
           }
           const prList = await call('listPaymentRequests');
           setPayments(prList || []);
+          // Load feature permissions for access control
+          try {
+            const perms = await call('getFeaturePermissions');
+            if (perms && typeof perms === 'object') setFeaturePermissions(perms);
+          } catch (e) { /* non-fatal */ }
         } else {
           logout();
         }
@@ -197,6 +216,30 @@ export function StateProvider({ children }) {
     return () => clearInterval(interval);
   }, [user, refreshData]);
 
+  const hasPermission = useCallback((feature) => {
+    if (!user) return false;
+    if (user.email === 'admin@luxeworx.com') return true;
+    const roles = user.roles || [];
+    // Admin and Director always have full access
+    if (roles.includes('admin') || roles.includes('director')) return true;
+    // Canonical role-alias mapping: DB value → featurePermissions key
+    const ROLE_MAP = {
+      'procurement': 'proc',
+      'maker':       'proc',
+      'proc':        'proc',
+      'finance':     'finance',
+      'accountant':  'accountant',
+    };
+    // Check each role the user has against the permissions matrix
+    for (const role of roles) {
+      const roleKey = ROLE_MAP[role] ?? role;
+      if (featurePermissions[roleKey] && featurePermissions[roleKey].includes(feature)) {
+        return true;
+      }
+    }
+    return false;
+  }, [user, featurePermissions]);
+
   const value = {
     token,
     user,
@@ -211,6 +254,8 @@ export function StateProvider({ children }) {
     pos,
     projects,
     payments,
+    featurePermissions,
+    hasPermission,
     login,
     logout,
     call,

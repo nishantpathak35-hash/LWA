@@ -33,10 +33,38 @@ export default function SettingsView() {
 
   // System settings states
   const [poPrefix, setPoPrefix] = useState('');
+  // Raw permissions from DB (source of truth after load)
   const [permissions, setPermissions] = useState({});
+  // Controlled local state for the matrix UI (what checkboxes actually reflect)
+  const [localPerms, setLocalPerms] = useState({});
+
+  // Company settings states
+  const [companyName, setCompanyName] = useState('');
+  const [companyAddress, setCompanyAddress] = useState('');
+  const [companyGstin, setCompanyGstin] = useState('');
+  const [companyLogo, setCompanyLogo] = useState('');
+  const [savingCompany, setSavingCompany] = useState(false);
+
+  // Load Company Settings
+  const loadCompany = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await call('getCompanySettings');
+      if (data) {
+        setCompanyName(data.name || '');
+        setCompanyAddress(data.address || '');
+        setCompanyGstin(data.gstin || '');
+        setCompanyLogo(data.logo || '');
+      }
+    } catch (e) {
+      console.error('Failed to load company settings:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [call]);
 
   // Verify Director access
-  const isDirector = user?.roles?.includes('director');
+  const isDirector = user?.email === 'admin@luxeworx.com' || user?.roles?.includes('director');
 
   // Load Users Tab Data
   const loadUsers = useCallback(async () => {
@@ -54,7 +82,7 @@ export default function SettingsView() {
   // Load System Tab Data
   const loadSystem = useCallback(async () => {
     try {
-      const prefix = await call('getPOPrefix', {});
+      const prefix = await call('getPOPrefix');
       setPoPrefix(prefix || '');
     } catch (e) {
       console.error('Failed to load PO prefix:', e);
@@ -65,7 +93,10 @@ export default function SettingsView() {
   const loadPermissions = useCallback(async () => {
     try {
       const perms = await call('getFeaturePermissions');
-      setPermissions(perms || {});
+      const merged = perms || {};
+      setPermissions(merged);
+      // Seed controlled local state — deep clone so changes don't mutate the source
+      setLocalPerms(JSON.parse(JSON.stringify(merged)));
     } catch (e) {
       console.error('Failed to load permissions:', e);
     }
@@ -80,10 +111,12 @@ export default function SettingsView() {
       loadPermissions();
     } else if (activeTab === 'system') {
       loadSystem();
+    } else if (activeTab === 'company') {
+      loadCompany();
     }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [activeTab, isDirector, loadPermissions, loadSystem, loadUsers]);
+  }, [activeTab, isDirector, loadPermissions, loadSystem, loadUsers, loadCompany]);
 
   if (!isDirector) {
     return (
@@ -145,6 +178,24 @@ export default function SettingsView() {
     }
   };
 
+  const handleSaveCompany = async (e) => {
+    e.preventDefault();
+    setSavingCompany(true);
+    try {
+      await call('setCompanySettings', {
+        name: companyName,
+        address: companyAddress,
+        gstin: companyGstin,
+        logo: companyLogo
+      });
+      alert('Company settings saved successfully.');
+    } catch (e) {
+      alert('Error saving company settings: ' + (e.message || String(e)));
+    } finally {
+      setSavingCompany(false);
+    }
+  };
+
   const handleClearServerCache = async () => {
     try {
       await call('clearAllCaches');
@@ -164,19 +215,30 @@ export default function SettingsView() {
     }
   };
 
-  const handleSavePermissions = async () => {
-    const newConfig = { proc: [], finance: [], director: [] };
-    
-    // Scrape checklist state to reconstruct perms
-    const checkboxes = document.querySelectorAll('.perm-check');
-    checkboxes.forEach(cb => {
-      if (cb.checked) {
-        newConfig[cb.dataset.role].push(cb.dataset.feature);
+  // Toggle a single feature permission in controlled local state
+  const handleTogglePerm = useCallback((role, feature) => {
+    setLocalPerms(prev => {
+      const current = prev[role] ? [...prev[role]] : [];
+      const idx = current.indexOf(feature);
+      if (idx === -1) {
+        current.push(feature);
+      } else {
+        current.splice(idx, 1);
       }
+      return { ...prev, [role]: current };
     });
+  }, []);
 
+  const handleSavePermissions = async () => {
     try {
+      // Derive config directly from React state — no DOM scraping
+      const newConfig = {};
+      roleKeys.forEach(role => {
+        newConfig[role] = localPerms[role] ? [...localPerms[role]] : [];
+      });
       await call('setFeaturePermissions', newConfig);
+      // Sync persisted state so future toggles are relative to saved values
+      setPermissions(JSON.parse(JSON.stringify(newConfig)));
       alert('Feature permissions saved successfully.');
     } catch (e) {
       alert('Error: ' + (e.message || String(e)));
@@ -295,8 +357,8 @@ export default function SettingsView() {
     'view_analytics': 'View Analytics'
   };
 
-  const roleKeys = ['proc', 'finance', 'director'];
-  const roleLabels = { 'proc': 'Procurement', 'finance': 'Finance', 'director': 'Director' };
+  const roleKeys = ['proc', 'finance', 'accountant', 'director'];
+  const roleLabels = { 'proc': 'Procurement', 'finance': 'Finance', 'accountant': 'Accountant', 'director': 'Director' };
 
   return (
     <div className="space-y-6">
@@ -333,6 +395,13 @@ export default function SettingsView() {
           variant={activeTab === 'system' ? 'primary' : 'ghost'}
         >
           ⚙ System Utilities
+        </Button>
+        <Button
+          onClick={() => setActiveTab('company')}
+          size="sm"
+          variant={activeTab === 'company' ? 'primary' : 'ghost'}
+        >
+          🏢 Company Settings
         </Button>
       </div>
 
@@ -520,15 +589,16 @@ export default function SettingsView() {
                   <TableRow key={key}>
                     <TableCell className="font-semibold text-slate-200">{featureLabels[key]}</TableCell>
                     {roleKeys.map(role => {
-                      const isChecked = permissions[role]?.includes(key) || false;
+                      // Controlled checkbox — reads from and writes to React state, not the DOM
+                      const isChecked = !!(localPerms[role] && localPerms[role].includes(key));
                       return (
                         <TableCell key={role} className="text-center">
                           <input
                             type="checkbox"
-                            className="perm-check w-4.5 h-4.5 border-slate-800 bg-slate-900 rounded checked:bg-gold cursor-pointer"
-                            data-role={role}
-                            data-feature={key}
-                            defaultChecked={isChecked}
+                            id={`perm-${role}-${key}`}
+                            className="w-4 h-4 rounded cursor-pointer accent-amber-400"
+                            checked={isChecked}
+                            onChange={() => handleTogglePerm(role, key)}
                           />
                         </TableCell>
                       );
@@ -592,6 +662,75 @@ export default function SettingsView() {
                 Reload All
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Company Settings Tab */}
+      {activeTab === 'company' && (
+        <Card className="bg-slate-950/40 border-slate-900">
+          <CardHeader>
+            <CardTitle className="text-gold font-medium">Company Profile & Invoice Settings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveCompany} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs text-slate-400 font-light">Registered Company Name</label>
+                  <Input
+                    placeholder="e.g. LUXEWORX ATELIER INTERIORS PRIVATE LIMITED"
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-xs text-slate-400 font-light">GSTIN</label>
+                  <Input
+                    placeholder="e.g. 06AAGCL1112M1ZP"
+                    value={companyGstin}
+                    onChange={e => setCompanyGstin(e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs text-slate-400 font-light">Registered Office Address</label>
+                  <textarea
+                    className="w-full px-3.5 py-2 bg-white dark:bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground/60 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all duration-200"
+                    rows={4}
+                    placeholder="8th Floor, Magnum Towers-1&#10;Golf Course Ext Rd&#10;Gurugram Haryana 122001"
+                    value={companyAddress}
+                    onChange={e => setCompanyAddress(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs text-slate-400 font-light">Company Logo (Base64 data URI)</label>
+                  <textarea
+                    className="w-full px-3.5 py-2 bg-white dark:bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground/60 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all duration-200 font-mono text-xs"
+                    rows={6}
+                    placeholder="data:image/png;base64,..."
+                    value={companyLogo}
+                    onChange={e => setCompanyLogo(e.target.value)}
+                  />
+                  {companyLogo && (
+                    <div className="mt-3 p-3 border border-border rounded-lg bg-slate-900/10 max-w-xs">
+                      <span className="text-[10px] text-slate-400 block mb-1">Logo Preview:</span>
+                      <img src={companyLogo} alt="Preview" className="h-12 w-auto object-contain bg-white p-1 rounded" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-slate-900">
+                <Button type="submit" variant="primary" disabled={savingCompany}>
+                  {savingCompany ? 'Saving...' : 'Save Settings'}
+                </Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
       )}

@@ -74,7 +74,7 @@ export default function ReportsView() {
           result = await call('getApprovalAuditReport', startDate, endDate);
         } else if (reportType === 'Day_Wise') {
           result = await call('getDayWiseApprovalReport', startDate, endDate);
-        } else if (['All', 'Approved', 'Rejected', 'Remitted'].includes(reportType)) {
+        } else if (['All', 'Approved', 'Rejected', 'Remit', 'Remitted'].includes(reportType)) {
           result = await call('getPaymentReportRows', {
             type: reportType,
             vendor: vendorFilter,
@@ -173,6 +173,7 @@ export default function ReportsView() {
     { id: 'All', label: 'All' },
     { id: 'Approved', label: 'Approved' },
     { id: 'Rejected', label: 'Rejected' },
+    { id: 'Remit', label: 'Remit' },
     { id: 'Remitted', label: 'Remitted' },
     { id: 'Day_Wise', label: 'Day-Wise Approval' },
     { id: 'TDS_Register', label: 'TDS Register' },
@@ -600,7 +601,7 @@ export default function ReportsView() {
             </div>
 
             {/* Custom filters for payment lists */}
-            {['All', 'Approved', 'Rejected', 'Remitted'].includes(reportType) && (
+            {['All', 'Approved', 'Rejected', 'Remit', 'Remitted'].includes(reportType) && (
               <>
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-400 font-light">Vendor Search</label>

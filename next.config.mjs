@@ -8,6 +8,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: ['@libsql/client'],
 };
 
 export default nextConfig;
