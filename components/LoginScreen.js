@@ -68,12 +68,12 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
         <BrandIdentity
-          title="LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
-          subtitle="PTS"
-          size="lg"
+          title="PTS"
+          subtitle="LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
+          size="xxl"
           wrapTitle
-          titleClassName="text-base"
-          subtitleClassName="text-[9px] text-gold/70"
+          titleClassName="text-2xl lg:text-3xl"
+          subtitleClassName="text-[10px] text-gold/70"
           className="relative z-10"
         />
 
@@ -115,11 +115,11 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
       <div className="flex-1 flex items-center justify-center p-8 md:p-16 lg:p-24 relative z-10 bg-[#020617]">
         <div className="absolute top-8 left-8 md:hidden">
           <BrandIdentity
-            title="LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
-            subtitle="PTS"
-            size="sm"
+            title="PTS"
+            subtitle="LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
+            size="xl"
             wrapTitle
-            titleClassName="text-xs"
+            titleClassName="text-base"
             subtitleClassName="text-[8px] text-gold/70"
           />
         </div>
@@ -150,8 +150,8 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-3xl font-light tracking-tight text-slate-100 font-serif">Configure Account</h2>
-                  <p className="mt-2 text-sm text-slate-400 font-light">
-                    Create your personal password to activate your Luxeworx account.
+              <p className="mt-2 text-sm text-slate-400 font-light">
+                    Create your personal password to activate your PTS account.
                   </p>
                 </div>
 
@@ -226,7 +226,7 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
             <div>
               <h2 className="text-3xl font-light tracking-tight text-slate-100 font-serif">Sign in</h2>
               <p className="mt-2 text-sm text-slate-400 font-light">
-                Use the credentials provisioned by your system director.
+                Use the credentials provisioned by your system director for PTS.
               </p>
             </div>
 

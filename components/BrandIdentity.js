@@ -20,7 +20,8 @@ export default function BrandIdentity({
     sm: { box: 'h-8 w-8', px: 32 },
     md: { box: 'h-10 w-10', px: 40 },
     lg: { box: 'h-12 w-12', px: 48 },
-    xl: { box: 'h-14 w-14', px: 56 }
+    xl: { box: 'h-14 w-14', px: 56 },
+    xxl: { box: 'h-20 w-20', px: 80 }
   };
   const logoSize = logoSizes[size] || logoSizes.md;
 
