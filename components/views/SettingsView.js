@@ -678,7 +678,7 @@ export default function SettingsView() {
                 <div className="space-y-2">
                   <label className="text-xs text-slate-400 font-light">Registered Company Name</label>
                   <Input
-                    placeholder="e.g. LUXEWORX ATELIER INTERIORS PRIVATE LIMITED"
+                    placeholder="e.g. LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
                     value={companyName}
                     onChange={e => setCompanyName(e.target.value)}
                     required

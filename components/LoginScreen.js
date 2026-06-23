@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAppState } from './StateProvider';
+import BrandIdentity from './BrandIdentity';
 import { ShieldCheck, RefreshCw, KeyRound, Mail, CheckCircle2 } from 'lucide-react';
 
 export default function LoginScreen({ inviteToken, clearInvite }) {
@@ -66,16 +67,19 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
         <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-gold/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-gold to-yellow-600 flex items-center justify-center font-bold text-slate-950 shadow-lg shadow-gold/10">
-            LW
-          </div>
-          <span className="font-semibold tracking-wider text-slate-200">LUXEWORX</span>
-        </div>
+        <BrandIdentity
+          title="LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
+          subtitle="PTS"
+          size="lg"
+          wrapTitle
+          titleClassName="text-base"
+          subtitleClassName="text-[9px] text-gold/70"
+          className="relative z-10"
+        />
 
         <div className="space-y-6 max-w-xl relative z-10 my-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gold/20 bg-gold/5 text-xs text-gold/90 font-medium tracking-wide">
-            FINANCE OPERATIONS
+            PTS
           </div>
           <h1 className="text-4xl lg:text-5xl font-light leading-tight font-serif">
             Capital, <em className="text-gold not-italic font-normal">composed</em>.
@@ -109,11 +113,15 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
 
       {/* Form panel (Right side) */}
       <div className="flex-1 flex items-center justify-center p-8 md:p-16 lg:p-24 relative z-10 bg-[#020617]">
-        <div className="absolute top-8 left-8 flex items-center gap-2 md:hidden">
-          <div className="w-8 h-8 rounded-lg bg-gold flex items-center justify-center font-bold text-slate-950">
-            LW
-          </div>
-          <span className="text-xs font-semibold text-slate-200 tracking-wider">LUXEWORX</span>
+        <div className="absolute top-8 left-8 md:hidden">
+          <BrandIdentity
+            title="LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
+            subtitle="PTS"
+            size="sm"
+            wrapTitle
+            titleClassName="text-xs"
+            subtitleClassName="text-[8px] text-gold/70"
+          />
         </div>
 
         {inviteToken ? (

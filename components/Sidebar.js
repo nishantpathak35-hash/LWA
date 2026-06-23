@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useAppState } from './StateProvider';
+import BrandIdentity from './BrandIdentity';
 import { 
   LayoutDashboard, 
   FolderKanban, 
@@ -78,12 +79,14 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     `}>
       <div className="space-y-8">
         {/* Branding */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-gold to-yellow-600 flex items-center justify-center font-bold text-slate-950 shadow-md shadow-gold/10">
-            LW
-          </div>
-          <span className="font-semibold tracking-wider text-slate-200 text-sm">LUXEWORX</span>
-        </div>
+        <BrandIdentity
+          title="LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
+          subtitle="Payment Tracking System"
+          size="md"
+          wrapTitle
+          titleClassName="text-[11px]"
+          subtitleClassName="text-[9px]"
+        />
 
         {/* User Card */}
         {user && (

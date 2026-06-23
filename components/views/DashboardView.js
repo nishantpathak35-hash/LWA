@@ -378,7 +378,6 @@ export default function DashboardView() {
           >
             <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">New Purchase Order</span>
             <div className="text-3xl my-3 text-emerald-400 group-hover:scale-110 transition-transform">📄</div>
-            <span className="text-[11px] text-muted-foreground font-light">Register a studio purchase order</span>
           </button>
           <button
             onClick={() => setActiveView('payments')}

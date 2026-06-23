@@ -1,5 +1,6 @@
 import { queryGet, queryAll } from '../../../app/lib/db.js';
 import { formatCurrency } from '../../../app/lib/utils.js';
+import Image from 'next/image';
 import fs from 'fs';
 import path from 'path';
 
@@ -8,7 +9,7 @@ export default async function POPdfPage({ params }) {
   const decodedPoNo = decodeURIComponent(poNo);
 
   // Fetch Company Settings from app_settings
-  let companyName = 'LUXEWORX ATELIER INTERIORS PRIVATE LIMITED';
+  let companyName = 'LUXEWORX ATELIER INTERIOR PRIVATE LIMITED';
   let companyAddress = '8th Floor, Magnum Towers-1\nGolf Course Ext Rd\nGurugram Haryana 122001';
   let companyGstin = '06AAGCL1112M1ZP';
   
@@ -148,7 +149,7 @@ export default async function POPdfPage({ params }) {
         {/* Header Block */}
         <div className="flex justify-between items-start border-b border-slate-350 pb-6 gap-6">
           <div className="flex-1 min-w-0">
-            {logoUri && <img src={logoUri} alt="Company Logo" className="h-16 w-auto object-contain mb-3" />}
+            {logoUri && <Image src={logoUri} alt="Company Logo" width={220} height={80} unoptimized className="h-16 w-auto object-contain mb-3" />}
             <h1 className="text-xl font-bold tracking-wide text-slate-800 font-sans uppercase break-words leading-tight">
               {companyName}
             </h1>

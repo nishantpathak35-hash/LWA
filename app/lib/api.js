@@ -2239,7 +2239,7 @@ export async function getPOFullDetails(poNo, session) {
 
 export async function getCompanySettings(session) {
   requireAuth(session);
-  const name = await getSetting('company_name', 'LUXEWORX ATELIER INTERIORS PRIVATE LIMITED');
+  const name = await getSetting('company_name', 'LUXEWORX ATELIER INTERIOR PRIVATE LIMITED');
   const address = await getSetting('company_address', '8th Floor, Magnum Towers-1\nGolf Course Ext Rd\nGurugram Haryana 122001');
   const gstin = await getSetting('company_gstin', '06AAGCL1112M1ZP');
   let logo = '';

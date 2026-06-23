@@ -1,8 +1,8 @@
 import '../app/globals.css';
 
 export const metadata = {
-  title: 'Luxeworx Atelier Interiors Pvt Ltd · Payment Tracker',
-  description: 'Premium Capital Ledger and Finance Operations',
+  title: 'PTS · LUXEWORX ATELIER INTERIOR PRIVATE LIMITED',
+  description: 'PTS payment tracking system',
 };
 
 export default function RootLayout({ children }) {
