@@ -7,9 +7,12 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing!");
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing!");
+  }
+  return secret;
 }
 
 function invalidateProjectCache(project) {
@@ -17,6 +20,7 @@ function invalidateProjectCache(project) {
 }
 
 function encryptToken(data) {
+  const JWT_SECRET = getJwtSecret();
   const iv = crypto.randomBytes(16);
   const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
@@ -26,6 +30,7 @@ function encryptToken(data) {
 }
 
 function decryptToken(token) {
+  const JWT_SECRET = getJwtSecret();
   try {
     const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
     if (token && token.length >= 32) {
