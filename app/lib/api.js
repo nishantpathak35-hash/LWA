@@ -1309,7 +1309,7 @@ const DEFAULT_FEATURE_PERMISSIONS = {
 const VALID_ROLE_KEYS = new Set(['proc', 'finance', 'accountant', 'director']);
 
 export async function getFeaturePermissions(session) {
-  requireAdminConsole(session);
+  requireAuth(session);
   const raw = await getSetting('feature_permissions', null);
   if (!raw) return { ...DEFAULT_FEATURE_PERMISSIONS };
   try {

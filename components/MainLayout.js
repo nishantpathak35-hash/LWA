@@ -13,6 +13,25 @@ import SettingsView from './views/SettingsView';
 import { Menu, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/core';
 
+const VIEW_FEATURE_MAP = {
+  dashboard: 'dashboard',
+  projects: 'projects',
+  vendors: 'vendors',
+  pos: 'purchase_orders',
+  payments: 'payments',
+  reports: 'reports',
+  settings: 'settings'
+};
+
+const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'payments', 'reports', 'settings'];
+
+function getFirstAllowedView(hasPermission) {
+  return ORDERED_VIEWS.find((viewId) => {
+    const featureKey = VIEW_FEATURE_MAP[viewId];
+    return !featureKey || hasPermission(featureKey);
+  }) || null;
+}
+
 function readStoredTheme() {
   if (typeof window === 'undefined') return 'dark';
   try {
@@ -23,21 +42,11 @@ function readStoredTheme() {
 }
 
 export default function MainLayout() {
-  const { activeView, hasPermission, user } = useAppState();
+  const { activeView, hasPermission, user, setActiveView } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState(readStoredTheme);
 
   // Map of view id → feature permission key
-  const VIEW_FEATURE_MAP = {
-    dashboard: 'dashboard',
-    projects: 'projects',
-    vendors: 'vendors',
-    pos: 'purchase_orders',
-    payments: 'payments',
-    reports: 'reports',
-    settings: 'settings'
-  };
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const root = window.document.documentElement;
@@ -58,10 +67,24 @@ export default function MainLayout() {
     }
   };
 
+  useEffect(() => {
+    if (!user) return;
+    const featureKey = VIEW_FEATURE_MAP[activeView];
+    if (!featureKey || hasPermission(featureKey)) return;
+
+    const fallbackView = getFirstAllowedView(hasPermission);
+    if (fallbackView && fallbackView !== activeView) {
+      setActiveView(fallbackView);
+    }
+  }, [activeView, hasPermission, setActiveView, user]);
+
   const renderActiveView = () => {
     // Guard: check if user has permission for this view
     const featureKey = VIEW_FEATURE_MAP[activeView];
     if (featureKey && user && !hasPermission(featureKey)) {
+      if (getFirstAllowedView(hasPermission)) {
+        return null;
+      }
       return (
         <div className="flex flex-col items-center justify-center h-96 text-center gap-4">
           <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center">
