@@ -1,5 +1,7 @@
 import { queryAll, queryGet, queryRun } from './db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from './email.js';
+import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from './poEligibility.js';
+import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from './paymentCalculations.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
@@ -8,6 +10,10 @@ import path from 'path';
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing!");
+}
+
+function invalidateProjectCache(project) {
+  return project;
 }
 
 function encryptToken(data) {
@@ -356,6 +362,7 @@ export async function getMasterData(session) {
       balance: (Number(p.po_value) || 0) - (Number(p.legacy_paid) || 0),
       status: p.approval_status || p.status || 'Draft',
       approval_status: p.approval_status || p.status || 'Draft',
+      payment_eligible: isPOEligibleForPayment(p),
       terms: p.terms || '',
       tds_section: p.tds_section || '',
       tds_pct: Number(p.tds_pct) || 0,
@@ -369,9 +376,9 @@ export async function getMasterData(session) {
 
 export async function getProjectDetails(session) {
   requireAuth(session);
-  const [pos, prs] = await Promise.all([
+  const [pos, outflowSnapshots] = await Promise.all([
     queryAll(`SELECT * FROM purchase_orders`),
-    queryAll(`SELECT * FROM payment_requests`)
+    calculateProjectOutflowSnapshots()
   ]);
 
   const projectsMap = {};
@@ -403,11 +410,11 @@ export async function getProjectDetails(session) {
       };
     }
     const val = Number(po.po_value) || 0;
-    const paid = Number(po.legacy_paid) || 0;
+    const projectOutflow = Number(outflowSnapshots[name]?.outflow) || 0;
     projectsMap[name].poIssued += val;
     projectsMap[name].projectValue += val;
-    projectsMap[name].outflow += paid;
-    projectsMap[name].pendingOutflow += Math.max(0, val - paid);
+    projectsMap[name].outflow = projectOutflow;
+    projectsMap[name].pendingOutflow = Math.max(0, projectsMap[name].poIssued - projectOutflow);
   });
 
   try {
@@ -657,7 +664,9 @@ export async function getPOsByVendor(vendor, session) {
     vendorCode: r.vendor_key,
     vendor: r.vendor_name,
     category: '',
-    status: r.status,
+    status: r.approval_status || r.status,
+    approvalStatus: r.approval_status || r.status,
+    paymentEligible: isPOEligibleForPayment(r),
     poValue: r.po_value,
     paid: r.legacy_paid,
     balance: Number(r.po_value) - Number(r.legacy_paid)
@@ -706,6 +715,7 @@ export async function listPaymentRequests(filters = {}, session) {
 
     return {
       id: r.pr_id,
+      sNo: r.pr_id,
       pr_id: r.pr_id,
       rowNumber: r.pr_id,
       poNo: r.po_no,
@@ -727,6 +737,7 @@ export async function listPaymentRequests(filters = {}, session) {
       approval_stage: stage,
       status: status,
       approval_status: status,
+      can_send_payment_advice: String(stage || '').toLowerCase() === 'remitted' || String(r.remittance || '').toLowerCase() === 'remitted',
       remittance: r.remittance || '',
       created_at: r.created_at,
       remarks: r.remarks || '',
@@ -1374,6 +1385,7 @@ export async function updateProjectFinancials(payload, session) {
     ]
   );
   await logAudit(session.email, 'Project Financials Updated', String(payload.project), 'Projects');
+  invalidateProjectCache(payload.project);
   return { ok: true, project: payload.project };
 }
 
@@ -1473,13 +1485,12 @@ export async function createPaymentRequest(payload, session) {
   if (!payload.vendor) throw new Error("Vendor name is required");
   if (!payload.poNo) throw new Error("PO number is required");
 
-  // CRITICAL: Only allow payment requests against Approved POs
   const linkedPO = await queryGet(`SELECT approval_status, status FROM purchase_orders WHERE po_no = ?`, [payload.poNo]);
-  if (linkedPO) {
-    const poStatus = String(linkedPO.approval_status || linkedPO.status || '').toLowerCase();
-    if (poStatus !== 'approved' && poStatus !== 'active') {
-      throw new Error(`Payment requests can only be created for Approved Purchase Orders. PO ${payload.poNo} is currently "${linkedPO.approval_status || linkedPO.status || 'Draft'}".`);
-    }
+  if (!linkedPO) {
+    throw new Error(`Purchase order not found: ${payload.poNo}`);
+  }
+  if (!isPOEligibleForPayment(linkedPO)) {
+    throw new Error(getPOPaymentIneligibilityReason({ ...linkedPO, po_no: payload.poNo }));
   }
   const reqAmt = Number(payload.amountRequested || payload.gross_amount);
   if (isNaN(reqAmt) || reqAmt <= 0) {
@@ -1614,6 +1625,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
       );
 
       approvedIds.push(id);
+      invalidateProjectCache(pr.project);
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
@@ -1621,7 +1633,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
   }
 
   return {
-    ok: true,
+    ok: failedIds.length === 0,
     approved: approvedIds.map(id => ({ id, ok: true })),
     failed: failedIds.map((id, idx) => ({ id, error: errors[idx] })),
     errors: errors,
@@ -1674,6 +1686,7 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
       );
 
       rejectedIds.push(id);
+      invalidateProjectCache(pr.project);
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
@@ -1681,7 +1694,7 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
   }
 
   return {
-    ok: true,
+    ok: failedIds.length === 0,
     rejected: rejectedIds.map(id => ({ id, ok: true })),
     failed: failedIds.map((id, idx) => ({ id, error: errors[idx] })),
     errors: errors,
@@ -1708,6 +1721,14 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
 
       if (pr.po_no) {
         affectedPoNos.push(pr.po_no);
+      }
+
+      const existingPayment = await queryGet(
+        `SELECT id FROM system_payments WHERE pr_key = ? LIMIT 1`,
+        [String(id)]
+      );
+      if (existingPayment) {
+        throw new Error(`Payment request ${id} has already been remitted.`);
       }
 
       await queryRun(
@@ -1740,6 +1761,7 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
       );
 
       remittedIds.push(id);
+      invalidateProjectCache(pr.project);
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
@@ -1766,7 +1788,7 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
   }
 
   return {
-    ok: true,
+    ok: failedIds.length === 0,
     remitted: remittedIds.length,
     failed: failedIds,
     errors: errors
@@ -1934,14 +1956,16 @@ export async function getPaymentReportRows(filters = {}, session) {
   requireAuth(session);
   const all = await listPaymentRequests({}, session);
   return all.filter(r => {
+    const type = String(filters.type || 'All').toLowerCase();
+    if (type === 'all' && r.status === 'pending') return false;
     if (filters.type && filters.type !== 'All') {
-      if (filters.type.toLowerCase() === 'approved' && r.status !== 'approved') return false;
-      if (filters.type.toLowerCase() === 'rejected' && r.status !== 'rejected') return false;
-      if (filters.type.toLowerCase() === 'remit') {
+      if (type === 'approved' && r.status !== 'approved') return false;
+      if (type === 'rejected' && r.status !== 'rejected') return false;
+      if (type === 'remit') {
         const isReadyToRemit = String(r.stage).toLowerCase() === 'ready to remit';
         if (!isReadyToRemit) return false;
       }
-      if (filters.type.toLowerCase() === 'remitted') {
+      if (type === 'remitted') {
         const isRemitted = String(r.stage).toLowerCase() === 'remitted' || String(r.remittance).toLowerCase() === 'remitted';
         if (!isRemitted) return false;
       }
@@ -2242,4 +2266,51 @@ export async function setCompanySettings(payload, session) {
   }
   await logAudit(session.email, 'Company Settings Updated', `${name || ''}, ${gstin || ''}`, 'Settings');
   return { ok: true };
+}
+
+export async function getProjectFinancialSummary(requestId, session) {
+  requireAuth(session);
+
+  // 1. Fetch the payment request to identify the project and creator
+  const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [requestId]);
+  if (!pr) {
+    throw new Error('Payment request not found');
+  }
+
+  // 2. Authorization check: Creator of the payment request must NOT be allowed to view the summary
+  if (session.email === pr.created_by) {
+    throw new Error('AUTH:Unauthorized - Requester cannot view project financial summary');
+  }
+
+  // Check if the user is a super admin or director, or has 'approve_payment' or 'reject_payment' permissions
+  const roles = session.roles || [];
+  const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || session.email === 'admin@luxeworx.com';
+  
+  let hasApprovalPermission = isDirOrAdmin;
+  if (!hasApprovalPermission) {
+    const raw = await getSetting('feature_permissions', null);
+    let perms = { ...DEFAULT_FEATURE_PERMISSIONS };
+    if (raw) {
+      try {
+        const saved = JSON.parse(raw);
+        Object.keys(saved).forEach(role => {
+          if (VALID_ROLE_KEYS.has(role)) {
+            perms[role] = saved[role];
+          }
+        });
+      } catch (e) {}
+    }
+    for (const role of roles) {
+      if (perms[role] && (perms[role].includes('approve_payment') || perms[role].includes('reject_payment'))) {
+        hasApprovalPermission = true;
+        break;
+      }
+    }
+  }
+
+  if (!hasApprovalPermission) {
+    throw new Error('AUTH:Unauthorized - Approval permission required');
+  }
+
+  return calculateProjectPaymentSummaryForRequest(requestId);
 }

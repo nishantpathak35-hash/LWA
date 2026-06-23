@@ -56,6 +56,7 @@ const ALLOWED_METHODS = new Set([
   'transitionPaymentWorkflow',
   'setPaymentHold',
   'getApprovalHistory',
+  'getProjectFinancialSummary',
   'reconcileRemittedPaymentsToPOLedger',
   'listAuditLog',
   'getPaymentReportRows',

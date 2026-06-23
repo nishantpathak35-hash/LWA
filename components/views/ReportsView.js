@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Select, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/core';
-import { FileText, Download, Calendar, Loader2 } from 'lucide-react';
+import { FileText, Download, Calendar, Loader2, Mail } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 
 // Helper to format values as Indian Rupees / Lakhs
@@ -56,6 +56,7 @@ export default function ReportsView() {
   
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [sendingAdviceId, setSendingAdviceId] = useState(null);
 
   // Fetch report data when filter or type changes
   useEffect(() => {
@@ -167,6 +168,27 @@ export default function ReportsView() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleSendPaymentAdvice = async (payment) => {
+    const vendor = vendors.find(v => v.code === payment?.vendor_code || v.name === payment?.vendor_name || v.name === payment?.vendor);
+    const defaultEmail = vendor?.email || '';
+    const email = prompt("Enter vendor's email address to send payment advice:", defaultEmail);
+    if (email === null) return;
+    if (!email.trim()) {
+      alert('Email address is required.');
+      return;
+    }
+
+    setSendingAdviceId(payment.id);
+    try {
+      await call('sendPaymentAdvice', payment.id, email.trim());
+      alert('Payment advice email has been sent successfully to ' + email.trim() + '.');
+    } catch (err) {
+      alert('Failed to send payment advice: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSendingAdviceId(null);
+    }
   };
 
   const rTypes = [
@@ -505,6 +527,7 @@ export default function ReportsView() {
             <TableHead>Status</TableHead>
             <TableHead>Workflow</TableHead>
             <TableHead>Rejected By</TableHead>
+            <TableHead className="text-center">Advice</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -515,6 +538,8 @@ export default function ReportsView() {
               const net = gross - tds;
               const rejBy = p.rejectedBy ? ({ proc: 'Procurement', finance: 'Finance', director: 'Director' }[p.rejectedBy] || p.rejectedBy) : '—';
               
+              const canSendAdvice = p.can_send_payment_advice || String(p.stage || '').toLowerCase() === 'remitted' || String(p.remittance || '').toLowerCase() === 'remitted';
+
               return (
                 <TableRow key={p.rowNumber || idx}>
                   <TableCell className="font-semibold text-gold">{p.sNo}</TableCell>
@@ -527,12 +552,28 @@ export default function ReportsView() {
                   <TableCell>{stageBadge(p.stage)}</TableCell>
                   <TableCell>{wfSteps(p)}</TableCell>
                   <TableCell className={p.rejectedBy ? 'text-red-400' : 'text-slate-550'}>{rejBy}</TableCell>
+                  <TableCell className="text-center">
+                    {canSendAdvice ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSendPaymentAdvice(p)}
+                        title="Send Payment Advice Email"
+                        disabled={sendingAdviceId === p.id}
+                        className="text-gold hover:text-gold/80"
+                      >
+                        {sendingAdviceId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                      </Button>
+                    ) : (
+                      <span className="text-slate-700">—</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               );
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={10} className="text-center py-10 text-slate-500">
+              <TableCell colSpan={11} className="text-center py-10 text-slate-500">
                 No items match your filters.
               </TableCell>
             </TableRow>
