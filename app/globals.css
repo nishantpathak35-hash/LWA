@@ -229,6 +229,12 @@ html:not(.dark) textarea:focus {
   box-shadow: 0 0 0 2px hsl(var(--primary) / 0.15) !important;
 }
 
+/* Ensure textareas always honour their explicit height — prevent global rules from collapsing them */
+textarea {
+  height: auto;
+  min-height: 90px;
+}
+
 /* Buttons */
 html:not(.dark) .bg-muted {
   background-color: hsl(var(--accent)) !important;

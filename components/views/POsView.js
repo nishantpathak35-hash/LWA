@@ -796,7 +796,7 @@ export default function POsView() {
                 value={terms}
                 onChange={e => setTerms(e.target.value)}
                 placeholder="e.g. 50% advance, balance on delivery"
-                style={{ minHeight: '100px' }}
+                style={{ minHeight: '100px', height: '100px', resize: 'vertical' }}
               />
             </div>
             <div>
@@ -805,7 +805,7 @@ export default function POsView() {
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Internal notes or special instructions"
-                style={{ minHeight: '100px' }}
+                style={{ minHeight: '100px', height: '100px', resize: 'vertical' }}
               />
             </div>
           </div>
@@ -829,14 +829,14 @@ export default function POsView() {
             {items.map((item, idx) => {
               const { total } = calcItem(item);
               return (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_80px_60px_96px_90px_70px_90px_36px] gap-2 items-center p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_80px_60px_96px_90px_70px_90px_36px] gap-2 items-start p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
                   <Textarea
                     required
                     value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
                     placeholder="Item description"
-                    className="text-xs py-1.5"
-                    style={{ minHeight: '70px' }}
+                    className="text-xs"
+                    style={{ minHeight: '72px', height: '72px', resize: 'vertical' }}
                   />
                   <Input type="text" value={item.hsnSac}
                     onChange={e => handleItemChange(idx, 'hsnSac', e.target.value)}
