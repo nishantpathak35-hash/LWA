@@ -50,6 +50,7 @@ export default function SettingsView() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditTotal, setAuditTotal] = useState(0);
   const [auditTotalPages, setAuditTotalPages] = useState(1);
+  const [auditPage, setAuditPage] = useState(1);
   const [auditSearch, setAuditSearch] = useState('');
   const [auditFilterType, setAuditFilterType] = useState('');
   const [auditFilterDept, setAuditFilterDept] = useState('');
@@ -174,6 +175,20 @@ export default function SettingsView() {
     if (!isDirector || activeTab !== 'audit') return;
     loadAuditLog(1);
   }, [auditFilterType, auditFilterDept, auditSortDir]);
+
+  // Toggle a single feature permission in controlled local state
+  const handleTogglePerm = useCallback((role, feature) => {
+    setLocalPerms(prev => {
+      const current = prev[role] ? [...prev[role]] : [];
+      const idx = current.indexOf(feature);
+      if (idx === -1) {
+        current.push(feature);
+      } else {
+        current.splice(idx, 1);
+      }
+      return { ...prev, [role]: current };
+    });
+  }, []);
 
   if (!isDirector) {
     return (
@@ -318,20 +333,6 @@ export default function SettingsView() {
       alert('Error: ' + (e.message || String(e)));
     }
   };
-
-  // Toggle a single feature permission in controlled local state
-  const handleTogglePerm = useCallback((role, feature) => {
-    setLocalPerms(prev => {
-      const current = prev[role] ? [...prev[role]] : [];
-      const idx = current.indexOf(feature);
-      if (idx === -1) {
-        current.push(feature);
-      } else {
-        current.splice(idx, 1);
-      }
-      return { ...prev, [role]: current };
-    });
-  }, []);
 
   const handleSavePermissions = async () => {
     try {
