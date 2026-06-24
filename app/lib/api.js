@@ -164,6 +164,61 @@ async function ensureSettingsTable() {
     console.error('po_date recovery migration failed (non-fatal):', e.message);
   }
 
+  // ── CRITICAL: Recalculate legacy_paid for all POs using corrected dedup formula ──
+  // Fixes double-counting caused by NOT IN type mismatch (INTEGER pr_id vs TEXT pr_key).
+  // Uses a versioned key so this runs exactly once per schema version.
+  try {
+    const migKey = 'legacy_paid_recalc_v2';
+    const alreadyRan = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [migKey]);
+    if (!alreadyRan) {
+      const allPOs = await queryAll(`SELECT po_no, po_value, revised_po_value FROM purchase_orders`);
+      for (const po of allPOs) {
+        const poNo = po.po_no;
+        // Leg 1: system_payments (manual + workflow remittances)
+        const sysRow = await queryGet(
+          `SELECT COALESCE(SUM(
+             CASE
+               WHEN pr.pr_id IS NOT NULL
+                 THEN CASE WHEN COALESCE(pr.amount_requested,0)-COALESCE(pr.tds_amount,0)<0 THEN 0 ELSE COALESCE(pr.amount_requested,0)-COALESCE(pr.tds_amount,0) END
+               ELSE COALESCE(sp.amount,0)
+             END
+           ),0) AS total
+           FROM system_payments sp
+           LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)
+           WHERE sp.po_no = ?`, [poNo]);
+        // Leg 2: remitted PRs with NO matching system_payments entry (true orphans)
+        const prRow = await queryGet(
+          `SELECT COALESCE(SUM(
+             CASE WHEN COALESCE(amount_requested,0)-COALESCE(tds_amount,0)<0 THEN 0 ELSE COALESCE(amount_requested,0)-COALESCE(tds_amount,0) END
+           ),0) AS total
+           FROM payment_requests
+           WHERE po_no = ?
+             AND (stage='Remitted' OR remittance='Remitted')
+             AND CAST(pr_id AS TEXT) NOT IN (
+               SELECT CAST(pr_key AS TEXT) FROM system_payments
+               WHERE pr_key IS NOT NULL AND pr_key NOT LIKE 'MANUAL-%'
+             )`, [poNo]);
+        const totalPaid = (Number(sysRow?.total) || 0) + (Number(prRow?.total) || 0);
+        const poVal = Number(po.revised_po_value || po.po_value || 0);
+        const outstanding = Math.max(0, poVal - totalPaid);
+        let paymentStatus = 'Unpaid';
+        if (totalPaid >= poVal && poVal > 0) paymentStatus = 'Fully Paid';
+        else if (totalPaid > 0) paymentStatus = 'Partially Paid';
+        await queryRun(
+          `UPDATE purchase_orders SET legacy_paid=?, final_payable=?, payment_status=? WHERE po_no=?`,
+          [totalPaid, outstanding, paymentStatus, poNo]
+        );
+      }
+      await queryRun(
+        `INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`,
+        [migKey, new Date().toISOString(), new Date().toISOString()]
+      );
+      console.log(`[Migration] legacy_paid_recalc_v2: recalculated ${allPOs.length} POs with corrected dedup formula`);
+    }
+  } catch (e) {
+    console.error('legacy_paid recalculation migration failed (non-fatal):', e.message);
+  }
+
   _settingsTableEnsured = true;
 }
 
@@ -1216,7 +1271,10 @@ async function updatePOPaymentStatus(poNo) {
   const prSum = await queryGet(
     `SELECT COALESCE(SUM(CASE WHEN COALESCE(amount_requested, 0) - COALESCE(tds_amount, 0) < 0 THEN 0 ELSE COALESCE(amount_requested, 0) - COALESCE(tds_amount, 0) END), 0) AS total FROM payment_requests
      WHERE po_no = ? AND (stage = 'Remitted' OR remittance = 'Remitted')
-     AND pr_id NOT IN (SELECT pr_key FROM system_payments WHERE pr_key IS NOT NULL)`,
+     AND CAST(pr_id AS TEXT) NOT IN (
+       SELECT CAST(pr_key AS TEXT) FROM system_payments
+       WHERE pr_key IS NOT NULL AND pr_key NOT LIKE 'MANUAL-%'
+     )`,
     [poNo]
   );
   const totalPaid = (Number(sysSum?.total) || 0) + (Number(prSum?.total) || 0);
@@ -2135,7 +2193,10 @@ export async function reconcileRemittedPaymentsToPOLedger(session, targetPoNo = 
       `SELECT COALESCE(SUM(CASE WHEN COALESCE(amount_requested, 0) - COALESCE(tds_amount, 0) < 0 THEN 0 ELSE COALESCE(amount_requested, 0) - COALESCE(tds_amount, 0) END), 0) AS total FROM payment_requests
        WHERE po_no = ? 
          AND (stage = 'Remitted' OR remittance = 'Remitted') 
-         AND pr_id NOT IN (SELECT pr_key FROM system_payments WHERE pr_key IS NOT NULL)`,
+         AND CAST(pr_id AS TEXT) NOT IN (
+           SELECT CAST(pr_key AS TEXT) FROM system_payments
+           WHERE pr_key IS NOT NULL AND pr_key NOT LIKE 'MANUAL-%'
+         )`,
       [poNo]
     );
     const prSum = Number(prSumRow?.total) || 0;

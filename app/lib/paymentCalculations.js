@@ -275,7 +275,8 @@ export async function calculateProjectOutflowSnapshots() {
        WHERE (LOWER(COALESCE(pr.stage,'')) LIKE '%remit%'
               OR LOWER(COALESCE(pr.remittance,'')) LIKE '%remit%')
          AND CAST(pr.pr_id AS TEXT) NOT IN (
-               SELECT CAST(sp.pr_key AS TEXT) FROM system_payments sp WHERE sp.pr_key IS NOT NULL
+               SELECT CAST(sp.pr_key AS TEXT) FROM system_payments sp
+               WHERE sp.pr_key IS NOT NULL AND sp.pr_key NOT LIKE 'MANUAL-%'
              )
        GROUP BY po.project`
     ),
