@@ -282,8 +282,7 @@ export default function SettingsView() {
     setLegacySubmitting(true);
     setLegacyPO(null);
     try {
-      const pos = await call('listPOsJson');
-      const po = pos?.find(p => p.po_no === legacyPONo.trim() || p.id === legacyPONo.trim());
+      const po = await call('getPOFullDetails', legacyPONo.trim());
       if (po) {
         setLegacyPO(po);
         setLegacyNewPaid(po.legacy_paid || 0);
