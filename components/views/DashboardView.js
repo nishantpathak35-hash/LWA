@@ -260,6 +260,7 @@ export default function DashboardView() {
     totPV += num(r.projectValue);
     totInflow += num(r.inflow);
     totPendInflow += num(r.pendingInflow);
+    totOut += num(r.outflow);
   });
 
   filteredFinancialProjects.forEach(r => {
@@ -269,13 +270,13 @@ export default function DashboardView() {
     totAGM += num(r.actualGM);
     totPendOut += num(r.pendingOutflow);
     totBal += num(r.balanceAvailable);
-    totOut += num(r.outflow);
   });
 
   // Generate sparklines datasets
-  const spPV = filteredCashflowProjects.map(r => num(r.projectValueTax || r.projectValue));
-  const spIn = filteredCashflowProjects.map(r => num(r.inflow));
-  const spPin = filteredCashflowProjects.map(r => num(r.pendingInflow));
+  const spPV   = filteredCashflowProjects.map(r => num(r.projectValueTax || r.projectValue));
+  const spIn   = filteredCashflowProjects.map(r => num(r.inflow));
+  const spPin  = filteredCashflowProjects.map(r => num(r.pendingInflow));
+  const spOutCF = filteredCashflowProjects.map(r => num(r.outflow));
   const spBCS = filteredFinancialProjects.map(r => num(r.bcs));
   const spPGM = filteredFinancialProjects.map(r => num(r.plannedGM));
   const spPO = filteredFinancialProjects.map(r => num(r.poIssued));
@@ -445,31 +446,40 @@ export default function DashboardView() {
         </div>
 
         {/* Project Cashflow Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <Card className="flex items-center justify-between p-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Card className="flex items-center justify-between p-5">
             <div>
               <div className="text-xs text-muted-foreground uppercase tracking-wider">Project Value</div>
-              <div className="text-2xl font-light text-foreground mt-2 font-serif">{fmtLakhs(totPV)}</div>
+              <div className="text-xl font-light text-foreground mt-2 font-serif">{fmtLakhs(totPV)}</div>
             </div>
-            <div className="w-24 h-10">
+            <div className="w-20 h-10">
               <Sparkline data={spPV} color="rgba(200,164,90,.95)" />
             </div>
           </Card>
-          <Card className="flex items-center justify-between p-6">
+          <Card className="flex items-center justify-between p-5">
             <div>
               <div className="text-xs text-muted-foreground uppercase tracking-wider text-emerald-400">Inflow</div>
-              <div className="text-2xl font-light text-emerald-400 mt-2 font-serif">{fmtLakhs(totInflow)}</div>
+              <div className="text-xl font-light text-emerald-400 mt-2 font-serif">{fmtLakhs(totInflow)}</div>
             </div>
-            <div className="w-24 h-10">
+            <div className="w-20 h-10">
               <Sparkline data={spIn} color="rgba(61,214,140,.95)" />
             </div>
           </Card>
-          <Card className="flex items-center justify-between p-6">
+          <Card className="flex items-center justify-between p-5">
+            <div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wider text-red-400">Outflow (Paid)</div>
+              <div className="text-xl font-light text-red-400 mt-2 font-serif">{fmtLakhs(totOut)}</div>
+            </div>
+            <div className="w-20 h-10">
+              <Sparkline data={spOutCF} color="rgba(239,68,68,.95)" />
+            </div>
+          </Card>
+          <Card className="flex items-center justify-between p-5">
             <div>
               <div className="text-xs text-muted-foreground uppercase tracking-wider text-amber-500">Pending Inflow</div>
-              <div className="text-2xl font-light text-amber-500 mt-2 font-serif">{fmtLakhs(totPendInflow)}</div>
+              <div className="text-xl font-light text-amber-500 mt-2 font-serif">{fmtLakhs(totPendInflow)}</div>
             </div>
-            <div className="w-24 h-10">
+            <div className="w-20 h-10">
               <Sparkline data={spPin} color="rgba(245,158,11,.95)" />
             </div>
           </Card>
@@ -482,6 +492,7 @@ export default function DashboardView() {
               <TableHead>Client Name</TableHead>
               <TableHead className="text-right">BOQ Value with Tax</TableHead>
               <TableHead className="text-right text-emerald-400">Inflow</TableHead>
+              <TableHead className="text-right text-red-400">Outflow (Paid)</TableHead>
               <TableHead className="text-right text-amber-500">Pending Inflow</TableHead>
               <TableHead className="text-center w-20">Action</TableHead>
             </TableRow>
@@ -493,6 +504,7 @@ export default function DashboardView() {
                   <TableCell className="font-semibold text-slate-200">{r.project}</TableCell>
                   <TableCell className="text-right">{fmtLakhs(r.projectValueTax || r.projectValue)}</TableCell>
                   <TableCell className="text-right text-emerald-400">{fmtLakhs(r.inflow)}</TableCell>
+                  <TableCell className="text-right text-red-400">{fmtLakhs(r.outflow)}</TableCell>
                   <TableCell className="text-right text-amber-500">{fmtLakhs(r.pendingInflow)}</TableCell>
                   <TableCell className="text-center">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditModal(r)}>
@@ -503,7 +515,7 @@ export default function DashboardView() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-slate-500">
+                <TableCell colSpan={6} className="text-center py-10 text-slate-500">
                   No projects found.
                 </TableCell>
               </TableRow>
