@@ -175,7 +175,7 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' 
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2">
       {/* Overlay */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
@@ -185,7 +185,7 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' 
       {/* Content wrapper */}
       <div 
         className={cn("relative w-full bg-background border border-border rounded-xl shadow-2xl overflow-hidden z-10 animate-fade-in flex flex-col transition-colors duration-200", maxWidth)}
-        style={{ maxHeight: '90vh' }}
+        style={{ maxHeight: '95vh' }}
       >
         {/* Header */}
         <div className="px-6 py-5 border-b border-border/60 flex items-center justify-between">

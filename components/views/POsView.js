@@ -748,6 +748,7 @@ export default function POsView() {
 
       {/* ── Create / Edit PO Dialog ────────────────────────────────────────── */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)}
+        maxWidth="max-w-[95vw]"
         title={editingPoNo ? `Edit Purchase Order — ${editingPoNo}` : 'Create Purchase Order'}>
         <form onSubmit={handleSavePO} className="space-y-6">
 
@@ -759,8 +760,8 @@ export default function POsView() {
             </div>
           )}
 
-          {/* Header row 1 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Header row — all 5 fields in one line on wide screens */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PO NUMBER *</label>
               <Input type="text" required value={poNo} onChange={e => setPoNo(e.target.value)} />
