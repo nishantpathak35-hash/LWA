@@ -777,6 +777,9 @@ export default function POsView() {
                 {vendors.map((v, i) => <option key={getVendorSelectValue(v, i)} value={getVendorSelectValue(v, i)}>{v.name} ({v.code || 'No Code'})</option>)}
               </Select>
             </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">CATEGORY</label>
+              <Select value={category} onChange={e => setCategory(e.target.value)}>
                 {['Goods','Services','Consulting','IT','Marketing','Admin','Capex','Opex'].map(c => <option key={c}>{c}</option>)}
               </Select>
             </div>
