@@ -2802,6 +2802,25 @@ export async function correctLegacyPOPaidAmount(poNo, newPaidAmount, autoRecalcu
     const poVal = Number(po.revised_po_value || po.po_value || 0);
     const finalPayable = poVal - Number(newPaidAmount);
 
+    // Ensure system_payments reflects this exact total.
+    // We delete all existing Legacy Import rows for this PO, calculate what the non-legacy sum is,
+    // and insert a new Legacy Import row to make up the difference so the total perfectly matches newPaidAmount.
+    await queryRun(`DELETE FROM system_payments WHERE po_no = ? AND remitted_by = 'Legacy Import'`, [poNo]);
+    
+    const sysSum = await queryGet(
+      `SELECT COALESCE(SUM(COALESCE(amount, 0)), 0) AS total FROM system_payments WHERE po_no = ?`,
+      [poNo]
+    );
+    const nonLegacyTotal = Number(sysSum?.total) || 0;
+    const legacyAdjustment = Math.max(0, Number(newPaidAmount) - nonLegacyTotal);
+
+    if (legacyAdjustment > 0) {
+      await queryRun(
+        `INSERT INTO system_payments (po_no, amount, remitted_by, created_at) VALUES (?, ?, ?, ?)`,
+        [poNo, legacyAdjustment, 'Legacy Import', new Date().toISOString()]
+      );
+    }
+
     await queryRun(
       `UPDATE purchase_orders SET legacy_paid = ?, final_payable = ? WHERE po_no = ?`,
       [newPaidAmount, finalPayable, poNo]
