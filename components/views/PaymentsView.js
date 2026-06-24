@@ -320,14 +320,14 @@ export default function PaymentsView() {
     const email = prompt("Enter vendor's email address to send payment advice:", defaultEmail);
     if (email === null) return;
     if (!email.trim()) {
-      alert('Email address is required.');
+      toast.error('Email address is required.');
       return;
     }
     try {
       await call('sendPaymentAdvice', reqId, email.trim());
-      alert('Payment advice email has been sent successfully to ' + email.trim() + '.');
+      toast.success('Payment advice email has been sent successfully to ' + email.trim() + '.');
     } catch (err) {
-      alert('Failed to send payment advice: ' + err.message);
+      toast.error('Failed to send payment advice: ' + err.message);
     }
   };
 

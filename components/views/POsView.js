@@ -183,7 +183,7 @@ export default function POsView() {
           setModalOpen(true);
         }
       } catch (err) {
-        alert('Failed to load PO: ' + err.message);
+        toast.error('Failed to load PO: ' + err.message);
       } finally {
         setSubmitting(false);
       }
@@ -230,9 +230,9 @@ export default function POsView() {
     if (!email) return;
     try {
       await call('sendPOToVendor', poNumber, email.trim());
-      alert(`PO ${poNumber} sent to ${email.trim()}.`);
+      toast(`PO ${poNumber} sent to ${email.trim()}.`);
       await refreshData();
-    } catch (e) { alert(`Failed: ${e.message}`); }
+    } catch (e) { toast.error(`Failed: ${e.message}`); }
   };
 
   // ─── Save PO ──────────────────────────────────────────────────────────────
@@ -282,10 +282,10 @@ export default function POsView() {
         if (result?.newStatus && result.newStatus !== (editingPO?.approval_status || editingPO?.status)) {
           msg += `\n\nNote: PO value changed — status reset to ${result.newStatus} and requires re-approval.`;
         }
-        alert(msg);
+        toast(msg);
       } else {
         await call('createPOFull', payload);
-        alert('Purchase Order created as Draft. Submit for approval from the PO list.');
+        toast('Purchase Order created as Draft. Submit for approval from the PO list.');
       }
       await refreshData();
       setModalOpen(false);
@@ -310,8 +310,8 @@ export default function POsView() {
       await call('approvePO', approvalTarget.po_no, approvalAction, approvalRemarks);
       await refreshData();
       setApprovalModalOpen(false);
-      alert(`PO ${approvalTarget.po_no} has been ${approvalAction === 'approve' ? 'Approved' : 'Rejected'}.`);
-    } catch (err) { alert('Failed: ' + err.message); }
+      toast(`PO ${approvalTarget.po_no} has been ${approvalAction === 'approve' ? 'Approved' : 'Rejected'}.`);
+    } catch (err) { toast.error('Failed: ' + err.message); }
     finally { setApprovingPO(false); }
   };
 
@@ -320,8 +320,8 @@ export default function POsView() {
     try {
       await call('submitPOForApproval', poNumber);
       await refreshData();
-      alert(`PO ${poNumber} submitted for approval.`);
-    } catch (err) { alert('Failed: ' + err.message); }
+      toast(`PO ${poNumber} submitted for approval.`);
+    } catch (err) { toast.error('Failed: ' + err.message); }
   };
 
   const handleDuplicatePO = async (po) => {
@@ -351,7 +351,7 @@ export default function POsView() {
       setFormError(null);
       setModalOpen(true);
     } catch (err) {
-      alert("Failed to duplicate PO: " + err.message);
+      toast.error("Failed to duplicate PO: " + err.message);
     }
   };
 
@@ -574,7 +574,7 @@ export default function POsView() {
                                       onClick={() => {
                                         setOpenActionMenuPoNo(null);
                                         if (window.confirm(`Are you sure you want to delete PO ${po.po_no}? This action is irreversible.`)) {
-                                          alert("Deleting POs is not permitted to preserve audit trail compliance.");
+                                          toast("Deleting POs is not permitted to preserve audit trail compliance.");
                                         }
                                       }}
                                       className="flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-slate-900 transition-colors text-left font-sans"

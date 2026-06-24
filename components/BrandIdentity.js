@@ -16,20 +16,21 @@ export default function BrandIdentity({
 }) {
   const [logoFailed, setLogoFailed] = useState(false);
 
+  // Increased sizes slightly
   const logoSizes = {
-    sm: { box: 'h-8 w-8', px: 32 },
-    md: { box: 'h-10 w-10', px: 40 },
-    lg: { box: 'h-12 w-12', px: 48 },
-    xl: { box: 'h-14 w-14', px: 56 },
-    xxl: { box: 'h-20 w-20', px: 80 }
+    sm: { box: 'h-10 w-10', px: 40 },
+    md: { box: 'h-14 w-14', px: 56 },
+    lg: { box: 'h-16 w-16', px: 64 },
+    xl: { box: 'h-20 w-20', px: 80 },
+    xxl: { box: 'h-28 w-28', px: 112 }
   };
   const logoSize = logoSizes[size] || logoSizes.md;
 
   return (
     <div className={cn('flex items-center gap-3 min-w-0', className)}>
-      <div className={cn('relative flex items-center justify-center shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-gold via-amber-400 to-yellow-700 text-slate-950 shadow-lg shadow-gold/10', logoSize.box, logoClassName)}>
+      <div className={cn('relative flex items-center justify-center shrink-0 overflow-hidden rounded-lg text-slate-950', logoSize.box, logoClassName)}>
         {logoFailed ? (
-          <span className="font-semibold tracking-tight text-sm">LA</span>
+          <span className="font-semibold tracking-tight text-sm text-slate-100">LA</span>
         ) : (
           <Image
             src="/api/brand-logo"
@@ -47,7 +48,7 @@ export default function BrandIdentity({
           {title}
         </div>
         {subtitle ? (
-          <div className={cn('truncate text-[10px] uppercase tracking-[0.22em] text-slate-500', subtitleClassName)}>
+          <div className={cn(wrapTitle ? 'whitespace-normal break-words leading-tight mt-0.5' : 'truncate', 'text-[10px] uppercase tracking-[0.22em] text-slate-500', subtitleClassName)}>
             {subtitle}
           </div>
         ) : null}

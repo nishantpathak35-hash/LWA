@@ -12,6 +12,7 @@ import ReportsView from './views/ReportsView';
 import SettingsView from './views/SettingsView';
 import { Menu, Sun, Moon } from 'lucide-react';
 import { Button } from './ui/core';
+import { CommandPalette } from './ui/CommandPalette';
 
 const VIEW_FEATURE_MAP = {
   dashboard: 'dashboard',
@@ -121,6 +122,7 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans transition-colors duration-200">
+      <CommandPalette />
       {/* Mobile Sidebar Toggle Overlay */}
       {mobileMenuOpen && (
         <div 

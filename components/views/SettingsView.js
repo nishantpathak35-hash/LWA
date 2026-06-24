@@ -208,10 +208,10 @@ export default function SettingsView() {
   const handleToggleUserActive = async (email, currentActive) => {
     try {
       await call('setUserActiveAdmin', email, !currentActive);
-      alert(`User ${!currentActive ? 'activated' : 'deactivated'}.`);
+      toast(`User ${!currentActive ? 'activated' : 'deactivated'}.`);
       loadUsers();
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
@@ -221,37 +221,37 @@ export default function SettingsView() {
     }
     try {
       await call('deleteUserAdmin', email);
-      alert('User deleted successfully.');
+      toast.success('User deleted successfully.');
       loadUsers();
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
   const handleAddCustomRole = async () => {
     const roleName = newRoleName.trim();
     if (!roleName) {
-      alert('Please enter a role name.');
+      toast.error('Please enter a role name.');
       return;
     }
     try {
       const res = await call('addCustomRole', roleName);
       if (res && res.ok) {
-        alert(`Role "${roleName}" registered successfully!`);
+        toast.success(`Role "${roleName}" registered successfully!`);
         setNewRoleName('');
         loadUsers();
       }
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
   const handleSavePOPrefix = async () => {
     try {
       await call('setPOPrefix', poPrefix);
-      alert('PO number series prefix saved successfully.');
+      toast.success('PO number series prefix saved successfully.');
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
@@ -265,9 +265,9 @@ export default function SettingsView() {
         gstin: companyGstin,
         logo: companyLogo
       });
-      alert('Company settings saved successfully.');
+      toast.success('Company settings saved successfully.');
     } catch (e) {
-      alert('Error saving company settings: ' + (e.message || String(e)));
+      toast.error('Error saving company settings: ' + (e.message || String(e)));
     } finally {
       setSavingCompany(false);
     }
@@ -276,9 +276,9 @@ export default function SettingsView() {
   const handleClearServerCache = async () => {
     try {
       await call('clearAllCaches');
-      alert('Cache cleared. Reload the page to see fresh data.');
+      toast('Cache cleared. Reload the page to see fresh data.');
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
@@ -292,10 +292,10 @@ export default function SettingsView() {
         setLegacyPO(po);
         setLegacyNewPaid(po.legacy_paid || 0);
       } else {
-        alert('PO not found.');
+        toast('PO not found.');
       }
     } catch (err) {
-      alert('Error searching PO: ' + err.message);
+      toast.error('Error searching PO: ' + err.message);
     } finally {
       setLegacySubmitting(false);
     }
@@ -303,11 +303,11 @@ export default function SettingsView() {
 
   const handleCorrectLegacyPO = async (autoRecalculate) => {
     if (!legacyReason.trim()) {
-      alert('A detailed reason is required for audit logging.');
+      toast.error('A detailed reason is required for audit logging.');
       return;
     }
     if (!autoRecalculate && legacyNewPaid === '') {
-      alert('Please enter a new paid amount.');
+      toast.error('Please enter a new paid amount.');
       return;
     }
     
@@ -320,14 +320,14 @@ export default function SettingsView() {
       try {
         await call('correctLegacyPOPaidAmount', legacyPO.po_no, legacyNewPaid, autoRecalculate, legacyReason.trim());
         await call('clearAllCaches');
-        alert('PO paid amount corrected successfully.');
+        toast.success('PO paid amount corrected successfully.');
         setLegacyPO(null);
         setLegacyPONo('');
         setLegacyReason('');
         setLegacyNewPaid('');
         await refreshData();
       } catch (err) {
-        alert('Error correcting PO: ' + err.message);
+        toast.error('Error correcting PO: ' + err.message);
       } finally {
         setLegacySubmitting(false);
       }
@@ -336,22 +336,22 @@ export default function SettingsView() {
 
   const handleMergeProjects = async () => {
     if (!mergeTargetProject.trim()) {
-      alert('Please enter a target project name.');
+      toast.error('Please enter a target project name.');
       return;
     }
     if (!mergeSourceProjects.trim()) {
-      alert('Please enter at least one source project to merge.');
+      toast.error('Please enter at least one source project to merge.');
       return;
     }
 
     const sourcesArray = mergeSourceProjects.split(',').map(s => s.trim()).filter(Boolean);
     if (sourcesArray.length === 0) {
-      alert('Invalid source projects format.');
+      toast.error('Invalid source projects format.');
       return;
     }
 
     if (sourcesArray.includes(mergeTargetProject.trim())) {
-      alert('Target project cannot be in the source projects list.');
+      toast('Target project cannot be in the source projects list.');
       return;
     }
 
@@ -363,12 +363,12 @@ export default function SettingsView() {
       try {
         await call('mergeProjects', mergeTargetProject.trim(), sourcesArray);
         await call('clearAllCaches');
-        alert('Projects merged successfully.');
+        toast.success('Projects merged successfully.');
         setMergeTargetProject('');
         setMergeSourceProjects('');
         await refreshData();
       } catch (err) {
-        alert('Error merging projects: ' + err.message);
+        toast.error('Error merging projects: ' + err.message);
       } finally {
         setMergeSubmitting(false);
       }
@@ -378,10 +378,10 @@ export default function SettingsView() {
   const handleReloadAll = async () => {
     try {
       await call('clearAllCaches');
-      alert('Data reloaded successfully.');
+      toast.success('Data reloaded successfully.');
       window.location.reload();
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
@@ -395,9 +395,9 @@ export default function SettingsView() {
       await call('setFeaturePermissions', newConfig);
       // Sync persisted state so future toggles are relative to saved values
       setPermissions(JSON.parse(JSON.stringify(newConfig)));
-      alert('Feature permissions saved successfully.');
+      toast.success('Feature permissions saved successfully.');
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
@@ -405,11 +405,11 @@ export default function SettingsView() {
     e.preventDefault();
     const roles = Object.keys(newUserRoles).filter(r => newUserRoles[r]);
     if (!newUserName.trim() || !targetEmail.trim()) {
-      alert('Please fill email and name.');
+      toast.error('Please fill email and name.');
       return;
     }
     if (!roles.length) {
-      alert('Select at least one access role.');
+      toast('Select at least one access role.');
       return;
     }
     try {
@@ -421,7 +421,7 @@ export default function SettingsView() {
       });
       
       if (res && res.emailSent) {
-        alert(`User created & invite email sent to ${targetEmail}`);
+        toast(`User created & invite email sent to ${targetEmail}`);
         setInviteModalOpen(false);
         loadUsers();
       } else {
@@ -429,37 +429,37 @@ export default function SettingsView() {
         setInviteResult(inviteUrl);
       }
     } catch (err) {
-      alert('Error: ' + (err.message || String(err)));
+      toast.error('Error: ' + (err.message || String(err)));
     }
   };
 
   const handleSaveAccess = async () => {
     const roles = Object.keys(editAccessRoles).filter(r => editAccessRoles[r]);
     if (!roles.length) {
-      alert('Select at least one access role.');
+      toast('Select at least one access role.');
       return;
     }
     try {
       await call('setUserRolesAdmin', targetEmail, roles);
-      alert('Access updated successfully.');
+      toast.success('Access updated successfully.');
       setAccessModalOpen(false);
       loadUsers();
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
   const handleResetPassword = async () => {
     if (!resetPasswordVal || resetPasswordVal.length < 8) {
-      alert('Password must be at least 8 characters.');
+      toast.error('Password must be at least 8 characters.');
       return;
     }
     try {
       await call('resetUserPasswordAdmin', targetEmail, resetPasswordVal);
-      alert(`Password reset for ${targetEmail}. Share new password with user.`);
+      toast(`Password reset for ${targetEmail}. Share new password with user.`);
       setResetPwdModalOpen(false);
     } catch (e) {
-      alert('Error: ' + (e.message || String(e)));
+      toast.error('Error: ' + (e.message || String(e)));
     }
   };
 
@@ -1286,7 +1286,7 @@ export default function SettingsView() {
                     const box = document.getElementById('inviteLinkBox');
                     box?.select();
                     document.execCommand('copy');
-                    alert('Invite link copied!');
+                    toast('Invite link copied!');
                   }}
                 >
                   Copy

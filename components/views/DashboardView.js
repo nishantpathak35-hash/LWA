@@ -335,11 +335,11 @@ export default function DashboardView() {
         tds: tdsVal
       };
       await call('updateProjectFinancials', payload);
-      alert('Project financial performance updated successfully.');
+      toast.success('Project financial performance updated successfully.');
       setEditModalOpen(false);
       loadDashboardData();
     } catch (e) {
-      alert('Error updating project details: ' + (e.message || String(e)));
+      toast.error('Error updating project details: ' + (e.message || String(e)));
     } finally {
       setSavingFinancials(false);
     }

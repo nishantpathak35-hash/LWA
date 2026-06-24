@@ -1,4 +1,5 @@
 import '../app/globals.css';
+import { Toaster } from '../components/ui/Toast';
 
 export const metadata = {
   title: 'PTS · LUXEWORX ATELIER INTERIOR PRIVATE LIMITED',
@@ -15,6 +16,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className="bg-slate-950 text-slate-100 min-h-screen font-sans selection:bg-gold/20 selection:text-gold overflow-x-hidden antialiased">
         {children}
+        <Toaster />
       </body>
     </html>
   );

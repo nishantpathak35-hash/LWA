@@ -122,7 +122,7 @@ export function Table({ className, ...props }) {
 }
 
 export function TableHeader({ className, ...props }) {
-  return <thead className={cn("bg-background border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider", className)} {...props} />;
+  return <thead className={cn("sticky top-0 z-10 bg-slate-950/80 backdrop-blur-md border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }) {
@@ -147,7 +147,19 @@ export function Dialog({ open, onClose, title, children }) {
 
   React.useEffect(() => {
     setMounted(true);
-  }, []);
+    
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && open) {
+        onClose();
+      }
+    };
+    
+    if (open) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
 
   if (!open) return null;
   if (!mounted) return null;

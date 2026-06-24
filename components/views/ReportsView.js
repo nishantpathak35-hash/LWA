@@ -187,16 +187,16 @@ export default function ReportsView() {
     const email = prompt("Enter vendor's email address to send payment advice:", defaultEmail);
     if (email === null) return;
     if (!email.trim()) {
-      alert('Email address is required.');
+      toast.error('Email address is required.');
       return;
     }
 
     setSendingAdviceId(payment.id);
     try {
       await call('sendPaymentAdvice', payment.id, email.trim());
-      alert('Payment advice email has been sent successfully to ' + email.trim() + '.');
+      toast.success('Payment advice email has been sent successfully to ' + email.trim() + '.');
     } catch (err) {
-      alert('Failed to send payment advice: ' + (err.message || 'Unknown error'));
+      toast.error('Failed to send payment advice: ' + (err.message || 'Unknown error'));
     } finally {
       setSendingAdviceId(null);
     }
@@ -211,7 +211,7 @@ export default function ReportsView() {
   const handleRemitSubmit = async (e) => {
     e.preventDefault();
     if (!utr.trim()) {
-      alert('UTR / Reference number is required for remittance.');
+      toast.error('UTR / Reference number is required for remittance.');
       return;
     }
     setSubmitting(true);
@@ -220,7 +220,7 @@ export default function ReportsView() {
         utr: utr.trim(),
         comment: 'Remitted from Reports'
       });
-      alert('Payment remitted successfully.');
+      toast.success('Payment remitted successfully.');
       setRemitModalOpen(false);
       // Trigger a reload by toggling a state or reloading data
       if (reportType) {
@@ -231,7 +231,7 @@ export default function ReportsView() {
         window.location.reload();
       }
     } catch (err) {
-      alert(err.message || 'Failed to remit payment');
+      toast.error(err.message || 'Failed to remit payment');
     } finally {
       setSubmitting(false);
     }
@@ -241,15 +241,15 @@ export default function ReportsView() {
     const reason = prompt(`WARNING: You are about to permanently delete remitted payment #${payment.id}.\nThis will also update the PO ledger.\n\nEnter reason for deletion:`);
     if (!reason) return;
     if (reason.trim().length < 5) {
-      alert('A detailed reason (at least 5 characters) is required for audit logging.');
+      toast.error('A detailed reason (at least 5 characters) is required for audit logging.');
       return;
     }
     try {
       await call('deleteRemittedPayment', payment.id, reason.trim());
-      alert('Remitted payment deleted successfully.');
+      toast.success('Remitted payment deleted successfully.');
       window.location.reload();
     } catch (err) {
-      alert(err.message || 'Failed to delete payment');
+      toast.error(err.message || 'Failed to delete payment');
     }
   };
 

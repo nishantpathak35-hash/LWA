@@ -131,7 +131,7 @@ export default function VendorsView() {
         setEditModalOpen(true);
       }
     } catch (err) {
-      alert('Failed to load vendor: ' + err.message);
+      toast.error('Failed to load vendor: ' + err.message);
     }
   };
 
