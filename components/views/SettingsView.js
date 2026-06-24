@@ -63,6 +63,11 @@ export default function SettingsView() {
   const [legacyReason, setLegacyReason] = useState('');
   const [legacySubmitting, setLegacySubmitting] = useState(false);
 
+  // Project Merger State
+  const [mergeTargetProject, setMergeTargetProject] = useState('');
+  const [mergeSourceProjects, setMergeSourceProjects] = useState('');
+  const [mergeSubmitting, setMergeSubmitting] = useState(false);
+
   // Load Company Settings
   const loadCompany = useCallback(async () => {
     setLoading(true);
@@ -329,6 +334,47 @@ export default function SettingsView() {
     }, 10);
   };
 
+  const handleMergeProjects = async () => {
+    if (!mergeTargetProject.trim()) {
+      alert('Please enter a target project name.');
+      return;
+    }
+    if (!mergeSourceProjects.trim()) {
+      alert('Please enter at least one source project to merge.');
+      return;
+    }
+
+    const sourcesArray = mergeSourceProjects.split(',').map(s => s.trim()).filter(Boolean);
+    if (sourcesArray.length === 0) {
+      alert('Invalid source projects format.');
+      return;
+    }
+
+    if (sourcesArray.includes(mergeTargetProject.trim())) {
+      alert('Target project cannot be in the source projects list.');
+      return;
+    }
+
+    setTimeout(async () => {
+      const conf = window.confirm(`Are you sure you want to merge ${sourcesArray.length} project(s) into "${mergeTargetProject}"?\n\nSources: ${sourcesArray.join(', ')}\n\nThis will transfer all POs and financial values, and delete the source projects. This action cannot be undone.`);
+      if (!conf) return;
+
+      setMergeSubmitting(true);
+      try {
+        await call('mergeProjects', mergeTargetProject.trim(), sourcesArray);
+        await call('clearAllCaches');
+        alert('Projects merged successfully. The page will now reload to apply the changes globally.');
+        setMergeTargetProject('');
+        setMergeSourceProjects('');
+        window.location.reload();
+      } catch (err) {
+        alert('Error merging projects: ' + err.message);
+      } finally {
+        setMergeSubmitting(false);
+      }
+    }, 10);
+  };
+
   const handleReloadAll = async () => {
     try {
       await call('clearAllCaches');
@@ -527,6 +573,14 @@ export default function SettingsView() {
           className="text-amber-500 hover:text-amber-400"
         >
           ⚠ Legacy Correction
+        </Button>
+        <Button
+          onClick={() => setActiveTab('project_merger')}
+          size="sm"
+          variant={activeTab === 'project_merger' ? 'primary' : 'ghost'}
+          className="text-red-400 hover:text-red-300"
+        >
+          <Plus className="w-4 h-4 mr-1" /> Project Merger
         </Button>
       </div>
 
@@ -1156,6 +1210,54 @@ export default function SettingsView() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Project Merger Tab */}
+      {activeTab === 'project_merger' && (
+        <div className="space-y-6">
+          <Card className="bg-slate-950/40 border-red-900/50">
+            <CardHeader className="p-6 border-b border-slate-900/50">
+              <CardTitle className="text-red-400 font-medium flex items-center gap-2">
+                <Plus className="w-5 h-5" /> Project Merger Utility
+              </CardTitle>
+              <p className="text-xs text-slate-400 font-light mt-1">
+                Admin utility to securely merge duplicate projects into a single target project without orphaning Purchase Orders or Payment Requests. All financials are summed and the source projects are deleted.
+              </p>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4 max-w-xl">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400 font-light">Target Project (The project to KEEP)</label>
+                  <Input
+                    placeholder="e.g. COOFFIZ NOIDA"
+                    value={mergeTargetProject}
+                    onChange={e => setMergeTargetProject(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400 font-light">Source Projects (The duplicates to MERGE and DELETE)</label>
+                  <Input
+                    placeholder="e.g. Cooffiz Noida, Co-offiz Noida, COOFFIZ"
+                    value={mergeSourceProjects}
+                    onChange={e => setMergeSourceProjects(e.target.value)}
+                  />
+                  <p className="text-[10px] text-slate-500">Separate multiple source projects with commas.</p>
+                </div>
+                
+                <div className="pt-4 border-t border-slate-800">
+                  <Button 
+                    variant="primary" 
+                    className="w-full bg-red-600 hover:bg-red-500 text-white border-none"
+                    onClick={handleMergeProjects}
+                    disabled={mergeSubmitting || !mergeTargetProject.trim() || !mergeSourceProjects.trim()}
+                  >
+                    {mergeSubmitting ? 'Merging Projects...' : 'Merge Projects Now'}
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

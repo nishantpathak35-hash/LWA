@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import * as api from '../../lib/api.js';
 
 const ALLOWED_METHODS = new Set([
+  'mergeProjects',
   'loginUser',
   'getMySession',
   'getBootData',

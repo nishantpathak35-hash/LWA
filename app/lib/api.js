@@ -2490,3 +2490,102 @@ export async function correctLegacyPOPaidAmount(poNo, newPaidAmount, autoRecalcu
 
   return { ok: true, message: 'Legacy payment corrected successfully.' };
 }
+
+export async function mergeProjects(targetProject, sourceProjects, session) {
+  requireAuth(session);
+  const roles = session.roles || [];
+  const isAdmin = roles.includes('admin') || session.email === 'admin@luxeworx.com';
+  const isDirector = roles.includes('director');
+  
+  if (!isAdmin && !isDirector) {
+    throw new Error('AUTH:Unauthorized - Only Admin/Director can merge projects.');
+  }
+
+  if (!targetProject || typeof targetProject !== 'string') {
+    throw new Error('Target project must be a valid string.');
+  }
+
+  if (!sourceProjects || !Array.isArray(sourceProjects) || sourceProjects.length === 0) {
+    throw new Error('You must provide at least one source project to merge.');
+  }
+
+  // Prevent merging a project into itself
+  const sourcesToMerge = sourceProjects.filter(sp => sp !== targetProject);
+  if (sourcesToMerge.length === 0) {
+    throw new Error('No valid source projects to merge into target project.');
+  }
+
+  // Generate placeholder string for the IN clause
+  const placeholders = sourcesToMerge.map(() => '?').join(',');
+
+  // Fetch financials of source projects to roll them up
+  const sourceFinancials = await queryAll(
+    `SELECT * FROM project_financials WHERE project IN (${placeholders})`,
+    sourcesToMerge
+  );
+
+  let addedProjectValue = 0;
+  let addedBcs = 0;
+  let addedInflow = 0;
+  let addedInvoiceValue = 0;
+  let addedTds = 0;
+
+  sourceFinancials.forEach(row => {
+    addedProjectValue += Number(row.project_value || 0);
+    addedBcs += Number(row.bcs || 0);
+    addedInflow += Number(row.inflow || 0);
+    addedInvoiceValue += Number(row.invoice_value || 0);
+    addedTds += Number(row.tds || 0);
+  });
+
+  // Ensure target project exists in project_financials
+  const targetRow = await queryGet(`SELECT * FROM project_financials WHERE project = ?`, [targetProject]);
+  if (!targetRow) {
+    await queryRun(
+      `INSERT INTO project_financials (project, project_value, bcs, inflow, invoice_value, tds)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [targetProject, addedProjectValue, addedBcs, addedInflow, addedInvoiceValue, addedTds]
+    );
+  } else {
+    await queryRun(
+      `UPDATE project_financials 
+       SET project_value = project_value + ?, 
+           bcs = bcs + ?, 
+           inflow = inflow + ?, 
+           invoice_value = invoice_value + ?, 
+           tds = tds + ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE project = ?`,
+      [addedProjectValue, addedBcs, addedInflow, addedInvoiceValue, addedTds, targetProject]
+    );
+  }
+
+  // Update relational tables
+  await queryRun(
+    `UPDATE purchase_orders SET project = ? WHERE project IN (${placeholders})`,
+    [targetProject, ...sourcesToMerge]
+  );
+  
+  await queryRun(
+    `UPDATE payment_requests SET project = ? WHERE project IN (${placeholders})`,
+    [targetProject, ...sourcesToMerge]
+  );
+
+  // Delete source projects from project_financials
+  await queryRun(
+    `DELETE FROM project_financials WHERE project IN (${placeholders})`,
+    sourcesToMerge
+  );
+
+  // Log the audit event
+  await logAudit(
+    session.email,
+    'MERGE_PROJECTS',
+    `Merged projects [${sourcesToMerge.join(', ')}] into ${targetProject}`
+  );
+
+  return { 
+    ok: true, 
+    message: `Successfully merged ${sourcesToMerge.length} project(s) into ${targetProject}.` 
+  };
+}
