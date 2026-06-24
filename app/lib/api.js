@@ -496,9 +496,13 @@ export async function getProjectDetails(session) {
       };
     }
     const val = Number(po.po_value) || 0;
-    const projectOutflow = Number(outflowSnapshots[name]?.outflow) || 0;
     projectsMap[name].poIssued += val;
     projectsMap[name].projectValue += val;
+  });
+
+  // Apply outflow AFTER all POs are summed so pendingOutflow is correct
+  Object.keys(projectsMap).forEach(name => {
+    const projectOutflow = Number(outflowSnapshots[name]?.outflow) || 0;
     projectsMap[name].outflow = projectOutflow;
     projectsMap[name].pendingOutflow = Math.max(0, projectsMap[name].poIssued - projectOutflow);
   });

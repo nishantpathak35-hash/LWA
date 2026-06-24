@@ -233,10 +233,11 @@ export default function DashboardView() {
   }, [call]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadDashboardData();
-    }, 0);
-    return () => window.clearTimeout(timer);
+    // Initial load
+    const timer = window.setTimeout(() => { loadDashboardData(); }, 0);
+    // Auto-refresh every 30 seconds so outflow reflects recent payments without page reload
+    const interval = window.setInterval(() => { loadDashboardData(); }, 30000);
+    return () => { window.clearTimeout(timer); window.clearInterval(interval); };
   }, [loadDashboardData]);
 
   const filterProjects = (query) => projectsList.filter(r => {
@@ -361,6 +362,16 @@ export default function DashboardView() {
             Real-time Project Balances, Outflow Ledger, Approvals and Studio Performance Metrics.
           </p>
         </div>
+        <button
+          onClick={() => loadDashboardData()}
+          disabled={loading}
+          className="relative z-10 flex items-center gap-2 px-4 py-2 text-xs font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/10 transition-all disabled:opacity-50"
+        >
+          <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {loading ? 'Refreshing…' : 'Refresh Data'}
+        </button>
       </div>
 
       {/* ── Quick Actions ── */}
