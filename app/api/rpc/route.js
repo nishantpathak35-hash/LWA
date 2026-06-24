@@ -69,7 +69,8 @@ const ALLOWED_METHODS = new Set([
   'getDayWiseApprovalReport',
   'getPOFullDetails',
   'correctLegacyPOPaidAmount',
-  'deleteRemittedPayment'
+  'deleteRemittedPayment',
+  'getFinancialDiagnostics'
 ]);
 
 export async function POST(request) {
