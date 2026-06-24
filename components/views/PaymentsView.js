@@ -129,6 +129,22 @@ export default function PaymentsView() {
   };
 
   const netAmount = Math.max(grossAmount - tdsAmount, 0);
+  const selectedRequestStage = String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase();
+  const selectedRequestGross = Number(selectedRequest?.gross_amount || selectedRequest?.amountRequested || selectedRequest?.net_amount || 0);
+  const selectedRequestStoredTds = Number(selectedRequest?.tds_amount || 0);
+  const calculatedApprovalTds = Math.round(selectedRequestGross * (Number(approvalTdsPct) / 100));
+  const canEditApprovalTds = workflowAction === 'approve' && (
+    isAdmin ||
+    isDirector ||
+    isFinance ||
+    String(user?.role || '').toLowerCase().includes('finance') ||
+    String(user?.role || '').toLowerCase().includes('director') ||
+    String(user?.role || '').toLowerCase().includes('admin') ||
+    selectedRequestStage.includes('finance') ||
+    selectedRequestStage.includes('director')
+  );
+  const displayedTdsHold = canEditApprovalTds ? calculatedApprovalTds : selectedRequestStoredTds;
+  const displayedNetAfterTds = Math.max(selectedRequestGross - displayedTdsHold, 0);
 
   const assertWorkflowResult = (result, fallbackMessage) => {
     if (!result || result.ok === false || (Array.isArray(result.errors) && result.errors.length > 0)) {
@@ -202,6 +218,9 @@ export default function PaymentsView() {
         amountRequested: grossAmount,
         gross_amount: grossAmount,
         tds_deducted: tdsAmount,
+        tds_amount: tdsAmount,
+        tds_percentage: Number(selectedPO?.tds_pct || 0),
+        tds_section: selectedPO?.tds_section || '',
         net_amount: netAmount,
         invoice_no: invoiceRef.trim(),
         remarks: remarks.trim(),
@@ -220,12 +239,13 @@ export default function PaymentsView() {
   };
 
   const handleOpenWorkflowModal = (req, action) => {
+    const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
     setSelectedRequest(req);
     setWorkflowAction(action);
     setComment('');
     setUtr('');
-    setApprovalTdsSec('194C');
-    setApprovalTdsPct(2);
+    setApprovalTdsSec(req?.tds_section || relatedPO?.tds_section || '194C');
+    setApprovalTdsPct(Number(req?.tds_percentage || relatedPO?.tds_pct || 0));
     setFormError(null);
     setWorkflowModalOpen(true);
     setProjectSummary(null);
@@ -253,16 +273,14 @@ export default function PaymentsView() {
     setFormError(null);
     try {
       if (workflowAction === 'approve') {
-        const stage = String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase();
         let payload = {
           approval_status: 'Approved',
           comments: comment.trim()
         };
-        if (stage.includes('finance')) {
-          const calculatedTdsAmt = Math.round(Number(selectedRequest.gross_amount) * (Number(approvalTdsPct) / 100));
+        if (canEditApprovalTds) {
           payload.tds_configs = {
             [selectedRequest.id]: {
-              amount: calculatedTdsAmt,
+              amount: displayedTdsHold,
               percentage: Number(approvalTdsPct),
               section: approvalTdsSec
             }
@@ -570,16 +588,13 @@ export default function PaymentsView() {
                 min="1"
                 required
                 value={grossAmount}
-                onChange={(e) => {
-                  setGrossAmount(Number(e.target.value));
-                  setTdsAmount(0);
-                }}
+                onChange={(e) => handleGrossAmountChange(Number(e.target.value))}
               />
             </div>
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">NET AMOUNT PAYABLE</label>
               <div className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-900 rounded-lg text-gold text-sm font-semibold">
-                {formatCurrency(grossAmount)}
+                {formatCurrency(netAmount)}
               </div>
             </div>
           </div>
@@ -628,6 +643,7 @@ export default function PaymentsView() {
         open={workflowModalOpen} 
         onClose={() => setWorkflowModalOpen(false)} 
         title={workflowAction === 'approve' ? 'Approve Payment Request' : workflowAction === 'remit' ? 'Remit Payment Request' : 'Reject Payment Request'}
+        maxWidth="max-w-4xl"
       >
         <form onSubmit={handleWorkflowActionSubmit} className="space-y-6">
           {loadingSummary && (
@@ -652,38 +668,59 @@ export default function PaymentsView() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-6">
-                <div>
-                  <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">Total PO Value</span>
-                  <span className="text-xs font-semibold text-slate-250 mt-1 block">{formatCurrency(projectSummary.totalPOValue)}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">Project Inflow</span>
-                  <span className="text-xs font-semibold text-slate-250 mt-1 block">{formatCurrency(projectSummary.inflow)}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">PO Outflow</span>
-                  <span className="text-xs font-semibold text-slate-250 mt-1 block">{formatCurrency(projectSummary.currentPOOutflow)}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">Requested Amount</span>
-                  <span className="text-xs font-semibold text-gold mt-1 block">+{formatCurrency(projectSummary.currentPaymentAmount)}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">Outflow After Approval</span>
-                  <span className="text-xs font-bold text-slate-200 mt-1 block">{formatCurrency(projectSummary.outflowAfterApproval)}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">Outflow %</span>
-                  <span className={`text-xs font-bold mt-1 block ${projectSummary.outflowPct > 100 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {Number(projectSummary.outflowPct || 0).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="col-span-2 sm:col-span-2 flex flex-col justify-end">
+              <div className="overflow-x-auto border border-slate-900 rounded-lg">
+                <table className="min-w-[820px] w-full border-collapse text-xs">
+                  <tbody className="divide-y divide-slate-900/80">
+                    <tr className="divide-x divide-slate-900/80">
+                      {[
+                        ['BOQ Value', formatCurrency(projectSummary.boqValue)],
+                        ['Project inflow', formatCurrency(projectSummary.inflow)],
+                        ['Project inflow %', `${Number(projectSummary.projectInflowPct || 0).toFixed(1)}%`],
+                        ['BCS', formatCurrency(projectSummary.bcs)],
+                        ['Project outflow', formatCurrency(projectSummary.projectOutflow)],
+                        ['Project Outflow %', `${Number(projectSummary.projectOutflowPct || 0).toFixed(1)}%`],
+                        ['Inflow /Outflow', Number(projectSummary.inflowOutflowRatio || 0) > 0 ? `${Number(projectSummary.inflowOutflowRatio).toFixed(2)}x` : '0.00x']
+                      ].map(([label, value]) => (
+                        <td key={label} className="px-3 py-2 align-top">
+                          <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">{label}</span>
+                          <span className="text-xs font-semibold text-slate-250 mt-1 block">{value}</span>
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="divide-x divide-slate-900/80">
+                      {[
+                        ['P.O Value', formatCurrency(projectSummary.totalPOValue)],
+                        ['Outflow', formatCurrency(projectSummary.currentPOOutflow)],
+                        ['Outflow %', `${Number(projectSummary.poCurrentOutflowPct || 0).toFixed(1)}%`],
+                        ['Req', `+${formatCurrency(projectSummary.currentPaymentAmount)}`],
+                        ['Outflow after payment', formatCurrency(projectSummary.outflowAfterApproval)]
+                      ].map(([label, value]) => (
+                        <td key={label} className="px-3 py-2 align-top" colSpan={label === 'Outflow after payment' ? 3 : 1}>
+                          <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">{label}</span>
+                          <span className={`text-xs font-semibold mt-1 block ${label === 'Req' ? 'text-gold' : 'text-slate-250'}`}>{value}</span>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-slate-900 bg-slate-950/30 px-3 py-2">
                   <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">Remaining PO Balance</span>
                   <span className={`text-xs font-bold mt-1 block ${projectSummary.remainingPOBalance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                     {formatCurrency(projectSummary.remainingPOBalance)}
                   </span>
+                </div>
+                <div className="rounded-lg border border-slate-900 bg-slate-950/30 px-3 py-2">
+                  <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">TDS Hold</span>
+                  <span className={`text-xs font-bold mt-1 block ${Number(projectSummary.tdsHoldAmount || 0) > 0 ? 'text-violet-400' : 'text-slate-400'}`}>
+                    {formatCurrency(projectSummary.tdsHoldAmount || 0)}
+                  </span>
+                </div>
+                <div className="rounded-lg border border-slate-900 bg-slate-950/30 px-3 py-2">
+                  <span className="text-[9px] font-medium text-slate-500 tracking-wider block uppercase">Net Payable</span>
+                  <span className="text-xs font-bold text-gold mt-1 block">{formatCurrency(projectSummary.netPayableAfterTds || projectSummary.currentPaymentAmount)}</span>
                 </div>
               </div>
 
@@ -736,13 +773,18 @@ export default function PaymentsView() {
             </div>
           )}
 
-          {workflowAction === 'approve' && (String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase().includes('finance') || String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase().includes('director')) && (
+          {workflowAction === 'approve' && (
             <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl space-y-4">
-              <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">TDS Deduction Details</span>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">TDS Hold Details</span>
+                {!canEditApprovalTds && (
+                  <span className="text-[10px] text-slate-500">Read only at this approval stage</span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS SECTION</label>
-                  <Select value={approvalTdsSec} onChange={(e) => setApprovalTdsSec(e.target.value)}>
+                  <Select value={approvalTdsSec} onChange={(e) => setApprovalTdsSec(e.target.value)} disabled={!canEditApprovalTds}>
                     <option value="194C">194C (Contractors - 2%)</option>
                     <option value="194J">194J (Professional - 10%)</option>
                     <option value="194I">194I (Rent - 10%)</option>
@@ -757,16 +799,17 @@ export default function PaymentsView() {
                     min="0"
                     value={approvalTdsPct}
                     onChange={(e) => setApprovalTdsPct(Number(e.target.value))}
+                    disabled={!canEditApprovalTds}
                   />
                 </div>
               </div>
               <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-900/60">
-                <span>Calculated TDS Amount:</span>
-                <span className="text-red-400 font-semibold">{formatCurrency(Math.round(Number(selectedRequest?.gross_amount || 0) * (Number(approvalTdsPct) / 100)))}</span>
+                <span>TDS Hold Amount:</span>
+                <span className="text-red-400 font-semibold">{formatCurrency(displayedTdsHold)}</span>
               </div>
               <div className="flex justify-between items-center text-xs text-slate-400">
-                <span>Net Payable After TDS:</span>
-                <span className="text-gold font-semibold">{formatCurrency(Number(selectedRequest?.gross_amount || 0) - Math.round(Number(selectedRequest?.gross_amount || 0) * (Number(approvalTdsPct) / 100)))}</span>
+                <span>Net Payable After TDS Hold:</span>
+                <span className="text-gold font-semibold">{formatCurrency(displayedNetAfterTds)}</span>
               </div>
             </div>
           )}

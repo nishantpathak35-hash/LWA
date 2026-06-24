@@ -142,12 +142,8 @@ export function TableCell({ className, ...props }) {
 }
 
 // --- DIALOG / MODAL ---
-export function Dialog({ open, onClose, title, children }) {
-  const [mounted, setMounted] = React.useState(false);
-
+export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' }) {
   React.useEffect(() => {
-    setMounted(true);
-    
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && open) {
         onClose();
@@ -162,7 +158,7 @@ export function Dialog({ open, onClose, title, children }) {
   }, [open, onClose]);
 
   if (!open) return null;
-  if (!mounted) return null;
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -174,7 +170,7 @@ export function Dialog({ open, onClose, title, children }) {
       
       {/* Content wrapper */}
       <div 
-        className="relative w-full max-w-2xl bg-background border border-border rounded-xl shadow-2xl overflow-hidden z-10 animate-fade-in flex flex-col transition-colors duration-200"
+        className={cn("relative w-full bg-background border border-border rounded-xl shadow-2xl overflow-hidden z-10 animate-fade-in flex flex-col transition-colors duration-200", maxWidth)}
         style={{ maxHeight: '90vh' }}
       >
         {/* Header */}

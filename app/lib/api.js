@@ -103,7 +103,7 @@ async function ensureSettingsTable() {
   for (const col of poColumns) {
     try { await queryRun(`ALTER TABLE purchase_orders ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
   }
-  const prColumns = ['remittance_ref', 'remittance_date'];
+  const prColumns = ['remittance_ref', 'remittance_date', 'tds_amount', 'tds_percentage', 'tds_section'];
   for (const col of prColumns) {
     try { await queryRun(`ALTER TABLE payment_requests ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
   }
@@ -1555,11 +1555,15 @@ export async function createPaymentRequest(payload, session) {
   }
 
   const now = new Date().toISOString();
+  const tdsAmount = Number(payload.tds_deducted || payload.tds_amount || 0);
+  const tdsPct = Number(payload.tds_percentage || payload.tds_pct || 0);
+  const tdsSection = payload.tds_section || payload.tdsSection || '';
 
   const result = await queryRun(
     `INSERT INTO payment_requests (
-      po_no, vendor_name, project, category, amount_requested, stage, remittance, created_at, remarks, created_by, vendor_code
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      po_no, vendor_name, project, category, amount_requested, stage, remittance, created_at, remarks, created_by, vendor_code,
+      tds_amount, tds_percentage, tds_section
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       payload.poNo,
       payload.vendor,
@@ -1571,7 +1575,10 @@ export async function createPaymentRequest(payload, session) {
       now,
       payload.remarks || '',
       session?.email || 'admin@luxeworx.com',
-      payload.vendorCode || ''
+      payload.vendorCode || '',
+      tdsAmount,
+      tdsPct,
+      tdsSection
     ]
   );
 

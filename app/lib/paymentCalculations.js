@@ -51,25 +51,6 @@ async function getSystemPaymentTotal(poNo) {
   return money(row?.total);
 }
 
-async function getPostedRequestKeysForPO(poNo) {
-  const rows = await queryAll(
-    `SELECT DISTINCT pr_key FROM system_payments WHERE po_no = ? AND pr_key IS NOT NULL`,
-    [poNo]
-  );
-  return new Set(rows.map(row => String(row.pr_key)));
-}
-
-async function getPostedRequestKeysForProject(project) {
-  const rows = await queryAll(
-    `SELECT DISTINCT sp.pr_key
-     FROM system_payments sp
-     JOIN purchase_orders po ON po.po_no = sp.po_no
-     WHERE po.project = ? AND sp.pr_key IS NOT NULL`,
-    [project]
-  );
-  return new Set(rows.map(row => String(row.pr_key)));
-}
-
 function summarizeRequests(requests, currentRequestId = null, postedRequestKeys = new Set()) {
   const summary = {
     approvedPayments: 0,
@@ -145,7 +126,7 @@ export async function calculatePOPaymentSummary({ requestId = null, poNo = null,
   const systemPaid = await getSystemPaymentTotal(poNo);
   const requestSummary = summarizeRequests(requests, requestId);
   const paymentAmount = currentAmount == null ? 0 : money(currentAmount);
-  const currentPOOutflow = systemPaid + requestSummary.countableRequestOutflow;
+  const currentPOOutflow = systemPaid;
   const currentCountsTowardApproval = currentRequest ? shouldCountPayment(currentRequest) : paymentAmount > 0;
   const outflowAfterApproval = currentPOOutflow + (currentCountsTowardApproval ? paymentAmount : 0);
   const remainingPOBalance = poValue - outflowAfterApproval;
@@ -194,7 +175,7 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
     };
   }
 
-  const [projectFinancials, systemPaidRow, projectRequests] = await Promise.all([
+  const [projectFinancials, systemPaidRow] = await Promise.all([
     queryGet(`SELECT * FROM project_financials WHERE project = ?`, [project]).catch(() => undefined),
     queryGet(
       `SELECT COALESCE(SUM(sp.amount), 0) AS total
@@ -202,28 +183,45 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
        JOIN purchase_orders po ON po.po_no = sp.po_no
        WHERE po.project = ?`,
       [project]
-    ),
-    queryAll(`SELECT * FROM payment_requests WHERE project = ?`, [project])
+    )
   ]);
 
-  const projectRequestSummary = summarizeRequests(projectRequests, requestId);
   const inflow = money(projectFinancials?.inflow);
-  const currentOutflow = money(systemPaidRow?.total) + projectRequestSummary.countableRequestOutflow;
+  const boqValue = money(projectFinancials?.project_value);
+  const bcs = money(projectFinancials?.bcs);
+  const currentOutflow = money(systemPaidRow?.total);
   const projectedOutflow = currentOutflow + (shouldCountPayment(request) ? reqAmt : 0);
   const currentUtilisation = inflow > 0 ? Math.round((currentOutflow / inflow) * 100) : 0;
   const projectedUtilisation = inflow > 0 ? Math.round((projectedOutflow / inflow) * 100) : 0;
   const remainingBalance = inflow - projectedOutflow;
+  const projectInflowPct = boqValue > 0 ? (inflow / boqValue) * 100 : 0;
+  const projectOutflowPct = inflow > 0 ? (currentOutflow / inflow) * 100 : 0;
+  const inflowOutflowRatio = currentOutflow > 0 ? inflow / currentOutflow : 0;
+  const poCurrentOutflowPct = poSummary.totalPOValue > 0 ? (poSummary.currentPOOutflow / poSummary.totalPOValue) * 100 : 0;
+  const tdsHoldAmount = money(request.tds_amount);
+  const netPayableAfterTds = Math.max(reqAmt - tdsHoldAmount, 0);
 
   return {
     ...poSummary,
     project,
+    boqValue,
+    bcs,
     inflow,
+    projectInflowPct,
+    projectOutflow: currentOutflow,
+    projectOutflowPct,
+    inflowOutflowRatio,
+    poCurrentOutflowPct,
     currentOutflow,
     currentUtilisation,
     requestedAmount: reqAmt,
     projectedOutflow,
     projectedUtilisation,
-    remainingBalance
+    remainingBalance,
+    tdsHoldAmount,
+    tdsHoldPct: money(request.tds_percentage),
+    tdsHoldSection: request.tds_section || '',
+    netPayableAfterTds
   };
 }
 
@@ -253,6 +251,7 @@ export async function calculateProjectOutflowSnapshots() {
   }
 
   const requestsByProject = new Map();
+
   for (const request of requestRows) {
     const project = request.project || '';
     if (!project) continue;
@@ -272,7 +271,6 @@ export async function calculateProjectOutflowSnapshots() {
         draftPayments: 0
       };
     }
-    snapshots[project].outflow += requestSummary.countableRequestOutflow;
     snapshots[project].approvedPayments = requestSummary.approvedPayments;
     snapshots[project].pendingPayments = requestSummary.pendingPayments;
     snapshots[project].rejectedPayments = requestSummary.rejectedPayments;
