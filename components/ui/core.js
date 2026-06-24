@@ -98,13 +98,14 @@ export function Input({ className, ...props }) {
 }
 
 // --- TEXTAREA ---
-export function Textarea({ className, ...props }) {
+export function Textarea({ className, style, ...props }) {
   return (
     <textarea
       className={cn(
-        "w-full px-3.5 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground/60 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all duration-200 resize-y min-h-[80px]",
+        "w-full px-3.5 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground/60 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all duration-200 resize-y",
         className
       )}
+      style={{ minHeight: '90px', ...style }}
       {...props}
     />
   );

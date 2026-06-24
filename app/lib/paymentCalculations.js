@@ -240,12 +240,20 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
 }
 
 export async function calculateProjectOutflowSnapshots() {
-  const [systemRows, requestRows] = await Promise.all([
+  // Unified outflow per project:
+  // 1. All system_payments (manual payments + mirrored remittances)
+  // 2. PLUS: remitted payment_requests that do NOT have a system_payments entry
+  //    (workflow remittances recorded before the mirroring logic was added)
+  const [systemRows, orphanRemittedRows, requestRows] = await Promise.all([
+    // Leg 1: system_payments joined to purchase_orders
     queryAll(
       `SELECT po.project,
               COALESCE(SUM(
                 CASE
-                  WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+                  WHEN pr.pr_id IS NOT NULL
+                    THEN CASE WHEN COALESCE(pr.amount_requested,0) - COALESCE(pr.tds_amount,0) < 0
+                              THEN 0
+                              ELSE COALESCE(pr.amount_requested,0) - COALESCE(pr.tds_amount,0) END
                   ELSE COALESCE(sp.amount, 0)
                 END
               ), 0) AS total
@@ -254,10 +262,29 @@ export async function calculateProjectOutflowSnapshots() {
        LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)
        GROUP BY po.project`
     ),
+    // Leg 2: remitted payment_requests with NO system_payments row (orphans)
+    queryAll(
+      `SELECT po.project,
+              COALESCE(SUM(
+                CASE WHEN COALESCE(pr.amount_requested,0) - COALESCE(pr.tds_amount,0) < 0
+                     THEN 0
+                     ELSE COALESCE(pr.amount_requested,0) - COALESCE(pr.tds_amount,0) END
+              ), 0) AS total
+       FROM payment_requests pr
+       JOIN purchase_orders po ON po.po_no = pr.po_no
+       WHERE (LOWER(COALESCE(pr.stage,'')) LIKE '%remit%'
+              OR LOWER(COALESCE(pr.remittance,'')) LIKE '%remit%')
+         AND CAST(pr.pr_id AS TEXT) NOT IN (
+               SELECT CAST(sp.pr_key AS TEXT) FROM system_payments sp WHERE sp.pr_key IS NOT NULL
+             )
+       GROUP BY po.project`
+    ),
     queryAll(`SELECT * FROM payment_requests`)
   ]);
 
   const snapshots = {};
+
+  // Merge leg 1
   for (const row of systemRows) {
     const project = row.project || '';
     if (!project) continue;
@@ -271,8 +298,17 @@ export async function calculateProjectOutflowSnapshots() {
     };
   }
 
-  const requestsByProject = new Map();
+  // Merge leg 2 (orphan remittances not already counted via system_payments)
+  for (const row of orphanRemittedRows) {
+    const project = row.project || '';
+    if (!project) continue;
+    if (!snapshots[project]) {
+      snapshots[project] = { outflow: 0, approvedPayments: 0, pendingPayments: 0, rejectedPayments: 0, cancelledPayments: 0, draftPayments: 0 };
+    }
+    snapshots[project].outflow += money(row.total);
+  }
 
+  const requestsByProject = new Map();
   for (const request of requestRows) {
     const project = request.project || '';
     if (!project) continue;
@@ -283,20 +319,13 @@ export async function calculateProjectOutflowSnapshots() {
   for (const [project, requests] of requestsByProject.entries()) {
     const requestSummary = summarizeRequests(requests, null);
     if (!snapshots[project]) {
-      snapshots[project] = {
-        outflow: 0,
-        approvedPayments: 0,
-        pendingPayments: 0,
-        rejectedPayments: 0,
-        cancelledPayments: 0,
-        draftPayments: 0
-      };
+      snapshots[project] = { outflow: 0, approvedPayments: 0, pendingPayments: 0, rejectedPayments: 0, cancelledPayments: 0, draftPayments: 0 };
     }
     snapshots[project].approvedPayments = requestSummary.approvedPayments;
-    snapshots[project].pendingPayments = requestSummary.pendingPayments;
+    snapshots[project].pendingPayments  = requestSummary.pendingPayments;
     snapshots[project].rejectedPayments = requestSummary.rejectedPayments;
     snapshots[project].cancelledPayments = requestSummary.cancelledPayments;
-    snapshots[project].draftPayments = requestSummary.draftPayments;
+    snapshots[project].draftPayments    = requestSummary.draftPayments;
   }
 
   return snapshots;

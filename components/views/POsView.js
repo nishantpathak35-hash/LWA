@@ -796,7 +796,7 @@ export default function POsView() {
                 value={terms}
                 onChange={e => setTerms(e.target.value)}
                 placeholder="e.g. 50% advance, balance on delivery"
-                className="min-h-[100px] resize-y"
+                style={{ minHeight: '100px' }}
               />
             </div>
             <div>
@@ -805,7 +805,7 @@ export default function POsView() {
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Internal notes or special instructions"
-                className="min-h-[100px] resize-y"
+                style={{ minHeight: '100px' }}
               />
             </div>
           </div>
@@ -835,7 +835,8 @@ export default function POsView() {
                     value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
                     placeholder="Item description"
-                    className="min-h-[60px] resize-y text-xs py-1.5"
+                    className="text-xs py-1.5"
+                    style={{ minHeight: '70px' }}
                   />
                   <Input type="text" value={item.hsnSac}
                     onChange={e => handleItemChange(idx, 'hsnSac', e.target.value)}
