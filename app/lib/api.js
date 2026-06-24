@@ -372,6 +372,7 @@ export async function getMasterData(session) {
   });
 
   const masterVendors = vendors.map(v => ({ 
+    recordId: v.id,
     code: v.vendor_code,
     vendorId: v.vendor_code, 
     name: v.legal_name || v.name || v.vendor_code, 

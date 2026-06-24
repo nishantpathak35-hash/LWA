@@ -70,6 +70,25 @@ function calcItem(item) {
   return { gross, gstAmt, total: gross + gstAmt };
 }
 
+function getVendorSelectValue(vendor, index = 0) {
+  if (vendor?.recordId !== undefined && vendor?.recordId !== null) return `id:${vendor.recordId}`;
+  return `legacy:${vendor?.code || ''}:${vendor?.name || ''}:${index}`;
+}
+
+function findVendorBySelection(vendors, selection) {
+  const indexed = vendors.map((vendor, index) => ({ vendor, index }));
+  return indexed.find(({ vendor, index }) => getVendorSelectValue(vendor, index) === selection)?.vendor || null;
+}
+
+function findVendorSelection(vendors, code, name) {
+  const indexed = vendors.map((vendor, index) => ({ vendor, index }));
+  const match = indexed.find(({ vendor }) => vendor.code === code && (!name || vendor.name === name || vendor.legalName === name))
+    || indexed.find(({ vendor }) => name && (vendor.name === name || vendor.legalName === name))
+    || indexed.find(({ vendor }) => vendor.code === code)
+    || indexed[0];
+  return match ? getVendorSelectValue(match.vendor, match.index) : '';
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function POsView() {
   const { pos, vendors, projects, user, call, refreshData } = useAppState();
@@ -235,7 +254,7 @@ export default function POsView() {
           setEditingPO(poDetails);
           setPoNo(poDetails.po_no);
           setProject(poDetails.project || '');
-          setVendorCode(poDetails.vendor_key || '');
+          setVendorCode(findVendorSelection(vendors, poDetails.vendor_key || '', poDetails.vendor_name || ''));
           setPoDate(poDetails.po_date || new Date().toISOString().substring(0, 10));
           setExpectedDelivery(poDetails.expected_delivery_date || '');
           setCategory(poDetails.category || 'Goods');
@@ -269,7 +288,7 @@ export default function POsView() {
       setEditingPoNo(null);
       setEditingPO(null);
       setProject(projects[0]?.name || '');
-      setVendorCode(vendors[0]?.code || '');
+      setVendorCode(findVendorSelection(vendors, vendors[0]?.code || '', vendors[0]?.name || ''));
       setPoDate(new Date().toISOString().substring(0, 10));
       setExpectedDelivery('');
       setCategory('Goods');
@@ -324,12 +343,13 @@ export default function POsView() {
     setSubmitting(true);
     setFormError(null);
     try {
-      const selectedVendor = vendors.find(v => v.code === vendorCode);
+      const selectedVendor = findVendorBySelection(vendors, vendorCode);
+      const selectedVendorCode = selectedVendor?.code || '';
       const payload = {
         poNo: poNo.trim(), project, poDate,
         expectedDeliveryDate: expectedDelivery,
-        category, vendorCode,
-        vendor_key: vendorCode,
+        category, vendorCode: selectedVendorCode,
+        vendor_key: selectedVendorCode,
         vendorName: selectedVendor?.name || '',
         vendor: selectedVendor?.name || '',
         poValue: netPayable, grandTotal: netPayable,
@@ -419,7 +439,7 @@ export default function POsView() {
       setEditingPO(null);
       setPoNo(`${po.po_no}-DUP`);
       setProject(details.project || '');
-      setVendorCode(details.vendor_key || '');
+      setVendorCode(findVendorSelection(vendors, details.vendor_key || '', details.vendor_name || ''));
       setPoDate(new Date().toISOString().substring(0, 10));
       setExpectedDelivery(details.expected_delivery_date || '');
       setCategory(details.category || 'Goods');
@@ -754,7 +774,7 @@ export default function POsView() {
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR *</label>
               <Select value={vendorCode} onChange={e => setVendorCode(e.target.value)}>
-                {vendors.map((v, i) => <option key={i} value={v.code}>{v.name} ({v.code})</option>)}
+                {vendors.map((v, i) => <option key={getVendorSelectValue(v, i)} value={getVendorSelectValue(v, i)}>{v.name} ({v.code || 'No Code'})</option>)}
               </Select>
             </div>
           </div>
