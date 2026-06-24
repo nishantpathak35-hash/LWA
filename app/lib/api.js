@@ -1171,7 +1171,27 @@ export async function getPOPayments(poNo, session) {
     }))
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+  let totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+  const legacyPaid = Number(po.legacy_paid || 0);
+
+  // If there's a discrepancy (e.g. from manual legacy correction), add an audit row to the payments array
+  if (legacyPaid > 0 && Math.abs(legacyPaid - totalPaid) > 0.01) {
+     const diff = legacyPaid - totalPaid;
+     payments.push({
+       id: 'SYS-ADJ',
+       payment_date: po.po_date || 'System Adjustment',
+       amount: diff,
+       payment_mode: 'System / Legacy Override',
+       utr_ref: 'LEGACY-CORRECTION',
+       bank_name: 'Adjustment',
+       reference_no: '',
+       remarks: 'Manual/Legacy amount correction discrepancy adjustment',
+       payment_type: 'manual',
+       recorded_by: 'System Administrator'
+     });
+     totalPaid = legacyPaid;
+  }
+
   const poVal = Number(po.revised_po_value || po.po_value || 0);
   const outstanding = Math.max(0, poVal - totalPaid);
   let paymentStatus = 'Unpaid';

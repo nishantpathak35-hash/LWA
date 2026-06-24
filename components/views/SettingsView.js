@@ -314,11 +314,13 @@ export default function SettingsView() {
       setLegacySubmitting(true);
       try {
         await call('correctLegacyPOPaidAmount', legacyPO.po_no, legacyNewPaid, autoRecalculate, legacyReason.trim());
-        alert('PO paid amount corrected successfully.');
+        await call('clearAllCaches');
+        alert('PO paid amount corrected successfully. The page will now reload to apply the changes globally.');
         setLegacyPO(null);
         setLegacyPONo('');
         setLegacyReason('');
         setLegacyNewPaid('');
+        window.location.reload();
       } catch (err) {
         alert('Error correcting PO: ' + err.message);
       } finally {
