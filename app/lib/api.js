@@ -21,6 +21,9 @@ function invalidateProjectCache(project) {
 
 const settingsCache = new Map();
 
+// Module-level flag: only run the expensive ensureSettingsTable migrations once per server process
+let _settingsTableEnsured = false;
+
 function encryptToken(data) {
   const JWT_SECRET = getJwtSecret();
   const iv = crypto.randomBytes(16);
@@ -88,6 +91,10 @@ function normalizeRoleName(role) {
 }
 
 async function ensureSettingsTable() {
+  // Only run the migrations once per server process lifetime to avoid repeated
+  // sequential ALTER TABLE queries that significantly slow down every API call.
+  if (_settingsTableEnsured) return;
+
   await queryRun(`
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
@@ -100,7 +107,7 @@ async function ensureSettingsTable() {
     'terms', 'approval_status', 'submitted_by', 'submitted_at',
     'approved_by', 'approved_at', 'approval_remarks',
     'tds_section', 'tds_pct', 'tds_amount', 'gst_total', 'gst_mode',
-    'expected_delivery_date', 'notes', 'payment_status'
+    'expected_delivery_date', 'notes', 'payment_status', 'category'
   ];
   for (const col of poColumns) {
     try { await queryRun(`ALTER TABLE purchase_orders ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
@@ -141,6 +148,8 @@ async function ensureSettingsTable() {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  _settingsTableEnsured = true;
 }
 
 async function getSetting(key, fallback = '') {
@@ -302,31 +311,52 @@ export async function clearCacheAndGetMaster(session) {
 // --- DASHBOARD ---
 export async function getDashboardKPIs(session) {
   requireAuth(session);
-  // Query actual SQLite DB
-  const [poResult, prResult, sysResult] = await Promise.all([
-    queryAll(`SELECT * FROM purchase_orders`),
-    queryAll(`SELECT * FROM payment_requests`),
-    queryAll(`SELECT * FROM system_payments`)
+
+  const [poResult, prResult, outflowRow, pendingRow] = await Promise.all([
+    queryAll(`SELECT po_no, po_value FROM purchase_orders`),
+    queryAll(`SELECT pr_id, amount_requested, tds_amount, stage, remittance FROM payment_requests`),
+    // Authoritative total outflow — same logic as calculateProjectOutflowSnapshots:
+    // system_payments linked to a PR → use net PR amount (after TDS); else use raw sp.amount
+    queryGet(
+      `SELECT COALESCE(SUM(
+         CASE
+           WHEN pr.pr_id IS NOT NULL
+             THEN CASE WHEN COALESCE(pr.amount_requested,0) - COALESCE(pr.tds_amount,0) < 0 THEN 0
+                       ELSE COALESCE(pr.amount_requested,0) - COALESCE(pr.tds_amount,0) END
+           ELSE COALESCE(sp.amount, 0)
+         END
+       ), 0) AS total
+       FROM system_payments sp
+       LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)`
+    ),
+    // Pending: non-remitted, non-rejected, non-cancelled payment requests
+    queryGet(
+      `SELECT COALESCE(SUM(COALESCE(amount_requested, 0)), 0) AS total
+       FROM payment_requests
+       WHERE LOWER(COALESCE(stage,'')) NOT LIKE '%remit%'
+         AND LOWER(COALESCE(stage,'')) NOT LIKE '%reject%'
+         AND LOWER(COALESCE(stage,'')) NOT LIKE '%cancel%'
+         AND LOWER(COALESCE(remittance,'')) NOT LIKE '%remit%'`
+    )
   ]);
 
   let totalPOValue = 0;
-  let totalPaid = 0;
-  let pendingRemit = 0;
-  let pendingApproval = 0;
+  poResult.forEach(p => { totalPOValue += Number(p.po_value) || 0; });
 
-  poResult.forEach(p => {
-    totalPOValue += Number(p.po_value) || 0;
-  });
+  const totalPaid   = Number(outflowRow?.total) || 0;
+  const pendingApproval = Number(pendingRow?.total) || 0;
 
-  sysResult.forEach(s => {
-    totalPaid += Number(s.amount) || 0;
-  });
-
+  // Payment stage breakdown for the pipeline chart
+  const stageMap = { pendingProc: 0, pendingFinance: 0, pendingDirector: 0, readyToRemit: 0, remitted: 0, rejected: 0 };
   prResult.forEach(pr => {
-    const isRemitted = String(pr.remittance || '').toLowerCase().includes('remitted');
+    const stage = String(pr.stage || '').trim().toLowerCase();
     const amt = Number(pr.amount_requested) || 0;
-    if (isRemitted) totalPaid += amt;
-    else pendingApproval += amt;
+    if (stage.includes('remit')) stageMap.remitted += amt;
+    else if (stage.includes('ready')) stageMap.readyToRemit += amt;
+    else if (stage.includes('director')) stageMap.pendingDirector += amt;
+    else if (stage.includes('finance')) stageMap.pendingFinance += amt;
+    else if (stage.includes('reject') || stage.includes('cancel')) stageMap.rejected += amt;
+    else stageMap.pendingProc += amt;
   });
 
   return {
@@ -334,17 +364,18 @@ export async function getDashboardKPIs(session) {
     prs: prResult.length,
     totalPOValue,
     totalPaid,
-    pendingRemit,
+    pendingRemit: stageMap.readyToRemit,
     pendingApproval,
     payments: {
       total: prResult.length,
-      pendingProc: 0,
-      pendingFinance: 0,
-      pendingDirector: 0,
-      remitted: 0,
-      rejected: 0,
-      sumPending: pendingApproval,
-      sumRemitted: totalPaid
+      pendingProc:    stageMap.pendingProc,
+      pendingFinance: stageMap.pendingFinance,
+      pendingDirector: stageMap.pendingDirector,
+      readyToRemit:   stageMap.readyToRemit,
+      remitted:       stageMap.remitted,
+      rejected:       stageMap.rejected,
+      sumPending:     pendingApproval,
+      sumRemitted:    totalPaid
     }
   };
 }
@@ -521,7 +552,11 @@ export async function getProjectDetails(session) {
     console.error('Failed to apply project financial overrides:', e.message);
   }
 
-  return Object.values(projectsMap);
+  return Object.values(projectsMap).map(p => ({
+    ...p,
+    // Ensure outflow is always explicitly present for dashboard display
+    outflow: Number(p.outflow) || 0
+  }));
 }
 
 export async function addVendor(payload, session) {
@@ -860,12 +895,13 @@ export async function createPOFull(payload, session) {
 
   await queryRun(
     `INSERT INTO purchase_orders 
-       (po_no, vendor_key, vendor_name, project, po_value, revised_po_value, approval_status, status, po_date, terms, tds_section, tds_pct, tds_amount, gst_total, gst_mode) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (po_no, vendor_key, vendor_name, project, po_value, revised_po_value, approval_status, status, po_date, terms, tds_section, tds_pct, tds_amount, gst_total, gst_mode, category, notes, expected_delivery_date) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [poNo, vendorKey, vendorName, payload.project || '',
      totalVal, totalVal, 'Draft', 'Draft',
      payload.poDate || new Date().toISOString().split('T')[0],
-     payload.terms || '', tdsSection, tdsPct, tdsAmount, gstTotal, gstMode]
+     payload.terms || '', tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
+     payload.category || 'Goods', payload.notes || '', payload.expectedDeliveryDate || '']
   );
 
   if (payload.items && payload.items.length) {
@@ -972,17 +1008,20 @@ export async function updatePOFull(poNo, payload, session) {
   }
 
   await queryRun(
-    `UPDATE purchase_orders SET 
-      po_no = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
+    `UPDATE purchase_orders SET
+      po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
       approval_status = ?, status = ?,
       tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
-      expected_delivery_date = ?, notes = ?
+      expected_delivery_date = ?, notes = ?, category = ?
      WHERE po_no = ?`,
-    [nextPoNo, vendorName, payload.project || '', totalVal, totalVal,
+    [nextPoNo,
+     payload.vendorCode || payload.vendor_key || existing?.vendor_key || '',
+     vendorName, payload.project || '', totalVal, totalVal,
      payload.poDate || '', payload.terms || '',
      newStatus, newStatus,
      tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
      payload.expectedDeliveryDate || '', payload.notes || '',
+     payload.category || existing?.category || 'Goods',
      originalPoNo]
   );
   if (nextPoNo !== originalPoNo) {
@@ -1047,15 +1086,23 @@ export async function deletePOFull(poNo, session) {
     'Procurement'
   );
 
+  const safeDelete = async (sql, params = []) => {
+    try {
+      await queryRun(sql, params);
+    } catch (err) {
+      console.warn(`PO delete cleanup skipped: ${err.message}`);
+    }
+  };
+
   if (requestIds.length) {
     const placeholders = requestIds.map(() => '?').join(',');
-    await queryRun(`DELETE FROM system_payments WHERE pr_key IN (${placeholders})`, requestIds);
+    await safeDelete(`DELETE FROM system_payments WHERE pr_key IN (${placeholders})`, requestIds);
   }
-  await queryRun(`DELETE FROM system_payments WHERE po_no = ?`, [targetPoNo]);
-  await queryRun(`DELETE FROM manual_payments WHERE po_no = ?`, [targetPoNo]);
-  await queryRun(`DELETE FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
-  await queryRun(`DELETE FROM po_approval_history WHERE po_no = ?`, [targetPoNo]);
-  await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [targetPoNo]);
+  await safeDelete(`DELETE FROM system_payments WHERE po_no = ?`, [targetPoNo]);
+  await safeDelete(`DELETE FROM manual_payments WHERE po_no = ?`, [targetPoNo]);
+  await safeDelete(`DELETE FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
+  await safeDelete(`DELETE FROM po_approval_history WHERE po_no = ?`, [targetPoNo]);
+  await safeDelete(`DELETE FROM po_items WHERE po_no = ?`, [targetPoNo]);
   await queryRun(`DELETE FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
 
   return { ok: true, poNo: targetPoNo };

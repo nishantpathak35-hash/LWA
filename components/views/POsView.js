@@ -5,7 +5,7 @@ import { useAppState } from '../StateProvider';
 import {
   Card, CardHeader, CardTitle, CardContent,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
-  Badge, Button, Input, Select, Dialog
+  Badge, Button, Input, Select, Dialog, Textarea
 } from '../ui/core';
 import { formatCurrency, formatDate } from '../../app/lib/utils';
 import {
@@ -777,21 +777,6 @@ export default function POsView() {
                 {vendors.map((v, i) => <option key={getVendorSelectValue(v, i)} value={getVendorSelectValue(v, i)}>{v.name} ({v.code || 'No Code'})</option>)}
               </Select>
             </div>
-          </div>
-
-          {/* Header row 2 */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PO DATE</label>
-              <Input type="date" required value={poDate} onChange={e => setPoDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">EXPECTED DELIVERY</label>
-              <Input type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">CATEGORY</label>
-              <Select value={category} onChange={e => setCategory(e.target.value)}>
                 {['Goods','Services','Consulting','IT','Marketing','Admin','Capex','Opex'].map(c => <option key={c}>{c}</option>)}
               </Select>
             </div>
@@ -835,9 +820,9 @@ export default function POsView() {
               const { total } = calcItem(item);
               return (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_80px_60px_96px_90px_70px_90px_36px] gap-2 items-center p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
-                  <Input required type="text" value={item.description}
+                  <Textarea required value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
-                    placeholder="Item description" className="h-8 text-xs" />
+                    placeholder="Item description" className="min-h-[36px] h-9 resize-none text-xs py-1.5" />
                   <Input type="text" value={item.hsnSac}
                     onChange={e => handleItemChange(idx, 'hsnSac', e.target.value)}
                     placeholder="Code" className="h-8 text-xs" />

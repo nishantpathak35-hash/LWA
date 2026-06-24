@@ -97,6 +97,19 @@ export function Input({ className, ...props }) {
   );
 }
 
+// --- TEXTAREA ---
+export function Textarea({ className, ...props }) {
+  return (
+    <textarea
+      className={cn(
+        "w-full px-3.5 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground/60 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all duration-200 resize-y min-h-[80px]",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
 // --- SELECT ---
 export function Select({ className, children, ...props }) {
   return (

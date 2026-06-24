@@ -254,7 +254,7 @@ export default function DashboardView() {
 
   // Calculate Totals
   let totPV = 0, totInflow = 0, totPendInflow = 0;
-  let totBCS = 0, totPGM = 0, totPO = 0, totAGM = 0, totPendOut = 0, totBal = 0;
+  let totBCS = 0, totPGM = 0, totPO = 0, totAGM = 0, totPendOut = 0, totBal = 0, totOut = 0;
 
   filteredCashflowProjects.forEach(r => {
     totPV += num(r.projectValue);
@@ -269,6 +269,7 @@ export default function DashboardView() {
     totAGM += num(r.actualGM);
     totPendOut += num(r.pendingOutflow);
     totBal += num(r.balanceAvailable);
+    totOut += num(r.outflow);
   });
 
   // Generate sparklines datasets
@@ -279,7 +280,8 @@ export default function DashboardView() {
   const spPGM = filteredFinancialProjects.map(r => num(r.plannedGM));
   const spPO = filteredFinancialProjects.map(r => num(r.poIssued));
   const spAGM = filteredFinancialProjects.map(r => num(r.actualGM));
-  const spOut = filteredFinancialProjects.map(r => num(r.pendingOutflow));
+  const spOut = filteredFinancialProjects.map(r => num(r.outflow));
+  const spPendOut = filteredFinancialProjects.map(r => num(r.pendingOutflow));
   const spBal = filteredFinancialProjects.map(r => num(r.balanceAvailable));
 
   // Payment pipeline segments calculation
@@ -614,7 +616,7 @@ export default function DashboardView() {
         </div>
 
         {/* Financial KPI Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
           <Card className="p-4 flex flex-col justify-between h-24">
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider">BCS</div>
             <div className="text-lg font-light text-foreground font-serif">{fmtLakhs(totBCS)}</div>
@@ -636,9 +638,14 @@ export default function DashboardView() {
             <div className="h-6"><Sparkline data={spAGM} color="rgba(61,214,140,.95)" /></div>
           </Card>
           <Card className="p-4 flex flex-col justify-between h-24">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider text-red-400">Outflow (Paid)</div>
+            <div className="text-lg font-light text-red-400 font-serif">{fmtLakhs(totOut)}</div>
+            <div className="h-6"><Sparkline data={spOut} color="rgba(239,68,68,.95)" /></div>
+          </Card>
+          <Card className="p-4 flex flex-col justify-between h-24">
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider text-amber-500">Pending Outflow</div>
             <div className="text-lg font-light text-amber-500 font-serif">{fmtLakhs(totPendOut)}</div>
-            <div className="h-6"><Sparkline data={spOut} color="rgba(245,158,11,.95)" /></div>
+            <div className="h-6"><Sparkline data={spPendOut} color="rgba(245,158,11,.95)" /></div>
           </Card>
           <Card className="p-4 flex flex-col justify-between h-24">
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Balance Available</div>
@@ -662,6 +669,7 @@ export default function DashboardView() {
               <TableHead className="text-right">P.O Issued</TableHead>
               <TableHead className="text-right text-emerald-400">Actual GM</TableHead>
               <TableHead className="text-right text-emerald-400">Achieved GM %</TableHead>
+              <TableHead className="text-right text-red-400">Outflow (Paid)</TableHead>
               <TableHead className="text-right text-amber-500">Pending Outflow</TableHead>
               <TableHead className="text-right">Balance Available</TableHead>
               <TableHead className="text-center w-10">Edit</TableHead>
@@ -681,6 +689,7 @@ export default function DashboardView() {
                     <TableCell className="text-right">{fmtLakhs(r.poIssued)}</TableCell>
                     <TableCell className="text-right text-emerald-400">{fmtLakhs(r.actualGM)}</TableCell>
                     <TableCell className="text-right text-emerald-400">{fmtPct(pct100(r.actualGMPct))}</TableCell>
+                    <TableCell className="text-right text-red-400">{fmtLakhs(r.outflow)}</TableCell>
                     <TableCell className="text-right text-amber-500">{fmtLakhs(r.pendingOutflow)}</TableCell>
                     <TableCell className={cn("text-right font-bold", bal < 0 ? "text-red-400" : "text-emerald-400")}>
                       {fmtLakhs(bal)}
