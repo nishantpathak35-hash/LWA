@@ -48,13 +48,19 @@ export default function SettingsView() {
   // Audit Log states
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
-  const [auditPage, setAuditPage] = useState(1);
-  const [auditTotalPages, setAuditTotalPages] = useState(1);
   const [auditTotal, setAuditTotal] = useState(0);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
   const [auditSearch, setAuditSearch] = useState('');
   const [auditFilterType, setAuditFilterType] = useState('');
   const [auditFilterDept, setAuditFilterDept] = useState('');
   const [auditSortDir, setAuditSortDir] = useState('DESC');
+
+  // Legacy Correction State
+  const [legacyPONo, setLegacyPONo] = useState('');
+  const [legacyPO, setLegacyPO] = useState(null);
+  const [legacyNewPaid, setLegacyNewPaid] = useState('');
+  const [legacyReason, setLegacyReason] = useState('');
+  const [legacySubmitting, setLegacySubmitting] = useState(false);
 
   // Load Company Settings
   const loadCompany = useCallback(async () => {
@@ -253,6 +259,53 @@ export default function SettingsView() {
       alert('Cache cleared. Reload the page to see fresh data.');
     } catch (e) {
       alert('Error: ' + (e.message || String(e)));
+    }
+  };
+
+  const handleSearchLegacyPO = async (e) => {
+    e.preventDefault();
+    setLegacySubmitting(true);
+    setLegacyPO(null);
+    try {
+      const pos = await call('getPurchaseOrders', {});
+      const po = pos?.find(p => p.po_no === legacyPONo.trim() || p.id === legacyPONo.trim());
+      if (po) {
+        setLegacyPO(po);
+        setLegacyNewPaid(po.legacy_paid || 0);
+      } else {
+        alert('PO not found.');
+      }
+    } catch (err) {
+      alert('Error searching PO: ' + err.message);
+    } finally {
+      setLegacySubmitting(false);
+    }
+  };
+
+  const handleCorrectLegacyPO = async (autoRecalculate) => {
+    if (!legacyReason.trim()) {
+      alert('A detailed reason is required for audit logging.');
+      return;
+    }
+    if (!autoRecalculate && legacyNewPaid === '') {
+      alert('Please enter a new paid amount.');
+      return;
+    }
+    const conf = window.confirm(`Are you sure you want to ${autoRecalculate ? 'auto-recalculate' : 'manually update'} the paid amount for ${legacyPO.po_no}?`);
+    if (!conf) return;
+
+    setLegacySubmitting(true);
+    try {
+      await call('correctLegacyPOPaidAmount', legacyPO.po_no, legacyNewPaid, autoRecalculate, legacyReason.trim());
+      alert('PO paid amount corrected successfully.');
+      setLegacyPO(null);
+      setLegacyPONo('');
+      setLegacyReason('');
+      setLegacyNewPaid('');
+    } catch (err) {
+      alert('Error correcting PO: ' + err.message);
+    } finally {
+      setLegacySubmitting(false);
     }
   };
 
@@ -460,6 +513,14 @@ export default function SettingsView() {
           variant={activeTab === 'audit' ? 'primary' : 'ghost'}
         >
           <ClipboardList className="w-4 h-4" /> Audit Log
+        </Button>
+        <Button
+          onClick={() => setActiveTab('legacy_correction')}
+          size="sm"
+          variant={activeTab === 'legacy_correction' ? 'primary' : 'ghost'}
+          className="text-amber-500 hover:text-amber-400"
+        >
+          ⚠ Legacy Correction
         </Button>
       </div>
 
@@ -979,6 +1040,114 @@ export default function SettingsView() {
                   <ClipboardList className="w-12 h-12 text-slate-700" />
                   <div className="text-sm font-medium">No audit records found</div>
                   <div className="text-xs text-slate-600">Audit records will appear here as users perform actions.</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Legacy Correction Tab */}
+      {activeTab === 'legacy_correction' && (
+        <div className="space-y-6">
+          <Card className="bg-slate-950/40 border-amber-900/50">
+            <CardHeader className="p-6 border-b border-slate-900/50">
+              <CardTitle className="text-amber-500 font-medium flex items-center gap-2">
+                ⚠ Legacy PO Payment Correction
+              </CardTitle>
+              <p className="text-xs text-slate-400 font-light mt-1">
+                Admin utility to correct miscalculated legacy paid amounts on purchase orders. All actions are strictly audited.
+              </p>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <form onSubmit={handleSearchLegacyPO} className="flex gap-3 max-w-md">
+                <Input
+                  required
+                  placeholder="Enter PO Number..."
+                  value={legacyPONo}
+                  onChange={e => setLegacyPONo(e.target.value)}
+                />
+                <Button type="submit" variant="primary" disabled={legacySubmitting}>
+                  {legacySubmitting ? 'Searching...' : 'Lookup PO'}
+                </Button>
+              </form>
+
+              {legacyPO && (
+                <div className="p-5 bg-slate-900/30 border border-slate-800 rounded-xl space-y-5 animate-fade-in">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-slate-800">
+                    <div>
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">PO Number</div>
+                      <div className="font-mono text-sm text-gold">{legacyPO.po_no}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Project</div>
+                      <div className="text-sm text-slate-200">{legacyPO.project || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Vendor</div>
+                      <div className="text-sm text-slate-200">{legacyPO.vendor_name || legacyPO.vendor || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Total PO Value</div>
+                      <div className="text-sm text-slate-200 font-semibold">
+                        ₹{Number(legacyPO.revised_po_value || legacyPO.po_value || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <div className="text-[10px] text-amber-500/80 uppercase tracking-wider mb-1">Current Logged Paid Amount</div>
+                        <div className="text-2xl font-light text-amber-500 font-serif">
+                          ₹{Number(legacyPO.legacy_paid || 0).toLocaleString()}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-xs text-slate-400 font-light">New Paid Amount Override (₹)</label>
+                        <Input
+                          type="number"
+                          value={legacyNewPaid}
+                          onChange={e => setLegacyNewPaid(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-slate-400 font-light">Reason for Correction (Required for Audit)</label>
+                        <Input
+                          type="text"
+                          required
+                          placeholder="e.g. Fixing legacy double counting issue"
+                          value={legacyReason}
+                          onChange={e => setLegacyReason(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col justify-end space-y-3 bg-amber-950/20 p-4 rounded-lg border border-amber-900/30">
+                      <div className="text-xs text-amber-500/80 mb-2">
+                        <strong>Auto-Recalculate:</strong> Safely derives the paid amount based on manual system payments and remitted PRs.
+                        <br/><br/>
+                        <strong>Manual Update:</strong> Forces the exact amount specified in the input box.
+                      </div>
+                      <Button
+                        variant="primary"
+                        onClick={() => handleCorrectLegacyPO(true)}
+                        disabled={legacySubmitting || !legacyReason.trim()}
+                        className="w-full"
+                      >
+                        Auto-Recalculate from Ledger
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleCorrectLegacyPO(false)}
+                        disabled={legacySubmitting || !legacyReason.trim() || legacyNewPaid === ''}
+                        className="w-full text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                      >
+                        Force Manual Update
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>

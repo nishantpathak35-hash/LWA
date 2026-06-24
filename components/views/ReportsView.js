@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../StateProvider';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Select, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/core';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Select, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Dialog } from '../ui/core';
 import { FileText, Download, Calendar, Loader2, Mail } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 
@@ -57,6 +57,17 @@ export default function ReportsView() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sendingAdviceId, setSendingAdviceId] = useState(null);
+
+  const [remitModalOpen, setRemitModalOpen] = useState(false);
+  const [selectedRemitPayment, setSelectedRemitPayment] = useState(null);
+  const [utr, setUtr] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const roles = user?.roles || [];
+  const isAdmin = user?.email === 'admin@luxeworx.com' || roles.includes('admin');
+  const isFinance = roles.includes('finance');
+  const isDirector = roles.includes('director');
+  const canRemit = isAdmin || isFinance || isDirector;
 
   // Fetch report data when filter or type changes
   useEffect(() => {
@@ -188,6 +199,57 @@ export default function ReportsView() {
       alert('Failed to send payment advice: ' + (err.message || 'Unknown error'));
     } finally {
       setSendingAdviceId(null);
+    }
+  };
+
+  const handleOpenRemitModal = (payment) => {
+    setSelectedRemitPayment(payment);
+    setUtr('');
+    setRemitModalOpen(true);
+  };
+
+  const handleRemitSubmit = async (e) => {
+    e.preventDefault();
+    if (!utr.trim()) {
+      alert('UTR / Reference number is required for remittance.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await call('remitPaymentRequest', selectedRemitPayment.id, {
+        utr: utr.trim(),
+        comment: 'Remitted from Reports'
+      });
+      alert('Payment remitted successfully.');
+      setRemitModalOpen(false);
+      // Trigger a reload by toggling a state or reloading data
+      if (reportType) {
+        setReportType(prev => prev);
+        // We can just rely on the effect reacting to reportType changes if we force it, 
+        // but it might not. We can just call loadReport manually but it's defined inside useEffect.
+        // Easiest is to just do a soft reload of window or trigger a re-render
+        window.location.reload();
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to remit payment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteRemittedPayment = async (payment) => {
+    const reason = prompt(`WARNING: You are about to permanently delete remitted payment #${payment.id}.\nThis will also update the PO ledger.\n\nEnter reason for deletion:`);
+    if (!reason) return;
+    if (reason.trim().length < 5) {
+      alert('A detailed reason (at least 5 characters) is required for audit logging.');
+      return;
+    }
+    try {
+      await call('deleteRemittedPayment', payment.id, reason.trim());
+      alert('Remitted payment deleted successfully.');
+      window.location.reload();
+    } catch (err) {
+      alert(err.message || 'Failed to delete payment');
     }
   };
 
@@ -527,7 +589,7 @@ export default function ReportsView() {
             <TableHead>Status</TableHead>
             <TableHead>Workflow</TableHead>
             <TableHead>Rejected By</TableHead>
-            <TableHead className="text-center">Advice</TableHead>
+            <TableHead className="text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -553,20 +615,44 @@ export default function ReportsView() {
                   <TableCell>{wfSteps(p)}</TableCell>
                   <TableCell className={p.rejectedBy ? 'text-red-400' : 'text-slate-550'}>{rejBy}</TableCell>
                   <TableCell className="text-center">
-                    {canSendAdvice ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleSendPaymentAdvice(p)}
-                        title="Send Payment Advice Email"
-                        disabled={sendingAdviceId === p.id}
-                        className="text-gold hover:text-gold/80"
-                      >
-                        {sendingAdviceId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
-                      </Button>
-                    ) : (
-                      <span className="text-slate-700">—</span>
-                    )}
+                    <div className="flex items-center justify-center gap-2">
+                      {canRemit && (String(p.stage || '').toLowerCase() === 'approved' || String(p.stage || '').toLowerCase().includes('remit')) && !String(p.stage || '').toLowerCase().includes('remitted') && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="h-7 text-[10px] px-2"
+                          onClick={() => handleOpenRemitModal(p)}
+                        >
+                          Remit
+                        </Button>
+                      )}
+                      {canSendAdvice && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleSendPaymentAdvice(p)}
+                          title="Send Payment Advice Email"
+                          disabled={sendingAdviceId === p.id}
+                          className="text-gold hover:text-gold/80"
+                        >
+                          {sendingAdviceId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                        </Button>
+                      )}
+                      {(isAdmin || isDirector) && String(p.stage || '').toLowerCase() === 'remitted' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-7 text-[10px] px-2"
+                          onClick={() => handleDeleteRemittedPayment(p)}
+                          title="Delete Remitted Payment"
+                        >
+                          Delete
+                        </Button>
+                      )}
+                      {!canSendAdvice && !(canRemit && (String(p.stage || '').toLowerCase() === 'approved' || String(p.stage || '').toLowerCase().includes('remit')) && !String(p.stage || '').toLowerCase().includes('remitted')) && !((isAdmin || isDirector) && String(p.stage || '').toLowerCase() === 'remitted') && (
+                        <span className="text-slate-700">—</span>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -666,12 +752,48 @@ export default function ReportsView() {
         </CardContent>
       </Card>
 
-      {/* Main Table rendering */}
       <Card className="bg-slate-950/40 border-slate-900">
         <CardContent className="p-0">
           {renderActiveReport()}
         </CardContent>
       </Card>
+
+      <Dialog open={remitModalOpen} onClose={() => setRemitModalOpen(false)} title={`Remit Payment #${selectedRemitPayment?.id}`}>
+        <form onSubmit={handleRemitSubmit} className="space-y-4">
+          <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl space-y-4">
+            <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">Remittance Details</span>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">UTR / REF TRANSACTION NUMBER</label>
+              <Input
+                type="text"
+                required
+                value={utr}
+                onChange={(e) => setUtr(e.target.value)}
+                placeholder="Enter bank UTR or reference"
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-900/60">
+              <span>Vendor:</span>
+              <span className="text-slate-200">{selectedRemitPayment?.vendor}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs text-slate-400">
+              <span>Net Amount:</span>
+              <span className="text-emerald-400 font-semibold">
+                {fmtRupees(Number(selectedRemitPayment?.amountRequested || 0) - Number(selectedRemitPayment?.tdsAmount || selectedRemitPayment?.tds_amount || 0))}
+              </span>
+            </div>
+          </div>
+          <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={() => setRemitModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Confirm Remittance'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

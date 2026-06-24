@@ -232,7 +232,7 @@ export default function PaymentsView() {
 
     const isApprover = isAdmin || isDirector || isFinance;
     const isCreator = req && user && req.created_by === user.email;
-    if (isApprover && !isCreator && req?.id) {
+    if (isApprover && (!isCreator || isAdmin || isDirector) && req?.id) {
       setLoadingSummary(true);
       call('getProjectFinancialSummary', req.id)
         .then(res => {
@@ -736,7 +736,7 @@ export default function PaymentsView() {
             </div>
           )}
 
-          {workflowAction === 'approve' && String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase().includes('finance') && (
+          {workflowAction === 'approve' && (String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase().includes('finance') || String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase().includes('director')) && (
             <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl space-y-4">
               <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">TDS Deduction Details</span>
               <div className="grid grid-cols-2 gap-4">

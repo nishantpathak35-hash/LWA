@@ -2349,14 +2349,14 @@ export async function getProjectFinancialSummary(requestId, session) {
     throw new Error('Payment request not found');
   }
 
-  // 2. Authorization check: Creator of the payment request must NOT be allowed to view the summary
-  if (session.email === pr.created_by) {
-    throw new Error('AUTH:Unauthorized - Requester cannot view project financial summary');
-  }
-
   // Check if the user is a super admin or director, or has 'approve_payment' or 'reject_payment' permissions
   const roles = session.roles || [];
   const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || session.email === 'admin@luxeworx.com';
+
+  // 2. Authorization check: Creator of the payment request must NOT be allowed to view the summary (unless Director/Admin)
+  if (!isDirOrAdmin && session.email === pr.created_by) {
+    throw new Error('AUTH:Unauthorized - Requester cannot view project financial summary');
+  }
   
   let hasApprovalPermission = isDirOrAdmin;
   if (!hasApprovalPermission) {
@@ -2385,4 +2385,88 @@ export async function getProjectFinancialSummary(requestId, session) {
   }
 
   return calculateProjectPaymentSummaryForRequest(requestId);
+}
+
+export async function deleteRemittedPayment(prId, reason, session) {
+  requireAuth(session);
+  const roles = session.roles || [];
+  const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || session.email === 'admin@luxeworx.com';
+  
+  if (!isDirOrAdmin) {
+    throw new Error('AUTH:Unauthorized - Only Director or Admin can delete remitted payments.');
+  }
+
+  // 1. Fetch the payment request
+  const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [prId]);
+  if (!pr) {
+    throw new Error('Payment request not found.');
+  }
+
+  const poNo = pr.po_no;
+  const vendor = pr.vendor;
+  const grossAmount = pr.amount_requested;
+
+  // 2. Log pre-deletion audit
+  await logAudit(
+    session.email,
+    'DELETE_REMITTED_PAYMENT',
+    `Deleted PR #${prId} for PO: ${poNo}, Vendor: ${vendor}, Amount: ${grossAmount}. Reason: ${reason}`
+  );
+
+  // 3. Delete from system_payments if present
+  await queryRun(`DELETE FROM system_payments WHERE pr_key = ?`, [prId]);
+
+  // 4. Delete from payment_requests
+  await queryRun(`DELETE FROM payment_requests WHERE pr_id = ?`, [prId]);
+
+  // 5. Update PO Paid Amount
+  await updatePOPaymentStatus(poNo);
+
+  return { ok: true, message: 'Payment deleted successfully.' };
+}
+
+export async function correctLegacyPOPaidAmount(poNo, newPaidAmount, autoRecalculate, reason, session) {
+  requireAuth(session);
+  const roles = session.roles || [];
+  const isAdmin = roles.includes('admin') || session.email === 'admin@luxeworx.com';
+  const isDirector = roles.includes('director');
+  
+  if (!isAdmin && !isDirector) {
+    throw new Error('AUTH:Unauthorized - Only Admin/Director can correct legacy payment records.');
+  }
+
+  // 1. Fetch the PO
+  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  if (!po) {
+    throw new Error('Purchase order not found.');
+  }
+
+  const oldPaidAmount = po.legacy_paid;
+
+  if (autoRecalculate) {
+    // Just force the recalculation
+    await updatePOPaymentStatus(poNo);
+    await logAudit(
+      session.email,
+      'CORRECT_PO_PAYMENT_AUTO',
+      `Auto-recalculated PO ${poNo} paid amount. Reason: ${reason}`
+    );
+  } else {
+    // Manual override
+    const poVal = Number(po.revised_po_value || po.po_value || 0);
+    const finalPayable = poVal - Number(newPaidAmount);
+
+    await queryRun(
+      `UPDATE purchase_orders SET legacy_paid = ?, final_payable = ? WHERE po_no = ?`,
+      [newPaidAmount, finalPayable, poNo]
+    );
+
+    await logAudit(
+      session.email,
+      'CORRECT_PO_PAYMENT_MANUAL',
+      `Manually corrected PO ${poNo} paid amount from ${oldPaidAmount} to ${newPaidAmount}. Reason: ${reason}`
+    );
+  }
+
+  return { ok: true, message: 'Legacy payment corrected successfully.' };
 }
