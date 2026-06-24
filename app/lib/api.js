@@ -519,68 +519,59 @@ export async function getMasterData(session) {
 // ── Financial Diagnostics: raw DB audit per project ─────────────────────────
 export async function getFinancialDiagnostics(session) {
   requireAuth(session);
-  const [spRows, prRows, poRows] = await Promise.all([
-    // Raw system_payments per project
+  const [spRows, prRows, poRows, mpRows] = await Promise.all([
     queryAll(
       `SELECT po.project,
               COUNT(sp.id) AS payment_count,
               COALESCE(SUM(sp.amount),0) AS sp_total_amount
        FROM system_payments sp
        JOIN purchase_orders po ON po.po_no = sp.po_no
-       GROUP BY po.project
-       ORDER BY sp_total_amount DESC`
+       GROUP BY po.project ORDER BY sp_total_amount DESC`
     ),
-    // Raw remitted payment_requests per project
     queryAll(
       `SELECT po.project,
               COUNT(pr.pr_id) AS pr_count,
               COALESCE(SUM(pr.amount_requested),0) AS pr_gross,
-              COALESCE(SUM(pr.tds_amount),0) AS pr_tds,
               COALESCE(SUM(COALESCE(pr.amount_requested,0)-COALESCE(pr.tds_amount,0)),0) AS pr_net
        FROM payment_requests pr
        JOIN purchase_orders po ON po.po_no = pr.po_no
        WHERE (pr.stage='Remitted' OR pr.remittance='Remitted')
-       GROUP BY po.project
-       ORDER BY pr_gross DESC`
+       GROUP BY po.project ORDER BY pr_gross DESC`
     ),
-    // legacy_paid from purchase_orders per project
     queryAll(
       `SELECT project,
-              COUNT(*) AS po_count,
               COALESCE(SUM(po_value),0) AS po_value_total,
               COALESCE(SUM(legacy_paid),0) AS legacy_paid_total
-       FROM purchase_orders
-       WHERE project IS NOT NULL AND project != ''
-       GROUP BY project
-       ORDER BY legacy_paid_total DESC`
+       FROM purchase_orders WHERE project IS NOT NULL AND project != ''
+       GROUP BY project ORDER BY legacy_paid_total DESC`
+    ),
+    // manual_payments count & sum per project
+    queryAll(
+      `SELECT po.project,
+              COUNT(mp.id) AS mp_count,
+              COALESCE(SUM(mp.amount),0) AS mp_total
+       FROM manual_payments mp
+       JOIN purchase_orders po ON po.po_no = mp.po_no
+       GROUP BY po.project ORDER BY mp_total DESC`
     )
   ]);
 
   const projects = {};
-  for (const r of spRows) {
-    projects[r.project] = { project: r.project, sp_count: r.payment_count, sp_amount: r.sp_total_amount, pr_count: 0, pr_net: 0, pr_gross: 0, legacy_paid: 0, po_value: 0 };
-  }
-  for (const r of prRows) {
-    if (!projects[r.project]) projects[r.project] = { project: r.project, sp_count: 0, sp_amount: 0 };
-    projects[r.project].pr_count = r.pr_count;
-    projects[r.project].pr_net = r.pr_net;
-    projects[r.project].pr_gross = r.pr_gross;
-  }
-  for (const r of poRows) {
-    if (!projects[r.project]) projects[r.project] = { project: r.project, sp_count: 0, sp_amount: 0 };
-    projects[r.project].legacy_paid = r.legacy_paid_total;
-    projects[r.project].po_value = r.po_value_total;
-  }
+  for (const r of spRows)  { projects[r.project] = { project: r.project, sp_count: r.payment_count, sp_amount: r.sp_total_amount, pr_count:0, pr_net:0, legacy_paid:0, po_value:0, mp_count:0, mp_amount:0 }; }
+  for (const r of prRows)  { if (!projects[r.project]) projects[r.project] = { project:r.project, sp_count:0, sp_amount:0, mp_count:0, mp_amount:0 }; projects[r.project].pr_count=r.pr_count; projects[r.project].pr_net=r.pr_net; }
+  for (const r of poRows)  { if (!projects[r.project]) projects[r.project] = { project:r.project, sp_count:0, sp_amount:0, mp_count:0, mp_amount:0 }; projects[r.project].legacy_paid=r.legacy_paid_total; projects[r.project].po_value=r.po_value_total; }
+  for (const r of mpRows)  { if (!projects[r.project]) projects[r.project] = { project:r.project, sp_count:0, sp_amount:0, mp_count:0, mp_amount:0 }; projects[r.project].mp_count=r.mp_count; projects[r.project].mp_amount=r.mp_total; }
 
   return Object.values(projects).map(p => ({
     project: p.project,
-    sp_payment_count: p.sp_count || 0,
-    sp_amount_sum: p.sp_amount || 0,       // SUM(system_payments.amount) per project
-    pr_remitted_count: p.pr_count || 0,
-    pr_remitted_net: p.pr_net || 0,        // SUM(amount_requested - tds) for remitted PRs
-    legacy_paid_sum: p.legacy_paid || 0,   // SUM(purchase_orders.legacy_paid) per project
-    po_value_total: p.po_value || 0,
-    ratio_sp_vs_pr: p.pr_net > 0 ? ((p.sp_amount || 0) / p.pr_net).toFixed(3) : 'N/A'
+    sp_count: p.sp_count || 0,
+    sp_amount: p.sp_amount || 0,        // → current dashboard value
+    mp_count: p.mp_count || 0,          // manual_payments rows
+    mp_amount: p.mp_amount || 0,        // manual_payments total
+    pr_net: p.pr_net || 0,
+    legacy_paid: p.legacy_paid || 0,    // → export value
+    sp_vs_mp_ratio: p.mp_amount > 0 ? ((p.sp_amount||0)/p.mp_amount).toFixed(3) : 'N/A',
+    sp_vs_legacy_ratio: p.legacy_paid > 0 ? ((p.sp_amount||0)/p.legacy_paid).toFixed(3) : 'N/A'
   }));
 }
 
