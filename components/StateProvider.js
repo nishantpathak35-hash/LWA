@@ -121,21 +121,18 @@ export function StateProvider({ children }) {
     try {
       const bundle = await call('getBootBundle');
       if (bundle) {
+        if (bundle.user) setUser(bundle.user);
         if (bundle.kpis) setKpis(bundle.kpis);
         if (bundle.master) {
           setVendors(bundle.master.vendors || []);
           setPos(bundle.master.pos || []);
           setProjects(bundle.master.projects || []);
         }
+        setPayments(bundle.payments || []);
+        if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
+          setFeaturePermissions(bundle.featurePermissions);
+        }
       }
-      // Load payment requests
-      const prList = await call('listPaymentRequests');
-      setPayments(prList || []);
-      // Load feature permissions for access control
-      try {
-        const perms = await call('getFeaturePermissions');
-        if (perms && typeof perms === 'object') setFeaturePermissions(perms);
-      } catch (e) { /* non-fatal */ }
     } catch (e) {
       console.error('Data refresh failed:', e);
     }
@@ -151,27 +148,20 @@ export function StateProvider({ children }) {
     async function validate() {
       setBooting(true);
       try {
-        const sess = await callDirect('getMySession', token);
+        const bundle = await call('getBootBundle');
         if (!active) return;
-        if (sess) {
-          setUser(sess);
-          // Pre-fetch bundle
-          const bundle = await call('getBootBundle');
-          if (bundle) {
-            if (bundle.kpis) setKpis(bundle.kpis);
-            if (bundle.master) {
-              setVendors(bundle.master.vendors || []);
-              setPos(bundle.master.pos || []);
-              setProjects(bundle.master.projects || []);
-            }
+        if (bundle?.user || bundle?.session) {
+          setUser(bundle.user || bundle.session);
+          if (bundle.kpis) setKpis(bundle.kpis);
+          if (bundle.master) {
+            setVendors(bundle.master.vendors || []);
+            setPos(bundle.master.pos || []);
+            setProjects(bundle.master.projects || []);
           }
-          const prList = await call('listPaymentRequests');
-          setPayments(prList || []);
-          // Load feature permissions for access control
-          try {
-            const perms = await call('getFeaturePermissions');
-            if (perms && typeof perms === 'object') setFeaturePermissions(perms);
-          } catch (e) { /* non-fatal */ }
+          setPayments(bundle.payments || []);
+          if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
+            setFeaturePermissions(bundle.featurePermissions);
+          }
         } else {
           logout();
         }

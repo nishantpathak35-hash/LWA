@@ -19,6 +19,8 @@ function invalidateProjectCache(project) {
   return project;
 }
 
+const settingsCache = new Map();
+
 function encryptToken(data) {
   const JWT_SECRET = getJwtSecret();
   const iv = crypto.randomBytes(16);
@@ -103,6 +105,10 @@ async function ensureSettingsTable() {
   for (const col of poColumns) {
     try { await queryRun(`ALTER TABLE purchase_orders ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
   }
+  const poItemColumns = ['unit'];
+  for (const col of poItemColumns) {
+    try { await queryRun(`ALTER TABLE po_items ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
+  }
   const prColumns = ['remittance_ref', 'remittance_date', 'tds_amount', 'tds_percentage', 'tds_section'];
   for (const col of prColumns) {
     try { await queryRun(`ALTER TABLE payment_requests ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
@@ -138,9 +144,18 @@ async function ensureSettingsTable() {
 }
 
 async function getSetting(key, fallback = '') {
-  await ensureSettingsTable();
-  const row = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [key]);
-  return row?.value ?? fallback;
+  if (settingsCache.has(key)) {
+    return settingsCache.get(key);
+  }
+  let value = fallback;
+  try {
+    const row = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [key]);
+    value = row?.value ?? fallback;
+  } catch {
+    value = fallback;
+  }
+  settingsCache.set(key, value);
+  return value;
 }
 
 async function setSetting(key, value) {
@@ -150,6 +165,7 @@ async function setSetting(key, value) {
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
     [key, value, new Date().toISOString()]
   );
+  settingsCache.set(key, value);
 }
 
 
@@ -261,15 +277,20 @@ export async function getBootData(session) {
 
 export async function getBootBundle(session) {
   requireAuth(session);
-  const bootData = await getBootData(session);
-  const kpis = await getDashboardKPIs(session);
-  const master = await getMasterData(session);
+  const [kpis, master, payments, featurePermissions] = await Promise.all([
+    getDashboardKPIs(session),
+    getMasterData(session),
+    listPaymentRequests(undefined, session),
+    getFeaturePermissions(session)
+  ]);
   
   return {
-    user: bootData.user,
-    session: bootData.user,
-    kpis: kpis,
-    master: master
+    user: session,
+    session,
+    kpis,
+    master,
+    payments,
+    featurePermissions
   };
 }
 
@@ -331,7 +352,7 @@ export async function getDashboardKPIs(session) {
 export async function getMasterData(session) {
   requireAuth(session);
   const vendors = await queryAll(`SELECT * FROM vendors`);
-  const pos = await queryAll(`SELECT * FROM purchase_orders`);
+  const pos = await queryAll(`SELECT * FROM purchase_orders ORDER BY date(COALESCE(po_date, '1900-01-01')) DESC, po_no DESC`);
   
   // Extract unique projects and vendors from POs
   const projectSet = new Set();
@@ -372,6 +393,9 @@ export async function getMasterData(session) {
       vendor_key: p.vendor_key, 
       vendor_name: p.vendor_name, 
       project: p.project, 
+      po_date: p.po_date || '',
+      expected_delivery_date: p.expected_delivery_date || '',
+      category: p.category || '',
       po_value: p.po_value, 
       paid: p.legacy_paid || 0,
       balance: (Number(p.po_value) || 0) - (Number(p.legacy_paid) || 0),
@@ -645,7 +669,7 @@ export async function getVendorSummary(vendor = '', session) {
 
 export async function listPOsJson(filters = {}, session) {
   requireAuth(session);
-  const rows = await queryAll(`SELECT * FROM purchase_orders`);
+  const rows = await queryAll(`SELECT * FROM purchase_orders ORDER BY date(COALESCE(po_date, '1900-01-01')) DESC, po_no DESC`);
   const results = rows.map(r => {
     const val = Number(r.po_value) || 0;
     const pd = Number(r.legacy_paid) || 0;
@@ -672,6 +696,7 @@ export async function getPOsByVendor(vendor, session) {
     sql += ` WHERE vendor_key = ? OR vendor_name = ?`;
     params = [vendor, vendor];
   }
+  sql += ` ORDER BY date(COALESCE(po_date, '1900-01-01')) DESC, po_no DESC`;
   const rows = await queryAll(sql, params);
   return rows.map(r => ({
     poNo: r.po_no,
@@ -796,7 +821,13 @@ export async function getMasterHealth(session) {
 export async function createPOFull(payload, session) {
   requireAuth(session);
   await ensureSettingsTable();
-  const poNo = payload.poNo || `PO-${Date.now()}`;
+  const poNo = String(payload.poNo || `PO-${Date.now()}`).trim();
+  if (!poNo) throw new Error('PO Number is required');
+
+  const duplicate = await queryGet(`SELECT po_no FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  if (duplicate) {
+    throw new Error(`PO Number "${poNo}" already exists. Please use a unique PO Number.`);
+  }
 
   // Compute totals from per-item GST if not provided
   let totalVal = payload.grandTotal || payload.poValue || 0;
@@ -846,7 +877,7 @@ export async function createPOFull(payload, session) {
       const itemTotal = item.amount !== undefined ? Number(item.amount) : (itemGross + itemGstAmt);
       await queryRun(
         `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '', itemQty, item.unit || '', itemRate, item.disc_pct || item.disc || item.discount || 0, itemGstPct, itemTotal]
+        [poNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '', itemQty, item.unit || item.uom || 'Nos', itemRate, item.disc_pct || item.disc || item.discount || 0, itemGstPct, itemTotal]
       );
     }
   }
@@ -859,9 +890,19 @@ export async function updatePOFull(poNo, payload, session) {
   requireAuth(session);
   if (!poNo) throw new Error("PO Number missing");
   await ensureSettingsTable();
+  const originalPoNo = String(poNo).trim();
+  const nextPoNo = String(payload.poNo || payload.po_no || originalPoNo).trim();
+  if (!nextPoNo) throw new Error('PO Number is required');
 
   // Fetch existing PO for audit diff and status check
-  const existing = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  const existing = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [originalPoNo]);
+  if (!existing) throw new Error(`Purchase Order not found: ${originalPoNo}`);
+  if (nextPoNo !== originalPoNo) {
+    const duplicate = await queryGet(`SELECT po_no FROM purchase_orders WHERE po_no = ?`, [nextPoNo]);
+    if (duplicate) {
+      throw new Error(`PO Number "${nextPoNo}" already exists. Please use a unique PO Number.`);
+    }
+  }
   if (existing) {
     const st = String(existing.approval_status || existing.status || 'Draft').toLowerCase();
     // Approved POs: only allow editing non-financial fields (notes, terms, expected_delivery_date)
@@ -909,6 +950,7 @@ export async function updatePOFull(poNo, payload, session) {
   // Build audit diff
   const auditChanges = [];
   const trackFields = [
+    ['po_no', 'PO Number', nextPoNo],
     ['vendor_name', 'Vendor', vendorName],
     ['project', 'Project', payload.project || ''],
     ['po_value', 'PO Value', totalVal],
@@ -930,20 +972,26 @@ export async function updatePOFull(poNo, payload, session) {
 
   await queryRun(
     `UPDATE purchase_orders SET 
-      vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
+      po_no = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
       approval_status = ?, status = ?,
       tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
       expected_delivery_date = ?, notes = ?
      WHERE po_no = ?`,
-    [vendorName, payload.project || '', totalVal, totalVal,
+    [nextPoNo, vendorName, payload.project || '', totalVal, totalVal,
      payload.poDate || '', payload.terms || '',
      newStatus, newStatus,
      tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
      payload.expectedDeliveryDate || '', payload.notes || '',
-     poNo]
+     originalPoNo]
   );
+  if (nextPoNo !== originalPoNo) {
+    const linkedTables = ['po_items', 'payment_requests', 'system_payments', 'manual_payments', 'po_approval_history'];
+    for (const table of linkedTables) {
+      await queryRun(`UPDATE ${table} SET po_no = ? WHERE po_no = ?`, [nextPoNo, originalPoNo]);
+    }
+  }
 
-  await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [poNo]);
+  await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [nextPoNo]);
   if (payload.items && payload.items.length) {
     for (const item of payload.items) {
       const itemGstPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
@@ -954,7 +1002,7 @@ export async function updatePOFull(poNo, payload, session) {
       const itemTotal = item.amount !== undefined ? Number(item.amount) : (itemGross + itemGstAmt);
       await queryRun(
         `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '', itemQty, item.unit || '', itemRate, 0, itemGstPct, itemTotal]
+        [nextPoNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '', itemQty, item.unit || item.uom || 'Nos', itemRate, 0, itemGstPct, itemTotal]
       );
     }
   }
@@ -963,16 +1011,16 @@ export async function updatePOFull(poNo, payload, session) {
   const changesSummary = auditChanges.length ? auditChanges.join('; ') : 'No tracked field changes';
   await queryRun(
     `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
-    [poNo, 'PO Edited', session?.email || 'unknown', changesSummary, new Date().toISOString()]
+    [nextPoNo, 'PO Edited', session?.email || 'unknown', changesSummary, new Date().toISOString()]
   );
   if (financiallyChanged && existingStatus === 'approved') {
     await queryRun(
       `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
-      [poNo, 'Re-submitted to Draft (Financial Change)', session?.email || 'unknown', 'PO value or vendor changed — approval reset to Draft', new Date().toISOString()]
+      [nextPoNo, 'Re-submitted to Draft (Financial Change)', session?.email || 'unknown', 'PO value or vendor changed - approval reset to Draft', new Date().toISOString()]
     );
   }
-  await logAudit(session?.email || 'admin@luxeworx.com', 'PO Updated', `PO#${poNo} edited. Changes: ${changesSummary}`, 'Procurement');
-  return { ok: true, poNo, newStatus, changesLogged: auditChanges };
+  await logAudit(session?.email || 'admin@luxeworx.com', 'PO Updated', `PO#${nextPoNo} edited. Changes: ${changesSummary}`, 'Procurement');
+  return { ok: true, poNo: nextPoNo, oldPoNo: originalPoNo, newStatus, changesLogged: auditChanges };
 }
 
 
@@ -1508,7 +1556,7 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
     poNo: po.po_no,
     project: po.project,
     poDate: po.po_date,
-    items: items.map(it => ({ desc: it.description, qty: it.qty, rate: it.rate, amount: it.amount })),
+    items: items.map(it => ({ desc: it.description, qty: it.qty, unit: it.unit || 'Nos', rate: it.rate, amount: it.amount })),
     grandTotal: po.po_value,
     terms: po.terms || ''
   });
@@ -2344,6 +2392,8 @@ export async function getPOFullDetails(poNo, session) {
       hsn_sac: it.hsn_sac,
       quantity: it.qty,
       qty: it.qty,
+      unit: it.unit || 'Nos',
+      uom: it.unit || 'Nos',
       rate: it.rate,
       gstPct: Number(it.tax_pct) || 0,
       tax_pct: Number(it.tax_pct) || 0,

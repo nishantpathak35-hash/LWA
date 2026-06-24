@@ -7,7 +7,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   Badge, Button, Input, Select, Dialog
 } from '../ui/core';
-import { formatCurrency } from '../../app/lib/utils';
+import { formatCurrency, formatDate } from '../../app/lib/utils';
 import {
   PlusCircle, Search, Receipt, Send, ShieldAlert, Plus, Trash2, Edit2,
   Eye, CheckCircle, XCircle, Clock, History, Wallet, ChevronDown, ChevronUp,
@@ -30,6 +30,19 @@ const TDS_SECTIONS = [
 
 const PAYMENT_MODES = [
   'Bank Transfer', 'NEFT', 'RTGS', 'IMPS', 'UPI', 'Cheque', 'DD', 'Cash', 'Other'
+];
+
+const UOM_OPTIONS = [
+  { value: 'sqft', label: 'Sq Ft' },
+  { value: 'sqm', label: 'Sq M' },
+  { value: 'Nos', label: 'Nos' },
+  { value: 'Pieces', label: 'Pieces' },
+  { value: 'Kg', label: 'Kg' },
+  { value: 'Ton', label: 'Ton' },
+  { value: 'Meter', label: 'Meter' },
+  { value: 'Running Meter', label: 'Running Meter' },
+  { value: 'Box', label: 'Box' },
+  { value: 'Lot', label: 'Lot' }
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -62,6 +75,7 @@ export default function POsView() {
   const { pos, vendors, projects, user, call, refreshData } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [openActionMenuPoNo, setOpenActionMenuPoNo] = useState(null);
+  const [poDateSortDir, setPoDateSortDir] = useState('desc');
 
   // ── PO Form Modal ──
   const [modalOpen, setModalOpen]       = useState(false);
@@ -76,7 +90,7 @@ export default function POsView() {
   const [expectedDelivery, setExpectedDelivery] = useState('');
   const [category, setCategory]         = useState('Goods');
   const [gstMode, setGstMode]           = useState('inter');
-  const [items, setItems]               = useState([{ description: '', hsnSac: '', quantity: 1, rate: 0, gstPct: 18 }]);
+  const [items, setItems]               = useState([{ description: '', hsnSac: '', quantity: 1, unit: 'Nos', rate: 0, gstPct: 18 }]);
   const [tdsSection, setTdsSection]     = useState('');
   const [tdsPct, setTdsPct]             = useState(0);
   const [terms, setTerms]               = useState('');
@@ -140,11 +154,16 @@ export default function POsView() {
     return (po.po_no || '').toLowerCase().includes(q) ||
            (po.vendor_name || '').toLowerCase().includes(q) ||
            (po.project || '').toLowerCase().includes(q);
+  }).sort((a, b) => {
+    const aTime = new Date(a.po_date || '1900-01-01').getTime() || 0;
+    const bTime = new Date(b.po_date || '1900-01-01').getTime() || 0;
+    if (aTime === bTime) return String(b.po_no || '').localeCompare(String(a.po_no || ''));
+    return poDateSortDir === 'desc' ? bTime - aTime : aTime - bTime;
   });
 
   const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
-  const handleExportPOs = () => {
+  const handleExportPOs = async () => {
     const headers = [
       'PO No',
       'Project',
@@ -156,11 +175,21 @@ export default function POsView() {
       'Balance',
       'PO Date',
       'Expected Delivery',
-      'Category'
+      'Category',
+      'Line Items'
     ];
-    const rows = filteredPOs.map(po => {
+    const rows = await Promise.all(filteredPOs.map(async po => {
       const poValue = Number(po.po_value || 0);
       const paid = Number(po.paid || 0);
+      let lineItems = '';
+      try {
+        const details = await call('getPOFullDetails', po.po_no);
+        lineItems = (details?.items || [])
+          .map(item => `${item.description || ''} (${item.quantity || item.qty || 0} ${item.unit || item.uom || 'Nos'})`)
+          .join('; ');
+      } catch {
+        lineItems = '';
+      }
       return [
         po.po_no || '',
         po.project || '',
@@ -172,9 +201,10 @@ export default function POsView() {
         Math.max(0, poValue - paid),
         po.po_date || '',
         po.expected_delivery_date || '',
-        po.category || ''
+        po.category || '',
+        lineItems
       ];
-    });
+    }));
 
     const csv = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -215,10 +245,11 @@ export default function POsView() {
                 description: it.description || '',
                 hsnSac: it.hsnSac || it.hsn_sac || '',
                 quantity: it.quantity || it.qty || 1,
+                unit: it.unit || it.uom || 'Nos',
                 rate: it.rate || 0,
                 gstPct: Number(it.gstPct || it.tax_pct) || 18
               }))
-            : [{ description: '', hsnSac: '', quantity: 1, rate: 0, gstPct: 18 }]
+            : [{ description: '', hsnSac: '', quantity: 1, unit: 'Nos', rate: 0, gstPct: 18 }]
           );
           setTdsSection(poDetails.tds_section || '');
           setTdsPct(Number(poDetails.tds_pct) || 0);
@@ -243,7 +274,7 @@ export default function POsView() {
       setExpectedDelivery('');
       setCategory('Goods');
       setGstMode('inter');
-      setItems([{ description: '', hsnSac: '', quantity: 1, rate: 0, gstPct: 18 }]);
+      setItems([{ description: '', hsnSac: '', quantity: 1, unit: 'Nos', rate: 0, gstPct: 18 }]);
       setTdsSection('');
       setTdsPct(0);
       setTerms('');
@@ -259,7 +290,7 @@ export default function POsView() {
   }, [call, projects, vendors]);
 
   // ─── Item Handlers ────────────────────────────────────────────────────────
-  const handleAddItemLine    = () => setItems([...items, { description: '', hsnSac: '', quantity: 1, rate: 0, gstPct: 18 }]);
+  const handleAddItemLine    = () => setItems([...items, { description: '', hsnSac: '', quantity: 1, unit: 'Nos', rate: 0, gstPct: 18 }]);
   const handleRemoveItemLine = (idx) => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); };
   const handleItemChange     = (idx, field, value) => {
     const n = [...items]; n[idx] = { ...n[idx], [field]: value }; setItems(n);
@@ -316,7 +347,7 @@ export default function POsView() {
           return {
             description: item.description,
             hsn_sac: item.hsnSac,
-            qty: Number(item.quantity), rate: Number(item.rate),
+            qty: Number(item.quantity), unit: item.unit || 'Nos', rate: Number(item.rate),
             tax_pct: Number(item.gstPct), gst_amount: gstAmt, amount: total
           };
         })
@@ -390,6 +421,7 @@ export default function POsView() {
         description: it.description || '',
         hsnSac: it.hsn_sac || '',
         quantity: it.qty || 1,
+        unit: it.unit || 'Nos',
         rate: it.rate || 0,
         gstPct: it.tax_pct || 18
       })));
@@ -497,6 +529,15 @@ export default function POsView() {
               <TableHeader>
                 <TableRow>
                   <TableHead>PO No</TableHead>
+                  <TableHead>
+                    <button
+                      type="button"
+                      onClick={() => setPoDateSortDir(dir => dir === 'desc' ? 'asc' : 'desc')}
+                      className="inline-flex items-center gap-1 text-left uppercase"
+                    >
+                      P.O. Date {poDateSortDir === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                    </button>
+                  </TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Vendor</TableHead>
                   <TableHead>Status</TableHead>
@@ -517,6 +558,7 @@ export default function POsView() {
                   return (
                     <TableRow key={idx}>
                       <TableCell className="font-medium text-slate-200">{po.po_no}</TableCell>
+                      <TableCell className="text-slate-300">{formatDate(po.po_date)}</TableCell>
                       <TableCell>{po.project}</TableCell>
                       <TableCell>{po.vendor_name || po.vendor_key}</TableCell>
                       <TableCell>{getStatusBadge(po.status || po.approval_status)}</TableCell>
@@ -694,7 +736,7 @@ export default function POsView() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PO NUMBER *</label>
-              <Input type="text" required value={poNo} onChange={e => setPoNo(e.target.value)} disabled={!!editingPoNo} />
+              <Input type="text" required value={poNo} onChange={e => setPoNo(e.target.value)} />
             </div>
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PROJECT *</label>
@@ -756,8 +798,8 @@ export default function POsView() {
             </div>
 
             {/* Column headers */}
-            <div className="hidden md:grid grid-cols-[1fr_80px_60px_90px_70px_90px_36px] gap-2 px-1">
-              {['Description *','HSN/SAC','Qty','Rate (₹)','GST %','Amount',''].map((h,i) => (
+            <div className="hidden md:grid grid-cols-[1fr_80px_60px_96px_90px_70px_90px_36px] gap-2 px-1">
+              {['Description *','HSN/SAC','Qty','UOM','Rate (₹)','GST %','Amount',''].map((h,i) => (
                 <span key={i} className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">{h}</span>
               ))}
             </div>
@@ -765,7 +807,7 @@ export default function POsView() {
             {items.map((item, idx) => {
               const { total } = calcItem(item);
               return (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_80px_60px_90px_70px_90px_36px] gap-2 items-center p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_80px_60px_96px_90px_70px_90px_36px] gap-2 items-center p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
                   <Input required type="text" value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
                     placeholder="Item description" className="h-8 text-xs" />
@@ -774,6 +816,10 @@ export default function POsView() {
                     placeholder="Code" className="h-8 text-xs" />
                   <Input type="number" required min="0.001" step="0.001" value={item.quantity}
                     onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="h-8 text-xs" />
+                  <Select value={item.unit || 'Nos'} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
+                    className="h-8 text-xs py-0">
+                    {UOM_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                  </Select>
                   <Input type="number" required min="0" step="0.01" value={item.rate}
                     onChange={e => handleItemChange(idx, 'rate', e.target.value)} className="h-8 text-xs" />
                   <Select value={item.gstPct} onChange={e => handleItemChange(idx, 'gstPct', Number(e.target.value))}

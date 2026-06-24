@@ -142,6 +142,7 @@ export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, 
       <td style="padding:10px 12px;color:#94a3b8;font-size:12px">${i + 1}</td>
       <td style="padding:10px 12px;color:#e2e8f0;font-size:13px">${it.desc || it.description || ''}</td>
       <td style="padding:10px 12px;color:#94a3b8;font-size:12px;text-align:center">${it.qty || 1}</td>
+      <td style="padding:10px 12px;color:#94a3b8;font-size:12px;text-align:center">${it.unit || it.uom || 'Nos'}</td>
       <td style="padding:10px 12px;color:#94a3b8;font-size:12px;text-align:right">₹${Number(it.rate || 0).toLocaleString('en-IN')}</td>
       <td style="padding:10px 12px;color:#c8a45a;font-size:13px;font-weight:600;text-align:right">₹${Number(it.amount || 0).toLocaleString('en-IN')}</td>
     </tr>`).join('');
@@ -180,14 +181,15 @@ export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, 
             <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:left">#</th>
             <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:left">DESCRIPTION</th>
             <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:center">QTY</th>
+            <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:center">UOM</th>
             <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:right">RATE</th>
             <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:right">AMOUNT</th>
           </tr>
         </thead>
-        <tbody>${itemRows || '<tr><td colspan="5" style="padding:20px;text-align:center;color:#475569">No line items</td></tr>'}</tbody>
+        <tbody>${itemRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#475569">No line items</td></tr>'}</tbody>
         <tfoot>
           <tr style="background:#1e2330">
-            <td colspan="4" style="padding:14px 12px;color:#94a3b8;font-weight:600;text-align:right">GRAND TOTAL</td>
+            <td colspan="5" style="padding:14px 12px;color:#94a3b8;font-weight:600;text-align:right">GRAND TOTAL</td>
             <td style="padding:14px 12px;color:#3dd68c;font-weight:700;font-size:16px;text-align:right">₹${Number(grandTotal || 0).toLocaleString('en-IN')}</td>
           </tr>
         </tfoot>
