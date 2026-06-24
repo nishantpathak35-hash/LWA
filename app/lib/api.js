@@ -1047,8 +1047,8 @@ export async function getPOApprovalHistory(poNo, session) {
 // --- MANUAL PAYMENT ENTRY ---
 
 async function updatePOPaymentStatus(poNo) {
-  // Recompute total paid from manual_payments + system_payments + remitted payment_requests
-  const manualSum = await queryGet(`SELECT COALESCE(SUM(amount), 0) AS total FROM manual_payments WHERE po_no = ?`, [poNo]);
+  // Recompute total paid from system_payments + remitted payment_requests
+  // (manual_payments are mirrored into system_payments, so we do not add manualSum)
   const sysSum = await queryGet(`SELECT COALESCE(SUM(amount), 0) AS total FROM system_payments WHERE po_no = ?`, [poNo]);
   const prSum = await queryGet(
     `SELECT COALESCE(SUM(amount_requested), 0) AS total FROM payment_requests
@@ -1056,7 +1056,7 @@ async function updatePOPaymentStatus(poNo) {
      AND pr_id NOT IN (SELECT pr_key FROM system_payments WHERE pr_key IS NOT NULL)`,
     [poNo]
   );
-  const totalPaid = (Number(manualSum?.total) || 0) + (Number(sysSum?.total) || 0) + (Number(prSum?.total) || 0);
+  const totalPaid = (Number(sysSum?.total) || 0) + (Number(prSum?.total) || 0);
 
   const po = await queryGet(`SELECT po_value, revised_po_value FROM purchase_orders WHERE po_no = ?`, [poNo]);
   const poVal = Number(po?.revised_po_value || po?.po_value || 0);
