@@ -575,6 +575,56 @@ export async function getFinancialDiagnostics(session) {
   }));
 }
 
+export async function getSystemPaymentsDetail(project, session) {
+  requireAuth(session);
+  const rows = await queryAll(
+    `SELECT sp.id, sp.po_no, sp.pr_key, sp.amount, sp.remitted_by, sp.created_at
+     FROM system_payments sp
+     JOIN purchase_orders po ON po.po_no = sp.po_no
+     WHERE po.project LIKE ?
+     ORDER BY sp.po_no, sp.pr_key, sp.id`,
+    [`%${project || ''}%`]
+  );
+  const keyCount = {};
+  for (const r of rows) {
+    const k = `${r.po_no}|${r.pr_key}`;
+    keyCount[k] = (keyCount[k] || 0) + 1;
+  }
+  return rows.map(r => ({
+    id: r.id, po_no: r.po_no, pr_key: r.pr_key,
+    amount: r.amount, remitted_by: r.remitted_by, created_at: r.created_at,
+    is_duplicate: keyCount[`${r.po_no}|${r.pr_key}`] > 1
+  }));
+}
+
+export async function deduplicateSystemPayments(session) {
+  requireAuth(session);
+  await ensureSettingsTable();
+  const dupes = await queryAll(
+    `SELECT po_no, pr_key, COUNT(*) as cnt, MIN(id) as keep_id
+     FROM system_payments
+     GROUP BY po_no, pr_key
+     HAVING COUNT(*) > 1`
+  );
+  let deletedCount = 0;
+  for (const d of dupes) {
+    await queryRun(
+      `DELETE FROM system_payments WHERE po_no = ? AND pr_key = ? AND id != ?`,
+      [d.po_no, d.pr_key, d.keep_id]
+    );
+    deletedCount += (d.cnt - 1);
+  }
+  const affectedPOs = [...new Set(dupes.map(d => d.po_no))];
+  for (const poNo of affectedPOs) {
+    await updatePOPaymentStatus(poNo);
+  }
+  return {
+    ok: true, duplicateGroups: dupes.length, rowsDeleted: deletedCount,
+    posRecalculated: affectedPOs.length,
+    summary: dupes.slice(0, 20).map(d => ({ po_no: d.po_no, pr_key: d.pr_key, dupeCount: d.cnt }))
+  };
+}
+
 export async function getProjectDetails(session) {
   requireAuth(session);
   const [pos, outflowSnapshots] = await Promise.all([

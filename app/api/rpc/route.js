@@ -70,7 +70,9 @@ const ALLOWED_METHODS = new Set([
   'getPOFullDetails',
   'correctLegacyPOPaidAmount',
   'deleteRemittedPayment',
-  'getFinancialDiagnostics'
+  'getFinancialDiagnostics',
+  'getSystemPaymentsDetail',
+  'deduplicateSystemPayments'
 ]);
 
 export async function POST(request) {
