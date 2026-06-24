@@ -305,22 +305,26 @@ export default function SettingsView() {
       alert('Please enter a new paid amount.');
       return;
     }
-    const conf = window.confirm(`Are you sure you want to ${autoRecalculate ? 'auto-recalculate' : 'manually update'} the paid amount for ${legacyPO.po_no}?`);
-    if (!conf) return;
+    
+    // Yield to the main thread to avoid Next.js INP Issue warnings before pausing execution with confirm
+    setTimeout(async () => {
+      const conf = window.confirm(`Are you sure you want to ${autoRecalculate ? 'auto-recalculate' : 'manually update'} the paid amount for ${legacyPO.po_no}?`);
+      if (!conf) return;
 
-    setLegacySubmitting(true);
-    try {
-      await call('correctLegacyPOPaidAmount', legacyPO.po_no, legacyNewPaid, autoRecalculate, legacyReason.trim());
-      alert('PO paid amount corrected successfully.');
-      setLegacyPO(null);
-      setLegacyPONo('');
-      setLegacyReason('');
-      setLegacyNewPaid('');
-    } catch (err) {
-      alert('Error correcting PO: ' + err.message);
-    } finally {
-      setLegacySubmitting(false);
-    }
+      setLegacySubmitting(true);
+      try {
+        await call('correctLegacyPOPaidAmount', legacyPO.po_no, legacyNewPaid, autoRecalculate, legacyReason.trim());
+        alert('PO paid amount corrected successfully.');
+        setLegacyPO(null);
+        setLegacyPONo('');
+        setLegacyReason('');
+        setLegacyNewPaid('');
+      } catch (err) {
+        alert('Error correcting PO: ' + err.message);
+      } finally {
+        setLegacySubmitting(false);
+      }
+    }, 10);
   };
 
   const handleReloadAll = async () => {
