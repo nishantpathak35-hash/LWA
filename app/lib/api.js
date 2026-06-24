@@ -1023,6 +1023,43 @@ export async function updatePOFull(poNo, payload, session) {
   return { ok: true, poNo: nextPoNo, oldPoNo: originalPoNo, newStatus, changesLogged: auditChanges };
 }
 
+export async function deletePOFull(poNo, session) {
+  requireAuth(session);
+  requireAdminConsole(session);
+  await ensureSettingsTable();
+
+  const targetPoNo = String(poNo || '').trim();
+  if (!targetPoNo) throw new Error('PO Number missing');
+
+  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
+  if (!po) {
+    throw new Error(`Purchase Order not found: ${targetPoNo}`);
+  }
+
+  const paymentRequests = await queryAll(`SELECT pr_id FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
+  const requestIds = paymentRequests.map(pr => pr.pr_id).filter(id => id !== undefined && id !== null);
+
+  await logAudit(
+    session.email,
+    'PO Deleted',
+    `PO#${targetPoNo} deleted. Vendor: ${po.vendor_name || po.vendor_key || 'N/A'}, Project: ${po.project || 'N/A'}, Value: ${po.po_value || 0}`,
+    'Procurement'
+  );
+
+  if (requestIds.length) {
+    const placeholders = requestIds.map(() => '?').join(',');
+    await queryRun(`DELETE FROM system_payments WHERE pr_key IN (${placeholders})`, requestIds);
+  }
+  await queryRun(`DELETE FROM system_payments WHERE po_no = ?`, [targetPoNo]);
+  await queryRun(`DELETE FROM manual_payments WHERE po_no = ?`, [targetPoNo]);
+  await queryRun(`DELETE FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
+  await queryRun(`DELETE FROM po_approval_history WHERE po_no = ?`, [targetPoNo]);
+  await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [targetPoNo]);
+  await queryRun(`DELETE FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
+
+  return { ok: true, poNo: targetPoNo };
+}
+
 
 // --- PO APPROVAL WORKFLOW ---
 export async function submitPOForApproval(poNo, session) {

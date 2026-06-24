@@ -402,6 +402,15 @@ export default function POsView() {
     } catch (err) { toast.error('Failed: ' + err.message); }
   };
 
+  const handleDeletePO = async (poNumber) => {
+    if (!window.confirm(`Are you sure you want to delete PO ${poNumber}? This action is irreversible.`)) return;
+    try {
+      await call('deletePOFull', poNumber);
+      await refreshData();
+      toast(`PO ${poNumber} deleted.`);
+    } catch (err) { toast.error('Failed: ' + err.message); }
+  };
+
   const handleDuplicatePO = async (po) => {
     try {
       const details = await call('getPOFullDetails', po.po_no);
@@ -667,9 +676,7 @@ export default function POsView() {
                                       type="button"
                                       onClick={() => {
                                         setOpenActionMenuPoNo(null);
-                                        if (window.confirm(`Are you sure you want to delete PO ${po.po_no}? This action is irreversible.`)) {
-                                          toast("Deleting POs is not permitted to preserve audit trail compliance.");
-                                        }
+                                        handleDeletePO(po.po_no);
                                       }}
                                       className="flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-slate-900 transition-colors text-left font-sans"
                                     >

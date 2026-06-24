@@ -24,6 +24,7 @@ const ALLOWED_METHODS = new Set([
   'getMasterHealth',
   'createPOFull',
   'updatePOFull',
+  'deletePOFull',
   'submitPOForApproval',
   'approvePO',
   'getPOApprovalHistory',
