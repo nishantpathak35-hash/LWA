@@ -608,11 +608,19 @@ export async function deduplicateSystemPayments(session) {
   );
   let deletedCount = 0;
   for (const d of dupes) {
-    await queryRun(
-      `DELETE FROM system_payments WHERE po_no = ? AND pr_key = ? AND id != ?`,
-      [d.po_no, d.pr_key, d.keep_id]
-    );
-    deletedCount += (d.cnt - 1);
+    if (d.pr_key === null) {
+      const res = await queryRun(
+        `DELETE FROM system_payments WHERE po_no = ? AND pr_key IS NULL AND id != ?`,
+        [d.po_no, d.keep_id]
+      );
+      deletedCount += (d.cnt - 1);
+    } else {
+      const res = await queryRun(
+        `DELETE FROM system_payments WHERE po_no = ? AND pr_key = ? AND id != ?`,
+        [d.po_no, d.pr_key, d.keep_id]
+      );
+      deletedCount += (d.cnt - 1);
+    }
   }
   const affectedPOs = [...new Set(dupes.map(d => d.po_no))];
   for (const poNo of affectedPOs) {
