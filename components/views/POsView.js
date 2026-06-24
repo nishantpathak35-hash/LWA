@@ -823,7 +823,7 @@ export default function POsView() {
             </div>
 
             {/* Column headers */}
-            <div className="hidden md:grid grid-cols-[1fr_80px_60px_96px_90px_70px_90px_36px] gap-2 px-1">
+            <div className="hidden md:grid grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 px-3">
               {['Description *','HSN/SAC','Qty','UOM','Rate (₹)','GST %','Amount',''].map((h,i) => (
                 <span key={i} className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">{h}</span>
               ))}
@@ -832,31 +832,31 @@ export default function POsView() {
             {items.map((item, idx) => {
               const { total } = calcItem(item);
               return (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_80px_60px_96px_90px_70px_90px_36px] gap-2 items-start p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
-                  <Textarea
+                <div key={idx} style={{ minHeight: '56px' }} className="grid grid-cols-1 md:grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 items-center p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
+                  <Input
                     required
+                    type="text"
                     value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
                     placeholder="Item description"
-                    className="text-xs"
-                    style={{ minHeight: '72px', height: '72px', resize: 'vertical' }}
+                    className="h-10 text-xs"
                   />
                   <Input type="text" value={item.hsnSac}
                     onChange={e => handleItemChange(idx, 'hsnSac', e.target.value)}
-                    placeholder="Code" className="h-8 text-xs" />
+                    placeholder="Code" className="h-10 text-xs" />
                   <Input type="number" required min="0.001" step="0.001" value={item.quantity}
-                    onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="h-8 text-xs" />
+                    onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="h-10 text-xs" />
                   <Select value={item.unit || 'Nos'} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
-                    className="h-8 text-xs py-0">
+                    className="h-10 text-xs">
                     {UOM_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                   </Select>
                   <Input type="number" required min="0" step="0.01" value={item.rate}
-                    onChange={e => handleItemChange(idx, 'rate', e.target.value)} className="h-8 text-xs" />
+                    onChange={e => handleItemChange(idx, 'rate', e.target.value)} className="h-10 text-xs" />
                   <Select value={item.gstPct} onChange={e => handleItemChange(idx, 'gstPct', Number(e.target.value))}
-                    className="h-8 text-xs py-0">
+                    className="h-10 text-xs">
                     {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
                   </Select>
-                  <div className="h-8 flex items-center px-2 text-xs font-semibold text-gold">
+                  <div className="h-10 flex items-center px-2 text-xs font-semibold text-gold">
                     {formatCurrency(total)}
                   </div>
                   {items.length > 1
