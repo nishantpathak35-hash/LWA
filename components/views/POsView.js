@@ -792,11 +792,21 @@ export default function POsView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TERMS & CONDITIONS</label>
-              <Input type="text" value={terms} onChange={e => setTerms(e.target.value)} placeholder="e.g. 50% advance, balance on delivery" />
+              <Textarea
+                value={terms}
+                onChange={e => setTerms(e.target.value)}
+                placeholder="e.g. 50% advance, balance on delivery"
+                className="min-h-[100px] resize-y"
+              />
             </div>
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">NOTES / REMARKS</label>
-              <Input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes or special instructions" />
+              <Textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Internal notes or special instructions"
+                className="min-h-[100px] resize-y"
+              />
             </div>
           </div>
 
@@ -820,9 +830,13 @@ export default function POsView() {
               const { total } = calcItem(item);
               return (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_80px_60px_96px_90px_70px_90px_36px] gap-2 items-center p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
-                  <Textarea required value={item.description}
+                  <Textarea
+                    required
+                    value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
-                    placeholder="Item description" className="min-h-[36px] h-9 resize-none text-xs py-1.5" />
+                    placeholder="Item description"
+                    className="min-h-[60px] resize-y text-xs py-1.5"
+                  />
                   <Input type="text" value={item.hsnSac}
                     onChange={e => handleItemChange(idx, 'hsnSac', e.target.value)}
                     placeholder="Code" className="h-8 text-xs" />
