@@ -200,6 +200,16 @@ export async function loginUser(email, password) {
     await queryRun(`UPDATE users SET invite_token = NULL WHERE email = ?`, [user.email]);
   }
 
+  // Update last login timestamp
+  const loginTimestamp = new Date().toISOString();
+  try {
+    await queryRun(`ALTER TABLE users ADD COLUMN last_login TEXT`);
+  } catch (e) { /* column already exists */ }
+  await queryRun(`UPDATE users SET last_login = ? WHERE email = ?`, [loginTimestamp, user.email]);
+
+  // Log audit entry for login
+  await logAudit(user.email, 'Login', `User logged in`, 'Auth');
+
   const tokenPayload = {
     email: user.email,
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -1235,14 +1245,17 @@ export async function sendInvite(payload, session) {
 
 export async function listUsersAdmin(session) {
   requireAdminConsole(session);
-  const users = await queryAll(`SELECT email, name, roles, active, invite_token FROM users`);
+  // Ensure last_login column exists (safe, idempotent)
+  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login TEXT`); } catch (e) { /* already exists */ }
+  const users = await queryAll(`SELECT email, name, roles, active, invite_token, password_hash, last_login FROM users`);
   return users.map(u => ({
     email: u.email,
     name: u.name,
     roles: JSON.parse(u.roles || '[]'),
     active: u.active === 1 || u.active === true,
     hasPassword: u.password_hash ? true : false,
-    hasToken: !!u.invite_token
+    hasToken: !!u.invite_token,
+    lastLogin: u.last_login || null
   }));
 }
 
@@ -1352,6 +1365,9 @@ export async function clearAllCaches(session) {
 }
 
 export async function logoutUser(token, session) {
+  if (session?.email) {
+    await logAudit(session.email, 'Logout', 'User logged out', 'Auth');
+  }
   return { ok: true };
 }
 
@@ -1949,13 +1965,64 @@ export async function reconcileRemittedPaymentsToPOLedger(session, targetPoNo = 
 
 export async function listAuditLog(filters = {}, session) {
   requireAuth(session);
-  const limit = Math.min(Number(filters.limit) || 250, 500);
+  const page = Math.max(1, Number(filters.page) || 1);
+  const pageSize = Math.min(Math.max(1, Number(filters.pageSize) || Number(filters.limit) || 50), 500);
+  const offset = (page - 1) * pageSize;
+
+  let whereClause = '';
+  const conditions = [];
+  const params = [];
+
+  if (filters.user) {
+    conditions.push(`user = ?`);
+    params.push(filters.user);
+  }
+  if (filters.actionType) {
+    conditions.push(`action_type = ?`);
+    params.push(filters.actionType);
+  }
+  if (filters.department) {
+    conditions.push(`department = ?`);
+    params.push(filters.department);
+  }
+  if (filters.startDate) {
+    conditions.push(`timestamp >= ?`);
+    params.push(filters.startDate);
+  }
+  if (filters.endDate) {
+    conditions.push(`timestamp <= ?`);
+    params.push(filters.endDate);
+  }
+  if (filters.search) {
+    conditions.push(`(user LIKE ? OR action_type LIKE ? OR details LIKE ?)`);
+    const searchTerm = `%${filters.search}%`;
+    params.push(searchTerm, searchTerm, searchTerm);
+  }
+
+  if (conditions.length > 0) {
+    whereClause = ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  const sortDir = String(filters.sortDir || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  // Get total count for pagination
+  const countResult = await queryGet(`SELECT COUNT(*) as total FROM audit_logs${whereClause}`, params);
+  const total = Number(countResult?.total) || 0;
+
   const rows = await queryAll(
-    `SELECT timestamp, user, action_type AS actionType, details, department FROM audit_logs ORDER BY timestamp DESC LIMIT ?`,
-    [limit]
+    `SELECT id, timestamp, user, action_type AS actionType, details, department FROM audit_logs${whereClause} ORDER BY timestamp ${sortDir} LIMIT ? OFFSET ?`,
+    [...params, pageSize, offset]
   );
-  return rows;
+
+  return {
+    rows,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize)
+  };
 }
+
 
 export async function getPaymentReportRows(filters = {}, session) {
   requireAuth(session);
