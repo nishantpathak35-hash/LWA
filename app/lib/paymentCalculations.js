@@ -45,7 +45,15 @@ function shouldCountPayment(payment = {}) {
 
 async function getSystemPaymentTotal(poNo) {
   const row = await queryGet(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM system_payments WHERE po_no = ?`,
+    `SELECT COALESCE(SUM(
+       CASE
+         WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+         ELSE COALESCE(sp.amount, 0)
+       END
+     ), 0) AS total
+     FROM system_payments sp
+     LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)
+     WHERE sp.po_no = ?`,
     [poNo]
   );
   return money(row?.total);
@@ -178,9 +186,15 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
   const [projectFinancials, systemPaidRow] = await Promise.all([
     queryGet(`SELECT * FROM project_financials WHERE project = ?`, [project]).catch(() => undefined),
     queryGet(
-      `SELECT COALESCE(SUM(sp.amount), 0) AS total
+      `SELECT COALESCE(SUM(
+         CASE
+           WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+           ELSE COALESCE(sp.amount, 0)
+         END
+       ), 0) AS total
        FROM system_payments sp
        JOIN purchase_orders po ON po.po_no = sp.po_no
+       LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)
        WHERE po.project = ?`,
       [project]
     )
@@ -228,9 +242,16 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
 export async function calculateProjectOutflowSnapshots() {
   const [systemRows, requestRows] = await Promise.all([
     queryAll(
-      `SELECT po.project, COALESCE(SUM(sp.amount), 0) AS total
+      `SELECT po.project,
+              COALESCE(SUM(
+                CASE
+                  WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+                  ELSE COALESCE(sp.amount, 0)
+                END
+              ), 0) AS total
        FROM system_payments sp
        JOIN purchase_orders po ON po.po_no = sp.po_no
+       LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)
        GROUP BY po.project`
     ),
     queryAll(`SELECT * FROM payment_requests`)

@@ -1047,11 +1047,22 @@ export async function getPOApprovalHistory(poNo, session) {
 // --- MANUAL PAYMENT ENTRY ---
 
 async function updatePOPaymentStatus(poNo) {
-  // Recompute total paid from system_payments + remitted payment_requests
-  // (manual_payments are mirrored into system_payments, so we do not add manualSum)
-  const sysSum = await queryGet(`SELECT COALESCE(SUM(amount), 0) AS total FROM system_payments WHERE po_no = ?`, [poNo]);
+  // Recompute total paid from actual paid ledger entries mapped to this PO.
+  // Linked remittances use net paid amount after TDS; manual payments use system_payments.amount.
+  const sysSum = await queryGet(
+    `SELECT COALESCE(SUM(
+       CASE
+         WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+         ELSE COALESCE(sp.amount, 0)
+       END
+     ), 0) AS total
+     FROM system_payments sp
+     LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)
+     WHERE sp.po_no = ?`,
+    [poNo]
+  );
   const prSum = await queryGet(
-    `SELECT COALESCE(SUM(amount_requested), 0) AS total FROM payment_requests
+    `SELECT COALESCE(SUM(CASE WHEN COALESCE(amount_requested, 0) - COALESCE(tds_amount, 0) < 0 THEN 0 ELSE COALESCE(amount_requested, 0) - COALESCE(tds_amount, 0) END), 0) AS total FROM payment_requests
      WHERE po_no = ? AND (stage = 'Remitted' OR remittance = 'Remitted')
      AND pr_id NOT IN (SELECT pr_key FROM system_payments WHERE pr_key IS NOT NULL)`,
     [poNo]
@@ -1159,7 +1170,7 @@ export async function getPOPayments(poNo, session) {
     ...remitted.map(p => ({
       id: `PR-${p.pr_id}`,
       payment_date: p.remittance_date || p.created_at?.split('T')[0] || '',
-      amount: Number(p.amount_requested),
+      amount: Math.max(0, Number(p.amount_requested || 0) - Number(p.tds_amount || 0)),
       payment_mode: 'Bank Transfer (Remittance)',
       utr_ref: p.remittance_ref || '',
       bank_name: '',
@@ -1789,13 +1800,15 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
         [utrRef, today, id]
       );
 
+      const paidAmount = Math.max(0, Number(pr.amount_requested || 0) - Number(pr.tds_amount || 0));
+
       // Record in system payments
       await queryRun(
         `INSERT INTO system_payments (po_no, pr_key, amount, remitted_by, created_at) VALUES (?, ?, ?, ?, ?)`,
         [
           pr.po_no,
           String(id),
-          pr.amount_requested,
+          paidAmount,
           session?.email || 'admin@luxeworx.com',
           new Date().toISOString()
         ]
@@ -1804,7 +1817,7 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
       await logAudit(
         session?.email || 'admin@luxeworx.com',
         'Payment Remitted',
-        'Remitted payment ID ' + id + ' for PO#' + pr.po_no + ' amount: ' + pr.amount_requested,
+        'Remitted payment ID ' + id + ' for PO#' + pr.po_no + ' paid amount: ' + paidAmount,
         'Finance'
       );
 
@@ -1950,16 +1963,24 @@ export async function reconcileRemittedPaymentsToPOLedger(session, targetPoNo = 
   for (const po of pos) {
     const poNo = po.po_no;
     
-    // Sum system_payments for this PO
+    // Sum actual paid ledger entries for this PO. Linked remittances are net of TDS.
     const sysSumRow = await queryGet(
-      `SELECT SUM(amount) AS total FROM system_payments WHERE po_no = ?`,
+      `SELECT COALESCE(SUM(
+         CASE
+           WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+           ELSE COALESCE(sp.amount, 0)
+         END
+       ), 0) AS total
+       FROM system_payments sp
+       LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)
+       WHERE sp.po_no = ?`,
       [poNo]
     );
     const sysSum = Number(sysSumRow?.total) || 0;
 
     // Sum payment_requests that are remitted but not in system_payments (to prevent double counting)
     const prSumRow = await queryGet(
-      `SELECT SUM(amount_requested) AS total FROM payment_requests 
+      `SELECT COALESCE(SUM(CASE WHEN COALESCE(amount_requested, 0) - COALESCE(tds_amount, 0) < 0 THEN 0 ELSE COALESCE(amount_requested, 0) - COALESCE(tds_amount, 0) END), 0) AS total FROM payment_requests
        WHERE po_no = ? 
          AND (stage = 'Remitted' OR remittance = 'Remitted') 
          AND pr_id NOT IN (SELECT pr_key FROM system_payments WHERE pr_key IS NOT NULL)`,

@@ -11,7 +11,7 @@ import { formatCurrency } from '../../app/lib/utils';
 import {
   PlusCircle, Search, Receipt, Send, ShieldAlert, Plus, Trash2, Edit2,
   Eye, CheckCircle, XCircle, Clock, History, Wallet, ChevronDown, ChevronUp,
-  AlertTriangle, Copy
+  AlertTriangle, Copy, Download
 } from 'lucide-react';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -141,6 +141,53 @@ export default function POsView() {
            (po.vendor_name || '').toLowerCase().includes(q) ||
            (po.project || '').toLowerCase().includes(q);
   });
+
+  const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+  const handleExportPOs = () => {
+    const headers = [
+      'PO No',
+      'Project',
+      'Vendor',
+      'Status',
+      'Payment Status',
+      'PO Value',
+      'Paid',
+      'Balance',
+      'PO Date',
+      'Expected Delivery',
+      'Category'
+    ];
+    const rows = filteredPOs.map(po => {
+      const poValue = Number(po.po_value || 0);
+      const paid = Number(po.paid || 0);
+      return [
+        po.po_no || '',
+        po.project || '',
+        po.vendor_name || po.vendor_key || '',
+        po.status || po.approval_status || 'Draft',
+        po.payment_status || 'Unpaid',
+        poValue,
+        paid,
+        Math.max(0, poValue - paid),
+        po.po_date || '',
+        po.expected_delivery_date || '',
+        po.category || ''
+      ];
+    });
+
+    const csv = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Purchase_Orders_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // ─── Open Create / Edit Modal ──────────────────────────────────────────────
   const handleOpenModal = useCallback(async (existingPoNo = null) => {
@@ -420,11 +467,16 @@ export default function POsView() {
             <p className="text-[11px] text-slate-500 mt-0.5">Full PO lifecycle — create, approve, edit, and track payments.</p>
           </div>
         </div>
-        {canCreate && (
-          <Button variant="primary" size="sm" onClick={() => handleOpenModal()}>
-            <PlusCircle className="w-4 h-4" /> Create Purchase Order
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleExportPOs} disabled={filteredPOs.length === 0}>
+            <Download className="w-4 h-4" /> Export CSV
           </Button>
-        )}
+          {canCreate && (
+            <Button variant="primary" size="sm" onClick={() => handleOpenModal()}>
+              <PlusCircle className="w-4 h-4" /> Create Purchase Order
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* PO Table */}
