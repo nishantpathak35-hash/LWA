@@ -320,12 +320,12 @@ export default function SettingsView() {
       try {
         await call('correctLegacyPOPaidAmount', legacyPO.po_no, legacyNewPaid, autoRecalculate, legacyReason.trim());
         await call('clearAllCaches');
-        alert('PO paid amount corrected successfully. The page will now reload to apply the changes globally.');
+        alert('PO paid amount corrected successfully.');
         setLegacyPO(null);
         setLegacyPONo('');
         setLegacyReason('');
         setLegacyNewPaid('');
-        window.location.reload();
+        await refreshData();
       } catch (err) {
         alert('Error correcting PO: ' + err.message);
       } finally {
@@ -363,10 +363,10 @@ export default function SettingsView() {
       try {
         await call('mergeProjects', mergeTargetProject.trim(), sourcesArray);
         await call('clearAllCaches');
-        alert('Projects merged successfully. The page will now reload to apply the changes globally.');
+        alert('Projects merged successfully.');
         setMergeTargetProject('');
         setMergeSourceProjects('');
-        window.location.reload();
+        await refreshData();
       } catch (err) {
         alert('Error merging projects: ' + err.message);
       } finally {
@@ -378,7 +378,7 @@ export default function SettingsView() {
   const handleReloadAll = async () => {
     try {
       await call('clearAllCaches');
-      alert('Data reloaded. Refreshing page...');
+      alert('Data reloaded successfully.');
       window.location.reload();
     } catch (e) {
       alert('Error: ' + (e.message || String(e)));
