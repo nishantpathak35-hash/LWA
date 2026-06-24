@@ -149,6 +149,21 @@ async function ensureSettingsTable() {
     )
   `);
 
+  // ── Data recovery: restore po_date for any PO where it was accidentally wiped ──
+  try {
+    await queryRun(`
+      UPDATE purchase_orders
+      SET po_date = CASE
+        WHEN created_at IS NOT NULL AND created_at != ''
+          THEN substr(created_at, 1, 10)
+        ELSE date('now')
+      END
+      WHERE (po_date IS NULL OR po_date = '')
+    `);
+  } catch (e) {
+    console.error('po_date recovery migration failed (non-fatal):', e.message);
+  }
+
   _settingsTableEnsured = true;
 }
 
@@ -1017,10 +1032,10 @@ export async function updatePOFull(poNo, payload, session) {
     [nextPoNo,
      payload.vendorCode || payload.vendor_key || existing?.vendor_key || '',
      vendorName, payload.project || '', totalVal, totalVal,
-     payload.poDate || '', payload.terms || '',
+     payload.poDate || existing?.po_date || '', payload.terms || '',
      newStatus, newStatus,
      tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
-     payload.expectedDeliveryDate || '', payload.notes || '',
+     payload.expectedDeliveryDate || existing?.expected_delivery_date || '', payload.notes || '',
      payload.category || existing?.category || 'Goods',
      originalPoNo]
   );
