@@ -22,7 +22,7 @@ function handleResendError(error, defaultMsg) {
   throw new Error(msg);
 }
 
-async function sendEmailData({ toEmail, subject, html }) {
+async function sendEmailData({ toEmail, subject, html, attachments }) {
   if (process.env.BREVO_API_KEY) {
     const brevoPayload = {
       sender: { name: COMPANY, email: process.env.BREVO_FROM_EMAIL || 'accounts@luxeworxatelier.com' },
@@ -30,6 +30,12 @@ async function sendEmailData({ toEmail, subject, html }) {
       subject: subject,
       htmlContent: html
     };
+    if (attachments && attachments.length > 0) {
+      brevoPayload.attachment = attachments.map(att => ({
+        name: att.filename,
+        content: att.content // Base64 string
+      }));
+    }
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -46,12 +52,19 @@ async function sendEmailData({ toEmail, subject, html }) {
     const data = await response.json();
     return { sent: true, id: data.messageId };
   } else if (resend) {
-    const { data, error } = await resend.emails.send({
+    const payload = {
       from: FROM,
       to: [toEmail],
       subject: subject,
       html
-    });
+    };
+    if (attachments && attachments.length > 0) {
+      payload.attachments = attachments.map(att => ({
+        filename: att.filename,
+        content: att.content // Base64 string or Buffer
+      }));
+    }
+    const { data, error } = await resend.emails.send(payload);
     if (error) handleResendError(error, 'Failed to send email via Resend');
     return { sent: true, id: data?.id };
   } else {
@@ -138,7 +151,7 @@ export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, projec
 }
 
 // ── PO Email ─────────────────────────────────────────────────────────────────
-export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, items, grandTotal, terms }) {
+export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, items, grandTotal, terms, attachments }) {
   const itemRows = (items || []).map((it, i) => `
     <tr style="border-bottom:1px solid #1e2330">
       <td style="padding:10px 12px;color:#94a3b8;font-size:12px">${i + 1}</td>
@@ -211,6 +224,7 @@ export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, 
   return sendEmailData({
     toEmail,
     subject: `Purchase Order ${poNo} — ${COMPANY}`,
-    html
+    html,
+    attachments
   });
 }

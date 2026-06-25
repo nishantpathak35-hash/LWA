@@ -1884,6 +1884,13 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
   if (!toEmail) throw new Error('No email address provided for vendor');
 
   const items = await queryAll(`SELECT * FROM po_items WHERE po_no = ?`, [poNo]);
+  
+  // Fetch PO attachments
+  const dbAttachments = await queryAll(`SELECT file_name, file_data FROM attachments WHERE entity_type = 'po' AND entity_id = ?`, [poNo]);
+  const attachments = dbAttachments.map(a => ({
+    filename: a.file_name,
+    content: a.file_data // Base64
+  }));
 
   await sendPOEmail({
     toEmail,
@@ -1893,7 +1900,8 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
     poDate: po.po_date,
     items: items.map(it => ({ desc: it.description, qty: it.qty, unit: it.unit || 'Nos', rate: it.rate, amount: it.amount })),
     grandTotal: po.po_value,
-    terms: po.terms || ''
+    terms: po.terms || '',
+    attachments
   });
 
   return { ok: true, email: toEmail };
