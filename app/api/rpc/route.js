@@ -74,7 +74,12 @@ const ALLOWED_METHODS = new Set([
   'deleteRemittedPayment',
   'getFinancialDiagnostics',
   'getSystemPaymentsDetail',
-  'deduplicateSystemPayments'
+  'deduplicateSystemPayments',
+  'savePO',
+  'remitPaymentRequest',
+  'uploadAttachment',
+  'getAttachments',
+  'deleteAttachment'
 ]);
 
 export async function POST(request) {

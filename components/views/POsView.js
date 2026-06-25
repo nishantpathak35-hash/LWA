@@ -16,36 +16,13 @@ import {
   AlertTriangle, Copy, Download
 } from 'lucide-react';
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-const GST_RATES = [0, 5, 12, 18, 28];
-
-const TDS_SECTIONS = [
-  { code: '', label: 'None (No TDS)', rate: 0 },
-  { code: '194C', label: '194C – Contractors (1%/2%)', rate: 2 },
-  { code: '194J', label: '194J – Professional Services (10%)', rate: 10 },
-  { code: '194I', label: '194I – Rent (10%)', rate: 10 },
-  { code: '194H', label: '194H – Commission (5%)', rate: 5 },
-  { code: '194A', label: '194A – Interest (10%)', rate: 10 },
-  { code: '194B', label: '194B – Lottery / Winnings (30%)', rate: 30 },
-  { code: '194Q', label: '194Q – Purchase of Goods (0.1%)', rate: 0.1 },
-];
-
-const PAYMENT_MODES = [
-  'Bank Transfer', 'NEFT', 'RTGS', 'IMPS', 'UPI', 'Cheque', 'DD', 'Cash', 'Other'
-];
-
-const UOM_OPTIONS = [
-  { value: 'sqft', label: 'Sq Ft' },
-  { value: 'sqm', label: 'Sq M' },
-  { value: 'Nos', label: 'Nos' },
-  { value: 'Pieces', label: 'Pieces' },
-  { value: 'Kg', label: 'Kg' },
-  { value: 'Ton', label: 'Ton' },
-  { value: 'Meter', label: 'Meter' },
-  { value: 'Running Meter', label: 'Running Meter' },
-  { value: 'Box', label: 'Box' },
-  { value: 'Lot', label: 'Lot' }
-];
+import POFilters from './purchase-orders/POFilters';
+import POListTable from './purchase-orders/POListTable';
+import POFormModal from './purchase-orders/POFormModal';
+import POApprovalModal from './purchase-orders/POApprovalModal';
+import POHistoryModal from './purchase-orders/POHistoryModal';
+import POManualPaymentModal from './purchase-orders/POManualPaymentModal';
+import { GST_RATES, TDS_SECTIONS, PAYMENT_MODES, UOM_OPTIONS } from './purchase-orders/po-constants';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getStatusBadge(status) {
@@ -540,629 +517,69 @@ export default function POsView() {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8 animate-fade-in font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-gold/10 text-gold"><Receipt className="w-5 h-5" /></div>
-          <div>
-            <h2 className="text-xl font-light text-slate-100 font-serif">Purchase Orders</h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">Full PO lifecycle — create, approve, edit, and track payments.</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={handleExportPOs} disabled={filteredPOs.length === 0}>
-            <Download className="w-4 h-4" /> Export CSV
-          </Button>
-          {canCreate && (
-            <Button variant="primary" size="sm" onClick={() => handleOpenModal()}>
-              <PlusCircle className="w-4 h-4" /> Create Purchase Order
-            </Button>
-          )}
-        </div>
-      </div>
+      {/* Header / Filters */}
+      <POFilters
+        canCreate={canCreate}
+        filteredPOs={filteredPOs}
+        handleExportPOs={handleExportPOs}
+        handleOpenModal={handleOpenModal}
+      />
 
       {/* PO Table */}
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row gap-4">
-          <CardTitle className="text-sm font-semibold text-slate-400">PO DATABASE ({filteredPOs.length})</CardTitle>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <Input type="text" placeholder="Search PO, Project, Vendor..." value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)} className="pl-9 text-xs py-1.5 h-8 bg-slate-950/40" />
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {filteredPOs.length === 0 ? (
-            <div className="p-12 text-center text-slate-500 text-sm font-light">No purchase orders found.</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>PO No</TableHead>
-                  <TableHead>
-                    <button
-                      type="button"
-                      onClick={() => setPoDateSortDir(dir => dir === 'desc' ? 'asc' : 'desc')}
-                      className="inline-flex items-center gap-1 text-left uppercase"
-                    >
-                      P.O. Date {poDateSortDir === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
-                    </button>
-                  </TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead className="text-right">PO Value</TableHead>
-                  <TableHead className="text-right">Paid</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPOs.map((po, idx) => {
-                  const st = String(po.status || po.approval_status || 'Draft').toLowerCase();
-                  const isDraft    = st === 'draft';
-                  const isPending  = st === 'pending approval' || st === 'pending_approval';
-                  const isApproved = st === 'approved' || st === 'active';
-                  const isRejected = st === 'rejected';
-                  return (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium text-slate-200">{po.po_no}</TableCell>
-                      <TableCell className="text-slate-300">{formatDate(po.po_date)}</TableCell>
-                      <TableCell>{po.project}</TableCell>
-                      <TableCell>{po.vendor_name || po.vendor_key}</TableCell>
-                      <TableCell>{getStatusBadge(po.status || po.approval_status)}</TableCell>
-                      <TableCell>{getPaymentStatusBadge(po.payment_status)}</TableCell>
-                      <TableCell className="text-right font-medium text-slate-200">{formatCurrency(Number(po.po_value || 0))}</TableCell>
-                      <TableCell className="text-right text-emerald-400">{formatCurrency(Number(po.paid || 0))}</TableCell>
-                      <TableCell className="text-right text-gold">{formatCurrency(Math.max(0, Number(po.po_value || 0) - Number(po.paid || 0)))}</TableCell>
-                      <TableCell className="text-center relative">
-                        <div className="flex justify-center">
-                          <div className="relative inline-block text-left">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenActionMenuPoNo(openActionMenuPoNo === po.po_no ? null : po.po_no);
-                              }}
-                              className="flex items-center gap-1 h-7 text-xs px-2.5 bg-slate-900/30 hover:bg-slate-900/60 border border-slate-900/60 rounded-md"
-                            >
-                              Actions <ChevronDown className="w-3 h-3 text-slate-400" />
-                            </Button>
-                            {openActionMenuPoNo === po.po_no && (
-                              <>
-                                <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuPoNo(null)} />
-                                <div className="absolute right-0 mt-1 w-48 rounded-lg border border-slate-800 bg-slate-950 shadow-2xl py-1 z-20 animate-fade-in flex flex-col">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenActionMenuPoNo(null);
-                                      window.open(`/po/${encodeURIComponent(po.po_no)}`, '_blank');
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-slate-100 hover:bg-slate-900 transition-colors text-left font-sans"
-                                  >
-                                    <Eye className="w-3.5 h-3.5 text-slate-400" /> Print / View PDF
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenActionMenuPoNo(null);
-                                      handleSendVendorEmail(po.po_no);
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-slate-100 hover:bg-slate-900 transition-colors text-left font-sans"
-                                  >
-                                    <Send className="w-3.5 h-3.5 text-slate-400" /> Email PO
-                                  </button>
-                                  {!isPending && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenActionMenuPoNo(null);
-                                        handleOpenModal(po.po_no);
-                                      }}
-                                      className="flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-slate-100 hover:bg-slate-900 transition-colors text-left font-sans"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5 text-slate-400" /> Edit PO
-                                    </button>
-                                  )}
-                                  {canCreate && (isDraft || isRejected) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenActionMenuPoNo(null);
-                                        handleSubmitForApproval(po.po_no);
-                                      }}
-                                      className="flex items-center gap-2 px-3 py-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-slate-900 transition-colors text-left font-sans"
-                                    >
-                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> Submit Approval
-                                    </button>
-                                  )}
-                                  {canApprove && isPending && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenActionMenuPoNo(null);
-                                          handleOpenApproval(po, 'approve');
-                                        }}
-                                        className="flex items-center gap-2 px-3 py-2 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-slate-900 transition-colors text-left font-sans"
-                                      >
-                                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Approve PO
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenActionMenuPoNo(null);
-                                          handleOpenApproval(po, 'reject');
-                                        }}
-                                        className="flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-slate-900 transition-colors text-left font-sans"
-                                      >
-                                        <XCircle className="w-3.5 h-3.5 text-red-500" /> Reject PO
-                                      </button>
-                                    </>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenActionMenuPoNo(null);
-                                      handleDuplicatePO(po);
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-slate-100 hover:bg-slate-900 transition-colors text-left border-t border-slate-900/60 font-sans"
-                                  >
-                                    <Copy className="w-3.5 h-3.5 text-slate-400" /> Duplicate
-                                  </button>
-                                  {isAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenActionMenuPoNo(null);
-                                        handleDeletePO(po.po_no);
-                                      }}
-                                      className="flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-slate-900 transition-colors text-left font-sans"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 text-red-500" /> Delete PO
-                                    </button>
-                                  )}
-                                  {canManualPay && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenActionMenuPoNo(null);
-                                        setEditingPoNo(po.po_no);
-                                        reloadPayments(po.po_no);
-                                        setMpDate(new Date().toISOString().substring(0, 10));
-                                        setMpAmount(''); setMpMode('Bank Transfer');
-                                        setMpUtr(''); setMpBank(''); setMpRef(''); setMpRemarks('');
-                                        setMpError(null);
-                                        setManualPayModalOpen(true);
-                                      }}
-                                      className="flex items-center gap-2 px-3 py-2 text-xs text-gold hover:text-gold-hover hover:bg-slate-900 transition-colors text-left border-t border-slate-900/60 font-sans"
-                                    >
-                                      <Wallet className="w-3.5 h-3.5 text-gold" /> Add Manual Payment
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenActionMenuPoNo(null);
-                                      handleViewPOHistory(po);
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-colors text-left border-t border-slate-900/40 font-sans"
-                                  >
-                                    <History className="w-3.5 h-3.5 text-slate-500" /> View History
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Create / Edit PO Dialog ────────────────────────────────────────── */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)}
-        maxWidth="max-w-[95vw]"
-        title={editingPoNo ? `Edit Purchase Order — ${editingPoNo}` : 'Create Purchase Order'}>
-        <form onSubmit={handleSavePO} className="space-y-6">
-
-          {/* Status warning for approved PO edits */}
-          {editingPO && String(editingPO.approval_status || editingPO.status || '').toLowerCase() === 'approved' && (
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>This PO is <strong>Approved</strong>. Editing financial fields (value, vendor, line items) will reset it to <strong>Draft</strong> and require re-approval.</span>
-            </div>
-          )}
-
-          {/* Header row — all 5 fields in one line on wide screens */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PO NUMBER *</label>
-              <Input type="text" required value={poNo} onChange={e => setPoNo(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PROJECT *</label>
-              <Select value={project} onChange={e => setProject(e.target.value)} required>
-                <option value="">-- Select Project --</option>
-                {projects.map((p, i) => <option key={i} value={p.name}>{p.name}</option>)}
-              </Select>
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR *</label>
-              <Select value={vendorCode} onChange={e => setVendorCode(e.target.value)}>
-                {vendors.map((v, i) => <option key={getVendorSelectValue(v, i)} value={getVendorSelectValue(v, i)}>{v.name} ({v.code || 'No Code'})</option>)}
-              </Select>
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">CATEGORY</label>
-              <Select value={category} onChange={e => setCategory(e.target.value)}>
-                {['Goods','Services','Consulting','IT','Marketing','Admin','Capex','Opex'].map(c => <option key={c}>{c}</option>)}
-              </Select>
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">GST TYPE</label>
-              <Select value={gstMode} onChange={e => setGstMode(e.target.value)}>
-                <option value="inter">Inter-State (IGST)</option>
-                <option value="intra">Intra-State (CGST+SGST)</option>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TERMS & CONDITIONS</label>
-              <Textarea
-                value={terms}
-                onChange={e => setTerms(e.target.value)}
-                placeholder="e.g. 50% advance, balance on delivery"
-                style={{ minHeight: '100px', height: '100px', resize: 'vertical' }}
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">NOTES / REMARKS</label>
-              <Textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Internal notes or special instructions"
-                style={{ minHeight: '100px', height: '100px', resize: 'vertical' }}
-              />
-            </div>
-          </div>
-
-          {/* Line Items */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-medium text-slate-400 tracking-wider uppercase">Line Items</span>
-              <Button type="button" variant="ghost" size="sm" onClick={handleAddItemLine} className="h-7 text-xs text-gold">
-                <Plus className="w-3.5 h-3.5" /> Add Line
-              </Button>
-            </div>
-
-            {/* Column headers */}
-            <div className="hidden md:grid grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 px-3">
-              {['Description *','HSN/SAC','Qty','UOM','Rate (₹)','GST %','Amount',''].map((h,i) => (
-                <span key={i} className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">{h}</span>
-              ))}
-            </div>
-
-            {items.map((item, idx) => {
-              const { total } = calcItem(item);
-              return (
-                <div key={idx} style={{ minHeight: '56px' }} className="grid grid-cols-1 md:grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 items-center p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
-                  <Input
-                    required
-                    type="text"
-                    value={item.description}
-                    onChange={e => handleItemChange(idx, 'description', e.target.value)}
-                    placeholder="Item description"
-                    className="h-10 text-xs"
-                  />
-                  <Input type="text" value={item.hsnSac}
-                    onChange={e => handleItemChange(idx, 'hsnSac', e.target.value)}
-                    placeholder="Code" className="h-10 text-xs" />
-                  <Input type="number" required min="0.001" step="0.001" value={item.quantity}
-                    onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="h-10 text-xs" />
-                  <Select value={item.unit || 'Nos'} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
-                    className="h-10 text-xs">
-                    {UOM_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                  </Select>
-                  <Input type="number" required min="0" step="0.01" value={item.rate}
-                    onChange={e => handleItemChange(idx, 'rate', e.target.value)} className="h-10 text-xs" />
-                  <Select value={item.gstPct} onChange={e => handleItemChange(idx, 'gstPct', Number(e.target.value))}
-                    className="h-10 text-xs">
-                    {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-                  </Select>
-                  <div className="h-10 flex items-center px-2 text-xs font-semibold text-gold">
-                    {formatCurrency(total)}
-                  </div>
-                  {items.length > 1
-                    ? <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveItemLine(idx)} className="h-8 w-8">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    : <div />
-                  }
-                </div>
-              );
-            })}
-          </div>
-
-          {/* TDS */}
-          <div className="p-4 bg-slate-900/20 border border-slate-900/60 rounded-xl space-y-3">
-            <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">TDS Deduction</span>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS SECTION</label>
-                <Select value={tdsSection} onChange={e => handleTdsSectionChange(e.target.value)}>
-                  {TDS_SECTIONS.map(s => <option key={s.code} value={s.code}>{s.label}</option>)}
-                </Select>
-              </div>
-              <div>
-                <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS RATE (%)</label>
-                <Input type="number" min="0" max="100" step="0.1" value={tdsPct}
-                  onChange={e => setTdsPct(Number(e.target.value))} className="h-9 text-xs" />
-              </div>
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl">
-            <span className="text-[10px] font-semibold text-slate-400 tracking-wider uppercase block mb-3">Order Summary</span>
-            <div className="space-y-2 text-sm font-light">
-              <div className="flex justify-between border-b border-slate-900/60 pb-2">
-                <span className="text-slate-400">Subtotal:</span>
-                <span>{formatCurrency(summaryTotals.subtotal)}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-900/60 pb-2">
-                <span className="text-slate-400">GST ({gstMode === 'intra' ? 'CGST+SGST' : 'IGST'}):</span>
-                <span>+{formatCurrency(summaryTotals.gstTotal)}</span>
-              </div>
-              {tdsAmount > 0 && (
-                <div className="flex justify-between border-b border-slate-900/60 pb-2 text-red-400">
-                  <span>TDS ({tdsSection} @ {tdsPct}%):</span>
-                  <span>−{formatCurrency(tdsAmount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between pt-1 text-base font-semibold">
-                <span className="text-slate-200">Net PO Value:</span>
-                <span className="text-gold">{formatCurrency(netPayable)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Payment Summary (Edit Mode only) ──────────────────────────── */}
-          {editingPoNo && paymentData && (
-            <div className="border border-slate-900 rounded-xl overflow-hidden">
-              <button type="button"
-                onClick={() => setShowPayments(p => !p)}
-                className="w-full flex items-center justify-between p-4 bg-slate-900/20 hover:bg-slate-900/40 transition-colors text-left">
-                <div className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-gold" />
-                  <span className="text-sm font-medium text-slate-200">Payment Summary</span>
-                  {paymentData.summary && (
-                    <span className="ml-2">{getPaymentStatusBadge(paymentData.summary.payment_status)}</span>
-                  )}
-                </div>
-                {showPayments ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
-              </button>
-
-              {showPayments && (
-                <div className="p-4 space-y-4">
-                  {/* KPI chips */}
-                  {paymentData.summary && (
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { label: 'PO Value', value: paymentData.summary.po_value, color: 'text-slate-200' },
-                        { label: 'Total Paid', value: paymentData.summary.total_paid, color: 'text-emerald-400' },
-                        { label: 'Outstanding', value: paymentData.summary.outstanding, color: 'text-amber-400' },
-                      ].map(kpi => (
-                        <div key={kpi.label} className="p-3 bg-slate-900/30 rounded-lg border border-slate-900/60 text-center">
-                          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{kpi.label}</div>
-                          <div className={`text-sm font-semibold ${kpi.color}`}>{formatCurrency(kpi.value)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+      <POListTable
+        filteredPOs={filteredPOs}
+        searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+        poDateSortDir={poDateSortDir} setPoDateSortDir={setPoDateSortDir}
+        openActionMenuPoNo={openActionMenuPoNo} setOpenActionMenuPoNo={setOpenActionMenuPoNo}
+        canCreate={canCreate} canApprove={canApprove} canManualPay={canManualPay} isAdmin={isAdmin}
+        handleOpenModal={handleOpenModal} handleSubmitForApproval={handleSubmitForApproval}
+        handleOpenApproval={handleOpenApproval} handleDuplicatePO={handleDuplicatePO} handleDeletePO={handleDeletePO}
+        reloadPayments={reloadPayments} setMpDate={setMpDate} setMpAmount={setMpAmount}
+        setMpMode={setMpMode} setMpUtr={setMpUtr} setMpBank={setMpBank} setMpRef={setMpRef}
+        setMpRemarks={setMpRemarks} setMpError={setMpError} setManualPayModalOpen={setManualPayModalOpen}
+        setEditingPoNo={setEditingPoNo}
+        handleViewPOHistory={handleViewPOHistory}
+        getStatusBadge={getStatusBadge} getPaymentStatusBadge={getPaymentStatusBadge}
+      />
 
 
+      <POFormModal
+        modalOpen={modalOpen} setModalOpen={setModalOpen} editingPoNo={editingPoNo}
+        poNo={poNo} setPoNo={setPoNo} project={project} setProject={setProject}
+        vendorCode={vendorCode} setVendorCode={setVendorCode} vendors={vendors}
+        poDate={poDate} setPoDate={setPoDate} expectedDelivery={expectedDelivery} setExpectedDelivery={setExpectedDelivery}
+        category={category} setCategory={setCategory} items={items} handleItemChange={handleItemChange}
+        handleRemoveItemLine={handleRemoveItemLine} handleAddItemLine={handleAddItemLine}
+        tdsSection={tdsSection} handleTdsSectionChange={handleTdsSectionChange}
+        gstMode={gstMode} setGstMode={setGstMode} terms={terms} setTerms={setTerms}
+        notes={notes} setNotes={setNotes} formError={formError} submitting={submitting}
+        handleSavePO={handleSavePO} summaryTotals={summaryTotals} tdsAmount={tdsAmount}
+        netPayable={netPayable} showPayments={showPayments} setShowPayments={setShowPayments}
+        loadingPayments={loadingPayments} paymentData={paymentData} getVendorSelectValue={getVendorSelectValue}
+        findVendorBySelection={findVendorBySelection}
+      />
+      
+      <POApprovalModal
+        approvalModalOpen={approvalModalOpen} setApprovalModalOpen={setApprovalModalOpen}
+        approvalTarget={approvalTarget} approvalAction={approvalAction}
+        approvalRemarks={approvalRemarks} setApprovalRemarks={setApprovalRemarks}
+        approvingPO={approvingPO} handleConfirmApproval={handleConfirmApproval}
+      />
+      
+      <POHistoryModal
+        historyModalOpen={historyModalOpen} setHistoryModalOpen={setHistoryModalOpen}
+        historyTarget={historyTarget} loadingHistory={loadingHistory} historyTrail={historyTrail}
+      />
+      
+      <POManualPaymentModal
+        manualPayModalOpen={manualPayModalOpen} setManualPayModalOpen={setManualPayModalOpen}
+        editingPoNo={editingPoNo} mpDate={mpDate} setMpDate={setMpDate}
+        mpAmount={mpAmount} setMpAmount={setMpAmount} mpMode={mpMode} setMpMode={setMpMode}
+        mpUtr={mpUtr} setMpUtr={setMpUtr} mpBank={mpBank} setMpBank={setMpBank}
+        mpRef={mpRef} setMpRef={setMpRef} mpRemarks={mpRemarks} setMpRemarks={setMpRemarks}
+        mpError={mpError} mpSubmitting={mpSubmitting} handleAddManualPayment={handleAddManualPayment}
+      />
 
-                  {/* Payment history table */}
-                  {loadingPayments ? (
-                    <div className="text-center text-slate-500 text-sm py-4">Loading...</div>
-                  ) : paymentData.payments?.length > 0 ? (
-                    <div className="overflow-x-auto rounded-lg border border-slate-900/60">
-                      <table className="w-full text-xs text-left">
-                        <thead className="bg-slate-900/40 text-slate-500 uppercase tracking-wider">
-                          <tr>
-                            {['Date','Amount','Mode','UTR / Ref','Type','By'].map(h => (
-                              <th key={h} className="px-3 py-2 font-semibold">{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-900/60">
-                          {paymentData.payments.map((p, i) => (
-                            <tr key={i} className="hover:bg-slate-900/20">
-                              <td className="px-3 py-2">{p.payment_date}</td>
-                              <td className="px-3 py-2 font-semibold text-emerald-400">{formatCurrency(p.amount)}</td>
-                              <td className="px-3 py-2">{p.payment_mode}</td>
-                              <td className="px-3 py-2 font-mono text-slate-400">{p.utr_ref || p.reference_no || '—'}</td>
-                              <td className="px-3 py-2">
-                                <Badge variant={p.payment_type === 'manual' ? 'info' : 'success'}>
-                                  {p.payment_type === 'manual' ? 'Manual' : 'Remittance'}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-2 text-slate-500">{p.recorded_by || '—'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center text-slate-500 text-sm py-4">No payments recorded yet.</div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {poNo ? (
-            <div className="pt-4 border-t border-slate-900/60 mt-4">
-              <AttachmentsSection entityType="po" entityId={poNo} />
-            </div>
-          ) : (
-            <div className="pt-4 border-t border-slate-900/60 mt-4 p-4 text-center border border-slate-800 border-dashed rounded-lg text-xs text-slate-500 font-light">
-              Save Purchase Order first to enable attachments.
-            </div>
-          )}
-
-          {formError && (
-            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 flex-shrink-0" /><span>{formError}</span>
-            </div>
-          )}
-
-          <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? (editingPoNo ? 'Saving...' : 'Creating...') : (editingPoNo ? 'Save Changes' : 'Create PO')}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
-
-      {/* ── Approval Dialog ────────────────────────────────────────────────── */}
-      <Dialog open={approvalModalOpen} onClose={() => setApprovalModalOpen(false)}
-        title={approvalAction === 'approve' ? 'Approve Purchase Order' : 'Reject Purchase Order'}>
-        <form onSubmit={handleApprovalSubmit} className="space-y-5">
-          <div className="p-4 bg-slate-900/40 border border-slate-900 rounded-xl space-y-2 text-sm font-light">
-            <p className="text-slate-400">PO Number: <strong className="text-slate-200">{approvalTarget?.po_no}</strong></p>
-            <p className="text-slate-400">Vendor: <strong className="text-slate-200">{approvalTarget?.vendor_name}</strong></p>
-            <p className="text-slate-400">PO Value: <strong className="text-gold font-semibold">{formatCurrency(Number(approvalTarget?.po_value || 0))}</strong></p>
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">REMARKS</label>
-            <Input type="text" value={approvalRemarks} onChange={e => setApprovalRemarks(e.target.value)}
-              placeholder={approvalAction === 'reject' ? 'Reason for rejection (required)' : 'Approval notes (optional)'}
-              required={approvalAction === 'reject'} />
-          </div>
-          <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setApprovalModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant={approvalAction === 'approve' ? 'primary' : 'destructive'} disabled={approvingPO}>
-              {approvingPO ? 'Processing...' : approvalAction === 'approve' ? '✓ Approve PO' : '✗ Reject PO'}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
-
-      {/* ── History Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={historyModalOpen} onClose={() => setHistoryModalOpen(false)}
-        title={`Audit Trail — ${historyTarget?.po_no}`}>
-        {loadingHistory ? (
-          <div className="p-12 text-center text-slate-500 text-sm">Loading...</div>
-        ) : historyTrail.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-sm font-light">No history logged for this PO.</div>
-        ) : (
-          <div className="relative border-l border-slate-900 pl-6 ml-3 space-y-8 py-3 text-sm font-light">
-            {historyTrail.map((h, idx) => (
-              <div key={idx} className="relative">
-                <span className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-gold border border-slate-950 ring-4 ring-slate-950" />
-                <p className="text-[11px] text-slate-500">{h.timestamp}</p>
-                <p className="text-slate-200 font-medium mt-1 uppercase text-xs tracking-wider">
-                  {h.action} · <span className="text-slate-400 normal-case font-light text-xs">{h.performed_by}</span>
-                </p>
-                {h.remarks && <p className="text-slate-400 mt-1 bg-slate-900/40 p-2.5 rounded-lg border border-slate-900/60 leading-relaxed text-xs">{h.remarks}</p>}
-              </div>
-            ))}
-          </div>
-        )}
-      </Dialog>
-
-      {/* ── Manual Payment Dialog ──────────────────────────────────────────── */}
-      <Dialog open={manualPayModalOpen} onClose={() => setManualPayModalOpen(false)}
-        title={`Add Manual Payment — ${editingPoNo}`}>
-        <form onSubmit={handleManualPaySubmit} className="space-y-5">
-
-          {/* Outstanding balance info */}
-          {paymentData?.summary && (
-            <div className="grid grid-cols-3 gap-3 p-3 bg-slate-900/30 rounded-xl border border-slate-900">
-              {[
-                { label: 'PO Value',    value: paymentData.summary.po_value,    color: 'text-slate-200' },
-                { label: 'Paid So Far', value: paymentData.summary.total_paid,  color: 'text-emerald-400' },
-                { label: 'Outstanding', value: paymentData.summary.outstanding, color: 'text-amber-400' },
-              ].map(k => (
-                <div key={k.label} className="text-center">
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{k.label}</div>
-                  <div className={`text-sm font-semibold ${k.color}`}>{formatCurrency(k.value)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PAYMENT DATE *</label>
-              <Input type="date" required value={mpDate} onChange={e => setMpDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">AMOUNT PAID (₹) *</label>
-              <Input type="number" required min="1" step="0.01" value={mpAmount}
-                onChange={e => setMpAmount(e.target.value)} placeholder="Enter amount" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PAYMENT MODE *</label>
-              <Select value={mpMode} onChange={e => setMpMode(e.target.value)}>
-                {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
-              </Select>
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TRANSACTION / UTR / CHEQUE NO</label>
-              <Input type="text" value={mpUtr} onChange={e => setMpUtr(e.target.value)}
-                placeholder="e.g. UTR123456789" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">BANK NAME (optional)</label>
-              <Input type="text" value={mpBank} onChange={e => setMpBank(e.target.value)}
-                placeholder="e.g. HDFC Bank" />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">REFERENCE NUMBER</label>
-              <Input type="text" value={mpRef} onChange={e => setMpRef(e.target.value)}
-                placeholder="Internal reference" />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">REMARKS</label>
-            <Input type="text" value={mpRemarks} onChange={e => setMpRemarks(e.target.value)}
-              placeholder="Payment notes or description" />
-          </div>
-
-          {mpError && (
-            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 flex-shrink-0" /><span>{mpError}</span>
-            </div>
-          )}
-
-          <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setManualPayModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={mpSubmitting}>
-              {mpSubmitting ? 'Recording...' : 'Record Payment'}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
     </div>
   );
 }
