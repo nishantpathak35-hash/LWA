@@ -21,6 +21,20 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
       department TEXT
     )
   `).catch(err => console.error('Failed to create audit_logs table:', err.message));
+
+  tursoClient.execute(`
+    CREATE TABLE IF NOT EXISTS attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      file_data TEXT NOT NULL,
+      uploaded_by TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).catch(err => console.error('Failed to create attachments table:', err.message));
 }
 
 async function executeWithRetry(action, retries = 3, delay = 300) {

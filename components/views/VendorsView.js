@@ -1,9 +1,10 @@
 'use client';
 
+import React, { useState, useMemo } from 'react';
 import { toast } from '../ui/Toast';
-import React, { useState } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog, Select } from '../ui/core';
+import AttachmentsSection from '../ui/AttachmentsSection';
 import { formatCurrency } from '../../app/lib/utils';
 import { PlusCircle, Search, Users, MapPin, Building, ShieldAlert, Edit2, Eye, CreditCard } from 'lucide-react';
 
@@ -373,6 +374,10 @@ export default function VendorsView() {
                 </TableBody>
               </Table>
             )}
+          </div>
+
+          <div className="pt-4 border-t border-slate-900/60">
+            <AttachmentsSection entityType="vendor" entityId={viewVendor?.code} />
           </div>
 
           <div className="pt-4 border-t border-slate-900/60 flex justify-end">

@@ -3037,3 +3037,50 @@ export async function mergeProjects(targetProject, sourceProjects, session) {
     message: `Successfully merged ${sourcesToMerge.length} project(s) into ${targetProject}.` 
   };
 }
+
+export async function uploadAttachment(payload, session) {
+  requireAuth(session);
+  const { entityType, entityId, fileName, fileType, fileSize, fileData } = payload;
+  if (!entityType || !entityId || !fileName || !fileData) {
+    throw new Error('Missing required attachment fields');
+  }
+  if (fileSize > 3.5 * 1024 * 1024) {
+    throw new Error('File exceeds 3.5MB limit');
+  }
+
+  await queryRun(
+    `INSERT INTO attachments (entity_type, entity_id, file_name, file_type, file_size, file_data, uploaded_by) 
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [entityType, entityId, fileName, fileType, fileSize, fileData, session.email]
+  );
+  await logAudit(session.email, 'Attachment Uploaded', `Uploaded ${fileName} to ${entityType} ${entityId}`);
+  return { ok: true };
+}
+
+export async function getAttachments(payload, session) {
+  requireAuth(session);
+  const { entityType, entityId } = payload;
+  if (!entityType || !entityId) throw new Error('Missing entity details');
+  
+  // We do NOT return the heavy file_data in the list request
+  return queryAll(
+    `SELECT id, entity_type, entity_id, file_name, file_type, file_size, uploaded_by, created_at 
+     FROM attachments 
+     WHERE entity_type = ? AND entity_id = ? 
+     ORDER BY created_at DESC`,
+    [entityType, entityId]
+  );
+}
+
+export async function deleteAttachment(attachmentId, session) {
+  requireAuth(session);
+  if (!attachmentId) throw new Error('Missing attachment ID');
+  
+  const existing = await queryGet(`SELECT * FROM attachments WHERE id = ?`, [attachmentId]);
+  if (!existing) throw new Error('Attachment not found');
+
+  await queryRun(`DELETE FROM attachments WHERE id = ?`, [attachmentId]);
+  await logAudit(session.email, 'Attachment Deleted', `Deleted ${existing.file_name} from ${existing.entity_type} ${existing.entity_id}`);
+  
+  return { ok: true };
+}

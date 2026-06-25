@@ -8,6 +8,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   Badge, Button, Input, Select, Dialog, Textarea
 } from '../ui/core';
+import AttachmentsSection from '../ui/AttachmentsSection';
 import { formatCurrency, formatDate } from '../../app/lib/utils';
 import {
   PlusCircle, Search, Receipt, Send, ShieldAlert, Plus, Trash2, Edit2,
@@ -1007,6 +1008,12 @@ export default function POsView() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {editingPoNo && (
+            <div className="pt-4 border-t border-slate-900/60 mt-4">
+              <AttachmentsSection entityType="po" entityId={editingPoNo} />
             </div>
           )}
 
