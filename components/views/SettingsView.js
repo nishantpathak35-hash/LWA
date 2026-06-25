@@ -659,7 +659,19 @@ export default function SettingsView() {
                             </TableCell>
                             <TableCell>{status}</TableCell>
                             <TableCell className="text-xs text-slate-500">
-                              {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'never'}
+                              {u.lastLogin ? (
+                                <div className="space-y-0.5">
+                                  <div className="text-slate-300 font-medium">{new Date(u.lastLogin).toLocaleString()}</div>
+                                  {(u.lastLoginIp || u.lastLoginDevice) && (
+                                    <div className="text-[10px] text-slate-500 font-mono tracking-tight leading-tight">
+                                      {u.lastLoginIp && <div>IP: {u.lastLoginIp}</div>}
+                                      {u.lastLoginDevice && <div className="truncate max-w-[150px]" title={u.lastLoginDevice}>{u.lastLoginDevice}</div>}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="italic">never</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right space-x-1.5 whitespace-nowrap">
                               <Button

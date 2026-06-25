@@ -37,6 +37,8 @@ export function StateProvider({ children }) {
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
   const [featurePermissions, setFeaturePermissions] = useState({});
+  // Command-palette deep-link: when set, POsView highlights/scrolls to this PO
+  const [targetPo, setTargetPo] = useState(null);
 
   const logout = useCallback(async () => {
     const currentToken = token || localStorage.getItem('lx_auth_token');
@@ -78,7 +80,7 @@ export function StateProvider({ children }) {
       return data;
     } catch (e) {
       const msg = e.message || String(e);
-      if (msg.includes('AUTH:') || msg.includes('Not signed in') || msg.includes('expired') || msg.includes('session')) {
+      if (msg.includes('AUTH:') || msg.includes('Not signed in') || msg.includes('session expired') || msg.includes('invalid session')) {
         logout();
       }
       throw e;
@@ -108,7 +110,7 @@ export function StateProvider({ children }) {
       return data;
     } catch (e) {
       const msg = e.message || String(e);
-      if (msg.includes('AUTH:') || msg.includes('Not signed in') || msg.includes('expired') || msg.includes('session')) {
+      if (msg.includes('AUTH:') || msg.includes('Not signed in') || msg.includes('session expired') || msg.includes('invalid session')) {
         logout();
       }
       throw e;
@@ -167,7 +169,17 @@ export function StateProvider({ children }) {
         }
       } catch (e) {
         if (active) {
-          logout();
+          // Only logout on actual auth failures — not on network/DB errors
+          const msg = e.message || String(e);
+          const isAuthError = msg.includes('AUTH:') || msg.includes('Not signed in') || msg.includes('session expired') || msg.includes('invalid session');
+          if (isAuthError) {
+            logout();
+          } else {
+            // Non-auth error (network blip, DB error, etc.) — don't kick the user out
+            console.error('Boot bundle failed (non-auth):', e);
+            setLoading(false);
+            setBooting(false);
+          }
         }
       } finally {
         if (active) {
@@ -179,7 +191,7 @@ export function StateProvider({ children }) {
 
     validate();
     return () => { active = false; };
-  }, [token, callDirect, call, logout]);
+  }, [token, call, logout]);
 
   const login = useCallback(async (email, password) => {
     setError(null);
@@ -187,6 +199,8 @@ export function StateProvider({ children }) {
       const res = await callDirect('loginUser', email, password);
       if (res && res.token) {
         localStorage.setItem('lx_auth_token', res.token);
+        // Store login timestamp so session-expiry warning can compute time remaining
+        localStorage.setItem('lx_login_time', Date.now().toString());
         setToken(res.token);
         return true;
       }
@@ -252,7 +266,9 @@ export function StateProvider({ children }) {
     logout,
     call,
     callDirect,
-    refreshData
+    refreshData,
+    targetPo,
+    setTargetPo,
   };
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>;

@@ -31,7 +31,8 @@ export default function PaymentsView() {
   const [comment, setComment] = useState('');
   const [utr, setUtr] = useState('');
   const [approvalTdsSec, setApprovalTdsSec] = useState('194C');
-  const [approvalTdsPct, setApprovalTdsPct] = useState(2);
+  const [approvalTdsAmt, setApprovalTdsAmt] = useState(0);
+  const [approvalApprovedAmount, setApprovalApprovedAmount] = useState(0);
 
   // Project Financial Summary state
   const [projectSummary, setProjectSummary] = useState(null);
@@ -131,9 +132,8 @@ export default function PaymentsView() {
 
   const netAmount = Math.max(grossAmount - tdsAmount, 0);
   const selectedRequestStage = String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase();
-  const selectedRequestGross = Number(selectedRequest?.gross_amount || selectedRequest?.amountRequested || selectedRequest?.net_amount || 0);
+  const selectedRequestGross = Number(selectedRequest?.amount_requested || selectedRequest?.gross_amount || selectedRequest?.amountRequested || 0);
   const selectedRequestStoredTds = Number(selectedRequest?.tds_amount || 0);
-  const calculatedApprovalTds = Math.round(selectedRequestGross * (Number(approvalTdsPct) / 100));
   const canEditApprovalTds = workflowAction === 'approve' && (
     isAdmin ||
     isDirector ||
@@ -144,8 +144,9 @@ export default function PaymentsView() {
     selectedRequestStage.includes('finance') ||
     selectedRequestStage.includes('director')
   );
-  const displayedTdsHold = canEditApprovalTds ? calculatedApprovalTds : selectedRequestStoredTds;
-  const displayedNetAfterTds = Math.max(selectedRequestGross - displayedTdsHold, 0);
+  const displayedTdsHold = canEditApprovalTds ? Number(approvalTdsAmt) : selectedRequestStoredTds;
+  const displayedApprovedAmount = canEditApprovalTds ? Number(approvalApprovedAmount) : Number(selectedRequest?.approved_amount ?? selectedRequestGross);
+  const displayedNetAfterTds = Math.max(displayedApprovedAmount - displayedTdsHold, 0);
 
   const assertWorkflowResult = (result, fallbackMessage) => {
     if (!result || result.ok === false || (Array.isArray(result.errors) && result.errors.length > 0)) {
@@ -203,6 +204,14 @@ export default function PaymentsView() {
     setRequestModalOpen(true);
   };
 
+  // ── Keyboard shortcut: G → P → N opens New Payment Request modal ──
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const handler = () => { if (canOnboard) handleOpenRequestModal(); };
+    window.addEventListener('lx:new-payment-request', handler);
+    return () => window.removeEventListener('lx:new-payment-request', handler);
+  }, [canOnboard, vendors, pos]);
+
   const handleCreateRequest = async (e) => {
     e.preventDefault();
     if (!vendorCode || !poNo || grossAmount <= 0) {
@@ -248,7 +257,9 @@ export default function PaymentsView() {
     setComment('');
     setUtr('');
     setApprovalTdsSec(req?.tds_section || relatedPO?.tds_section || '194C');
-    setApprovalTdsPct(Number(req?.tds_percentage || relatedPO?.tds_pct || 0));
+    const baseRequestedAmt = Number(req?.amount_requested || req?.gross_amount || 0);
+    setApprovalApprovedAmount(Number(req?.approved_amount ?? baseRequestedAmt));
+    setApprovalTdsAmt(Number(req?.tds_amount || 0));
     setFormError(null);
     setWorkflowModalOpen(true);
     setProjectSummary(null);
@@ -284,8 +295,8 @@ export default function PaymentsView() {
         if (canEditApprovalTds) {
           payload.tds_configs = {
             [selectedRequest.id]: {
+              approved_amount: displayedApprovedAmount,
               amount: displayedTdsHold,
-              percentage: Number(approvalTdsPct),
               section: approvalTdsSec
             }
           };
@@ -780,10 +791,29 @@ export default function PaymentsView() {
           {workflowAction === 'approve' && (
             <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl space-y-4">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">TDS Hold Details</span>
+                <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">Approval Details</span>
                 {!canEditApprovalTds && (
                   <span className="text-[10px] text-slate-500">Read only at this approval stage</span>
                 )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">REQUESTED AMOUNT</label>
+                  <div className="w-full px-3 py-2 bg-slate-900 border border-slate-900 rounded-lg text-slate-200 text-sm">
+                    {formatCurrency(selectedRequestGross)}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">APPROVED AMOUNT *</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max={selectedRequestGross}
+                    value={approvalApprovedAmount}
+                    onChange={(e) => setApprovalApprovedAmount(Number(e.target.value))}
+                    disabled={!canEditApprovalTds}
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -796,23 +826,19 @@ export default function PaymentsView() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS PERCENT (%)</label>
+                  <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS AMOUNT (INR)</label>
                   <Input
                     type="number"
-                    step="0.1"
                     min="0"
-                    value={approvalTdsPct}
-                    onChange={(e) => setApprovalTdsPct(Number(e.target.value))}
+                    max={approvalApprovedAmount}
+                    value={approvalTdsAmt}
+                    onChange={(e) => setApprovalTdsAmt(Number(e.target.value))}
                     disabled={!canEditApprovalTds}
                   />
                 </div>
               </div>
               <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-900/60">
-                <span>TDS Hold Amount:</span>
-                <span className="text-red-400 font-semibold">{formatCurrency(displayedTdsHold)}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs text-slate-400">
-                <span>Net Payable After TDS Hold:</span>
+                <span>Net Payable:</span>
                 <span className="text-gold font-semibold">{formatCurrency(displayedNetAfterTds)}</span>
               </div>
             </div>

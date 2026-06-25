@@ -47,7 +47,7 @@ async function getSystemPaymentTotal(poNo) {
   const row = await queryGet(
     `SELECT COALESCE(SUM(
        CASE
-         WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+         WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.approved_amount, pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.approved_amount, pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
          ELSE COALESCE(sp.amount, 0)
        END
      ), 0) AS total
@@ -71,7 +71,7 @@ function summarizeRequests(requests, currentRequestId = null, postedRequestKeys 
   };
 
   for (const request of requests) {
-    const amount = money(request.amount_requested);
+    const amount = money(request.approved_amount ?? request.amount_requested);
     const requestId = String(request.pr_id);
     const isCurrent = currentRequestId != null && requestId === String(currentRequestId);
 
@@ -111,7 +111,7 @@ export async function calculatePOPaymentSummary({ requestId = null, poNo = null,
     currentRequest = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [requestId]);
     if (!currentRequest) throw new Error('Payment request not found');
     poNo = currentRequest.po_no;
-    currentAmount = money(currentRequest.amount_requested);
+    currentAmount = money(currentRequest.approved_amount ?? currentRequest.amount_requested);
   }
 
   if (!poNo) throw new Error('PO number is required');
@@ -167,7 +167,7 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
 
   const poSummary = await calculatePOPaymentSummary({ requestId });
   const project = request.project || poSummary.project || '';
-  const reqAmt = money(request.amount_requested);
+  const reqAmt = money(request.approved_amount ?? request.amount_requested);
 
   if (!project) {
     return {
@@ -188,7 +188,7 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
     queryGet(
       `SELECT COALESCE(SUM(
          CASE
-           WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+           WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.approved_amount, pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.approved_amount, pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
            ELSE COALESCE(sp.amount, 0)
          END
        ), 0) AS total

@@ -25,15 +25,21 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const isFinance = roles.includes('finance');
   const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
 
-  // Compute pending counts dynamically
+  // Compute pending counts — mirrors backend getPRStatus logic.
+  // PRs track workflow via `stage`, not `status`.
   const pendingPaymentsCount = payments.filter(p => {
-    const isPending = String(p.status || '').toLowerCase() === 'pending';
-    if (!isPending) return false;
-    const stage = String(p.approval_stage || p.stage || '').toLowerCase();
-    
-    if (isProcurement && stage.includes('proc')) return true;
-    if (isFinance && stage.includes('finance')) return true;
-    if (isDirector && stage.includes('director')) return true;
+    const stage = String(p.stage || p.approval_stage || '').toLowerCase().trim();
+    const remittance = String(p.remittance || '').toLowerCase();
+    // Exclude terminal states
+    if (remittance.includes('remit') || stage.includes('remit')) return false;
+    if (stage.includes('reject') || stage.includes('cancel')) return false;
+    // Must be actually pending something
+    if (!stage.includes('pending') && !stage.includes('procurement') && !stage.includes('finance') && !stage.includes('director') && !stage.includes('ready')) return false;
+    // Match the pending stage to the current user's role
+    if (isProcurement && (stage.includes('proc') || stage.includes('procurement') || stage === 'pending')) return true;
+    if (isFinance && (stage.includes('finance') || stage.includes('pending finance'))) return true;
+    if (isDirector && (stage.includes('director') || stage.includes('ready to remit'))) return true;
+    if (isAdmin) return true; // admin sees all pending
     return false;
   }).length;
 

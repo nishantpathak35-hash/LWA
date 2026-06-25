@@ -2,45 +2,46 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../StateProvider';
-import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../ui/core';
+import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog } from '../ui/core';
 import { formatCurrency } from '../../app/lib/utils';
-import { Folder, ArrowRight, TrendingUp, DollarSign, Wallet, Percent } from 'lucide-react';
+import { Folder, ArrowRight, TrendingUp, DollarSign, Wallet, Percent, Plus } from 'lucide-react';
 
 export default function ProjectsView() {
-  const { call, projects: stateProjects, pos } = useAppState();
+  const { call, projects: stateProjects, pos, refresh } = useAppState();
   const [projectsList, setProjectsList] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    async function loadDetails() {
-      try {
-        const details = await call('getProjectDetails');
-        if (active) {
-          setProjectsList(details || []);
-          if (details && details.length > 0) {
-            setSelectedProject(details[0]);
-          }
-        }
-      } catch (e) {
-        console.error(e);
-        // Fall back to state projects list
-        if (active) {
-          setProjectsList(stateProjects.map(p => ({
-            project: p.name,
-            name: p.name,
-            poIssued: 0,
-            outflow: 0,
-            pendingOutflow: 0
-          })));
-        }
-      } finally {
-        if (active) setLoading(false);
+  // New Project State
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  async function loadDetails() {
+    try {
+      const details = await call('getProjectDetails');
+      setProjectsList(details || []);
+      if (details && details.length > 0 && !selectedProject) {
+        setSelectedProject(details[0]);
       }
+    } catch (e) {
+      console.error(e);
+      // Fall back to state projects list
+      setProjectsList(stateProjects.map(p => ({
+        project: p.name,
+        name: p.name,
+        poIssued: 0,
+        outflow: 0,
+        pendingOutflow: 0
+      })));
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     loadDetails();
-    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateProjects, call]);
 
   // Find POs linked to the selected project
@@ -52,7 +53,23 @@ export default function ProjectsView() {
     setSelectedProject(p);
   };
 
-  if (loading) {
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) return;
+    setCreating(true);
+    try {
+      await call('updateProjectFinancials', { project: newProjectName.trim(), projectValue: 0 });
+      setNewProjectName('');
+      setShowNewProjectModal(false);
+      await loadDetails();
+      if (refresh) refresh(); // Trigger global state refresh if available
+    } catch (e) {
+      alert("Failed to create project: " + e.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (loading && projectsList.length === 0) {
     return (
       <div className="flex items-center justify-center p-20 text-sm text-slate-500">
         Loading projects ledger...
@@ -64,8 +81,16 @@ export default function ProjectsView() {
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start animate-fade-in">
       {/* Projects selection list (Left column) */}
       <Card className="col-span-1 lg:col-span-1 border-slate-900/60 max-h-[80vh] flex flex-col">
-        <CardHeader className="p-4">
+        <CardHeader className="p-4 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-semibold text-slate-400">PROJECTS LIST</CardTitle>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 px-2 text-xs text-slate-400 hover:text-gold"
+            onClick={() => setShowNewProjectModal(true)}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" /> New
+          </Button>
         </CardHeader>
         <div className="overflow-y-auto divide-y divide-slate-900/40 flex-1">
           {projectsList.length === 0 ? (
@@ -202,6 +227,40 @@ export default function ProjectsView() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={showNewProjectModal}
+        onClose={() => setShowNewProjectModal(false)}
+        title="Create New Project"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-slate-400 font-light mb-1 block">Project Name</label>
+            <Input
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder="e.g. Magnum Towers Phase 2"
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end pt-4 border-t border-slate-900/60">
+            <Button
+              variant="ghost"
+              onClick={() => setShowNewProjectModal(false)}
+              className="mr-3"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleCreateProject}
+              disabled={!newProjectName.trim() || creating}
+            >
+              {creating ? 'Creating...' : 'Create Project'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

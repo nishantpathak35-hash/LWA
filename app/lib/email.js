@@ -98,7 +98,7 @@ export async function sendInviteEmail({ toEmail, toName, inviteUrl, roles }) {
 }
 
 // ── Payment Advice Email ─────────────────────────────────────────────────────
-export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, project, amount, remittanceRef, paymentDate }) {
+export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, project, amount, grossAmount, tdsAmount, remittanceRef, paymentDate }) {
   const html = `
   <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0b0f;color:#e2e8f0;border-radius:12px;overflow:hidden">
     <div style="background:linear-gradient(135deg,#c8a45a,#a07840);padding:32px;text-align:center">
@@ -114,7 +114,9 @@ export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, projec
       <table style="width:100%;border-collapse:collapse;background:#0d0e14;border-radius:8px;overflow:hidden">
         <tr><td style="padding:12px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #1e2330">PO Number</td><td style="padding:12px 16px;color:#e2e8f0;font-weight:600;border-bottom:1px solid #1e2330">${poNo || '—'}</td></tr>
         <tr><td style="padding:12px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #1e2330">Project</td><td style="padding:12px 16px;color:#e2e8f0;border-bottom:1px solid #1e2330">${project || '—'}</td></tr>
-        <tr><td style="padding:12px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #1e2330">Amount Paid</td><td style="padding:12px 16px;color:#3dd68c;font-weight:700;font-size:16px;border-bottom:1px solid #1e2330">₹${Number(amount || 0).toLocaleString('en-IN')}</td></tr>
+        <tr><td style="padding:12px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #1e2330">Approved Amount</td><td style="padding:12px 16px;color:#e2e8f0;border-bottom:1px solid #1e2330">₹${Number(grossAmount || 0).toLocaleString('en-IN')}</td></tr>
+        <tr><td style="padding:12px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #1e2330">TDS Deducted</td><td style="padding:12px 16px;color:#f87171;border-bottom:1px solid #1e2330">₹${Number(tdsAmount || 0).toLocaleString('en-IN')}</td></tr>
+        <tr><td style="padding:12px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #1e2330">Net Amount Paid</td><td style="padding:12px 16px;color:#3dd68c;font-weight:700;font-size:16px;border-bottom:1px solid #1e2330">₹${Number(amount || 0).toLocaleString('en-IN')}</td></tr>
         ${remittanceRef ? `<tr><td style="padding:12px 16px;color:#64748b;font-size:13px;border-bottom:1px solid #1e2330">Reference / UTR</td><td style="padding:12px 16px;color:#c8a45a;font-family:monospace;border-bottom:1px solid #1e2330">${remittanceRef}</td></tr>` : ''}
         <tr><td style="padding:12px 16px;color:#64748b;font-size:13px">Payment Date</td><td style="padding:12px 16px;color:#e2e8f0">${paymentDate || new Date().toLocaleDateString('en-IN')}</td></tr>
       </table>

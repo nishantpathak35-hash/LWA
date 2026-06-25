@@ -1,7 +1,7 @@
 'use client';
 
 import { toast } from '../ui/Toast';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useAppState } from '../StateProvider';
 import {
   Card, CardHeader, CardTitle, CardContent,
@@ -306,13 +306,21 @@ export default function POsView() {
       setNotes('');
       setPaymentData(null);
       setShowPayments(false);
+      setPoNo('');
       setFormError(null);
       setModalOpen(true);
-      call('getPOPrefix').then(prefix => {
-        setPoNo(prefix ? `${prefix}${Math.floor(100000 + Math.random() * 900000)}` : `PO-${Math.floor(100000 + Math.random() * 900000)}`);
-      }).catch(() => setPoNo(`PO-${Math.floor(100000 + Math.random() * 900000)}`));
+      call('getNextPONumber')
+        .then(nextNo => setPoNo(nextNo || ''))
+        .catch(() => setPoNo(''));
     }
   }, [call, projects, vendors]);
+
+  // ── Keyboard shortcut: G → O → N opens New PO modal ──
+  useEffect(() => {
+    const handler = () => { if (canCreate) handleOpenModal(); };
+    window.addEventListener('lx:new-po', handler);
+    return () => window.removeEventListener('lx:new-po', handler);
+  }, [canCreate, handleOpenModal]);
 
   // ─── Item Handlers ────────────────────────────────────────────────────────
   const handleAddItemLine    = () => setItems([...items, { description: '', hsnSac: '', quantity: 1, unit: 'Nos', rate: 0, gstPct: 18 }]);

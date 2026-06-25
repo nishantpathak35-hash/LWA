@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppState } from '../StateProvider';
-import { Search, FileText, Building2, Briefcase, ChevronRight, X } from 'lucide-react';
+import { Search, FileText, Building2, Briefcase, ChevronRight, X, LayoutDashboard, CreditCard, Receipt, BarChart3, Settings } from 'lucide-react';
 
 export function CommandPalette() {
   const { pos, vendors, projects, setActiveView, setTargetPo } = useAppState();
@@ -136,9 +136,27 @@ export function CommandPalette() {
 
         <div className="max-h-[60vh] overflow-y-auto p-2">
           {!query && (
-            <div className="p-8 text-center text-slate-500 text-sm">
-              <p>Type to search across the entire application.</p>
-              <p className="mt-2 text-xs">Try searching for a PO number, vendor name, or project.</p>
+            <div className="p-6 space-y-4">
+              <p className="text-center text-slate-500 text-sm">Type to search POs, vendors, or projects.</p>
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold">Quick Navigation (G → key)</p>
+                {[
+                  { key: 'D', label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+                  { key: 'P', label: 'Payments', icon: <CreditCard className="w-3.5 h-3.5" /> },
+                  { key: 'O', label: 'Purchase Orders', icon: <Receipt className="w-3.5 h-3.5" /> },
+                  { key: 'R', label: 'Reports', icon: <BarChart3 className="w-3.5 h-3.5" /> },
+                  { key: 'S', label: 'Settings', icon: <Settings className="w-3.5 h-3.5" /> },
+                ].map(s => (
+                  <div key={s.key} className="flex items-center gap-3 px-2 py-1.5 rounded-lg text-slate-400">
+                    <div className="flex items-center gap-1">
+                      <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 font-mono text-[10px]">G</kbd>
+                      <span className="text-slate-600 text-[10px]">then</span>
+                      <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 font-mono text-[10px]">{s.key}</kbd>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs">{s.icon}{s.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           

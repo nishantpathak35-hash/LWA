@@ -21,8 +21,10 @@ function invalidateProjectCache(project) {
 
 const settingsCache = new Map();
 
-// Module-level flag: only run the expensive ensureSettingsTable migrations once per server process
-let _settingsTableEnsured = false;
+// Promise singleton: all concurrent callers await the same migration run.
+// A boolean flag is not concurrent-safe — two simultaneous requests would both
+// run the expensive v3 backfill before either sets the flag to true.
+let _settingsTablePromise = null;
 
 function encryptToken(data) {
   const JWT_SECRET = getJwtSecret();
@@ -91,9 +93,13 @@ function normalizeRoleName(role) {
 }
 
 async function ensureSettingsTable() {
-  // Only run the migrations once per server process lifetime to avoid repeated
-  // sequential ALTER TABLE queries that significantly slow down every API call.
-  if (_settingsTableEnsured) return;
+  // Return the existing promise so all concurrent callers share one migration run.
+  if (_settingsTablePromise) return _settingsTablePromise;
+  _settingsTablePromise = _runMigrations();
+  return _settingsTablePromise;
+}
+
+async function _runMigrations() {
 
   await queryRun(`
     CREATE TABLE IF NOT EXISTS app_settings (
@@ -110,7 +116,7 @@ async function ensureSettingsTable() {
     'expected_delivery_date', 'notes', 'payment_status', 'category'
   ];
   const poItemColumns = ['unit'];
-  const prColumns = ['remittance_ref', 'remittance_date', 'tds_amount', 'tds_percentage', 'tds_section'];
+  const prColumns = ['remittance_ref', 'remittance_date', 'tds_amount', 'tds_percentage', 'tds_section', 'approved_amount'];
 
   await Promise.allSettled([
     ...poColumns.map(col => queryRun(`ALTER TABLE purchase_orders ADD COLUMN ${col} TEXT`)),
@@ -172,7 +178,7 @@ async function ensureSettingsTable() {
     if (!alreadyRan) {
       // Step 1: Backfill orphan remitted PRs into system_payments
       const orphanPRs = await queryAll(
-        `SELECT pr.pr_id, pr.po_no, pr.amount_requested, pr.tds_amount, pr.remittance_date
+        `SELECT pr.pr_id, pr.po_no, pr.amount_requested, pr.approved_amount, pr.tds_amount, pr.remittance_date
          FROM payment_requests pr
          WHERE (pr.stage = 'Remitted' OR pr.remittance = 'Remitted')
            AND CAST(pr.pr_id AS TEXT) NOT IN (
@@ -181,7 +187,7 @@ async function ensureSettingsTable() {
            )`
       );
       for (const pr of orphanPRs) {
-        const paidAmt = Math.max(0, (Number(pr.amount_requested) || 0) - (Number(pr.tds_amount) || 0));
+        const paidAmt = Math.max(0, (Number(pr.approved_amount ?? pr.amount_requested) || 0) - (Number(pr.tds_amount) || 0));
         await queryRun(
           `INSERT OR IGNORE INTO system_payments (po_no, pr_key, amount, remitted_by, created_at) VALUES (?, ?, ?, ?, ?)`,
           [pr.po_no, String(pr.pr_id), paidAmt, 'migration-v3', pr.remittance_date || new Date().toISOString()]
@@ -217,7 +223,7 @@ async function ensureSettingsTable() {
     console.error('legacy_paid_recalc_v3 migration failed (non-fatal):', e.message);
   }
 
-  _settingsTableEnsured = true;
+  // Migration complete — promise remains cached so future calls are instant no-ops.
 }
 
 async function getSetting(key, fallback = '') {
@@ -247,7 +253,7 @@ async function setSetting(key, value) {
 
 
 // --- AUTH ---
-export async function loginUser(email, password) {
+export async function loginUser(email, password, meta = {}) {
   if (!email || !password) {
     throw new Error('Email and password are required');
   }
@@ -266,7 +272,7 @@ export async function loginUser(email, password) {
       throw new Error('Please accept the invitation email to set your password before logging in');
     }
     const hash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
-    await queryRun(`UPDATE users SET password_hash = ? WHERE email = ?`, [hash, user.email]);
+    await queryRun(`UPDATE users SET password_hash = ? WHERE LOWER(email) = ?`, [hash, normEmail]);
     user.password_hash = hash;
   }
 
@@ -279,7 +285,7 @@ export async function loginUser(email, password) {
     if (storedHash === legacyHash || storedHash === password) {
       isValid = true;
       const newBcryptHash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
-      await queryRun(`UPDATE users SET password_hash = ? WHERE email = ?`, [newBcryptHash, user.email]);
+      await queryRun(`UPDATE users SET password_hash = ? WHERE LOWER(email) = ?`, [newBcryptHash, normEmail]);
       user.password_hash = newBcryptHash;
     }
   }
@@ -290,15 +296,19 @@ export async function loginUser(email, password) {
 
   // Clear invite token upon successful login if still present
   if (user.invite_token) {
-    await queryRun(`UPDATE users SET invite_token = NULL WHERE email = ?`, [user.email]);
+    await queryRun(`UPDATE users SET invite_token = NULL WHERE LOWER(email) = ?`, [normEmail]);
   }
 
-  // Update last login timestamp
+  // Update last login timestamp and meta
   const loginTimestamp = new Date().toISOString();
-  try {
-    await queryRun(`ALTER TABLE users ADD COLUMN last_login TEXT`);
-  } catch (e) { /* column already exists */ }
-  await queryRun(`UPDATE users SET last_login = ? WHERE email = ?`, [loginTimestamp, user.email]);
+  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login TEXT`); } catch (e) { /* column already exists */ }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_ip TEXT`); } catch (e) { /* column already exists */ }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_device TEXT`); } catch (e) { /* column already exists */ }
+  
+  await queryRun(
+    `UPDATE users SET last_login = ?, last_login_ip = ?, last_login_device = ? WHERE LOWER(email) = ?`, 
+    [loginTimestamp, meta.ip || null, meta.ua || null, normEmail]
+  );
 
   // Log audit entry for login
   await logAudit(user.email, 'Login', `User logged in`, 'Auth');
@@ -354,6 +364,8 @@ export async function getBootData(session) {
 
 export async function getBootBundle(session) {
   requireAuth(session);
+  // Ensure schema migrations (e.g. approved_amount column) run BEFORE parallel queries
+  await ensureSettingsTable();
   const [kpis, master, payments, featurePermissions] = await Promise.all([
     getDashboardKPIs(session),
     getMasterData(session),
@@ -382,15 +394,15 @@ export async function getDashboardKPIs(session) {
 
   const [poResult, prResult, outflowRow, pendingRow] = await Promise.all([
     queryAll(`SELECT po_no, po_value FROM purchase_orders`),
-    queryAll(`SELECT pr_id, amount_requested, tds_amount, stage, remittance FROM payment_requests`),
+    queryAll(`SELECT pr_id, amount_requested, approved_amount, tds_amount, stage, remittance FROM payment_requests`),
     // Authoritative total outflow — same logic as calculateProjectOutflowSnapshots:
     // system_payments linked to a PR → use net PR amount (after TDS); else use raw sp.amount
     queryGet(
       `SELECT COALESCE(SUM(
          CASE
            WHEN pr.pr_id IS NOT NULL
-             THEN CASE WHEN COALESCE(pr.amount_requested,0) - COALESCE(pr.tds_amount,0) < 0 THEN 0
-                       ELSE COALESCE(pr.amount_requested,0) - COALESCE(pr.tds_amount,0) END
+             THEN CASE WHEN COALESCE(pr.approved_amount, pr.amount_requested,0) - COALESCE(pr.tds_amount,0) < 0 THEN 0
+                       ELSE COALESCE(pr.approved_amount, pr.amount_requested,0) - COALESCE(pr.tds_amount,0) END
            ELSE COALESCE(sp.amount, 0)
          END
        ), 0) AS total
@@ -399,7 +411,7 @@ export async function getDashboardKPIs(session) {
     ),
     // Pending: non-remitted, non-rejected, non-cancelled payment requests
     queryGet(
-      `SELECT COALESCE(SUM(COALESCE(amount_requested, 0)), 0) AS total
+      `SELECT COALESCE(SUM(COALESCE(approved_amount, amount_requested, 0)), 0) AS total
        FROM payment_requests
        WHERE LOWER(COALESCE(stage,'')) NOT LIKE '%remit%'
          AND LOWER(COALESCE(stage,'')) NOT LIKE '%reject%'
@@ -418,7 +430,7 @@ export async function getDashboardKPIs(session) {
   const stageMap = { pendingProc: 0, pendingFinance: 0, pendingDirector: 0, readyToRemit: 0, remitted: 0, rejected: 0 };
   prResult.forEach(pr => {
     const stage = String(pr.stage || '').trim().toLowerCase();
-    const amt = Number(pr.amount_requested) || 0;
+    const amt = Number(pr.approved_amount ?? pr.amount_requested) || 0;
     if (stage.includes('remit')) stageMap.remitted += amt;
     else if (stage.includes('ready')) stageMap.readyToRemit += amt;
     else if (stage.includes('director')) stageMap.pendingDirector += amt;
@@ -469,6 +481,13 @@ export async function getMasterData(session) {
       };
     }
   });
+
+  try {
+    const pfRows = await queryAll(`SELECT project FROM project_financials`);
+    pfRows.forEach(r => {
+      if (r.project) projectSet.add(r.project);
+    });
+  } catch (e) { /* table might not exist yet */ }
 
   const masterVendors = vendors.map(v => ({ 
     recordId: v.id,
@@ -528,8 +547,8 @@ export async function getFinancialDiagnostics(session) {
     queryAll(
       `SELECT po.project,
               COUNT(pr.pr_id) AS pr_count,
-              COALESCE(SUM(pr.amount_requested),0) AS pr_gross,
-              COALESCE(SUM(COALESCE(pr.amount_requested,0)-COALESCE(pr.tds_amount,0)),0) AS pr_net
+              COALESCE(SUM(COALESCE(pr.approved_amount, pr.amount_requested)),0) AS pr_gross,
+              COALESCE(SUM(COALESCE(pr.approved_amount, pr.amount_requested,0)-COALESCE(pr.tds_amount,0)),0) AS pr_net
        FROM payment_requests pr
        JOIN purchase_orders po ON po.po_no = pr.po_no
        WHERE (pr.stage='Remitted' OR pr.remittance='Remitted')
@@ -968,7 +987,7 @@ export async function listPaymentRequests(filters = {}, session) {
   return rows.map(r => {
     const stage = r.stage || 'Pending Procurement';
     const status = getPRStatus(stage, r.remittance);
-    const gross = Number(r.amount_requested || 0);
+    const gross = Number((r.approved_amount ?? r.amount_requested) || 0);
     const tds = Number(r.tds_amount || 0);
     const net = gross - tds;
 
@@ -990,8 +1009,10 @@ export async function listPaymentRequests(filters = {}, session) {
       project: r.project || r.po_project,
       project_name: r.project || r.po_project,
       category: r.category || r.po_category || '',
-      amountRequested: gross,
+      amountRequested: r.amount_requested,
       gross_amount: gross,
+      amount_requested: r.amount_requested,
+      approved_amount: r.approved_amount,
       tds_amount: tds,
       tds_percentage: r.tds_percentage || 0,
       tds_section: r.tds_section || '',
@@ -1481,7 +1502,7 @@ export async function getPOPayments(poNo, session) {
     ...remitted.map(p => ({
       id: `PR-${p.pr_id}`,
       payment_date: p.remittance_date || p.created_at?.split('T')[0] || '',
-      amount: Math.max(0, Number(p.amount_requested || 0) - Number(p.tds_amount || 0)),
+      amount: Math.max(0, Number((p.approved_amount ?? p.amount_requested) || 0) - Number(p.tds_amount || 0)),
       payment_mode: 'Bank Transfer (Remittance)',
       utr_ref: p.remittance_ref || '',
       bank_name: '',
@@ -1589,7 +1610,9 @@ export async function listUsersAdmin(session) {
   requireAdminConsole(session);
   // Ensure last_login column exists (safe, idempotent)
   try { await queryRun(`ALTER TABLE users ADD COLUMN last_login TEXT`); } catch (e) { /* already exists */ }
-  const users = await queryAll(`SELECT email, name, roles, active, invite_token, password_hash, last_login FROM users`);
+  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_ip TEXT`); } catch (e) { /* already exists */ }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_device TEXT`); } catch (e) { /* already exists */ }
+  const users = await queryAll(`SELECT email, name, roles, active, invite_token, password_hash, last_login, last_login_ip, last_login_device FROM users`);
   return users.map(u => ({
     email: u.email,
     name: u.name,
@@ -1597,7 +1620,9 @@ export async function listUsersAdmin(session) {
     active: u.active === 1 || u.active === true,
     hasPassword: u.password_hash ? true : false,
     hasToken: !!u.invite_token,
-    lastLogin: u.last_login || null
+    lastLogin: u.last_login || null,
+    lastLoginIp: u.last_login_ip || null,
+    lastLoginDevice: u.last_login_device || null
   }));
 }
 
@@ -1648,6 +1673,47 @@ export async function addCustomRole(roleName, session) {
 export async function getPOPrefix(session) {
   requireAuth(session);
   return getSetting('po_prefix', '');
+}
+
+export async function getNextPONumber(session) {
+  requireAuth(session);
+  const prefix = await getSetting('po_prefix', '');
+
+  // Fetch all existing PO numbers
+  const rows = await queryAll(`SELECT po_no FROM purchase_orders ORDER BY po_no DESC`);
+  const existing = rows.map(r => String(r.po_no || ''));
+
+  if (!prefix) {
+    // No prefix configured — use simple PO-NNN fallback
+    let maxN = 0;
+    for (const no of existing) {
+      const m = no.match(/^PO-(\d+)$/i);
+      if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+    }
+    return `PO-${String(maxN + 1).padStart(3, '0')}`;
+  }
+
+  // With a prefix like "LAIPL/PO/26-27/" — find the highest numeric suffix
+  let maxSeq = 0;
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`^${escaped}(\\d+)$`);
+
+  for (const no of existing) {
+    const m = no.match(re);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > maxSeq) maxSeq = n;
+    }
+  }
+
+  // Determine padding width from existing numbers (default 3)
+  let padLen = 3;
+  for (const no of existing) {
+    const m = no.match(re);
+    if (m && m[1].length > padLen) padLen = m[1].length;
+  }
+
+  return `${prefix}${String(maxSeq + 1).padStart(padLen, '0')}`;
 }
 
 export async function setPOPrefix(prefix, session) {
@@ -1789,12 +1855,18 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
   const toEmail = emailOverride || vendor?.email || pr.vendor_email;
   if (!toEmail) throw new Error('No email address found for vendor: ' + (pr.vendor_name || ''));
 
+  const baseAmt = Number((pr.approved_amount ?? pr.amount_requested) || 0);
+  const tdsAmt = Number(pr.tds_amount || 0);
+  const netAmt = Math.max(0, baseAmt - tdsAmt);
+
   await sendPaymentAdviceEmail({
     toEmail,
     vendorName: pr.vendor_name || 'Vendor',
     poNo: pr.po_no,
     project: pr.project,
-    amount: pr.amount_requested,
+    amount: netAmt,
+    grossAmount: baseAmt,
+    tdsAmount: tdsAmt,
     remittanceRef: pr.remittance_ref || pr.utr || '',
     paymentDate: pr.remittance_date || new Date().toLocaleDateString('en-IN')
   });
@@ -1883,14 +1955,15 @@ export async function createPaymentRequest(payload, session) {
 
   const result = await queryRun(
     `INSERT INTO payment_requests (
-      po_no, vendor_name, project, category, amount_requested, stage, remittance, created_at, remarks, created_by, vendor_code,
+      po_no, vendor_name, project, category, amount_requested, approved_amount, stage, remittance, created_at, remarks, created_by, vendor_code,
       tds_amount, tds_percentage, tds_section
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       payload.poNo,
       payload.vendor,
       payload.project || '',
       payload.category || '',
+      reqAmt,
       reqAmt,
       'Pending Procurement',
       '',
@@ -1933,6 +2006,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
       if (!pr) throw new Error(`Payment request not found: ${id}`);
 
       const tdsConfig = approvalData?.tds_configs?.[id] || {};
+      const approvedAmount = tdsConfig.approved_amount !== undefined ? Number(tdsConfig.approved_amount) : (pr.approved_amount || pr.amount_requested || 0);
       const tdsAmount = tdsConfig.amount !== undefined ? Number(tdsConfig.amount) : (pr.tds_amount || 0);
       const tdsPct = tdsConfig.percentage !== undefined ? Number(tdsConfig.percentage) : (pr.tds_percentage || 0);
       const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '194C');
@@ -1971,6 +2045,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
           finance_approval = ?, 
           director_approval = ?, 
           stage = ?, 
+          approved_amount = ?,
           tds_amount = ?, 
           tds_percentage = ?, 
           tds_section = ? 
@@ -1980,6 +2055,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
           finApp,
           dirApp,
           stage,
+          approvedAmount,
           tdsAmount,
           tdsPct,
           tdsSec,
@@ -1990,7 +2066,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
       await logAudit(
         session?.email || 'admin@luxeworx.com',
         'Approve Payment',
-        'Approved payment ID ' + id + ' (stage transitioned from ' + oldStage + ' to ' + stage + ')',
+        'Approved payment ID ' + id + ' (stage transitioned from ' + oldStage + ' to ' + stage + '). Requested: ' + (pr.amount_requested||0) + ', Approved: ' + approvedAmount + ', TDS: ' + tdsAmount + ' (' + tdsSec + ')',
         oldStage
       );
 
@@ -2111,7 +2187,7 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
         [utrRef, today, id]
       );
 
-      const paidAmount = Math.max(0, Number(pr.amount_requested || 0) - Number(pr.tds_amount || 0));
+      const paidAmount = Math.max(0, Number((pr.approved_amount ?? pr.amount_requested) || 0) - Number(pr.tds_amount || 0));
 
       // Record in system payments
       await queryRun(
@@ -2216,46 +2292,68 @@ export async function getApprovalHistory(requestId, session) {
   const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [requestId]);
   if (!pr) return [];
   
+  // Try to get real history from audit_logs
+  // Matches "(ID: 123)" (Create) and "payment ID 123 " (Approve/Remit)
+  const logs = await queryAll(
+    `SELECT * FROM audit_logs 
+     WHERE details LIKE ? OR details LIKE ? 
+     ORDER BY timestamp ASC`, 
+    [`%(ID: ${requestId})%`, `%payment ID ${requestId} %`]
+  );
+
   const history = [];
-  if (pr.proc_approval) {
-    history.push({
-      stage: 'Procurement',
-      action: String(pr.proc_approval).toLowerCase() === 'approved' ? 'approve' : 'reject',
-      performed_by: pr.created_by || 'Procurement User',
-      previous_status: 'Pending Procurement',
-      new_status: 'Pending Finance',
-      timestamp: pr.created_at || null
-    });
-  }
-  if (pr.finance_approval) {
-    history.push({
-      stage: 'Finance',
-      action: String(pr.finance_approval).toLowerCase() === 'approved' ? 'approve' : 'reject',
-      performed_by: 'Finance User',
-      previous_status: 'Pending Finance',
-      new_status: 'Pending Director',
-      timestamp: null
-    });
-  }
-  if (pr.director_approval) {
-    history.push({
-      stage: 'Director',
-      action: String(pr.director_approval).toLowerCase() === 'approved' ? 'approve' : 'reject',
-      performed_by: 'Director User',
-      previous_status: 'Pending Director',
-      new_status: 'Ready to Remit',
-      timestamp: null
-    });
-  }
-  if (pr.remittance === 'Remitted') {
-    history.push({
-      stage: 'Remittance',
-      action: 'remit',
-      performed_by: 'Finance User',
-      previous_status: 'Ready to Remit',
-      new_status: 'Remitted',
-      timestamp: null
-    });
+
+  if (logs && logs.length > 0) {
+    for (const l of logs) {
+      history.push({
+        action_type: l.action_type,
+        user: l.user,
+        details: l.details,
+        timestamp: l.timestamp
+      });
+    }
+  } else {
+    // Fallback to legacy reconstructed history if no audit logs exist
+    if (pr.created_at) {
+      history.push({
+        action_type: 'Payment Request',
+        user: pr.created_by || 'Unknown',
+        details: `Requested ${pr.amount_requested} for PO#${pr.po_no}`,
+        timestamp: pr.created_at
+      });
+    }
+    if (pr.proc_approval) {
+      history.push({
+        action_type: 'Procurement Approval',
+        user: 'Legacy User',
+        details: `Action: ${pr.proc_approval}`,
+        timestamp: pr.created_at || null
+      });
+    }
+    if (pr.finance_approval) {
+      history.push({
+        action_type: 'Finance Approval',
+        user: 'Legacy User',
+        details: `Action: ${pr.finance_approval}`,
+        timestamp: null
+      });
+    }
+    if (pr.director_approval) {
+      history.push({
+        action_type: 'Director Approval',
+        user: 'Legacy User',
+        details: `Action: ${pr.director_approval}`,
+        timestamp: null
+      });
+    }
+    if (pr.remittance === 'Remitted') {
+      history.push({
+        action_type: 'Remittance',
+        user: 'Legacy User',
+        details: `Payment Remitted`,
+        timestamp: null
+      });
+    }
   }
   return history;
 }
@@ -2403,7 +2501,7 @@ export async function getTDSRegisterReport(startDate, endDate, session) {
   const rows = await queryAll(query, params);
 
   const entries = rows.map(r => {
-    const gross = Number(r.amount_requested || 0);
+    const gross = Number((r.approved_amount ?? r.amount_requested) || 0);
     const tds = Number(r.tds_amount || 0);
     return {
       id: `TDS-${r.pr_id}`,
@@ -2412,6 +2510,8 @@ export async function getTDSRegisterReport(startDate, endDate, session) {
       vendor_id: r.vendor_name || '—',
       payment_request_id: r.pr_id,
       gross_amount: gross,
+      amount_requested: r.amount_requested,
+      approved_amount: r.approved_amount,
       tds_amount: tds,
       tds_percentage: Number(r.tds_percentage || 0),
       tds_section: r.tds_section || '194C',
@@ -2528,7 +2628,7 @@ export async function getApprovalAuditReport(startDate, endDate, session) {
   
   const summary = { total_count: 0, total_gross: 0, total_tds: 0, total_net: 0 };
   const entries = list.map(r => {
-    const gross = Number(r.amount_requested || 0);
+    const gross = Number((r.approved_amount ?? r.amount_requested) || 0);
     const tds = Number(r.tds_amount || 0);
     const net = gross - tds;
     
@@ -2551,6 +2651,8 @@ export async function getApprovalAuditReport(startDate, endDate, session) {
       project_id: r.project || '—',
       vendor_id: r.vendor_name || '—',
       gross_amount: gross,
+      amount_requested: r.amount_requested,
+      approved_amount: r.approved_amount,
       tds_amount: tds,
       net_amount: net,
       override_flag: false
@@ -2751,7 +2853,7 @@ export async function deleteRemittedPayment(prId, reason, session) {
 
   const poNo = pr.po_no;
   const vendor = pr.vendor;
-  const grossAmount = pr.amount_requested;
+  const grossAmount = pr.approved_amount ?? pr.amount_requested;
 
   // 2. Log pre-deletion audit
   await logAudit(

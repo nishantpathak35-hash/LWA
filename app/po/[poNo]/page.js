@@ -34,7 +34,7 @@ export default async function POPdfPage({ params }) {
   };
   const companyPan = getPanFromGstin(companyGstin);
 
-  // Read Logo
+  // Read Company Logo (scratch uri or db fallback)
   let logoUri = '';
   try {
     logoUri = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8');
@@ -45,6 +45,18 @@ export default async function POPdfPage({ params }) {
     } catch (dbLogoErr) {
       console.error("Failed to load PO printable logo:", e.message);
     }
+  }
+
+  // Read Signature & Stamp Logo
+  let signatureUri = '';
+  try {
+    const sigPath = path.join(process.cwd(), 'Logo.jpeg');
+    if (fs.existsSync(sigPath)) {
+      const imgBuffer = fs.readFileSync(sigPath);
+      signatureUri = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
+    }
+  } catch (e) {
+    console.error("Failed to load signature image:", e.message);
   }
 
   // Fetch PO Header
@@ -143,8 +155,14 @@ export default async function POPdfPage({ params }) {
         </div>
       </div>
 
+      {po.status === 'Draft' && (
+        <div className="absolute inset-0 z-0 flex items-center justify-center opacity-[0.07] pointer-events-none overflow-hidden" style={{ transform: 'rotate(-45deg)' }}>
+          <span className="text-[140px] font-black text-slate-500 whitespace-nowrap">DRAFT ORDER</span>
+        </div>
+      )}
+
       {/* Printable PO Sheet */}
-      <div className="border border-slate-300 p-8 md:p-10 space-y-8">
+      <div className="border border-slate-300 p-8 md:p-10 space-y-8 relative z-10 bg-white/80">
         
         {/* Header Block */}
         <div className="flex justify-between items-start border-b border-slate-350 pb-6 gap-6">
@@ -300,7 +318,12 @@ export default async function POPdfPage({ params }) {
             </div>
           </div>
           <div className="text-center font-sans">
-            <div className="w-48 border-t border-slate-400 mx-auto pt-2">
+            <div className="w-48 border-t border-slate-400 mx-auto pt-2 relative">
+              {(po.status === 'Approved' && signatureUri) && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 h-auto opacity-90 pointer-events-none mix-blend-multiply">
+                  <Image src={signatureUri} alt="Signature & Stamp" width={128} height={128} unoptimized className="w-full h-auto object-contain" />
+                </div>
+              )}
               <p className="text-xs font-bold text-slate-700">Authorised Signatory</p>
               <p className="text-[10px] text-slate-400 mt-0.5">For {companyName}</p>
             </div>

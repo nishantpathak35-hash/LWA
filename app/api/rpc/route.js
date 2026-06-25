@@ -39,6 +39,7 @@ const ALLOWED_METHODS = new Set([
   'resetUserPasswordAdmin',
   'addCustomRole',
   'getPOPrefix',
+  'getNextPONumber',
   'setPOPrefix',
   'getCompanySettings',
   'setCompanySettings',
@@ -130,6 +131,12 @@ export async function POST(request) {
     ]);
     if (twoParamMethods.has(method) && args.length === 0) {
       args.push(undefined);
+    }
+
+    if (method === 'loginUser') {
+      const ip = request.headers.get('x-forwarded-for') || request.ip || 'Unknown';
+      const ua = request.headers.get('user-agent') || 'Unknown';
+      args.push({ ip, ua });
     }
 
     // Invoke the requested method with resolved session

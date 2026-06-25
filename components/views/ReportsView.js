@@ -126,7 +126,7 @@ export default function ReportsView() {
       const entries = data.entries || [];
       csvContent += "ID,Project,PO,Vendor,Gross Amount,TDS Amount,TDS %,TDS Section,Govt Status,Deducted At\n";
       entries.forEach(e => {
-        csvContent += `"${e.id}","${e.project_id}","${e.po_id}","${e.vendor_id}",${e.gross_amount},${e.tds_amount},${e.tds_percentage},"${e.tds_section}","${e.government_payment_status}","${e.deducted_at || ''}"\n`;
+        csvContent += `"${e.id}","${e.project_id}","${e.po_id}","${e.vendor_id}",${e.amount_requested},${e.approved_amount ?? e.gross_amount},${e.tds_amount},${e.tds_percentage},"${e.tds_section}","${e.government_payment_status}","${e.deducted_at || ''}"\n`;
       });
     } else if (reportType === 'Vendor_TDS') {
       const vData = data.vendors || [];
@@ -144,7 +144,7 @@ export default function ReportsView() {
       const entries = data.entries || [];
       csvContent += "Timestamp,Action,Performed By,Project,Vendor,Gross Amount,TDS,Net,Override\n";
       entries.forEach(e => {
-        csvContent += `"${e.timestamp}","${e.action}","${e.performed_by}","${e.project_id}","${e.vendor_id}",${e.gross_amount},${e.tds_amount},${e.net_amount},"${e.override_flag ? 'Yes' : 'No'}"\n`;
+        csvContent += `"${e.timestamp}","${e.action}","${e.performed_by}","${e.project_id}","${e.vendor_id}",${e.amount_requested},${e.approved_amount ?? e.gross_amount},${e.tds_amount},${e.net_amount},"${e.override_flag ? 'Yes' : 'No'}"\n`;
       });
     } else if (reportType === 'Day_Wise') {
       const dates = data.dates || [];
@@ -299,7 +299,8 @@ export default function ReportsView() {
                 <TableHead>Project</TableHead>
                 <TableHead>PO</TableHead>
                 <TableHead>Vendor</TableHead>
-                <TableHead className="text-right">Gross Amount</TableHead>
+                <TableHead className="text-right">Req. Amount</TableHead>
+                <TableHead className="text-right">App. Amount</TableHead>
                 <TableHead className="text-right font-semibold text-violet-400">TDS Amount</TableHead>
                 <TableHead className="text-right">TDS %</TableHead>
                 <TableHead>TDS Section</TableHead>
@@ -315,7 +316,8 @@ export default function ReportsView() {
                     <TableCell>{e.project_id}</TableCell>
                     <TableCell className="font-mono text-xs">{e.po_id}</TableCell>
                     <TableCell>{e.vendor_id}</TableCell>
-                    <TableCell className="text-right">{fmtLakhs(e.gross_amount)}</TableCell>
+                    <TableCell className="text-right text-slate-400 line-through">{fmtLakhs(e.amount_requested)}</TableCell>
+                    <TableCell className="text-right text-emerald-400">{fmtLakhs(e.approved_amount ?? e.gross_amount)}</TableCell>
                     <TableCell className="text-right text-violet-400 font-medium">{fmtLakhs(e.tds_amount)}</TableCell>
                     <TableCell className="text-right">{Number(e.tds_percentage || 0).toFixed(1)}%</TableCell>
                     <TableCell><Badge variant="default">{e.tds_section}</Badge></TableCell>
@@ -451,7 +453,8 @@ export default function ReportsView() {
               <TableHead>Performed By</TableHead>
               <TableHead>Project</TableHead>
               <TableHead>Vendor</TableHead>
-              <TableHead className="text-right">Gross Amount</TableHead>
+              <TableHead className="text-right">Req. Amount</TableHead>
+              <TableHead className="text-right">App. Amount</TableHead>
               <TableHead className="text-right text-violet-400">TDS</TableHead>
               <TableHead className="text-right text-emerald-400">Net</TableHead>
               <TableHead>Override</TableHead>
@@ -476,7 +479,8 @@ export default function ReportsView() {
                   <TableCell>{e.performed_by}</TableCell>
                   <TableCell>{e.project_id}</TableCell>
                   <TableCell>{e.vendor_id}</TableCell>
-                  <TableCell className="text-right">{fmtLakhs(e.gross_amount)}</TableCell>
+                  <TableCell className="text-right text-slate-400 line-through">{fmtLakhs(e.amount_requested)}</TableCell>
+                  <TableCell className="text-right text-emerald-400">{fmtLakhs(e.approved_amount ?? e.gross_amount)}</TableCell>
                   <TableCell className="text-right text-violet-400">{fmtLakhs(e.tds_amount)}</TableCell>
                   <TableCell className="text-right text-emerald-400 font-semibold">{fmtLakhs(e.net_amount)}</TableCell>
                   <TableCell>{e.override_flag ? <Badge variant="warning">Yes</Badge> : '—'}</TableCell>
