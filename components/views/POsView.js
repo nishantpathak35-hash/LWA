@@ -1011,9 +1011,13 @@ export default function POsView() {
             </div>
           )}
 
-          {editingPoNo && (
+          {poNo ? (
             <div className="pt-4 border-t border-slate-900/60 mt-4">
-              <AttachmentsSection entityType="po" entityId={editingPoNo} />
+              <AttachmentsSection entityType="po" entityId={poNo} />
+            </div>
+          ) : (
+            <div className="pt-4 border-t border-slate-900/60 mt-4 p-4 text-center border border-slate-800 border-dashed rounded-lg text-xs text-slate-500 font-light">
+              Save Purchase Order first to enable attachments.
             </div>
           )}
 
