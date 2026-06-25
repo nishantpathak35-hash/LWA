@@ -102,7 +102,9 @@ export class PaymentRepository {
     return [...manual, ...system];
   }
 
-  static async findAllPayments(): Promise<IPayment[]> {
-    return queryAll(`SELECT * FROM payments ORDER BY created_at DESC`);
+  static async findAllPayments(): Promise<any[]> {
+    const manual = await queryAll(`SELECT * FROM manual_payments ORDER BY created_at DESC`);
+    const system = await queryAll(`SELECT * FROM system_payments ORDER BY created_at DESC`);
+    return [...manual, ...system];
   }
 }

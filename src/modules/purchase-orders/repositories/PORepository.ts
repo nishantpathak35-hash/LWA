@@ -8,7 +8,7 @@ export class PORepository {
   static async findAll(): Promise<IPO[]> {
     return queryAll(`
       SELECT p.*,
-        (SELECT SUM(amount) FROM payments WHERE po_no = p.po_no AND status = 'paid') as paid
+        p.legacy_paid as paid
       FROM purchase_orders p
       ORDER BY p.created_at DESC
     `);
@@ -20,7 +20,7 @@ export class PORepository {
   static async findById(poNo: string): Promise<IPO | null> {
     return queryGet(`
       SELECT p.*,
-        (SELECT SUM(amount) FROM payments WHERE po_no = p.po_no AND status = 'paid') as paid
+        p.legacy_paid as paid
       FROM purchase_orders p
       WHERE p.po_no = ?
     `, [poNo]);
