@@ -4,6 +4,8 @@ import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from './poEli
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from './paymentCalculations.js';
 import { VendorService } from '../../src/modules/vendors/services/VendorService';
 import { POService } from '../../src/modules/purchase-orders/services/POService';
+import { PaymentService } from '../../src/modules/payments/services/PaymentService';
+import { PaymentRepository } from '../../src/modules/payments/repositories/PaymentRepository';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
@@ -1236,55 +1238,29 @@ async function updatePOPaymentStatus(poNo) {
 
 export async function addManualPayment(payload, session) {
   requireAuth(session);
-  // Role check — only accountant or admin (as per business requirement)
   const roles = session?.roles || [];
   const isSuperAdmin = session?.email === 'admin@luxeworx.com';
   const canRecord = isSuperAdmin || roles.includes('accountant') || roles.includes('admin');
   if (!canRecord) throw new Error('AUTH:Only users with the Accountant or Admin role can record manual payments.');
 
-  const { poNo, paymentDate, amount, paymentMode, utrRef, bankName, referenceNo, remarks } = payload;
-  if (!poNo) throw new Error('PO Number is required');
-  if (!paymentDate) throw new Error('Payment Date is required');
-  const amtNum = Number(amount);
+  const amtNum = Number(payload.amount);
   if (!amtNum || amtNum <= 0) throw new Error('Amount must be greater than zero');
+  if (!payload.poNo) throw new Error('PO Number is required');
 
   await ensureSettingsTable();
 
   // Validate against outstanding balance
-  const { outstanding } = await updatePOPaymentStatus(poNo);
+  const { outstanding } = await updatePOPaymentStatus(payload.poNo);
   if (amtNum > outstanding + 0.01) {
     throw new Error(`Payment amount (₹${amtNum.toLocaleString('en-IN')}) exceeds outstanding balance (₹${outstanding.toLocaleString('en-IN')}).`);
   }
 
-  // Insert into manual_payments
-  await queryRun(
-    `INSERT INTO manual_payments (po_no, payment_date, amount, payment_mode, utr_ref, bank_name, reference_no, remarks, payment_type, recorded_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`,
-    [poNo, paymentDate, amtNum, paymentMode || 'Bank Transfer', utrRef || '', bankName || '', referenceNo || '', remarks || '', session?.email || 'unknown', new Date().toISOString()]
-  );
-
-  // Mirror in system_payments for unified reconciliation
-  await queryRun(
-    `INSERT INTO system_payments (po_no, pr_key, amount, remitted_by, created_at) VALUES (?, ?, ?, ?, ?)`,
-    [poNo, `MANUAL-${Date.now()}`, amtNum, session?.email || 'unknown', new Date().toISOString()]
-  );
-
+  await PaymentService.createManualPayment(payload, session?.email || 'unknown');
+  
   // Recompute PO status
-  const updated = await updatePOPaymentStatus(poNo);
-
-  // Log in approval history for full audit trail
-  await queryRun(
-    `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
-    [poNo, 'Manual Payment Recorded', session?.email || 'unknown', `₹${amtNum.toLocaleString('en-IN')} via ${paymentMode || 'Bank Transfer'}. UTR: ${utrRef || 'N/A'}. ${remarks || ''}`.trim(), new Date().toISOString()]
-  );
-  await logAudit(
-    session?.email || 'unknown',
-    'Manual Payment',
-    `Manual payment of ₹${amtNum} recorded for PO# ${poNo}. Mode: ${paymentMode || 'Bank Transfer'}. UTR: ${utrRef || 'N/A'}`,
-    'Finance'
-  );
-
-  return { ok: true, poNo, ...updated };
+  const updated = await updatePOPaymentStatus(payload.poNo);
+  
+  return { ok: true, poNo: payload.poNo, ...updated };
 }
 
 export async function getPOPayments(poNo, session) {
@@ -1727,98 +1703,9 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
 
 export async function createPaymentRequest(payload, session) {
   requireAuth(session);
-  if (!payload.vendor || payload.vendor === 'Unknown') {
-    if (payload.vendorCode) {
-      const vendor = await queryGet(`SELECT * FROM vendors WHERE vendor_code = ?`, [payload.vendorCode]);
-      if (vendor) {
-        payload.vendor = vendor.legal_name || vendor.name;
-      }
-    }
-  }
-  if (!payload.vendor || payload.vendor === 'Unknown') {
-    if (payload.poNo) {
-      const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [payload.poNo]);
-      if (po && po.vendor_name && po.vendor_name !== 'Unknown') {
-        payload.vendor = po.vendor_name;
-      }
-    }
-  }
-  if (!payload.vendor) throw new Error("Vendor name is required");
-  if (!payload.poNo) throw new Error("PO number is required");
-
-  const linkedPO = await queryGet(`SELECT approval_status, status FROM purchase_orders WHERE po_no = ?`, [payload.poNo]);
-  if (!linkedPO) {
-    throw new Error(`Purchase order not found: ${payload.poNo}`);
-  }
-  if (!isPOEligibleForPayment(linkedPO)) {
-    throw new Error(getPOPaymentIneligibilityReason({ ...linkedPO, po_no: payload.poNo }));
-  }
-  const reqAmt = Number(payload.amountRequested || payload.gross_amount);
-  if (isNaN(reqAmt) || reqAmt <= 0) {
-    throw new Error("Amount Requested must be greater than zero");
-  }
-
-  const today = new Date().toISOString().split('T')[0];
-  const normalizedPoNo = String(payload.poNo).trim().toLowerCase();
-
-  // Duplicate check
-  const existingPRs = await queryAll(
-    `SELECT * FROM payment_requests WHERE LOWER(TRIM(po_no)) = ? AND amount_requested = ? AND (remittance IS NULL OR remittance != 'Remitted')`,
-    [normalizedPoNo, reqAmt]
-  );
-
-  for (const pr of existingPRs) {
-    const prDate = String(pr.created_at || '').split('T')[0];
-    if (prDate === today) {
-      throw new Error(`Duplicate: A request for ₹${reqAmt.toLocaleString('en-IN')} on PO# ${payload.poNo} already exists today.`);
-    }
-  }
-
-  const now = new Date().toISOString();
-  const tdsAmount = Number(payload.tds_deducted || payload.tds_amount || 0);
-  const tdsPct = Number(payload.tds_percentage || payload.tds_pct || 0);
-  const tdsSection = payload.tds_section || payload.tdsSection || '';
-
-  const result = await queryRun(
-    `INSERT INTO payment_requests (
-      po_no, vendor_name, project, category, amount_requested, approved_amount, stage, remittance, created_at, remarks, created_by, vendor_code,
-      tds_amount, tds_percentage, tds_section
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      payload.poNo,
-      payload.vendor,
-      payload.project || '',
-      payload.category || '',
-      reqAmt,
-      reqAmt,
-      'Pending Procurement',
-      '',
-      now,
-      payload.remarks || '',
-      session?.email || 'admin@luxeworx.com',
-      payload.vendorCode || '',
-      tdsAmount,
-      tdsPct,
-      tdsSection
-    ]
-  );
-
-  const insertedId = result.lastInsertRowid ? Number(result.lastInsertRowid) : Date.now();
-
-  await logAudit(
-    session?.email || 'admin@luxeworx.com',
-    'Payment Request',
-    'Requested ' + reqAmt + ' for PO#' + payload.poNo + ' (ID: ' + insertedId + ')',
-    'Procurement'
-  );
-
-  return {
-    ok: true,
-    sNo: insertedId,
-    id: insertedId,
-    rowNumber: insertedId
-  };
+  return PaymentService.createPaymentRequest(payload, session?.email || 'admin@luxeworx.com');
 }
+
 
 export async function bulkApprovePayments(ids, approvalData, session) {
   requireAuth(session);
@@ -1828,76 +1715,8 @@ export async function bulkApprovePayments(ids, approvalData, session) {
 
   for (const id of ids) {
     try {
-      const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
-      if (!pr) throw new Error(`Payment request not found: ${id}`);
-
-      const tdsConfig = approvalData?.tds_configs?.[id] || {};
-      const approvedAmount = tdsConfig.approved_amount !== undefined ? Number(tdsConfig.approved_amount) : (pr.approved_amount || pr.amount_requested || 0);
-      const tdsAmount = tdsConfig.amount !== undefined ? Number(tdsConfig.amount) : (pr.tds_amount || 0);
-      const tdsPct = tdsConfig.percentage !== undefined ? Number(tdsConfig.percentage) : (pr.tds_percentage || 0);
-      const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '194C');
-
-      let procApp = pr.proc_approval;
-      let finApp = pr.finance_approval;
-      let dirApp = pr.director_approval;
-      let stage = pr.stage || 'Pending Procurement';
-      let oldStage = stage;
-
-      const roles = session?.roles || [];
-      const isDirOrAdmin = roles.includes('director') || roles.includes('admin');
-      const isFin = roles.includes('finance');
-
-      if (isDirOrAdmin) {
-        procApp = 'Approved';
-        finApp = 'Approved';
-        dirApp = 'Approved';
-        stage = 'Ready to Remit';
-      } else if (isFin) {
-        procApp = 'Approved';
-        finApp = 'Approved';
-        if (stage === 'Pending Procurement' || stage === 'Pending Finance') {
-          stage = 'Pending Director';
-        }
-      } else {
-        procApp = 'Approved';
-        if (stage === 'Pending Procurement') {
-          stage = 'Pending Finance';
-        }
-      }
-
-      await queryRun(
-        `UPDATE payment_requests SET 
-          proc_approval = ?, 
-          finance_approval = ?, 
-          director_approval = ?, 
-          stage = ?, 
-          approved_amount = ?,
-          tds_amount = ?, 
-          tds_percentage = ?, 
-          tds_section = ? 
-         WHERE pr_id = ?`,
-        [
-          procApp,
-          finApp,
-          dirApp,
-          stage,
-          approvedAmount,
-          tdsAmount,
-          tdsPct,
-          tdsSec,
-          id
-        ]
-      );
-      
-      await logAudit(
-        session?.email || 'admin@luxeworx.com',
-        'Approve Payment',
-        'Approved payment ID ' + id + ' (stage transitioned from ' + oldStage + ' to ' + stage + '). Requested: ' + (pr.amount_requested||0) + ', Approved: ' + approvedAmount + ', TDS: ' + tdsAmount + ' (' + tdsSec + ')',
-        oldStage
-      );
-
+      await PaymentService.approvePaymentRequest(id, session?.email || 'admin@luxeworx.com', session?.roles || [], approvalData?.tds_configs?.[id] || {});
       approvedIds.push(id);
-      invalidateProjectCache(pr.project);
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
@@ -1922,43 +1741,8 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
 
   for (const id of ids) {
     try {
-      const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
-      if (!pr) throw new Error(`Payment request not found: ${id}`);
-
-      let procApp = pr.proc_approval;
-      let finApp = pr.finance_approval;
-      let dirApp = pr.director_approval;
-      let stage = pr.stage || 'Pending Procurement';
-      let oldStage = stage;
-
-      if (stage === 'Pending Procurement') {
-        procApp = 'Rejected';
-      } else if (stage === 'Pending Finance') {
-        finApp = 'Rejected';
-      } else if (stage === 'Pending Director') {
-        dirApp = 'Rejected';
-      }
-      stage = 'Rejected';
-
-      await queryRun(
-        `UPDATE payment_requests SET 
-          proc_approval = ?, 
-          finance_approval = ?, 
-          director_approval = ?, 
-          stage = ? 
-         WHERE pr_id = ?`,
-        [procApp, finApp, dirApp, stage, id]
-      );
-
-      await logAudit(
-        session?.email || 'admin@luxeworx.com',
-        'Reject Payment',
-        'Rejected payment ID ' + id + ' at stage ' + oldStage,
-        oldStage
-      );
-
+      await PaymentService.rejectPaymentRequest(id, session?.email || 'admin@luxeworx.com', session?.roles || [], rejectionData?.remarks || '');
       rejectedIds.push(id);
-      invalidateProjectCache(pr.project);
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
@@ -1990,49 +1774,17 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
     try {
       const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
       if (!pr) throw new Error(`Payment request not found: ${id}`);
-
-      if (pr.po_no) {
-        affectedPoNos.push(pr.po_no);
-      }
-
-      const existingPayment = await queryGet(
-        `SELECT id FROM system_payments WHERE pr_key = ? LIMIT 1`,
-        [String(id)]
-      );
-      if (existingPayment) {
-        throw new Error(`Payment request ${id} has already been remitted.`);
-      }
-
-      await queryRun(
-        `UPDATE payment_requests SET 
-          remittance = 'Remitted', 
-          stage = 'Remitted',
-          remittance_ref = ?,
-          remittance_date = ? 
-         WHERE pr_id = ?`,
-        [utrRef, today, id]
-      );
-
+      
+      if (pr.po_no) affectedPoNos.push(pr.po_no);
+      
       const paidAmount = Math.max(0, Number((pr.approved_amount ?? pr.amount_requested) || 0) - Number(pr.tds_amount || 0));
-
-      // Record in system payments
-      await queryRun(
-        `INSERT INTO system_payments (po_no, pr_key, amount, remitted_by, created_at) VALUES (?, ?, ?, ?, ?)`,
-        [
-          pr.po_no,
-          String(id),
-          paidAmount,
-          session?.email || 'admin@luxeworx.com',
-          new Date().toISOString()
-        ]
-      );
-
-      await logAudit(
-        session?.email || 'admin@luxeworx.com',
-        'Payment Remitted',
-        'Remitted payment ID ' + id + ' for PO#' + pr.po_no + ' paid amount: ' + paidAmount,
-        'Finance'
-      );
+      
+      await PaymentService.remitPaymentRequest(id, {
+        amount: paidAmount,
+        utrRef: utrRef,
+        paymentDate: today,
+        paymentMode: 'Bank Transfer'
+      }, session?.email || 'admin@luxeworx.com');
 
       remittedIds.push(id);
       invalidateProjectCache(pr.project);
