@@ -197,13 +197,13 @@ export function StateProvider({ children }) {
     }
   }, [callDirect]);
 
-  // Periodic auto-refresh every 60 seconds
+  // Periodic auto-refresh every 120 seconds
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       refreshData();
-    }, 60000);
-    return () => clearInterval(interval);
+    }, 120000);
+    return () => window.clearInterval(interval);
   }, [user, refreshData]);
 
   const hasPermission = useCallback((feature) => {
@@ -242,8 +242,10 @@ export function StateProvider({ children }) {
     kpis,
     vendors,
     pos,
+    setPos,
     projects,
     payments,
+    setPayments,
     featurePermissions,
     hasPermission,
     login,

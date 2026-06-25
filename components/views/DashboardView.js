@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useId, useCallback } from 'react';
+import React, { useState, useEffect, useId, useCallback, useMemo } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog } from '../ui/core';
 import { PlusCircle, Search, Edit2, TrendingUp, AlertCircle, CheckCircle, XCircle, FileText, ArrowRight, DollarSign, Activity } from 'lucide-react';
@@ -179,11 +179,26 @@ function PaginationControls({ currentPage, totalPages, totalItems, label, onPage
 }
 
 export default function DashboardView() {
-  const { kpis, user, setActiveView, call } = useAppState();
+  const { pos, vendors, payments, kpis, user, setActiveView, call } = useAppState();
 
   const [projectsList, setProjectsList] = useState([]);
-  const [approvalMetrics, setApprovalMetrics] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, overBudget: 0, tdsApplicable: 0 });
-  const [vendorsList, setVendorsList] = useState([]);
+  
+  const approvalMetrics = useMemo(() => {
+    const queue = payments.filter(p => {
+      const stage = String(p.stage || '').toLowerCase();
+      return !stage.includes('remit') && !stage.includes('reject') && !stage.includes('cancel');
+    });
+    return {
+      total: queue.length,
+      pending: queue.filter(r => String(r.status || '').toLowerCase() === 'pending').length,
+      approved: queue.filter(r => String(r.status || '').toLowerCase() === 'approved').length,
+      rejected: queue.filter(r => String(r.status || '').toLowerCase() === 'rejected').length,
+      overBudget: queue.filter(r => r.is_overbudget_approval || r.overbudget === 1).length,
+      tdsApplicable: queue.filter(r => Number(r.tds_amount) > 0).length,
+    };
+  }, [payments]);
+
+  const vendorsList = useMemo(() => vendors, [vendors]);
   
   const [cashflowSearchQ, setCashflowSearchQ] = useState('');
   const [financialSearchQ, setFinancialSearchQ] = useState('');
@@ -205,39 +220,17 @@ export default function DashboardView() {
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Project details (financial performance)
       const projs = await call('getProjectDetails');
       setProjectsList(projs || []);
-
-      // 2. Approval Queue Metrics
-      const queue = await call('getApprovalQueue', {});
-      if (queue) {
-        setApprovalMetrics({
-          total: queue.length,
-          pending: queue.filter(r => r.approval_status === 'pending').length,
-          approved: queue.filter(r => r.approval_status === 'approved').length,
-          rejected: queue.filter(r => r.approval_status === 'rejected').length,
-          overBudget: queue.filter(r => r.is_overbudget_approval || r.overbudget === 1).length,
-          tdsApplicable: queue.filter(r => num(r.tds_amount) > 0).length
-        });
-      }
-
-      // 3. Vendors summary
-      const vSummary = await call('getVendorSummary', '');
-      setVendorsList(vSummary || []);
     } catch (e) {
-      console.error('Failed to load dashboard detailed statistics:', e);
+      console.error('Failed to load project details:', e);
     } finally {
       setLoading(false);
     }
   }, [call]);
 
   useEffect(() => {
-    // Initial load
-    const timer = window.setTimeout(() => { loadDashboardData(); }, 0);
-    // Auto-refresh every 30 seconds so outflow reflects recent payments without page reload
-    const interval = window.setInterval(() => { loadDashboardData(); }, 30000);
-    return () => { window.clearTimeout(timer); window.clearInterval(interval); };
+    loadDashboardData();
   }, [loadDashboardData]);
 
   const filterProjects = (query) => projectsList.filter(r => {
@@ -247,8 +240,8 @@ export default function DashboardView() {
     return haystack.includes(q);
   });
 
-  const filteredCashflowProjects = filterProjects(cashflowSearchQ);
-  const filteredFinancialProjects = filterProjects(financialSearchQ);
+  const filteredCashflowProjects = useMemo(() => filterProjects(cashflowSearchQ), [projectsList, cashflowSearchQ]);
+  const filteredFinancialProjects = useMemo(() => filterProjects(financialSearchQ), [projectsList, financialSearchQ]);
 
   const cashflowPagination = paginateItems(filteredCashflowProjects, cashflowPage);
   const financialPagination = paginateItems(filteredFinancialProjects, financialPage);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Select, Dialog } from '../ui/core';
 import { formatCurrency, formatDate } from '../../app/lib/utils';
@@ -8,7 +8,7 @@ import { isPOEligibleForPayment } from '../../app/lib/poEligibility';
 import { PlusCircle, Search, CreditCard, ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail, AlertTriangle } from 'lucide-react';
 
 export default function PaymentsView() {
-  const { payments, vendors, pos, user, call, refreshData } = useAppState();
+  const { payments, setPayments, vendors, pos, user, call, refreshData } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('active'); // active, pending
   
@@ -156,36 +156,38 @@ export default function PaymentsView() {
   };
 
   // Filter requests
-  const filteredRequests = payments.filter(p => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch = (p.vendor_name || '').toLowerCase().includes(q) || 
-                          (p.po_no || '').toLowerCase().includes(q) || 
-                          String(p.id).includes(q);
-    
-    if (!matchesSearch) return false;
+  const filteredRequests = useMemo(() => {
+    return payments.filter(p => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = (p.vendor_name || '').toLowerCase().includes(q) || 
+                            (p.po_no || '').toLowerCase().includes(q) || 
+                            String(p.id).includes(q);
+      
+      if (!matchesSearch) return false;
 
-    const status = String(p.status || '').toLowerCase();
-    const stage = String(p.approval_stage || p.stage || '').toLowerCase();
-    const isPending = status === 'pending';
-    const isCompleted = status === 'approved' || status === 'rejected' || stage.includes('remitted');
+      const status = String(p.status || '').toLowerCase();
+      const stage = String(p.approval_stage || p.stage || '').toLowerCase();
+      const isPending = status === 'pending';
+      const isCompleted = status === 'approved' || status === 'rejected' || stage.includes('remitted');
 
-    if (isCompleted) return false;
+      if (isCompleted) return false;
 
-    if (activeTab === 'active') {
-      return isPending;
-    }
+      if (activeTab === 'active') {
+        return isPending;
+      }
 
-    // Filter pending for active user's roles
-    const isRemitStage = stage.includes('remit');
-    if (!isPending && !isRemitStage) return false;
-    
-    if (isAdmin) return true;
-    if (isProcurement && stage.includes('proc')) return true;
-    if (isFinance && stage.includes('finance')) return true;
-    if (isDirector && stage.includes('director')) return true;
-    if (isFinance && stage.includes('remit')) return true;
-    return false;
-  });
+      // Filter pending for active user's roles
+      const isRemitStage = stage.includes('remit');
+      if (!isPending && !isRemitStage) return false;
+      
+      if (isAdmin) return true;
+      if (isProcurement && stage.includes('proc')) return true;
+      if (isFinance && stage.includes('finance')) return true;
+      if (isDirector && stage.includes('director')) return true;
+      if (isFinance && stage.includes('remit')) return true;
+      return false;
+    });
+  }, [payments, searchQuery, activeTab, isAdmin, isProcurement, isFinance, isDirector]);
 
   const handleOpenRequestModal = () => {
     const defaultVendor = vendors[0]?.code || '';
@@ -277,6 +279,7 @@ export default function PaymentsView() {
           approval_status: 'Approved',
           comments: comment.trim()
         };
+        setPayments(prev => prev.map(p => p.id === selectedRequest.id ? { ...p, status: 'approved', approval_stage: 'Approved', stage: 'Approved' } : p));
         if (canEditApprovalTds) {
           payload.tds_configs = {
             [selectedRequest.id]: {
@@ -292,14 +295,14 @@ export default function PaymentsView() {
         const payload = {
           comments: comment.trim()
         };
+        setPayments(prev => prev.map(p => p.id === selectedRequest.id ? { ...p, status: 'rejected', approval_stage: 'Rejected', stage: 'Rejected' } : p));
         const result = await call('bulkRejectPayments', [selectedRequest.id], payload);
         assertWorkflowResult(result, 'Payment rejection failed.');
       } else if (workflowAction === 'remit') {
         if (!utr) {
-          setFormError('UTR reference is required to remit a payment.');
-          setSubmitting(false);
-          return;
+          throw new Error('UTR / Reference is required for remittance.');
         }
+        setPayments(prev => prev.map(p => p.id === selectedRequest.id ? { ...p, status: 'approved', stage: 'Remitted' } : p));
         const payload = {
           utr_ref: utr.trim(),
           comments: comment.trim()

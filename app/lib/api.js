@@ -109,17 +109,14 @@ async function ensureSettingsTable() {
     'tds_section', 'tds_pct', 'tds_amount', 'gst_total', 'gst_mode',
     'expected_delivery_date', 'notes', 'payment_status', 'category'
   ];
-  for (const col of poColumns) {
-    try { await queryRun(`ALTER TABLE purchase_orders ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
-  }
   const poItemColumns = ['unit'];
-  for (const col of poItemColumns) {
-    try { await queryRun(`ALTER TABLE po_items ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
-  }
   const prColumns = ['remittance_ref', 'remittance_date', 'tds_amount', 'tds_percentage', 'tds_section'];
-  for (const col of prColumns) {
-    try { await queryRun(`ALTER TABLE payment_requests ADD COLUMN ${col} TEXT`); } catch (e) { /* already exists */ }
-  }
+
+  await Promise.allSettled([
+    ...poColumns.map(col => queryRun(`ALTER TABLE purchase_orders ADD COLUMN ${col} TEXT`)),
+    ...poItemColumns.map(col => queryRun(`ALTER TABLE po_items ADD COLUMN ${col} TEXT`)),
+    ...prColumns.map(col => queryRun(`ALTER TABLE payment_requests ADD COLUMN ${col} TEXT`))
+  ]);
   // PO approval history table
   await queryRun(`
     CREATE TABLE IF NOT EXISTS po_approval_history (
@@ -956,9 +953,17 @@ function getPRStatus(stage, remittance) {
 
 export async function listPaymentRequests(filters = {}, session) {
   requireAuth(session);
-  const rows = await queryAll(`SELECT * FROM payment_requests`);
-  const vendors = await queryAll(`SELECT * FROM vendors`);
-  const pos = await queryAll(`SELECT * FROM purchase_orders`);
+  const query = `
+    SELECT 
+      pr.*,
+      COALESCE(v.legal_name, v.name, po.vendor_name) as joined_vendor_name,
+      po.project as po_project,
+      po.category as po_category
+    FROM payment_requests pr
+    LEFT JOIN purchase_orders po ON pr.po_no = po.po_no
+    LEFT JOIN vendors v ON (v.vendor_code = pr.vendor_code OR v.name = po.vendor_name)
+  `;
+  const rows = await queryAll(query);
 
   return rows.map(r => {
     const stage = r.stage || 'Pending Procurement';
@@ -969,16 +974,7 @@ export async function listPaymentRequests(filters = {}, session) {
 
     let vName = r.vendor_name;
     if (!vName || vName === 'Unknown') {
-      if (r.vendor_code) {
-        const found = vendors.find(v => v.vendor_code === r.vendor_code);
-        if (found) vName = found.legal_name || found.name;
-      }
-      if ((!vName || vName === 'Unknown') && r.po_no) {
-        const foundPO = pos.find(p => p.po_no === r.po_no);
-        if (foundPO && foundPO.vendor_name && foundPO.vendor_name !== 'Unknown') {
-          vName = foundPO.vendor_name;
-        }
-      }
+      vName = r.joined_vendor_name || 'Unknown';
     }
 
     return {
@@ -991,9 +987,9 @@ export async function listPaymentRequests(filters = {}, session) {
       po_number: r.po_no,
       vendor: vName,
       vendor_name: vName,
-      project: r.project,
-      project_name: r.project,
-      category: r.category || '',
+      project: r.project || r.po_project,
+      project_name: r.project || r.po_project,
+      category: r.category || r.po_category || '',
       amountRequested: gross,
       gross_amount: gross,
       tds_amount: tds,
@@ -2648,6 +2644,11 @@ export async function getPOFullDetails(poNo, session) {
       amount: it.amount
     }))
   };
+}
+
+export async function getPOItems(poNo, session) {
+  requireAuth(session);
+  return await queryAll(`SELECT * FROM po_items WHERE po_no = ?`, [poNo]);
 }
 
 export async function getCompanySettings(session) {

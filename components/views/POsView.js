@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useAppState } from '../StateProvider';
 import {
   Card, CardHeader, CardTitle, CardContent,
@@ -91,7 +91,7 @@ function findVendorSelection(vendors, code, name) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function POsView() {
-  const { pos, vendors, projects, user, call, refreshData } = useAppState();
+  const { pos, setPos, vendors, projects, user, call, refreshData } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [openActionMenuPoNo, setOpenActionMenuPoNo] = useState(null);
   const [poDateSortDir, setPoDateSortDir] = useState('desc');
@@ -168,17 +168,20 @@ export default function POsView() {
   const netPayable = summaryTotals.grandTotal - tdsAmount;
 
   // ── Filtered POs ──
-  const filteredPOs = pos.filter(po => {
-    const q = searchQuery.toLowerCase();
-    return (po.po_no || '').toLowerCase().includes(q) ||
-           (po.vendor_name || '').toLowerCase().includes(q) ||
-           (po.project || '').toLowerCase().includes(q);
-  }).sort((a, b) => {
-    const aTime = new Date(a.po_date || '1900-01-01').getTime() || 0;
-    const bTime = new Date(b.po_date || '1900-01-01').getTime() || 0;
-    if (aTime === bTime) return String(b.po_no || '').localeCompare(String(a.po_no || ''));
-    return poDateSortDir === 'desc' ? bTime - aTime : aTime - bTime;
-  });
+  // ── Filtered POs ──
+  const filteredPOs = useMemo(() => {
+    return pos.filter(po => {
+      const q = searchQuery.toLowerCase();
+      return (po.po_no || '').toLowerCase().includes(q) ||
+             (po.vendor_name || '').toLowerCase().includes(q) ||
+             (po.project || '').toLowerCase().includes(q);
+    }).sort((a, b) => {
+      const aTime = new Date(a.po_date || '1900-01-01').getTime() || 0;
+      const bTime = new Date(b.po_date || '1900-01-01').getTime() || 0;
+      if (aTime === bTime) return String(b.po_no || '').localeCompare(String(a.po_no || ''));
+      return poDateSortDir === 'desc' ? bTime - aTime : aTime - bTime;
+    });
+  }, [pos, searchQuery, poDateSortDir]);
 
   const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
@@ -245,10 +248,12 @@ export default function POsView() {
     if (poToLoad) {
       setSubmitting(true);
       try {
-        const [poDetails, paymentsRes] = await Promise.all([
-          call('getPOFullDetails', poToLoad),
+        const localPO = pos.find(p => p.po_no === poToLoad) || {};
+        const [itemsRes, paymentsRes] = await Promise.all([
+          call('getPOItems', poToLoad),
           call('getPOPayments', poToLoad)
         ]);
+        const poDetails = { ...localPO, items: itemsRes || [] };
         if (poDetails) {
           setEditingPoNo(poToLoad);
           setEditingPO(poDetails);
@@ -375,6 +380,7 @@ export default function POsView() {
 
       let result;
       if (editingPoNo) {
+        setPos(prev => prev.map(p => p.po_no === editingPoNo ? { ...p, ...payload } : p));
         result = await call('updatePOFull', editingPoNo, payload);
         let msg = `Purchase Order ${editingPoNo} updated.`;
         if (result?.newStatus && result.newStatus !== (editingPO?.approval_status || editingPO?.status)) {
@@ -382,6 +388,7 @@ export default function POsView() {
         }
         toast(msg);
       } else {
+        setPos(prev => [{ ...payload, po_date: poDate, po_no: payload.poNo, id: Date.now() }, ...prev]);
         await call('createPOFull', payload);
         toast('Purchase Order created as Draft. Submit for approval from the PO list.');
       }

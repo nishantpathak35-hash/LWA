@@ -68,6 +68,7 @@ const ALLOWED_METHODS = new Set([
   'getApprovalAuditReport',
   'getDayWiseApprovalReport',
   'getPOFullDetails',
+  'getPOItems',
   'correctLegacyPOPaidAmount',
   'deleteRemittedPayment',
   'getFinancialDiagnostics',
