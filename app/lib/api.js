@@ -956,12 +956,12 @@ export async function listPaymentRequests(filters = {}, session) {
   const query = `
     SELECT 
       pr.*,
-      COALESCE(v.legal_name, v.name, po.vendor_name) as joined_vendor_name,
+      COALESCE(v.legal_name, po.vendor_name) as joined_vendor_name,
       po.project as po_project,
       po.category as po_category
     FROM payment_requests pr
     LEFT JOIN purchase_orders po ON pr.po_no = po.po_no
-    LEFT JOIN vendors v ON (v.vendor_code = pr.vendor_code OR v.name = po.vendor_name)
+    LEFT JOIN vendors v ON (v.vendor_code = pr.vendor_code OR v.legal_name = po.vendor_name)
   `;
   const rows = await queryAll(query);
 
