@@ -6,6 +6,9 @@ import { VendorService } from '../../src/modules/vendors/services/VendorService'
 import { POService } from '../../src/modules/purchase-orders/services/POService';
 import { PaymentService } from '../../src/modules/payments/services/PaymentService';
 import { PaymentRepository } from '../../src/modules/payments/repositories/PaymentRepository';
+import { AuthService } from '../../src/modules/core/services/AuthService';
+import { SettingsService } from '../../src/modules/core/services/SettingsService';
+import { AuditService } from '../../src/modules/core/services/AuditService';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
@@ -67,33 +70,19 @@ function decryptToken(token) {
 }
 
 function requireAuth(session) {
-  if (!session || !session.email) {
-    throw new Error('AUTH:Unauthorized');
-  }
+  AuthService.requireAuth(session);
 }
 
-
 export async function logAudit(user, actionType, details, department) {
-  try {
-    await queryRun(
-      `INSERT INTO audit_logs (user, action_type, details, department, timestamp) VALUES (?, ?, ?, ?, ?)`,
-      [user || 'System', actionType, details, department || 'System', new Date().toISOString()]
-    );
-  } catch (e) {
-    console.error('Failed to log audit:', e.message);
-  }
+  return AuditService.log(user, actionType, details, department);
 }
 
 function requireAdminConsole(session) {
-  if (session?.email === 'admin@luxeworx.com') return;
-  const roles = session?.roles || [];
-  if (!session || (!roles.includes('admin') && !roles.includes('director'))) {
-    throw new Error('AUTH:Unauthorized');
-  }
+  AuthService.requireAdminConsole(session);
 }
 
 function normalizeRoleName(role) {
-  return String(role || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+  return AuthService.normalizeRoleName(role);
 }
 
 async function ensureSettingsTable() {
@@ -2333,37 +2322,13 @@ export async function getPOItems(poNo, session) {
 
 export async function getCompanySettings(session) {
   requireAuth(session);
-  const name = await getSetting('company_name', 'LUXEWORX ATELIER INTERIOR PRIVATE LIMITED');
-  const address = await getSetting('company_address', '8th Floor, Magnum Towers-1\nGolf Course Ext Rd\nGurugram Haryana 122001');
-  const gstin = await getSetting('company_gstin', '06AAGCL1112M1ZP');
-  let logo = '';
-  try {
-    logo = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8');
-  } catch (e) {
-    logo = await getSetting('company_logo', '');
-  }
-  return { name, address, gstin, logo };
+  return SettingsService.getCompanySettings();
 }
 
 export async function setCompanySettings(payload, session) {
   requireAdminConsole(session);
-  const { name, address, gstin, logo } = payload || {};
-  if (name !== undefined) await setSetting('company_name', String(name).trim());
-  if (address !== undefined) await setSetting('company_address', String(address).trim());
-  if (gstin !== undefined) await setSetting('company_gstin', String(gstin).trim());
-  if (logo !== undefined) {
-    await setSetting('company_logo', logo);
-    try {
-      const scratchDir = path.join(process.cwd(), 'scratch');
-      if (!fs.existsSync(scratchDir)) {
-        fs.mkdirSync(scratchDir, { recursive: true });
-      }
-      fs.writeFileSync(path.join(scratchDir, 'logo_uri.txt'), logo, 'utf8');
-    } catch (e) {
-      console.error("Failed to write logo to file:", e.message);
-    }
-  }
-  await logAudit(session.email, 'Company Settings Updated', `${name || ''}, ${gstin || ''}`, 'Settings');
+  await SettingsService.updateCompanySettings(payload);
+  await logAudit(session.email, 'Company Settings Updated', `${payload?.name || ''}, ${payload?.gstin || ''}`, 'Settings');
   return { ok: true };
 }
 
