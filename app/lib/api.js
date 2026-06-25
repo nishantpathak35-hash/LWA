@@ -3,6 +3,7 @@ import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from './email.js
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from './poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from './paymentCalculations.js';
 import { VendorService } from '../../src/modules/vendors/services/VendorService';
+import { POService } from '../../src/modules/purchase-orders/services/POService';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
@@ -463,8 +464,8 @@ export async function getDashboardKPIs(session) {
 
 export async function getMasterData(session) {
   requireAuth(session);
-  const vendors = await queryAll(`SELECT * FROM vendors`);
-  const pos = await queryAll(`SELECT * FROM purchase_orders ORDER BY date(COALESCE(po_date, '1900-01-01')) DESC, po_no DESC`);
+  const vendors = await VendorService.getAllVendors();
+  const pos = await POService.getAllPOs();
   
   // Extract unique projects and vendors from POs
   const projectSet = new Set();
@@ -994,128 +995,13 @@ export async function getMasterHealth(session) {
   return { status: 'OK' };
 }
 
-// --- PO CREATION & UPDATING ---
-export async function createPOFull(payload, session) {
+export async function savePO(payload, session) {
   requireAuth(session);
-  await ensureSettingsTable();
-  const poNo = String(payload.poNo || `PO-${Date.now()}`).trim();
-  if (!poNo) throw new Error('PO Number is required');
-
-  const duplicate = await queryGet(`SELECT po_no FROM purchase_orders WHERE po_no = ?`, [poNo]);
-  if (duplicate) {
-    throw new Error(`PO Number "${poNo}" already exists. Please use a unique PO Number.`);
-  }
-
-  // Compute totals from per-item GST if not provided
-  let totalVal = payload.grandTotal || payload.poValue || 0;
-  let gstTotal = Number(payload.gst_total) || 0;
-  if (!totalVal && payload.items && payload.items.length) {
-    let subt = 0;
-    let gstSum = 0;
-    payload.items.forEach(item => {
-      const q = Number(item.qty) || 0;
-      const r = Number(item.rate) || 0;
-      const tPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
-      const gross = q * r;
-      const gstAmt = Math.round(gross * tPct / 100);
-      subt += gross;
-      gstSum += gstAmt;
-    });
-    gstTotal = gstSum;
-    const tdsPct = Number(payload.tds_pct || payload.tdsPct || 0);
-    const tdsAmt = Math.round(subt * tdsPct / 100);
-    totalVal = subt + gstSum - tdsAmt;
-  }
-
-  const vendorName = payload.vendorName || payload.vendor || 'Unknown';
-  const vendorKey = payload.vendorCode || payload.vendor_key || 'UNKNOWN';
-  const tdsSection = payload.tds_section || payload.tdsSection || '';
-  const tdsPct = Number(payload.tds_pct || payload.tdsPct || 0);
-  const tdsAmount = Number(payload.tds_amount || 0);
-  const gstMode = payload.gst_mode || payload.gstMode || 'inter';
-
-  await queryRun(
-    `INSERT INTO purchase_orders 
-       (po_no, vendor_key, vendor_name, project, po_value, revised_po_value, approval_status, status, po_date, terms, tds_section, tds_pct, tds_amount, gst_total, gst_mode, category, notes, expected_delivery_date) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [poNo, vendorKey, vendorName, payload.project || '',
-     totalVal, totalVal, 'Draft', 'Draft',
-     payload.poDate || new Date().toISOString().split('T')[0],
-     payload.terms || '', tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
-     payload.category || 'Goods', payload.notes || '', payload.expectedDeliveryDate || '']
-  );
-
-  if (payload.items && payload.items.length) {
-    for (const item of payload.items) {
-      const itemGstPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
-      const itemQty = Number(item.qty || item.quantity || 0);
-      const itemRate = Number(item.rate || 0);
-      const itemGross = itemQty * itemRate;
-      const itemGstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(itemGross * itemGstPct / 100);
-      const itemTotal = item.amount !== undefined ? Number(item.amount) : (itemGross + itemGstAmt);
-      await queryRun(
-        `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '', itemQty, item.unit || item.uom || 'Nos', itemRate, item.disc_pct || item.disc || item.discount || 0, itemGstPct, itemTotal]
-      );
-    }
-  }
-
-  await logAudit(session?.email || 'admin@luxeworx.com', 'PO Created', 'PO#' + poNo + ' vendor:' + vendorName + ' value:' + totalVal, 'Procurement');
-  return { ok: true, poNo };
+  return POService.createPO(payload, session?.email || 'admin@luxeworx.com');
 }
 
 export async function updatePOFull(poNo, payload, session) {
   requireAuth(session);
-  if (!poNo) throw new Error("PO Number missing");
-  await ensureSettingsTable();
-  const originalPoNo = String(poNo).trim();
-  const nextPoNo = String(payload.poNo || payload.po_no || originalPoNo).trim();
-  if (!nextPoNo) throw new Error('PO Number is required');
-
-  // Fetch existing PO for audit diff and status check
-  const existing = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [originalPoNo]);
-  if (!existing) throw new Error(`Purchase Order not found: ${originalPoNo}`);
-  if (nextPoNo !== originalPoNo) {
-    const duplicate = await queryGet(`SELECT po_no FROM purchase_orders WHERE po_no = ?`, [nextPoNo]);
-    if (duplicate) {
-      throw new Error(`PO Number "${nextPoNo}" already exists. Please use a unique PO Number.`);
-    }
-  }
-  if (existing) {
-    const st = String(existing.approval_status || existing.status || 'Draft').toLowerCase();
-    // Approved POs: only allow editing non-financial fields (notes, terms, expected_delivery_date)
-    // Financial edits require re-draft (handled by resetting to Draft on financial change)
-    if (st === 'pending approval' || st === 'pending_approval') {
-      throw new Error(`Cannot edit a PO that is Pending Approval. Withdraw or wait for approval decision first.`);
-    }
-  }
-
-  let totalVal = payload.grandTotal || payload.poValue || 0;
-  let gstTotal = Number(payload.gst_total) || 0;
-  if (!totalVal && payload.items && payload.items.length) {
-    let subt = 0;
-    let gstSum = 0;
-    payload.items.forEach(item => {
-      const q = Number(item.qty || item.quantity) || 0;
-      const r = Number(item.rate) || 0;
-      const tPct = Number(item.tax_pct || item.gstPct || 0);
-      const gross = q * r;
-      const gstAmt = Math.round(gross * tPct / 100);
-      subt += gross;
-      gstSum += gstAmt;
-    });
-    gstTotal = gstSum;
-    const tdsPctCalc = Number(payload.tds_pct || 0);
-    const tdsAmtCalc = Math.round(subt * tdsPctCalc / 100);
-    totalVal = subt + gstSum - tdsAmtCalc;
-  }
-
-  const vendorName = payload.vendorName || payload.vendor || existing?.vendor_name || 'Unknown';
-  const tdsSection = payload.tds_section || payload.tdsSection || '';
-  const tdsPct = Number(payload.tds_pct || payload.tdsPct || 0);
-  const tdsAmount = Number(payload.tds_amount || 0);
-  const gstMode = payload.gst_mode || payload.gstMode || 'inter';
-
   // Determine if financial fields changed (requires re-approval)
   const existingStatus = String(existing?.approval_status || existing?.status || 'Draft').toLowerCase();
   const financiallyChanged = existing && (
@@ -2655,9 +2541,9 @@ export async function getDayWiseApprovalReport(startDate, endDate, session) {
 export async function getPOFullDetails(poNo, session) {
   requireAuth(session);
   await ensureSettingsTable();
-  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
+  const po = await POService.getPO(poNo);
   if (!po) return null;
-  const items = await queryAll(`SELECT * FROM po_items WHERE po_no = ?`, [poNo]);
+  const items = await POService.getPOItems(poNo);
   return {
     ...po,
     vendor_key: po.vendor_key || '',
@@ -2690,7 +2576,7 @@ export async function getPOFullDetails(poNo, session) {
 
 export async function getPOItems(poNo, session) {
   requireAuth(session);
-  return await queryAll(`SELECT * FROM po_items WHERE po_no = ?`, [poNo]);
+  return POService.getPOItems(poNo);
 }
 
 export async function getCompanySettings(session) {
