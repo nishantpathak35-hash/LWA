@@ -342,7 +342,11 @@ export default function POsView() {
   const handleSavePO = async (e) => {
     e.preventDefault();
     if (!poNo) { setFormError('PO Number is required.'); return; }
-    if (items.some(i => !i.description || Number(i.rate) <= 0)) {
+    if (!project) {
+      setFormError('Please select a project.');
+      return;
+    }
+    if (items.length === 0 || items.some(i => !i.description || Number(i.rate) <= 0)) {
       setFormError('All items must have a description and rate > 0.');
       return;
     }
@@ -776,7 +780,8 @@ export default function POsView() {
             </div>
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PROJECT *</label>
-              <Select value={project} onChange={e => setProject(e.target.value)}>
+              <Select value={project} onChange={e => setProject(e.target.value)} required>
+                <option value="">-- Select Project --</option>
                 {projects.map((p, i) => <option key={i} value={p.name}>{p.name}</option>)}
               </Select>
             </div>
@@ -1142,3 +1147,4 @@ export default function POsView() {
     </div>
   );
 }
+
