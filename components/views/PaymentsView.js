@@ -1,5 +1,6 @@
 'use client';
 
+import { toast } from '../ui/Toast';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Select, Dialog } from '../ui/core';
