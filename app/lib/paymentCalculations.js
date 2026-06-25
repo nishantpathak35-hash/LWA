@@ -183,7 +183,7 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
     };
   }
 
-  const [projectFinancials, systemPaidRow] = await Promise.all([
+  const [projectFinancials, systemPaidRow, poSumRow] = await Promise.all([
     queryGet(`SELECT * FROM project_financials WHERE project = ?`, [project]).catch(() => undefined),
     queryGet(
       `SELECT COALESCE(SUM(
@@ -197,11 +197,12 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
        LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)
        WHERE po.project = ?`,
       [project]
-    )
+    ),
+    queryGet(`SELECT COALESCE(SUM(po_value), 0) as total_po_value FROM purchase_orders WHERE project = ?`, [project])
   ]);
 
   const inflow = money(projectFinancials?.inflow);
-  const boqValue = money(projectFinancials?.project_value);
+  const boqValue = money(projectFinancials?.project_value) || money(poSumRow?.total_po_value);
   const bcs = money(projectFinancials?.bcs);
   const currentOutflow = money(systemPaidRow?.total);
   const projectedOutflow = currentOutflow + (shouldCountPayment(request) ? reqAmt : 0);
