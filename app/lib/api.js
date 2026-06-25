@@ -2,6 +2,7 @@ import { queryAll, queryGet, queryRun } from './db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from './email.js';
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from './poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from './paymentCalculations.js';
+import { VendorService } from '../../src/modules/vendors/services/VendorService';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
@@ -769,81 +770,12 @@ export async function getProjectDetails(session) {
 
 export async function addVendor(payload, session) {
   requireAuth(session);
-  const code = `VEN-${Date.now()}`;
-  await queryRun(
-    `INSERT INTO vendors (legal_name, trade_name, vendor_code, vendor_type, pan, gstin, status, address, email, bank_account, ifsc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      payload.legalName,
-      payload.tradeName || '',
-      code,
-      payload.vendorType || '',
-      payload.pan || '',
-      payload.gstin || '',
-      payload.status || 'Active',
-      payload.address || '',
-      payload.email || '',
-      payload.accountNo || '',
-      payload.ifsc || ''
-    ]
-  );
-  await logAudit(session?.email || 'admin@luxeworx.com', 'Vendor Added', code + ' ' + payload.legalName, 'Vendors');
-  return { ok: true, code };
+  return VendorService.addVendor(payload, session?.email || 'admin@luxeworx.com');
 }
 
 export async function updateVendor(payload, session) {
   requireAuth(session);
-  if (!payload.vendorId) throw new Error("Vendor ID is required");
-  
-  const existing = await queryGet(`SELECT id FROM vendors WHERE vendor_code = ?`, [payload.vendorId]);
-  if (!existing) {
-    await queryRun(
-      `INSERT INTO vendors (legal_name, trade_name, vendor_code, vendor_type, pan, gstin, status, address, email, bank_account, ifsc)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        payload.legalName || '',
-        payload.tradeName || '',
-        payload.vendorId,
-        payload.vendorType || '',
-        payload.pan || '',
-        payload.gstin || '',
-        payload.status || 'Active',
-        payload.address || '',
-        payload.email || '',
-        payload.accountNo || '',
-        payload.ifsc || ''
-      ]
-    );
-  }
-
-  await queryRun(
-    `UPDATE vendors SET 
-      legal_name = ?, 
-      trade_name = ?, 
-      gstin = ?, 
-      pan = ?, 
-      status = ?, 
-      address = ?, 
-      vendor_type = ?, 
-      email = ?, 
-      bank_account = ?, 
-      ifsc = ?
-     WHERE vendor_code = ?`,
-    [
-      payload.legalName || '',
-      payload.tradeName || '',
-      payload.gstin || '',
-      payload.pan || '',
-      payload.status || 'Active',
-      payload.address || '',
-      payload.vendorType || '',
-      payload.email || '',
-      payload.accountNo || '',
-      payload.ifsc || '',
-      payload.vendorId
-    ]
-  );
-  await logAudit(session?.email || 'admin@luxeworx.com', 'Vendor Updated', payload.vendorId, 'Vendors');
-  return { ok: true, vendorId: payload.vendorId };
+  return VendorService.updateVendor(payload, session?.email || 'admin@luxeworx.com');
 }
 
 export async function getVendorByName(name, session) {
