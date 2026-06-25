@@ -155,14 +155,13 @@ export default async function POPdfPage({ params }) {
         </div>
       </div>
 
-      {po.status === 'Draft' && (
-        <div className="absolute inset-0 z-0 flex items-center justify-center opacity-[0.07] pointer-events-none overflow-hidden" style={{ transform: 'rotate(-45deg)' }}>
-          <span className="text-[140px] font-black text-slate-500 whitespace-nowrap">DRAFT ORDER</span>
-        </div>
-      )}
-
       {/* Printable PO Sheet */}
       <div className="border border-slate-300 p-8 md:p-10 space-y-8 relative z-10 bg-white/80">
+        {po.status === 'Draft' && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center opacity-10 pointer-events-none overflow-hidden" style={{ transform: 'rotate(-45deg)' }}>
+            <span className="text-[140px] font-black text-slate-500 whitespace-nowrap">DRAFT ORDER</span>
+          </div>
+        )}
         
         {/* Header Block */}
         <div className="flex justify-between items-start border-b border-slate-350 pb-6 gap-6">
@@ -320,7 +319,10 @@ export default async function POPdfPage({ params }) {
           <div className="text-center font-sans">
             <div className="w-48 border-t border-slate-400 mx-auto pt-2 relative">
               {(po.status === 'Approved' && signatureUri) && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 h-auto opacity-90 pointer-events-none mix-blend-multiply">
+                <div 
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 h-auto opacity-95 pointer-events-none" 
+                  style={{ mixBlendMode: 'multiply', filter: 'contrast(1.2) grayscale(100%)' }}
+                >
                   <Image src={signatureUri} alt="Signature & Stamp" width={128} height={128} unoptimized className="w-full h-auto object-contain" />
                 </div>
               )}
