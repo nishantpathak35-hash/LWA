@@ -8,7 +8,7 @@ export interface IApprovalTransition {
 export class ApprovalEngine {
   private transitions: IApprovalTransition[] = [
     {
-      fromStage: 'Procurement Approval',
+      fromStage: 'Pending Procurement',
       toStage: 'Pending Finance',
       requiredRoles: ['procurement', 'proc', 'maker', 'finance', 'director', 'admin'],
       updates: { proc_approval: 'Approved' }
