@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Button } from '../../ui/core';
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, X, ChevronUp, ChevronDown } from 'lucide-react';
 import ProjectFinancialSummaryCard from './ProjectFinancialSummaryCard';
 import { formatCurrency } from '../../../app/lib/utils';
 
@@ -20,11 +20,14 @@ export default function MultiSelectActionBar({
   onClearSelection,
   loadingSummary
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   if (selectedRequests.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-5xl z-50 animate-fade-in pointer-events-none px-4">
-      <Card className="pointer-events-auto bg-slate-900/95 backdrop-blur-xl border border-gold/30 shadow-[0_0_50px_rgba(212,175,55,0.1)] rounded-[24px] overflow-hidden">
+    <div className="fixed bottom-6 inset-x-0 mx-auto z-50 pointer-events-none w-[95%] sm:w-11/12 max-w-5xl md:pl-64">
+      <div className="w-full animate-fade-in min-w-0">
+        <Card className="pointer-events-auto bg-slate-900/95 backdrop-blur-xl border border-gold/30 shadow-[0_0_50px_rgba(212,175,55,0.15)] rounded-[24px] overflow-hidden flex flex-col transition-all duration-300 w-full min-w-0">
         
         {/* Overall Summary Bar (Fixed Top) */}
         <div className="bg-slate-950/80 px-6 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
@@ -46,14 +49,18 @@ export default function MultiSelectActionBar({
                 <span className="text-slate-400">Pending Approval: <strong className="text-amber-500 font-bold">{formatCurrency(overallSummary.totalPendingApproval)}</strong></span>
               )}
             </div>
+            <button onClick={() => setIsExpanded(!isExpanded)} className="text-slate-400 hover:text-slate-200 transition-colors p-1 flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider" title="Toggle Project Details">
+              {isExpanded ? <><ChevronDown className="w-4 h-4" /> Hide Details</> : <><ChevronUp className="w-4 h-4" /> View Details</>}
+            </button>
             <button onClick={onClearSelection} className="text-slate-500 hover:text-rose-400 transition-colors p-1" title="Clear Selection">
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Project Navigation & Content Area */}
-        <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        {/* Project Navigation & Content Area - ONLY VISIBLE IF EXPANDED */}
+        {isExpanded && (
+          <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar bg-slate-900/50">
           
           {projectsList.length > 1 && (
             <div className="flex items-center justify-between mb-4">
@@ -96,6 +103,7 @@ export default function MultiSelectActionBar({
           )}
 
         </div>
+        )}
 
         {/* Action Buttons Footer */}
         <div className="bg-slate-950/90 px-6 py-4 border-t border-slate-800 flex justify-end gap-3">
@@ -111,6 +119,7 @@ export default function MultiSelectActionBar({
         </div>
 
       </Card>
+      </div>
     </div>
   );
 }

@@ -11,7 +11,7 @@ export default function ProjectFinancialSummaryCard({
   if (!projectSummary) return null;
 
   return (
-    <div className={`backdrop-blur-md bg-slate-950/45 border ${getHealthTheme(projectSummary.projectedUtilisation).border} rounded-[18px] p-5 shadow-2xl space-y-4 mb-5 animate-fade-in select-none`}>
+    <div className={`backdrop-blur-md bg-slate-950/45 border ${getHealthTheme(projectSummary.projectedUtilisation).border} rounded-[18px] p-5 shadow-2xl space-y-4 mb-5 animate-fade-in select-none min-w-0`}>
       <div className="flex justify-between items-start border-b border-slate-900/60 pb-3">
         <div>
           <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Project Financial Summary</h4>
