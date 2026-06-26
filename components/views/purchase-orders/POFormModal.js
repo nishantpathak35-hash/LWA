@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
 import AttachmentsSection from '../../ui/AttachmentsSection';
-import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import { GST_RATES, TDS_SECTIONS, UOM_OPTIONS } from './po-constants';
 
