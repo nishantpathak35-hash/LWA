@@ -1,6 +1,7 @@
 import React from 'react';
-import { Dialog, Button, Textarea } from '../../ui/core';
+import { Dialog, Button, Textarea, Input } from '../../ui/core';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { formatCurrency } from '../../../app/lib/utils';
 
 export default function POApprovalModal({
   approvalModalOpen, setApprovalModalOpen, approvalTarget, approvalAction,
@@ -11,7 +12,7 @@ export default function POApprovalModal({
       {/* ── Approval Dialog ────────────────────────────────────────────────── */}
       <Dialog open={approvalModalOpen} onClose={() => setApprovalModalOpen(false)}
         title={approvalAction === 'approve' ? 'Approve Purchase Order' : 'Reject Purchase Order'}>
-        <form onSubmit={handleApprovalSubmit} className="space-y-5">
+        <form onSubmit={handleConfirmApproval} className="space-y-5">
           <div className="p-4 bg-slate-900/40 border border-slate-900 rounded-xl space-y-2 text-sm font-light">
             <p className="text-slate-400">PO Number: <strong className="text-slate-200">{approvalTarget?.po_no}</strong></p>
             <p className="text-slate-400">Vendor: <strong className="text-slate-200">{approvalTarget?.vendor_name}</strong></p>
@@ -31,7 +32,6 @@ export default function POApprovalModal({
           </div>
         </form>
       </Dialog>
-
     </>
   );
 }

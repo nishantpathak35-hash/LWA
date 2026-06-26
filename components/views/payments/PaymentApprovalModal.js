@@ -1,13 +1,14 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea } from '../../ui/core';
-import { ShieldCheck, Ban, CheckSquare } from 'lucide-react';
+import { ShieldCheck, Ban, CheckSquare, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 
 export default function PaymentApprovalModal({
   workflowModalOpen, setWorkflowModalOpen, selectedRequest, workflowAction,
   canEditApprovalTds, approvalTdsSec, setApprovalTdsSec, approvalTdsAmt, setApprovalTdsAmt,
   approvalApprovedAmount, setApprovalApprovedAmount, displayedTdsHold, displayedApprovedAmount,
-  displayedNetAfterTds, utr, setUtr, comment, setComment, submitting, handleWorkflowAction
+  displayedNetAfterTds, utr, setUtr, comment, setComment, submitting, handleWorkflowAction,
+  loadingSummary, projectSummary, getHealthTheme, selectedRequestGross, progressWidths, formError
 }) {
   return (
     <>
@@ -18,7 +19,7 @@ export default function PaymentApprovalModal({
         title={workflowAction === 'approve' ? 'Approve Payment Request' : workflowAction === 'remit' ? 'Remit Payment Request' : 'Reject Payment Request'}
         maxWidth="max-w-4xl"
       >
-        <form onSubmit={handleWorkflowActionSubmit} className="space-y-6">
+        <form onSubmit={handleWorkflowAction} className="space-y-6">
           {loadingSummary && (
             <div className="backdrop-blur-md bg-slate-950/40 border border-slate-900 rounded-[18px] p-8 text-center text-xs text-slate-500 font-light flex flex-col items-center justify-center gap-2 mb-5">
               <div className="w-5 h-5 border-2 border-gold/40 border-t-gold rounded-full animate-spin" />

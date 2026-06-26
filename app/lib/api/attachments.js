@@ -15,6 +15,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
+import { logAudit } from './core.js';
 
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;

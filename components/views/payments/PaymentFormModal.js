@@ -1,19 +1,21 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea } from '../../ui/core';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 
 export default function PaymentFormModal({
   requestModalOpen, setRequestModalOpen, vendorCode, setVendorCode, vendors,
   poNo, handlePOChange, vendorPOs, grossAmount, handleGrossAmountChange,
   tdsAmount, setTdsAmount, netAmount, invoiceRef, setInvoiceRef, remarks, setRemarks,
-  formError, submitting, handleSubmitRequest, projectSummary, progressWidths, getHealthTheme
+  formError, submitting, handleSubmitRequest, projectSummary, progressWidths, getHealthTheme,
+  getVendorPOs, setPoNo
 }) {
+  const selectedPO = vendorPOs?.find(p => p.po_no === poNo) || null;
   return (
     <>
       {/* Create Payment Request Dialog */}
       <Dialog open={requestModalOpen} onClose={() => setRequestModalOpen(false)} title="New Payment Request">
-        <form onSubmit={handleCreateRequest} className="space-y-6">
+        <form onSubmit={handleSubmitRequest} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR *</label>

@@ -1,17 +1,17 @@
 import React from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
-import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 
 export default function PaymentListTable({
-  displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector
+  displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector, pos, getWorkflowActionButton, handleSendPaymentAdvice
 }) {
   return (
     <>
       {/* Requests Table Card */}
       <Card>
         <CardContent className="p-0">
-          {filteredRequests.length === 0 ? (
+          {displayedRequests.length === 0 ? (
             <div className="p-12 text-center text-slate-500 text-sm font-light">
               No payment requests found matching your filters.
             </div>
@@ -31,7 +31,7 @@ export default function PaymentListTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.map((req, idx) => {
+                {displayedRequests.map((req, idx) => {
                   const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
                   const poValue = relatedPO ? relatedPO.po_value : 0;
                   return (

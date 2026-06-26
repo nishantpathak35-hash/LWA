@@ -16,6 +16,8 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { ensureSettingsTable } from './core.js';
+import { listPaymentRequests } from './payments.js';
+import { getFeaturePermissions } from './settings.js';
 
 
 function getJwtSecret() {

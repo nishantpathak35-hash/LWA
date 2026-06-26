@@ -247,4 +247,26 @@ export async function setSetting(key, value) {
 }
 
 
-// --- AUTH ---
+// --- AUTH ---
+
+export const DEFAULT_FEATURE_PERMISSIONS = {
+  proc:       ['dashboard', 'payments', 'purchase_orders', 'vendors', 'create_payment', 'create_po'],
+  finance:    ['dashboard', 'payments', 'vendors', 'reports', 'approve_payment', 'reject_payment', 'export_data'],
+  accountant: ['dashboard', 'payments', 'purchase_orders', 'vendors', 'reports', 'create_payment', 'approve_payment', 'export_data', 'upload_document'],
+  director:   ['dashboard', 'payments', 'purchase_orders', 'projects', 'vendors', 'settings', 'reports', 'manage_users', 'manage_settings', 'view_analytics', 'export_data', 'approve_po', 'approve_payment', 'reject_payment']
+};
+
+export const VALID_ROLE_KEYS = new Set(['proc', 'finance', 'accountant', 'director']);
+
+export function getPRStatus(stage, remittance) {
+  if (String(remittance || '').toLowerCase().includes('remitted') || String(stage || '').toLowerCase().includes('remitted')) {
+    return 'approved';
+  }
+  if (String(stage || '').toLowerCase().includes('rejected')) {
+    return 'rejected';
+  }
+  if (String(stage || '').toLowerCase().includes('ready to remit')) {
+    return 'approved';
+  }
+  return 'pending';
+}

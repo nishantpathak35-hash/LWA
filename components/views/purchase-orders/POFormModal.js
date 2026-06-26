@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
 import AttachmentsSection from '../../ui/AttachmentsSection';
-import { Plus, Trash2, AlertTriangle, Send } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import { GST_RATES, TDS_SECTIONS, UOM_OPTIONS } from './po-constants';
 
@@ -13,7 +13,7 @@ export default function POFormModal(props) {
     tdsSection, handleTdsSectionChange, gstMode, setGstMode, terms, setTerms, notes, setNotes,
     formError, submitting, handleSavePO, summaryTotals, tdsAmount, netPayable,
     showPayments, setShowPayments, loadingPayments, paymentData, getVendorSelectValue,
-    findVendorBySelection
+    findVendorBySelection, projects, editingPO, calcItem, tdsPct, setTdsPct, getPaymentStatusBadge
   } = props;
 
   return (

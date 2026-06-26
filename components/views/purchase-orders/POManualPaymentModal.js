@@ -1,18 +1,20 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea } from '../../ui/core';
 import { PAYMENT_MODES } from './po-constants';
+import { formatCurrency } from '../../../app/lib/utils';
 
 export default function POManualPaymentModal({
   manualPayModalOpen, setManualPayModalOpen, editingPoNo, mpDate, setMpDate,
   mpAmount, setMpAmount, mpMode, setMpMode, mpUtr, setMpUtr, mpBank, setMpBank,
-  mpRef, setMpRef, mpRemarks, setMpRemarks, mpError, mpSubmitting, handleAddManualPayment
+  mpRef, setMpRef, mpRemarks, setMpRemarks, mpError, mpSubmitting, handleAddManualPayment,
+  paymentData
 }) {
   return (
     <>
       {/* ── Manual Payment Dialog ──────────────────────────────────────────── */}
       <Dialog open={manualPayModalOpen} onClose={() => setManualPayModalOpen(false)}
         title={`Add Manual Payment — ${editingPoNo}`}>
-        <form onSubmit={handleManualPaySubmit} className="space-y-5">
+        <form onSubmit={handleAddManualPayment} className="space-y-5">
 
           {/* Outstanding balance info */}
           {paymentData?.summary && (

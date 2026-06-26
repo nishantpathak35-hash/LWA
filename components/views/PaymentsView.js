@@ -431,9 +431,10 @@ export default function PaymentsView() {
       />
       
       <PaymentListTable
-        displayedRequests={displayedRequests} handleViewHistory={handleViewHistory}
+        displayedRequests={filteredRequests} handleViewHistory={handleViewHistory}
         handleOpenWorkflowModal={handleOpenWorkflowModal} user={user}
         isAdmin={isAdmin} isFinance={isFinance} isDirector={isDirector}
+        pos={pos} getWorkflowActionButton={getWorkflowActionButton} handleSendPaymentAdvice={handleSendPaymentAdvice}
       />
       
       <PaymentFormModal
@@ -443,8 +444,9 @@ export default function PaymentsView() {
         grossAmount={grossAmount} handleGrossAmountChange={handleGrossAmountChange}
         tdsAmount={tdsAmount} setTdsAmount={setTdsAmount} netAmount={netAmount}
         invoiceRef={invoiceRef} setInvoiceRef={setInvoiceRef} remarks={remarks} setRemarks={setRemarks}
-        formError={formError} submitting={submitting} handleSubmitRequest={handleSubmitRequest}
+        formError={formError} submitting={submitting} handleSubmitRequest={handleCreateRequest}
         projectSummary={projectSummary} progressWidths={progressWidths} getHealthTheme={getHealthTheme}
+        getVendorPOs={getVendorPOs} setPoNo={setPoNo}
       />
       
       <PaymentApprovalModal
@@ -455,7 +457,9 @@ export default function PaymentsView() {
         approvalApprovedAmount={approvalApprovedAmount} setApprovalApprovedAmount={setApprovalApprovedAmount}
         displayedTdsHold={displayedTdsHold} displayedApprovedAmount={displayedApprovedAmount}
         displayedNetAfterTds={displayedNetAfterTds} utr={utr} setUtr={setUtr}
-        comment={comment} setComment={setComment} submitting={submitting} handleWorkflowAction={handleWorkflowAction}
+        comment={comment} setComment={setComment} submitting={submitting} handleWorkflowAction={handleWorkflowActionSubmit}
+        loadingSummary={loadingSummary} projectSummary={projectSummary} getHealthTheme={getHealthTheme}
+        selectedRequestGross={selectedRequestGross} progressWidths={progressWidths} formError={formError}
       />
       
       <PaymentHistoryModal

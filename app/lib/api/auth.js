@@ -15,7 +15,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
-import { requireAdminConsole, normalizeRoleName, getSetting, setSetting } from './core.js';
+import { requireAdminConsole, normalizeRoleName, getSetting, setSetting, logAudit } from './core.js';
 
 
 function getJwtSecret() {

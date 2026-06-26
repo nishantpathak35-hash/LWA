@@ -545,6 +545,8 @@ export default function POsView() {
 
       <POFormModal
         modalOpen={modalOpen} setModalOpen={setModalOpen} editingPoNo={editingPoNo}
+        projects={projects} editingPO={editingPO} calcItem={calcItem}
+        tdsPct={tdsPct} setTdsPct={setTdsPct} getPaymentStatusBadge={getPaymentStatusBadge}
         poNo={poNo} setPoNo={setPoNo} project={project} setProject={setProject}
         vendorCode={vendorCode} setVendorCode={setVendorCode} vendors={vendors}
         poDate={poDate} setPoDate={setPoDate} expectedDelivery={expectedDelivery} setExpectedDelivery={setExpectedDelivery}
@@ -563,7 +565,7 @@ export default function POsView() {
         approvalModalOpen={approvalModalOpen} setApprovalModalOpen={setApprovalModalOpen}
         approvalTarget={approvalTarget} approvalAction={approvalAction}
         approvalRemarks={approvalRemarks} setApprovalRemarks={setApprovalRemarks}
-        approvingPO={approvingPO} handleConfirmApproval={handleConfirmApproval}
+        approvingPO={approvingPO} handleConfirmApproval={handleApprovalSubmit}
       />
       
       <POHistoryModal
@@ -577,7 +579,7 @@ export default function POsView() {
         mpAmount={mpAmount} setMpAmount={setMpAmount} mpMode={mpMode} setMpMode={setMpMode}
         mpUtr={mpUtr} setMpUtr={setMpUtr} mpBank={mpBank} setMpBank={setMpBank}
         mpRef={mpRef} setMpRef={setMpRef} mpRemarks={mpRemarks} setMpRemarks={setMpRemarks}
-        mpError={mpError} mpSubmitting={mpSubmitting} handleAddManualPayment={handleAddManualPayment}
+        mpError={mpError} mpSubmitting={mpSubmitting} handleAddManualPayment={handleManualPaySubmit}
       />
 
     </div>
