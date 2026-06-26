@@ -24,8 +24,8 @@ export async function GET(request) {
       try {
         if (fs.existsSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'))) {
           logoUri = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8').trim();
-        } else if (fs.existsSync(path.join(process.cwd(), 'LWA PRIMARY LOGO 2 GOLD.png'))) {
-          const imgBuffer = fs.readFileSync(path.join(process.cwd(), 'LWA PRIMARY LOGO 2 GOLD.png'));
+        } else if (fs.existsSync(path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png'))) {
+          const imgBuffer = fs.readFileSync(path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png'));
           logoUri = `data:image/png;base64,${imgBuffer.toString('base64')}`;
         }
       } catch (e) {
