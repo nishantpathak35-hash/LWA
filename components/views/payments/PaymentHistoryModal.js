@@ -5,22 +5,35 @@ import { ActivityTimeline } from '../../ui/ActivityTimeline';
 import { useAppState } from '../../StateProvider';
 
 export default function PaymentHistoryModal({
-  historyModalOpen, setHistoryModalOpen, selectedRequest, loadingHistory, historyTrail
+  historyModalOpen, setHistoryModalOpen, selectedRequest, loadingHistory, historyTrail,
+  // onCommentAdded lets the parent (PaymentsView) reload history so the feed updates live
+  onCommentAdded
 }) {
-  const { call, refresh } = useAppState();
+  // Fix: StateProvider exposes `refreshData`, not `refresh`
+  const { call, refreshData } = useAppState();
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState(null);
 
   const handleAddComment = async () => {
     if (!commentText.trim()) return;
+    if (!selectedRequest?.id) {
+      setCommentError('No payment request selected.');
+      return;
+    }
     setSubmittingComment(true);
+    setCommentError(null);
     try {
       await call('addPaymentComment', selectedRequest.id, commentText.trim());
       setCommentText('');
-      if (refresh) refresh(); // This will ideally refresh the history trail
-      setHistoryModalOpen(false); // Quick hack to force a refresh on next open
+      // Reload the history trail in-place so user sees their comment immediately
+      if (onCommentAdded) {
+        await onCommentAdded(selectedRequest);
+      }
+      // Also refresh global data in the background (non-blocking)
+      refreshData().catch(() => {});
     } catch (e) {
-      alert("Failed to add comment: " + e.message);
+      setCommentError('Failed to add comment: ' + e.message);
     } finally {
       setSubmittingComment(false);
     }
@@ -59,7 +72,7 @@ export default function PaymentHistoryModal({
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold"
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                  onKeyDown={(e) => e.key === 'Enter' && !submittingComment && handleAddComment()}
                   disabled={submittingComment}
                 />
                 <Button 
@@ -71,6 +84,9 @@ export default function PaymentHistoryModal({
                   {submittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </Button>
               </div>
+              {commentError && (
+                <p className="text-xs text-red-400 mt-2">{commentError}</p>
+              )}
             </div>
           </div>
         )}

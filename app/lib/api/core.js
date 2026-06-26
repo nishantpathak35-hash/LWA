@@ -147,6 +147,32 @@ async function _runMigrations() {
     )
   `);
 
+  // Attachments table
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_type TEXT,
+      file_size INTEGER,
+      file_data TEXT NOT NULL,
+      uploaded_by TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ── Performance: indexes on hot query columns (idempotent IF NOT EXISTS) ──
+  await Promise.allSettled([
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_pr_po_no ON payment_requests(po_no)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_pr_stage ON payment_requests(stage)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_sp_po_no ON system_payments(po_no)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_sp_pr_key ON system_payments(pr_key)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_pah_po_no ON po_approval_history(po_no)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_mp_po_no ON manual_payments(po_no)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action_type)`),
+  ]);
+
   // ── Data recovery: restore po_date for any PO where it was accidentally wiped ──
   try {
     await queryRun(`

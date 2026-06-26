@@ -34,6 +34,10 @@ export default function VendorOnboardModal({ modalOpen, setModalOpen, name, setN
           </div>
         </div>
 
+        <div className="pt-2 border-t border-slate-900 text-[10px] text-slate-500 italic">
+          After saving, open the vendor in <strong className="text-slate-400">Edit</strong> to upload documents (GST Certificate, PAN, Cancelled Cheque, etc.).
+        </div>
+
         {formError && (
           <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 flex-shrink-0" />

@@ -1,77 +1,9 @@
 // Domain: purchase-orders
-// Auto-extracted from api.js
 import { queryAll, queryGet, queryRun } from '../../db.js';
-import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from '../../email.js';
-import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from '../../poEligibility.js';
-import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from '../../paymentCalculations.js';
-import { VendorService } from '../../../../src/modules/vendors/services/VendorService';
+import { sendPOEmail } from '../../email.js';
 import { POService } from '../../../../src/modules/purchase-orders/services/POService';
-import { PaymentService } from '../../../../src/modules/payments/services/PaymentService';
-import { PaymentRepository } from '../../../../src/modules/payments/repositories/PaymentRepository';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
-import { SettingsService } from '../../../../src/modules/core/services/SettingsService';
-import { AuditService } from '../../../../src/modules/core/services/AuditService';
-import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
-import fs from 'fs';
-import path from 'path';
-import { logAudit } from '../core.js';
-
-
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing!");
-  }
-  return secret;
-}
-
-function invalidateProjectCache(project) {
-  return project;
-}
-
-const settingsCache = new Map();
-
-// Promise singleton: all concurrent callers await the same migration run.
-// A boolean flag is not concurrent-safe — two simultaneous requests would both
-// run the expensive v3 backfill before either sets the flag to true.
-let _settingsTablePromise = null;
-
-function encryptToken(data) {
-  const JWT_SECRET = getJwtSecret();
-  const iv = crypto.randomBytes(16);
-  const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + encrypted;
-}
-
-function decryptToken(token) {
-  const JWT_SECRET = getJwtSecret();
-  try {
-    const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
-    if (token && token.length >= 32) {
-      try {
-        const ivHex = token.slice(0, 32);
-        const ciphertext = token.slice(32);
-        const iv = Buffer.from(ivHex, 'hex');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return JSON.parse(decrypted);
-      } catch (err) {
-        // Fall back to legacy format
-      }
-    }
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.alloc(16, 0));
-    let decrypted = decipher.update(token, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return JSON.parse(decrypted);
-  } catch (e) {
-    throw new Error('Invalid token');
-  }
-}
+import { logAudit, requireAdminConsole, ensureSettingsTable } from '../core.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -86,14 +18,53 @@ export async function savePO(payload, session) {
 
 export async function updatePOFull(poNo, payload, session) {
   requireAuth(session);
+
+  // Fix Bug #1: fetch the existing PO record so downstream logic has access to it.
+  const originalPoNo = String(poNo || '').trim();
+  if (!originalPoNo) throw new Error('PO Number is required for update.');
+
+  await ensureSettingsTable();
+
+  const existing = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [originalPoNo]);
+  if (!existing) throw new Error(`Purchase Order not found: ${originalPoNo}`);
+
+  // Derive the new PO number (may be renamed via payload)
+  const nextPoNo = String(payload.poNo || originalPoNo).trim();
+
+  // Resolve vendor name from payload
+  const vendorName = String(payload.vendorName || payload.vendor || existing.vendor_name || '');
+
+  // Compute TDS fields
+  const tdsSection = payload.tdsSection || payload.tds_section || existing.tds_section || '';
+  const tdsPct = Number(payload.tdsPct ?? payload.tds_pct ?? existing.tds_pct ?? 0);
+  const gstMode = payload.gstMode || payload.gst_mode || existing.gst_mode || 'inter';
+
+  // Compute totals from line items (same logic as the frontend calcItem)
+  let subtotal = 0;
+  let gstTotal = 0;
+  const items = payload.items || [];
+  for (const item of items) {
+    const qty = Number(item.qty || item.quantity || 0);
+    const rate = Number(item.rate || 0);
+    const gstPct = Number(item.tax_pct || item.gstPct || 0);
+    const gross = qty * rate;
+    const gstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(gross * gstPct / 100);
+    subtotal += gross;
+    gstTotal += gstAmt;
+  }
+  const totalVal = subtotal + gstTotal;
+  const tdsAmount = Math.round(subtotal * (tdsPct / 100));
+
   // Determine if financial fields changed (requires re-approval)
-  const existingStatus = String(existing?.approval_status || existing?.status || 'Draft').toLowerCase();
-  const financiallyChanged = existing && (
+  const existingStatus = String(existing.approval_status || existing.status || 'Draft').toLowerCase();
+  const financiallyChanged = (
     Math.abs(Number(existing.po_value) - totalVal) > 0.5 ||
     existing.vendor_name !== vendorName
   );
   // If approved PO has financial changes, demote back to Draft
-  const newStatus = (existingStatus === 'approved' && financiallyChanged) ? 'Draft' : (existing ? (existing.approval_status || existing.status) : 'Draft');
+  const newStatus = (existingStatus === 'approved' && financiallyChanged)
+    ? 'Draft'
+    : (existing.approval_status || existing.status || 'Draft');
 
   // Build audit diff
   const auditChanges = [];
@@ -109,12 +80,10 @@ export async function updatePOFull(poNo, payload, session) {
     ['tds_section', 'TDS Section', tdsSection],
     ['tds_pct', 'TDS %', tdsPct],
   ];
-  if (existing) {
-    for (const [field, label, newVal] of trackFields) {
-      const oldVal = String(existing[field] ?? '');
-      if (oldVal !== String(newVal)) {
-        auditChanges.push(`${label}: "${oldVal}" → "${newVal}"`);
-      }
+  for (const [field, label, newVal] of trackFields) {
+    const oldVal = String(existing[field] ?? '');
+    if (oldVal !== String(newVal)) {
+      auditChanges.push(`${label}: "${oldVal}" → "${newVal}"`);
     }
   }
 
@@ -126,15 +95,17 @@ export async function updatePOFull(poNo, payload, session) {
       expected_delivery_date = ?, notes = ?, category = ?
      WHERE po_no = ?`,
     [nextPoNo,
-     payload.vendorCode || payload.vendor_key || existing?.vendor_key || '',
+     payload.vendorCode || payload.vendor_key || existing.vendor_key || '',
      vendorName, payload.project || '', totalVal, totalVal,
-     payload.poDate || existing?.po_date || '', payload.terms || '',
+     payload.poDate || existing.po_date || '', payload.terms || '',
      newStatus, newStatus,
      tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
-     payload.expectedDeliveryDate || existing?.expected_delivery_date || '', payload.notes || '',
-     payload.category || existing?.category || 'Goods',
+     payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
+     payload.category || existing.category || 'Goods',
      originalPoNo]
   );
+
+  // If PO number was renamed, cascade to all linked tables
   if (nextPoNo !== originalPoNo) {
     const linkedTables = ['po_items', 'payment_requests', 'system_payments', 'manual_payments', 'po_approval_history'];
     for (const table of linkedTables) {
@@ -142,9 +113,10 @@ export async function updatePOFull(poNo, payload, session) {
     }
   }
 
+  // Replace line items
   await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [nextPoNo]);
-  if (payload.items && payload.items.length) {
-    for (const item of payload.items) {
+  if (items.length) {
+    for (const item of items) {
       const itemGstPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
       const itemQty = Number(item.qty || item.quantity || 0);
       const itemRate = Number(item.rate || 0);

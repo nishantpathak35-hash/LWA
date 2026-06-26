@@ -152,7 +152,7 @@ export async function getPaymentReportRows(filters = {}, session) {
         if (!isReadyToRemit) return false;
       }
       if (type === 'remitted') {
-        const isRemitted = String(r.stage).toLowerCase() === 'remitted' || String(r.remittance).toLowerCase() === 'remitted';
+        const isRemitted = String(r.stage || '').toLowerCase().trim() === 'remitted' || String(r.remittance || '').toLowerCase().trim() === 'remitted';
         if (!isRemitted) return false;
       }
     }

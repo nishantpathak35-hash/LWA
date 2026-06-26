@@ -87,7 +87,10 @@ export default function VendorsView() {
     try {
       const fullVendor = await call('getVendorByName', v.code || v.name);
       const src = fullVendor || v;
-      setEditVendorId(src.vendorId || v.code || '');
+      // Use vendor_code as the stable entityId for attachments.
+      // Fall back through v.code → legalName → name for legacy PO-sourced vendors.
+      const resolvedId = src.vendorId || v.code || src.legalName || v.legalName || v.name || '';
+      setEditVendorId(resolvedId);
       setEditLegalName(src.legalName || v.legalName || v.name || '');
       setEditTradeName(src.tradeName || v.name || '');
       setEditGstin(src.gstin || v.gstin || '');

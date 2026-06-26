@@ -2,6 +2,7 @@
 import React from 'react';
 import { Dialog, Button, Input, Select } from '../../ui/core';
 import { ShieldAlert } from 'lucide-react';
+import AttachmentsSection from '../../ui/AttachmentsSection';
 
 export default function VendorEditModal({
   editModalOpen, setEditModalOpen, editVendorId,
@@ -70,6 +71,12 @@ export default function VendorEditModal({
           <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">BILLING ADDRESS</label>
           <Input type="text" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
         </div>
+
+        {editVendorId && editVendorId.trim() !== '' && (
+          <div className="pt-2 border-t border-slate-900">
+            <AttachmentsSection entityType="vendor" entityId={editVendorId} />
+          </div>
+        )}
 
         {formError && (
           <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">

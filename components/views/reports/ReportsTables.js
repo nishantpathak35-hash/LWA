@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2, Mail } from 'lucide-react';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Card, CardHeader, CardTitle, CardContent } from '../../ui/core';
 import { fmtRupees, fmtLakhs, stageBadge, wfSteps } from './report-utils';
 
 export default function ReportsTables({
@@ -347,7 +347,7 @@ export default function ReportsTables({
               const net = gross - tds;
               const rejBy = p.rejectedBy ? ({ proc: 'Procurement', finance: 'Finance', director: 'Director' }[p.rejectedBy] || p.rejectedBy) : '—';
               
-              const canSendAdvice = p.can_send_payment_advice || String(p.stage || '').toLowerCase() === 'remitted' || String(p.remittance || '').toLowerCase() === 'remitted';
+              const canSendAdvice = String(p.stage || '').toLowerCase().trim() === 'remitted' || String(p.remittance || '').toLowerCase().trim() === 'remitted';
 
               return (
                 <TableRow key={p.rowNumber || idx}>
@@ -363,7 +363,7 @@ export default function ReportsTables({
                   <TableCell className={p.rejectedBy ? 'text-red-400' : 'text-slate-550'}>{rejBy}</TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
-                      {canRemit && (String(p.stage || '').toLowerCase() === 'approved' || String(p.stage || '').toLowerCase().includes('remit')) && !String(p.stage || '').toLowerCase().includes('remitted') && (
+                      {canRemit && (String(p.stage || '').toLowerCase().trim() === 'approved' || String(p.stage || '').toLowerCase().trim().includes('remit')) && !String(p.stage || '').toLowerCase().trim().includes('remitted') && String(p.remittance || '').toLowerCase().trim() !== 'remitted' && (
                         <Button
                           variant="primary"
                           size="sm"
@@ -385,7 +385,7 @@ export default function ReportsTables({
                           {sendingAdviceId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
                         </Button>
                       )}
-                      {(isAdmin || isDirector) && String(p.stage || '').toLowerCase() === 'remitted' && (
+                      {(isAdmin || isDirector || isFinance) && String(p.stage || '').toLowerCase() === 'remitted' && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -396,7 +396,7 @@ export default function ReportsTables({
                           Delete
                         </Button>
                       )}
-                      {!canSendAdvice && !(canRemit && (String(p.stage || '').toLowerCase() === 'approved' || String(p.stage || '').toLowerCase().includes('remit')) && !String(p.stage || '').toLowerCase().includes('remitted')) && !((isAdmin || isDirector) && String(p.stage || '').toLowerCase() === 'remitted') && (
+                      {!canSendAdvice && !(canRemit && (String(p.stage || '').toLowerCase() === 'approved' || String(p.stage || '').toLowerCase().includes('remit')) && !String(p.stage || '').toLowerCase().includes('remitted')) && !((isAdmin || isDirector || isFinance) && String(p.stage || '').toLowerCase() === 'remitted') && (
                         <span className="text-slate-700">—</span>
                       )}
                     </div>

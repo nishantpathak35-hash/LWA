@@ -7,18 +7,21 @@ export default function AttachmentsSection({ entityType, entityId }) {
   const { call } = useAppState();
   const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function fetchAttachments() {
       if (!entityId) return;
+      setLoadError(null);
       try {
         setLoading(true);
         const data = await call('getAttachments', { entityType, entityId });
         if (active) setAttachments(data || []);
       } catch (err) {
-        console.error("Failed to load attachments:", err);
+        console.error('Failed to load attachments:', err);
+        if (active) setLoadError('Could not load attachments. ' + (err.message || ''));
       } finally {
         if (active) setLoading(false);
       }
@@ -106,6 +109,10 @@ export default function AttachmentsSection({ entityType, entityId }) {
 
       {loading ? (
         <div className="text-xs text-slate-500 italic p-4 text-center">Loading attachments...</div>
+      ) : loadError ? (
+        <div className="p-4 border border-red-900/40 border-dashed rounded-lg text-center text-xs text-red-400 font-light">
+          {loadError}
+        </div>
       ) : attachments.length === 0 ? (
         <div className="p-4 border border-slate-800 border-dashed rounded-lg text-center text-xs text-slate-500 font-light">
           No attachments added yet.
