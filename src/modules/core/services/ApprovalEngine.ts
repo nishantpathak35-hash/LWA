@@ -10,13 +10,13 @@ export class ApprovalEngine {
     {
       fromStage: 'Pending Procurement',
       toStage: 'Pending Finance',
-      requiredRoles: ['procurement', 'proc', 'maker', 'finance', 'director', 'admin'],
+      requiredRoles: ['procurement', 'proc', 'maker', 'admin'],
       updates: { proc_approval: 'Approved' }
     },
     {
       fromStage: 'Pending Finance',
       toStage: 'Pending Director',
-      requiredRoles: ['finance', 'director', 'admin'],
+      requiredRoles: ['finance', 'admin'],
       updates: { proc_approval: 'Approved', finance_approval: 'Approved' }
     },
     {
@@ -65,12 +65,16 @@ export class ApprovalEngine {
     let dirApp = 'Pending';
     let stage = 'Rejected';
 
-    if (isDirOrAdmin) {
+    if (userRoles.includes('admin')) {
       dirApp = 'Rejected';
-    } else if (isFin) {
+    } else if (isDirOrAdmin && currentStage === 'Pending Director') {
+      dirApp = 'Rejected';
+    } else if (isFin && currentStage === 'Pending Finance') {
       finApp = 'Rejected';
-    } else {
+    } else if ((userRoles.includes('procurement') || userRoles.includes('proc') || userRoles.includes('maker')) && currentStage === 'Pending Procurement') {
       procApp = 'Rejected';
+    } else {
+      throw new Error(`You do not have permission to reject this request from its current stage (${currentStage}).`);
     }
 
     return {

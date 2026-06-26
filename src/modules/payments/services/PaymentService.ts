@@ -72,6 +72,10 @@ export class PaymentService {
     const oldStage = pr.stage || 'Pending Procurement';
     const { newStage, updates } = approvalEngine.getNextStage(oldStage, userRoles);
 
+    if (oldStage === newStage) {
+      throw new Error(`You do not have permission to approve this request, or it cannot be approved from its current stage (${oldStage}).`);
+    }
+
     await PaymentRepository.updateRequest(prId, {
       ...updates,
       stage: newStage,
