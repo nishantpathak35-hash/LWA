@@ -654,6 +654,7 @@ export default function PaymentsView() {
         getHealthTheme={getHealthTheme}
         multiSelectSummary={activeProjectMultiSelectSummary}
         loadingSummary={loadingSummary}
+        allSelectedActionable={selectedRequestsData.length > 0 && selectedRequestsData.every(canActOnReq)}
         onApproveSelected={handleBulkApproveReview}
         onRejectSelected={() => setBulkRejectModalOpen(true)}
         onClearSelection={() => setSelectedPayments([])}

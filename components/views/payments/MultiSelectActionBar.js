@@ -18,7 +18,8 @@ export default function MultiSelectActionBar({
   onApproveSelected,
   onRejectSelected,
   onClearSelection,
-  loadingSummary
+  loadingSummary,
+  allSelectedActionable = true
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -110,10 +111,22 @@ export default function MultiSelectActionBar({
           <Button variant="ghost" onClick={onClearSelection} className="text-slate-400 hover:text-slate-200">
             Clear Selection
           </Button>
-          <Button variant="outline" onClick={onRejectSelected} className="border-rose-500/50 text-rose-400 hover:bg-rose-500/10">
+          <Button 
+            variant="outline" 
+            onClick={onRejectSelected} 
+            className="border-rose-500/50 text-rose-400 hover:bg-rose-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!allSelectedActionable}
+            title={!allSelectedActionable ? "Selection contains items you don't have permission to reject" : ""}
+          >
             <XCircle className="w-4 h-4 mr-2" /> Reject Selected
           </Button>
-          <Button variant="primary" onClick={onApproveSelected} className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)] border-emerald-500">
+          <Button 
+            variant="primary" 
+            onClick={onApproveSelected} 
+            className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)] border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!allSelectedActionable}
+            title={!allSelectedActionable ? "Selection contains items you don't have permission to approve" : ""}
+          >
             <CheckCircle className="w-4 h-4 mr-2" /> Approve Selected
           </Button>
         </div>
