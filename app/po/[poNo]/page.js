@@ -176,7 +176,7 @@ export default async function POPdfPage({ params }) {
         {/* Header Block */}
         <div className="flex justify-between items-start border-b border-slate-350 pb-6 gap-6">
           <div className="flex-1 min-w-0">
-            {logoUri && <img src={logoUri} alt="Company Logo" className="h-32 w-auto object-contain mb-3 mix-blend-multiply" />}
+            {logoUri && <img src={logoUri} alt="Company Logo" style={{ height: '140px', mixBlendMode: 'multiply' }} className="w-auto object-contain mb-3" />}
             <h1 className="text-xl font-bold tracking-wide text-slate-800 font-sans uppercase break-words leading-tight">
               {companyName}
             </h1>
