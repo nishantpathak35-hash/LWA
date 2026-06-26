@@ -134,7 +134,7 @@ export default function POsView() {
   const isFinance    = roles.includes('finance');
   const isAccountant = roles.includes('accountant');
   const canCreate    = isProcurement || isAdmin || isDirector;
-  const canApprove   = isDirector || isAdmin || isFinance;
+  const canApprove   = isDirector || isAdmin || isFinance || isProcurement;
   const canManualPay = isAccountant || isAdmin; // Manual Payment: Accountant role only (+ Admin)
 
   // ── Derived Totals ──
