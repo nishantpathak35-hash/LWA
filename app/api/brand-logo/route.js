@@ -30,10 +30,14 @@ export async function GET() {
       return new Response('Logo asset not found', { status: 404 });
     }
 
+    if (logoUri.startsWith('http') || logoUri.startsWith('/')) {
+      return NextResponse.redirect(new URL(logoUri, 'http://localhost')); // Wait, redirecting requires an absolute URL if it's relative.
+    }
+
     const match = logoUri.match(/^data:(image\/[^;]+);base64,(.+)$/);
 
     if (!match) {
-      // If it's just a regular URL or path, we can't parse it as base64
+      // If it's another kind of data URI or invalid, just return 400
       return new Response('Logo format not supported', { status: 400 });
     }
 

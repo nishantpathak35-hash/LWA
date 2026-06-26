@@ -34,7 +34,26 @@ export default async function POPdfPage({ params }) {
   };
   const companyPan = getPanFromGstin(companyGstin);
 
-  const logoUri = '/api/brand-logo';
+  let logoUri = '';
+  try {
+    let rawLogo = '';
+    const logoRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_logo'`);
+    if (logoRow && logoRow.value) {
+      rawLogo = logoRow.value.trim();
+    } else if (fs.existsSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'))) {
+      rawLogo = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8').trim();
+    }
+    
+    if (rawLogo) {
+      if (rawLogo.startsWith('http') || rawLogo.startsWith('/')) {
+        logoUri = rawLogo; // Direct URL
+      } else {
+        logoUri = '/api/brand-logo'; // Base64 served via API
+      }
+    }
+  } catch (e) {
+    console.error("Failed to check logo existence:", e.message);
+  }
 
   // Read Signature & Stamp Logo
   let signatureUri = '';
