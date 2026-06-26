@@ -50,7 +50,7 @@ export default async function POPdfPage({ params }) {
       if (rawLogo.startsWith('http') || rawLogo.startsWith('/')) {
         logoUri = rawLogo; // Direct URL
       } else {
-        logoUri = '/api/brand-logo'; // Base64 served via API
+        logoUri = `/api/brand-logo?v=${Date.now()}`; // Base64 served via API
       }
     }
   } catch (e) {

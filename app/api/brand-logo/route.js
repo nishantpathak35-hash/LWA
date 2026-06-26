@@ -3,7 +3,9 @@ import { queryGet } from '../../lib/db.js';
 import fs from 'fs';
 import path from 'path';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(request) {
   try {
     let logoUri = '';
     
@@ -53,7 +55,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': mimeType,
-        'Cache-Control': 'public, max-age=86400'
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
   } catch (error) {
