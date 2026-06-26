@@ -379,7 +379,7 @@ export default function POsView() {
         }
         toast(msg);
       } else {
-        await call('createPOFull', payload);
+        await call('savePO', payload);
         toast('Purchase Order created as Draft. Submit for approval from the PO list.');
       }
       await refreshData();
