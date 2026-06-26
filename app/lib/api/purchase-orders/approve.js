@@ -1,7 +1,7 @@
 // Domain: purchase-orders
 import { queryAll, queryGet, queryRun } from '../../db.js';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
-import { logAudit, ensureSettingsTable } from '../core.js';
+import { logAudit } from '../core.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -11,7 +11,7 @@ function requireAuth(session) {
 export async function submitPOForApproval(poNo, session) {
   requireAuth(session);
   if (!poNo) throw new Error('PO Number is required');
-  await ensureSettingsTable();
+
   const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
   if (!po) throw new Error('PO not found: ' + poNo);
   const st = String(po.approval_status || po.status || 'Draft').toLowerCase();
@@ -35,7 +35,7 @@ export async function approvePO(poNo, action, remarks, session) {
   requireAuth(session);
   if (!poNo) throw new Error('PO Number is required');
   if (!action || !['approve', 'reject'].includes(action)) throw new Error('Action must be approve or reject');
-  await ensureSettingsTable();
+
 
   const roles = session?.roles || [];
   const canApprove = roles.includes('director') || roles.includes('admin') || roles.includes('finance');
@@ -68,7 +68,7 @@ export async function addPOComment(poNo, comment, session) {
   if (!poNo) throw new Error('PO Number is required');
   if (!comment) throw new Error('Comment text is required');
   
-  await ensureSettingsTable();
+
   const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
   if (!po) throw new Error('PO not found: ' + poNo);
 
