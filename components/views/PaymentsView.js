@@ -279,11 +279,6 @@ export default function PaymentsView() {
     }
   }, [activeMultiSelectProject, call]);
 
-  const handleOpenRequestModal = () => {
-    setFormError(null);
-    setNewRequestModalOpen(true);
-  };
-
   const canActOnReq = (req) => {
     const stage = String(req.approval_stage || req.stage || '').toLowerCase();
     const isPending = String(req.status || '').toLowerCase() === 'pending';
