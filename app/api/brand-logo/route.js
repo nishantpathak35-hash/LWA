@@ -22,9 +22,6 @@ export async function GET() {
       try {
         if (fs.existsSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'))) {
           logoUri = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8').trim();
-        } else if (fs.existsSync(path.join(process.cwd(), 'Logo.jpeg'))) {
-          const imgBuffer = fs.readFileSync(path.join(process.cwd(), 'Logo.jpeg'));
-          logoUri = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
         }
       } catch (e) {
         // Ignored, we'll return 404 below
