@@ -178,7 +178,7 @@ export default async function POPdfPage({ params }) {
           <div className="flex-1 min-w-0">
             {logoUri && (
               <div style={{ width: '220px', height: '60px', overflow: 'hidden', position: 'relative', marginBottom: '12px' }}>
-                <img src={logoUri} alt="Company Logo" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', height: '350px', mixBlendMode: 'multiply' }} className="max-w-none" />
+                <img src={logoUri} alt="Company Logo" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-58%, -50%)', height: '350px', mixBlendMode: 'multiply' }} className="max-w-none" />
               </div>
             )}
             <h1 className="text-xl font-bold tracking-wide text-slate-800 font-sans uppercase break-words leading-tight">
