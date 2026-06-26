@@ -61,9 +61,9 @@ function findVendorBySelection(vendors, selection) {
 
 function findVendorSelection(vendors, code, name) {
   const indexed = vendors.map((vendor, index) => ({ vendor, index }));
-  const match = indexed.find(({ vendor }) => vendor.code === code && (!name || vendor.name === name || vendor.legalName === name))
-    || indexed.find(({ vendor }) => name && (vendor.name === name || vendor.legalName === name))
-    || indexed.find(({ vendor }) => vendor.code === code)
+  const match = indexed.find(({ vendor }) => vendor?.code === code && (!name || vendor?.name === name || vendor?.legalName === name))
+    || indexed.find(({ vendor }) => name && (vendor?.name === name || vendor?.legalName === name))
+    || indexed.find(({ vendor }) => vendor?.code === code)
     || indexed[0];
   return match ? getVendorSelectValue(match.vendor, match.index) : '';
 }

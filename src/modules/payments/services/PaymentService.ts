@@ -69,7 +69,7 @@ export class PaymentService {
     const tdsPct = tdsConfig.percentage !== undefined ? Number(tdsConfig.percentage) : (pr.tds_percentage || 0);
     const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '194C');
 
-    const oldStage = pr.stage;
+    const oldStage = pr.stage || 'Pending Procurement';
     const { newStage, updates } = approvalEngine.getNextStage(oldStage, userRoles);
 
     await PaymentRepository.updateRequest(prId, {
