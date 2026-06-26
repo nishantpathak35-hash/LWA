@@ -9,9 +9,9 @@ export async function GET() {
     
     // First try to fetch from database
     try {
-      const row = await queryGet(`SELECT setting_value FROM company_settings WHERE setting_key = 'logo'`);
-      if (row && row.setting_value) {
-        logoUri = row.setting_value;
+      const row = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_logo'`);
+      if (row && row.value) {
+        logoUri = row.value;
       }
     } catch (e) {
       console.error('Failed to fetch logo from database:', e);
