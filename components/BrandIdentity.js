@@ -38,7 +38,7 @@ export default function BrandIdentity({
             width={logoSize.px}
             height={logoSize.px}
             unoptimized
-            className="h-full w-full object-contain"
+            className="h-full w-full object-contain scale-[2.5]"
             onError={() => setLogoFailed(true)}
           />
         )}
