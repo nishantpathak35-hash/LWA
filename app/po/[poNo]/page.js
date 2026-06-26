@@ -40,8 +40,8 @@ export default async function POPdfPage({ params }) {
     logoUri = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8');
   } catch (e) {
     try {
-      const logoRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_logo'`);
-      if (logoRow) logoUri = logoRow.value;
+      const logoRow = await queryGet(`SELECT setting_value FROM company_settings WHERE setting_key = 'logo'`);
+      if (logoRow && logoRow.setting_value) logoUri = logoRow.setting_value;
     } catch (dbLogoErr) {
       console.error("Failed to load PO printable logo:", e.message);
     }

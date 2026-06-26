@@ -42,13 +42,13 @@ export default function POFormModal(props) {
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PROJECT *</label>
               <Select value={project} onChange={e => setProject(e.target.value)} required>
                 <option value="">-- Select Project --</option>
-                {projects.map((p, i) => <option key={i} value={p.name}>{p.name}</option>)}
+                {projects.map((p, i) => <option key={i} value={p?.name}>{p?.name}</option>)}
               </Select>
             </div>
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR *</label>
               <Select value={vendorCode} onChange={e => setVendorCode(e.target.value)}>
-                {vendors.map((v, i) => <option key={getVendorSelectValue(v, i)} value={getVendorSelectValue(v, i)}>{v.name} ({v.code || 'No Code'})</option>)}
+                {vendors.map((v, i) => <option key={getVendorSelectValue(v, i)} value={getVendorSelectValue(v, i)}>{v?.name} ({v?.code || 'No Code'})</option>)}
               </Select>
             </div>
             <div>
@@ -237,7 +237,7 @@ export default function POFormModal(props) {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-900/60">
-                          {paymentData.payments.map((p, i) => (
+                          {paymentData.payments?.map((p, i) => (
                             <tr key={i} className="hover:bg-slate-900/20">
                               <td className="px-3 py-2">{p.payment_date}</td>
                               <td className="px-3 py-2 font-semibold text-emerald-400">{formatCurrency(p.amount)}</td>

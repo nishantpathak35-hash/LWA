@@ -41,9 +41,9 @@ function getPaymentStatusBadge(status) {
 }
 
 function calcItem(item) {
-  const qty  = Number(item.quantity || item.qty) || 0;
-  const rate = Number(item.rate) || 0;
-  const gst  = Number(item.gstPct) || 0;
+  const qty  = Number(item?.quantity || item?.qty) || 0;
+  const rate = Number(item?.rate) || 0;
+  const gst  = Number(item?.gstPct) || 0;
   const gross = qty * rate;
   const gstAmt = Math.round(gross * gst / 100);
   return { gross, gstAmt, total: gross + gstAmt };
