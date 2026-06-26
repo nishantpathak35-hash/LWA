@@ -13,6 +13,9 @@ import PaymentListTable from './payments/PaymentListTable';
 import PaymentFormModal from './payments/PaymentFormModal';
 import PaymentApprovalModal from './payments/PaymentApprovalModal';
 import PaymentHistoryModal from './payments/PaymentHistoryModal';
+import MultiSelectActionBar from './payments/MultiSelectActionBar';
+import BulkApprovalReviewModal from './payments/BulkApprovalReviewModal';
+import BulkRejectModal from './payments/BulkRejectModal';
 
 export default function PaymentsView() {
   const { payments, setPayments, vendors, pos, user, call, refreshData } = useAppState();
@@ -39,6 +42,14 @@ export default function PaymentsView() {
   const [approvalTdsSec, setApprovalTdsSec] = useState('194C');
   const [approvalTdsAmt, setApprovalTdsAmt] = useState(0);
   const [approvalApprovedAmount, setApprovalApprovedAmount] = useState(0);
+
+  // Multi-Select & Bulk Workflow state
+  const [selectedPayments, setSelectedPayments] = useState([]);
+  const [activeMultiSelectProjectIndex, setActiveMultiSelectProjectIndex] = useState(0);
+  const [bulkApproveModalOpen, setBulkApproveModalOpen] = useState(false);
+  const [bulkRejectModalOpen, setBulkRejectModalOpen] = useState(false);
+  const [bulkRejectComment, setBulkRejectComment] = useState('');
+  const [bulkApprovalData, setBulkApprovalData] = useState([]); // Array of request details for review grid
 
   // Project Financial Summary state
   const [projectSummary, setProjectSummary] = useState(null);
@@ -196,6 +207,92 @@ export default function PaymentsView() {
       return false;
     });
   }, [payments, searchQuery, activeTab, isAdmin, isProcurement, isFinance, isDirector]);
+
+  // Multi-Select Computation Logic
+  const selectedRequestsData = useMemo(() => {
+    return payments.filter(p => selectedPayments.includes(p.id));
+  }, [payments, selectedPayments]);
+
+  const projectsForSelection = useMemo(() => {
+    const projectsMap = new Map(); // Project Name -> [Requests]
+    selectedRequestsData.forEach(req => {
+      const proj = req.project || 'Unassigned Project';
+      if (!projectsMap.has(proj)) projectsMap.set(proj, []);
+      projectsMap.get(proj).push(req);
+    });
+    return Array.from(projectsMap.entries()).map(([name, requests]) => ({ name, requests }));
+  }, [selectedRequestsData]);
+
+  const overallSelectionSummary = useMemo(() => {
+    let totalProjects = projectsForSelection.length;
+    let totalRequests = selectedRequestsData.length;
+    let totalVendors = new Set(selectedRequestsData.map(r => r.vendor_name)).size;
+    let totalRequestedAmount = selectedRequestsData.reduce((sum, r) => sum + Number(r.amount_requested || r.gross_amount || 0), 0);
+    let totalPendingApproval = selectedRequestsData.reduce((sum, r) => {
+      const stage = String(r.approval_stage || r.stage || '').toLowerCase();
+      // If it is pending or not fully remitted yet, count it as pending approval
+      if (!stage.includes('remitted')) return sum + Number(r.amount_requested || r.gross_amount || 0);
+      return sum;
+    }, 0);
+
+    return { totalProjects, totalRequests, totalVendors, totalRequestedAmount, totalPendingApproval };
+  }, [projectsForSelection, selectedRequestsData]);
+
+  const activeMultiSelectProject = projectsForSelection[activeMultiSelectProjectIndex];
+
+  const activeProjectMultiSelectSummary = useMemo(() => {
+    if (!activeMultiSelectProject) return null;
+    const requests = activeMultiSelectProject.requests;
+    const selectedAmount = requests.reduce((sum, r) => sum + Number(r.amount_requested || r.gross_amount || 0), 0);
+    // Find ALL requests for this project to calculate total requested, remaining, pending
+    const allProjectRequests = payments.filter(p => p.project === activeMultiSelectProject.name);
+    const totalRequested = allProjectRequests.reduce((sum, r) => sum + Number(r.amount_requested || r.gross_amount || 0), 0);
+    const remainingOutstanding = totalRequested - selectedAmount;
+    
+    const pendingApproval = allProjectRequests.reduce((sum, r) => {
+      const stage = String(r.approval_stage || r.stage || '').toLowerCase();
+      if (!stage.includes('remitted') && !stage.includes('reject')) return sum + Number(r.amount_requested || r.gross_amount || 0);
+      return sum;
+    }, 0);
+
+    return {
+      totalRequested,
+      selectedAmount,
+      remainingOutstanding: Math.max(0, remainingOutstanding),
+      pendingApproval
+    };
+  }, [activeMultiSelectProject, payments]);
+
+  // Fetch Project Financials automatically when activeMultiSelectProject changes
+  useEffect(() => {
+    if (!activeMultiSelectProject) return;
+    const req = activeMultiSelectProject.requests[0];
+    if (req) {
+      setLoadingSummary(true);
+      call('getProjectFinancialSummary', req.id)
+        .then(summary => setProjectSummary(summary))
+        .catch(err => {
+          console.error("Failed to fetch multi-select project summary", err);
+          setProjectSummary(null);
+        })
+        .finally(() => setLoadingSummary(false));
+    }
+  }, [activeMultiSelectProject, call]);
+
+  // Handle Multi-Select actions
+  const handleSelectPayment = (id) => {
+    setSelectedPayments(prev => 
+      prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllPayments = (checked) => {
+    if (checked) {
+      setSelectedPayments(filteredRequests.map(r => r.id));
+    } else {
+      setSelectedPayments([]);
+    }
+  };
 
   const handleOpenRequestModal = () => {
     const defaultVendor = vendors[0]?.code || '';
@@ -432,8 +529,88 @@ export default function PaymentsView() {
     );
   };
 
+  const handleBulkApproveReview = () => {
+    const data = selectedRequestsData.map(req => {
+      const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
+      const gross = Number(req.amount_requested || req.gross_amount || 0);
+      const tdsSec = req.tds_section || relatedPO?.tds_section || '194C';
+      const tdsAmt = Number(req.tds_amount || 0);
+      return {
+        id: req.id,
+        vendor_name: req.vendor_name,
+        po_no: req.po_no,
+        project: req.project,
+        grossAmount: gross,
+        approvedAmount: Number(req.approved_amount ?? gross),
+        tdsSec: tdsSec,
+        tdsAmt: tdsAmt,
+        netPayable: Math.max((Number(req.approved_amount ?? gross)) - tdsAmt, 0)
+      };
+    });
+    setBulkApprovalData(data);
+    setBulkApproveModalOpen(true);
+  };
+
+  const handleUpdateBulkApprovalData = (id, field, value) => {
+    setBulkApprovalData(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const updated = { ...item, [field]: value };
+      if (field === 'approvedAmount' || field === 'tdsAmt') {
+        updated.netPayable = Math.max(Number(updated.approvedAmount || 0) - Number(updated.tdsAmt || 0), 0);
+      }
+      return updated;
+    }));
+  };
+
+  const submitBulkApprove = async () => {
+    setSubmitting(true);
+    try {
+      const tdsConfigs = {};
+      bulkApprovalData.forEach(item => {
+        tdsConfigs[item.id] = {
+          approved_amount: item.approvedAmount,
+          amount: item.tdsAmt,
+          section: item.tdsSec
+        };
+      });
+      const result = await call('bulkApprovePayments', selectedPayments, { comments: 'Bulk Approved', tds_configs: tdsConfigs });
+      if (result.failed && result.failed.length > 0) {
+        toast.error(`Approved ${result.total_approved}. Failed ${result.total_failed}.`);
+      } else {
+        toast.success(`Successfully approved ${result.total_approved} payments!`);
+        setSelectedPayments([]);
+      }
+      await refreshData();
+      setBulkApproveModalOpen(false);
+    } catch (err) {
+      toast.error(err.message || 'Bulk approve failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitBulkReject = async () => {
+    setSubmitting(true);
+    try {
+      const result = await call('bulkRejectPayments', selectedPayments, { remarks: bulkRejectComment });
+      if (result.failed && result.failed.length > 0) {
+        toast.error(`Rejected ${result.total_rejected}. Failed ${result.total_failed}.`);
+      } else {
+        toast.success(`Successfully rejected ${result.total_rejected} payments.`);
+        setSelectedPayments([]);
+      }
+      await refreshData();
+      setBulkRejectModalOpen(false);
+      setBulkRejectComment('');
+    } catch (err) {
+      toast.error(err.message || 'Bulk reject failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in font-sans">
+    <div className="space-y-8 animate-fade-in font-sans pb-32 relative">
 
       <PaymentFilters
         canOnboard={canOnboard} handleOpenRequestModal={handleOpenRequestModal}
@@ -446,8 +623,48 @@ export default function PaymentsView() {
         handleOpenWorkflowModal={handleOpenWorkflowModal} user={user}
         isAdmin={isAdmin} isFinance={isFinance} isDirector={isDirector}
         pos={pos} getWorkflowActionButton={getWorkflowActionButton} handleSendPaymentAdvice={handleSendPaymentAdvice}
+        selectedPayments={selectedPayments}
+        onSelectPayment={handleSelectPayment}
+        onSelectAll={handleSelectAllPayments}
       />
       
+      <MultiSelectActionBar
+        selectedRequests={selectedRequestsData}
+        overallSummary={overallSelectionSummary}
+        activeProjectName={activeMultiSelectProject?.name}
+        projectsList={projectsForSelection}
+        activeProjectIndex={activeMultiSelectProjectIndex}
+        setActiveProjectIndex={setActiveMultiSelectProjectIndex}
+        projectSummary={projectSummary}
+        progressWidths={progressWidths}
+        getHealthTheme={getHealthTheme}
+        multiSelectSummary={activeProjectMultiSelectSummary}
+        loadingSummary={loadingSummary}
+        onApproveSelected={handleBulkApproveReview}
+        onRejectSelected={() => setBulkRejectModalOpen(true)}
+        onClearSelection={() => setSelectedPayments([])}
+      />
+
+      <BulkApprovalReviewModal
+        open={bulkApproveModalOpen}
+        onClose={() => setBulkApproveModalOpen(false)}
+        selectedRequestsDetails={bulkApprovalData}
+        onUpdateApprovalData={handleUpdateBulkApprovalData}
+        onConfirmApprove={submitBulkApprove}
+        submitting={submitting}
+        canEditApprovalTds={canEditApprovalTds}
+      />
+
+      <BulkRejectModal
+        open={bulkRejectModalOpen}
+        onClose={() => setBulkRejectModalOpen(false)}
+        selectedCount={selectedPayments.length}
+        rejectComment={bulkRejectComment}
+        setRejectComment={setBulkRejectComment}
+        onConfirmReject={submitBulkReject}
+        submitting={submitting}
+      />
+
       <PaymentFormModal
         requestModalOpen={requestModalOpen} setRequestModalOpen={setRequestModalOpen}
         vendorCode={vendorCode} setVendorCode={setVendorCode} vendors={vendors}

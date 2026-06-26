@@ -4,8 +4,11 @@ import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail } from '
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 
 export default function PaymentListTable({
-  displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector, pos, getWorkflowActionButton, handleSendPaymentAdvice
+  displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector, pos, getWorkflowActionButton, handleSendPaymentAdvice,
+  selectedPayments = [], onSelectPayment, onSelectAll
 }) {
+  const allSelected = displayedRequests.length > 0 && selectedPayments.length === displayedRequests.length;
+
   return (
     <>
       {/* Requests Table Card */}
@@ -19,6 +22,14 @@ export default function PaymentListTable({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12 text-center">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-slate-700 bg-slate-900 text-gold focus:ring-gold/50 cursor-pointer"
+                      checked={allSelected}
+                      onChange={(e) => onSelectAll?.(e.target.checked)}
+                    />
+                  </TableHead>
                   <TableHead>ID</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Vendor</TableHead>
@@ -34,8 +45,17 @@ export default function PaymentListTable({
                 {displayedRequests.map((req, idx) => {
                   const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
                   const poValue = relatedPO ? relatedPO.po_value : 0;
+                  const isSelected = selectedPayments.includes(req.id);
                   return (
-                    <TableRow key={idx}>
+                    <TableRow key={idx} className={isSelected ? 'bg-gold/5' : ''}>
+                      <TableCell className="text-center">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-slate-700 bg-slate-900 text-gold focus:ring-gold/50 cursor-pointer"
+                          checked={isSelected}
+                          onChange={() => onSelectPayment?.(req.id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-semibold text-xs text-slate-400">#{req.id}</TableCell>
                       <TableCell>{req.project || '—'}</TableCell>
                       <TableCell className="font-medium text-slate-200">{req.vendor_name}</TableCell>
@@ -62,7 +82,7 @@ export default function PaymentListTable({
                         <History className="w-3.5 h-3.5" />
                       </Button>
                       {/* Payment Advice — ONLY for successfully remitted payments, NEVER for rejected */}
-                      {String(req.stage).toLowerCase() === 'remitted' && (
+                      {(String(req.stage || '').toLowerCase().trim() === 'remitted' || String(req.remittance || '').toLowerCase().trim() === 'remitted') && (
                         <Button 
                           variant="ghost" 
                           size="icon" 
