@@ -371,7 +371,7 @@ export default function POsView() {
 
       let result;
       if (editingPoNo) {
-        setPos(prev => prev.map(p => p.po_no === editingPoNo ? { ...p, ...payload } : p));
+        // Remove optimistic update for editing as well to be completely safe against render crashes
         result = await call('updatePOFull', editingPoNo, payload);
         let msg = `Purchase Order ${editingPoNo} updated.`;
         if (result?.newStatus && result.newStatus !== (editingPO?.approval_status || editingPO?.status)) {
@@ -379,7 +379,6 @@ export default function POsView() {
         }
         toast(msg);
       } else {
-        setPos(prev => [{ ...payload, po_date: poDate, po_no: payload.poNo, id: Date.now() }, ...prev]);
         await call('createPOFull', payload);
         toast('Purchase Order created as Draft. Submit for approval from the PO list.');
       }
@@ -470,6 +469,14 @@ export default function POsView() {
       setHistoryTrail(h || []);
     } catch (e) { console.error(e); }
     finally { setLoadingHistory(false); }
+  };
+
+  // Reloads the history trail in-place after a comment is added (no modal close needed)
+  const handlePOCommentAdded = async (po) => {
+    try {
+      const h = await call('getPOApprovalHistory', po.po_no);
+      setHistoryTrail(h || []);
+    } catch (e) { console.error('Failed to reload PO history:', e); }
   };
 
   // ─── Reload Payments (inside modal) ──────────────────────────────────────
@@ -571,6 +578,7 @@ export default function POsView() {
       <POHistoryModal
         historyModalOpen={historyModalOpen} setHistoryModalOpen={setHistoryModalOpen}
         historyTarget={historyTarget} loadingHistory={loadingHistory} historyTrail={historyTrail}
+        onCommentAdded={handlePOCommentAdded}
       />
       
       <POManualPaymentModal
