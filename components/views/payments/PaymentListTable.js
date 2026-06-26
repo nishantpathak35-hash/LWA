@@ -5,9 +5,9 @@ import { formatCurrency, formatDate } from '../../../app/lib/utils';
 
 export default function PaymentListTable({
   displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector, pos, getWorkflowActionButton, handleSendPaymentAdvice,
-  selectedPayments = [], onSelectPayment, onSelectAll
+  selectedPayments = [], onSelectPayment, onSelectAll, canActOnReq
 }) {
-  const allSelected = displayedRequests.length > 0 && selectedPayments.length === displayedRequests.length;
+  const allSelected = displayedRequests.length > 0 && selectedPayments.length === displayedRequests.filter(canActOnReq).length;
 
   return (
     <>
@@ -25,7 +25,7 @@ export default function PaymentListTable({
                   <TableHead className="w-12 text-center">
                     <input 
                       type="checkbox" 
-                      className="rounded border-slate-700 bg-slate-900 text-gold focus:ring-gold/50 cursor-pointer"
+                      className="rounded border-slate-700 bg-slate-900 text-gold focus:ring-gold/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       checked={allSelected}
                       onChange={(e) => onSelectAll?.(e.target.checked)}
                     />
@@ -46,14 +46,16 @@ export default function PaymentListTable({
                   const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
                   const poValue = relatedPO ? relatedPO.po_value : 0;
                   const isSelected = selectedPayments.includes(req.id);
+                  const isActionable = canActOnReq(req);
                   return (
-                    <TableRow key={idx} className={isSelected ? 'bg-gold/5' : ''}>
+                    <TableRow key={idx} className={`${isSelected ? 'bg-gold/5' : ''} ${!isActionable ? 'opacity-60 bg-slate-950/40' : ''}`}>
                       <TableCell className="text-center">
                         <input 
                           type="checkbox" 
-                          className="rounded border-slate-700 bg-slate-900 text-gold focus:ring-gold/50 cursor-pointer"
+                          className="rounded border-slate-700 bg-slate-900 text-gold focus:ring-gold/50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                           checked={isSelected}
-                          onChange={() => onSelectPayment?.(req.id)}
+                          onChange={() => isActionable && onSelectPayment?.(req.id)}
+                          disabled={!isActionable}
                         />
                       </TableCell>
                       <TableCell className="font-semibold text-xs text-slate-400">#{req.id}</TableCell>

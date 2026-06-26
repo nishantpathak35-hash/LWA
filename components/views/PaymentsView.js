@@ -279,16 +279,34 @@ export default function PaymentsView() {
     }
   }, [activeMultiSelectProject, call]);
 
-  // Handle Multi-Select actions
+  const handleOpenRequestModal = () => {
+    setFormError(null);
+    setNewRequestModalOpen(true);
+  };
+
+  const canActOnReq = (req) => {
+    const stage = String(req.approval_stage || req.stage || '').toLowerCase();
+    const isPending = String(req.status || '').toLowerCase() === 'pending';
+    const isRemitStage = stage.includes('remit');
+    if (!isPending && !isRemitStage) return false;
+    if (isAdmin) return true;
+    if (isProcurement && stage.includes('proc')) return true;
+    if (isFinance && stage.includes('finance')) return true;
+    if (isDirector && stage.includes('director')) return true;
+    if (isFinance && stage.includes('remit')) return true;
+    return false;
+  };
+
   const handleSelectPayment = (id) => {
     setSelectedPayments(prev => 
-      prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]
     );
   };
 
   const handleSelectAllPayments = (checked) => {
     if (checked) {
-      setSelectedPayments(filteredRequests.map(r => r.id));
+      // Only select rows the user actually has permission to act on
+      setSelectedPayments(filteredRequests.filter(canActOnReq).map(r => r.id));
     } else {
       setSelectedPayments([]);
     }
@@ -626,6 +644,7 @@ export default function PaymentsView() {
         selectedPayments={selectedPayments}
         onSelectPayment={handleSelectPayment}
         onSelectAll={handleSelectAllPayments}
+        canActOnReq={canActOnReq}
       />
       
       <MultiSelectActionBar
