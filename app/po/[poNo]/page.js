@@ -34,18 +34,7 @@ export default async function POPdfPage({ params }) {
   };
   const companyPan = getPanFromGstin(companyGstin);
 
-  // Read Company Logo (scratch uri or db fallback)
-  let logoUri = '';
-  try {
-    logoUri = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8');
-  } catch (e) {
-    try {
-      const logoRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_logo'`);
-      if (logoRow && logoRow.value) logoUri = logoRow.value;
-    } catch (dbLogoErr) {
-      console.error("Failed to load PO printable logo from DB:", dbLogoErr.message);
-    }
-  }
+  const logoUri = '/api/brand-logo';
 
   // Read Signature & Stamp Logo
   let signatureUri = '';
