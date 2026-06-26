@@ -40,6 +40,8 @@ export default async function POPdfPage({ params }) {
     const logoRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_logo'`);
     if (logoRow && logoRow.value) {
       rawLogo = logoRow.value.trim();
+    } else if (fs.existsSync(path.join(process.cwd(), 'Logo.jpeg'))) {
+      rawLogo = `data:image/jpeg;base64,${fs.readFileSync(path.join(process.cwd(), 'Logo.jpeg')).toString('base64')}`;
     } else if (fs.existsSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'))) {
       rawLogo = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8').trim();
     }
