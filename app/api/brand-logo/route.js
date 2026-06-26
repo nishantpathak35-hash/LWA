@@ -1,13 +1,40 @@
+import { NextResponse } from 'next/server';
+import { queryGet } from '../../lib/db.js';
 import fs from 'fs';
 import path from 'path';
 
 export async function GET() {
   try {
-    const logoUri = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8').trim();
+    let logoUri = '';
+    
+    // First try to fetch from database
+    try {
+      const row = await queryGet(`SELECT setting_value FROM company_settings WHERE setting_key = 'logo'`);
+      if (row && row.setting_value) {
+        logoUri = row.setting_value;
+      }
+    } catch (e) {
+      console.error('Failed to fetch logo from database:', e);
+    }
+
+    // Fallback to legacy file if database logo is not set
+    if (!logoUri) {
+      try {
+        logoUri = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8').trim();
+      } catch (e) {
+        // Ignored, we'll return 404 below
+      }
+    }
+
+    if (!logoUri) {
+      return new Response('Logo asset not found', { status: 404 });
+    }
+
     const match = logoUri.match(/^data:(image\/[^;]+);base64,(.+)$/);
 
     if (!match) {
-      return new Response('Logo asset not found', { status: 404 });
+      // If it's just a regular URL or path, we can't parse it as base64
+      return new Response('Logo format not supported', { status: 400 });
     }
 
     const [, mimeType, base64Data] = match;
