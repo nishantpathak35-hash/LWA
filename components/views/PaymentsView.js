@@ -352,12 +352,23 @@ export default function PaymentsView() {
     }
   };
 
+  // Reloads the history trail in-place after a comment is added (no modal close needed)
+  const handlePaymentCommentAdded = async (req) => {
+    try {
+      const history = await call('getApprovalHistory', req.id);
+      setHistoryTrail(history || []);
+    } catch (e) { console.error('Failed to reload payment history:', e); }
+  };
+
   const handleSendPaymentAdvice = async (reqId) => {
     const req = payments.find(p => p.id === reqId);
     const vendor = vendors.find(v => v.code === req?.vendor_code || v.name === req?.vendor_name);
     const defaultEmail = vendor?.email || '';
-    const email = prompt("Enter vendor's email address to send payment advice:", defaultEmail);
-    if (email === null) return;
+    let email = defaultEmail;
+    if (!email) {
+      email = prompt("Enter vendor's email address to send payment advice:", "");
+      if (email === null) return;
+    }
     if (!email.trim()) {
       toast.error('Email address is required.');
       return;
@@ -465,6 +476,7 @@ export default function PaymentsView() {
       <PaymentHistoryModal
         historyModalOpen={historyModalOpen} setHistoryModalOpen={setHistoryModalOpen}
         selectedRequest={selectedRequest} loadingHistory={loadingHistory} historyTrail={historyTrail}
+        onCommentAdded={handlePaymentCommentAdded}
       />
 
     </div>

@@ -151,8 +151,11 @@ export default function ReportsView() {
   const handleSendPaymentAdvice = async (payment) => {
     const vendor = vendors.find(v => v.code === payment?.vendor_code || v.name === payment?.vendor_name || v.name === payment?.vendor);
     const defaultEmail = vendor?.email || '';
-    const email = prompt("Enter vendor's email address to send payment advice:", defaultEmail);
-    if (email === null) return;
+    let email = defaultEmail;
+    if (!email) {
+      email = prompt("Enter vendor's email address to send payment advice:", "");
+      if (email === null) return;
+    }
     if (!email.trim()) {
       toast.error('Email address is required.');
       return;
@@ -183,10 +186,13 @@ export default function ReportsView() {
     }
     setSubmitting(true);
     try {
-      await call('remitPaymentRequest', selectedRemitPayment.id, {
-        utr: utr.trim(),
-        comment: 'Remitted from Reports'
+      const res = await call('bulkRemitPayments', [selectedRemitPayment.id], {
+        utr_ref: utr.trim(),
+        remarks: 'Remitted from Reports'
       });
+      if (res && !res.ok) {
+        throw new Error(res.errors?.[0] || 'Bulk remit failed internally');
+      }
       toast.success('Payment remitted successfully.');
       setRemitModalOpen(false);
       // Trigger a reload by toggling a state or reloading data
