@@ -1,0 +1,11 @@
+[#Menu: Gateway of Tally]
+    Add : Button : btnAIImport
+
+[Button: btnAIImport]
+    Key : Ctrl + I
+    Title : "AI Import (Silent)"
+    Action : Call : ImportAIInvoice
+
+[Function: ImportAIInvoice]
+    01 : Import Object : Vouchers : "C:\Imports\tally_import_invoice.xml" : Yes
+    02 : MsgBox : "Success" : "AI Invoice imported successfully!"
