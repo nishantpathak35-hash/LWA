@@ -37,6 +37,7 @@ export function StateProvider({ children }) {
   const [pos, setPos] = useState([]);
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [featurePermissions, setFeaturePermissions] = useState({});
   // Role switching: when Super Admin selects a specific role to impersonate
   const [activeRole, setActiveRole] = useState(null);
@@ -144,6 +145,18 @@ export function StateProvider({ children }) {
         if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
           setFeaturePermissions(bundle.featurePermissions);
         }
+        
+        // Fetch invoices independently
+        try {
+          const invData = await call('getInvoices');
+          if (invData && Array.isArray(invData.data)) {
+            setInvoices(invData.data);
+          } else if (Array.isArray(invData)) {
+            setInvoices(invData);
+          }
+        } catch (e) {
+          console.error('Failed to fetch invoices:', e);
+        }
       }
     } catch (e) {
       console.error('Data refresh failed:', e);
@@ -178,6 +191,18 @@ export function StateProvider({ children }) {
           setPayments(bundle.payments || []);
           if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
             setFeaturePermissions(bundle.featurePermissions);
+          }
+          
+          // Fetch invoices independently
+          try {
+            const invData = await call('getInvoices');
+            if (invData && Array.isArray(invData.data)) {
+              setInvoices(invData.data);
+            } else if (Array.isArray(invData)) {
+              setInvoices(invData);
+            }
+          } catch (e) {
+            console.error('Failed to fetch invoices:', e);
           }
         } else {
           logout();
@@ -295,9 +320,13 @@ export function StateProvider({ children }) {
     pos,
     setPos,
     projects,
+    setProjects,
     payments,
     setPayments,
+    invoices,
+    setInvoices,
     featurePermissions,
+    setFeaturePermissions,
     hasPermission,
     activeRole,
     setActiveRole,

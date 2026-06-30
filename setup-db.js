@@ -29,6 +29,19 @@ async function run() {
     )`);
     console.log('po_items table created');
 
+    await c.execute(`CREATE TABLE IF NOT EXISTS invoices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      vendor_name TEXT,
+      invoice_no TEXT,
+      invoice_date TEXT,
+      total_amount REAL DEFAULT 0,
+      raw_text TEXT,
+      status TEXT DEFAULT 'Scanned',
+      created_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    console.log('invoices table created');
+
     // Make sure we have an admin user just in case
     await c.execute({
       sql: 'INSERT OR IGNORE INTO users (email, name, roles, active) VALUES (?, ?, ?, ?)',

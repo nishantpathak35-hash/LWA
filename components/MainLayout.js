@@ -8,6 +8,7 @@ import ProjectsView from './views/ProjectsView';
 import VendorsView from './views/VendorsView';
 import POsView from './views/POsView';
 import PaymentsView from './views/PaymentsView';
+import InvoicesView from './views/InvoicesView';
 import ReportsView from './views/ReportsView';
 import SettingsView from './views/SettingsView';
 import ErrorBoundary from './ErrorBoundary';
@@ -23,6 +24,7 @@ const VIEW_FEATURE_MAP = {
   vendors: 'vendors',
   pos: 'purchase_orders',
   payments: 'payments',
+  invoices: 'payments',
   reports: 'reports',
   settings: 'settings'
 };
@@ -33,6 +35,7 @@ const VIEW_LABELS = {
   vendors: 'Vendors',
   pos: 'Purchase Orders',
   payments: 'Payments',
+  invoices: 'Invoices',
   reports: 'Reports',
   settings: 'Settings',
 };
@@ -52,7 +55,7 @@ const SHORTCUT_MAP = {
 };
 
 
-const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'payments', 'reports', 'settings'];
+const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'payments', 'invoices', 'reports', 'settings'];
 
 function getFirstAllowedView(hasPermission) {
   return ORDERED_VIEWS.find((viewId) => {
@@ -239,6 +242,7 @@ export default function MainLayout() {
       vendors:   <VendorsView />,
       pos:       <POsView />,
       payments:  <PaymentsView />,
+      invoices:  <InvoicesView />,
       reports:   <ReportsView />,
       settings:  <SettingsView />,
     };

@@ -18,6 +18,8 @@ const ALLOWED_METHODS = new Set([
   'listPOsJson',
   'getPOsByVendor',
   'listPaymentRequests',
+  'getInvoices',
+  'saveInvoice',
   'getApprovalQueue',
   'getRemittanceQueue',
   'getCommandCenter',

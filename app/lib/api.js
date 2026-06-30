@@ -12,3 +12,4 @@ export { listPaymentRequests, getApprovalQueue, getRemittanceQueue, getCommandCe
 export { getFeaturePermissions, setFeaturePermissions, clearAllCaches, getCompanySettings, setCompanySettings, getDefaultCCRecipients, setDefaultCCRecipients } from './api/settings.js';
 export { listAuditLog, getPaymentReportRows, getTDSRegisterReport, getVendorTDSReport, getProjectTDSReport, getApprovalAuditReport, getDayWiseApprovalReport } from './api/reports.js';
 export { uploadAttachment, getAttachments, deleteAttachment } from './api/attachments.js';
+export { getInvoices, saveInvoice } from './api/invoices.js';

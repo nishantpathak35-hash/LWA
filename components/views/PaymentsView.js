@@ -16,6 +16,7 @@ import PaymentHistoryModal from './payments/PaymentHistoryModal';
 import MultiSelectActionBar from './payments/MultiSelectActionBar';
 import BulkApprovalReviewModal from './payments/BulkApprovalReviewModal';
 import BulkRejectModal from './payments/BulkRejectModal';
+import InvoiceUploadModal from './payments/InvoiceUploadModal';
 
 export default function PaymentsView() {
   const { payments, setPayments, vendors, pos, user, call, refreshData } = useAppState();
@@ -24,6 +25,7 @@ export default function PaymentsView() {
   
   // Payment Request Form state
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [editingPrId, setEditingPrId] = useState(null); // Edit mode state
   const [vendorCode, setVendorCode] = useState('');
   const [poNo, setPoNo] = useState('');
@@ -664,7 +666,9 @@ export default function PaymentsView() {
     <div className="space-y-8 animate-fade-in font-sans pb-32 relative">
 
       <PaymentFilters
-        canOnboard={canOnboard} handleOpenRequestModal={handleOpenRequestModal}
+        canOnboard={canOnboard} 
+        handleOpenRequestModal={handleOpenRequestModal}
+        handleOpenInvoiceModal={() => setInvoiceModalOpen(true)}
         activeTab={activeTab} setActiveTab={setActiveTab}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
       />
@@ -767,6 +771,11 @@ export default function PaymentsView() {
         historyModalOpen={historyModalOpen} setHistoryModalOpen={setHistoryModalOpen}
         selectedRequest={selectedRequest} loadingHistory={loadingHistory} historyTrail={historyTrail}
         onCommentAdded={handlePaymentCommentAdded}
+      />
+
+      <InvoiceUploadModal 
+        open={invoiceModalOpen} 
+        onClose={() => setInvoiceModalOpen(false)} 
       />
 
     </div>

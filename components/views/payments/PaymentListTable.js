@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
 import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
+import { getPaymentPriorityScore } from '../../../app/lib/paymentAI';
 
 export default function PaymentListTable({
   displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector, pos, getWorkflowActionButton, handleSendPaymentAdvice,
@@ -76,6 +77,13 @@ export default function PaymentListTable({
                       >
                         {req.status || 'Pending'}
                       </Badge>
+                      {String(req.status || '').toLowerCase() === 'pending' && getPaymentPriorityScore(req) !== null && (
+                        <div className="mt-1">
+                          <Badge variant={getPaymentPriorityScore(req) > 75 ? 'success' : getPaymentPriorityScore(req) < 40 ? 'error' : 'secondary'} className="text-[10px] py-0 px-1 border-dashed">
+                            ⚡ AI Priority: {getPaymentPriorityScore(req)}%
+                          </Badge>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-slate-400 font-light">{req.approval_stage || 'Completed'}</TableCell>
                       <TableCell className="text-center flex items-center justify-center gap-2">
