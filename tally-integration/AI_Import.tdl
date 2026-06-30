@@ -1,10 +1,20 @@
 [#Menu: Gateway of Tally]
-    Add : Button : btnAIImport
+    Add : Key Item : "AI Invoice Import (Silent)" : I : Display : AIImportReport
 
-[Button: btnAIImport]
-    Key : Ctrl + I
-    Title : "AI Import (Silent)"
-    Action : Call : ImportAIInvoice
+[Report: AIImportReport]
+    Form : AIImportForm
+    Auto : Yes
+
+[Form: AIImportForm]
+    Part : AIImportPart
+    On : Form Accept : Yes : Call : ImportAIInvoice
+
+[Part: AIImportPart]
+    Line : AIImportLine
+
+[Line: AIImportLine]
+    Field : Name Field
+    Local : Field : Name Field : Set as : ""
 
 [Function: ImportAIInvoice]
     01 : Import Object : Vouchers : "C:\Imports\tally_import_invoice.xml" : Yes
