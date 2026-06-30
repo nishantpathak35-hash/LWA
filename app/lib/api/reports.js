@@ -171,8 +171,12 @@ export async function getTDSRegisterReport(startDate, endDate, session) {
     params.push(startDate);
   }
   if (endDate) {
+    // Append end-of-day timestamp so the <= comparison includes
+    // all records created ON the endDate (ISO timestamps like
+    // '2026-01-15T10:30:00Z' are lexicographically > '2026-01-15').
+    const endDateInclusive = endDate.includes('T') ? endDate : endDate + 'T23:59:59.999Z';
     query += ` AND created_at <= ?`;
-    params.push(endDate);
+    params.push(endDateInclusive);
   }
   const rows = await queryAll(query, params);
 
@@ -181,6 +185,7 @@ export async function getTDSRegisterReport(startDate, endDate, session) {
     const tds = Number(r.tds_amount || 0);
     return {
       id: `TDS-${r.pr_id}`,
+      transaction_date: r.created_at || null,
       project_id: r.project || '—',
       po_id: r.po_no || '—',
       vendor_id: r.vendor_name || '—',
@@ -297,8 +302,9 @@ export async function getApprovalAuditReport(startDate, endDate, session) {
     params.push(startDate);
   }
   if (endDate) {
+    const endDateInclusive = endDate.includes('T') ? endDate : endDate + 'T23:59:59.999Z';
     query += startDate ? ` AND created_at <= ?` : ` WHERE created_at <= ?`;
-    params.push(endDate);
+    params.push(endDateInclusive);
   }
   const list = await queryAll(query, params);
   

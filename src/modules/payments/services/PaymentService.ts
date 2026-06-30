@@ -58,6 +58,39 @@ export class PaymentService {
   }
 
   /**
+   * Updates an existing Payment Request (if not yet approved).
+   */
+  static async updatePaymentRequest(prId: string | number, payload: any, userEmail: string): Promise<{ ok: boolean }> {
+    const pr = await PaymentRepository.findRequestById(prId);
+    if (!pr) throw new Error(`Payment request not found: ${prId}`);
+    
+    // Check if editable
+    const editableStages = ['Pending Procurement', 'Pending Finance'];
+    if (!editableStages.includes(pr.stage)) {
+      throw new Error(`Payment request cannot be edited in stage: ${pr.stage}`);
+    }
+
+    const reqAmt = Number(payload.amountRequested || payload.gross_amount);
+    if (isNaN(reqAmt) || reqAmt <= 0) {
+      throw new Error("Amount Requested must be greater than zero");
+    }
+
+    const oldAmt = pr.amount_requested;
+    const remarks = payload.remarks || pr.remarks;
+
+    await PaymentRepository.updateRequest(prId, {
+      amount_requested: reqAmt,
+      approved_amount: reqAmt, // reset approved amount
+      remarks: remarks
+    });
+
+    const changeDesc = `Amount changed from ${oldAmt} to ${reqAmt}. Remarks updated.`;
+    await logAudit(userEmail, 'Update Payment Request', `Edited PR #${prId}. ${changeDesc}`, pr.stage);
+
+    return { ok: true };
+  }
+
+  /**
    * Approves a Payment Request using the configured ApprovalEngine.
    */
   static async approvePaymentRequest(prId: string | number, userEmail: string, userRoles: string[], tdsConfig: any = {}): Promise<{ ok: boolean }> {

@@ -315,7 +315,10 @@ export default function POsView() {
   const handleSendVendorEmail = async (poNumber) => {
     const po = pos.find(p => p.po_no === poNumber);
     const vendor = vendors.find(v => v.code === po?.vendor_key || v.name === po?.vendor_name);
-    const email = prompt("Enter vendor's email address:", vendor?.email || '');
+    let email = vendor?.email;
+    if (!email) {
+      email = prompt("Enter vendor's email address:");
+    }
     if (!email) return;
     try {
       await call('sendPOToVendor', poNumber, email.trim());

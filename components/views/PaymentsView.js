@@ -24,6 +24,7 @@ export default function PaymentsView() {
   
   // Payment Request Form state
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [editingPrId, setEditingPrId] = useState(null); // Edit mode state
   const [vendorCode, setVendorCode] = useState('');
   const [poNo, setPoNo] = useState('');
   const [grossAmount, setGrossAmount] = useState(0);
@@ -136,6 +137,25 @@ export default function PaymentsView() {
       const tdsPct = Number(selectedPO.tds_pct) || 0;
       setTdsAmount(Math.round(grossAmount * (tdsPct / 100)));
     }
+  };
+
+  const handleEditPayment = (pr) => {
+    setEditingPrId(pr.id);
+    
+    // Find the vendor code for this vendor name
+    const prVendor = vendors.find(v => v.name === pr.vendor_name || v.name === pr.vendor) || vendors[0];
+    if (prVendor) {
+      setVendorCode(prVendor.code);
+    }
+    
+    setPoNo(pr.po_no || '');
+    setGrossAmount(Number(pr.amount_requested || pr.gross_amount || 0));
+    setTdsAmount(Number(pr.tds_amount || 0));
+    setRemarks(pr.remarks || '');
+    // Invoice ref is part of remarks or payload? The codebase sets invoiceRef into remarks.
+    setInvoiceRef('');
+    setFormError(null);
+    setRequestModalOpen(true);
   };
 
   const handleGrossAmountChange = (val) => {
@@ -328,19 +348,20 @@ export default function PaymentsView() {
     return () => window.removeEventListener('lx:new-payment-request', handler);
   }, [canOnboard, vendors, pos]);
 
-  const handleCreateRequest = async (e) => {
+  const handleSubmitRequest = async (e) => {
     e.preventDefault();
-    if (!vendorCode || !poNo || grossAmount <= 0) {
-      setFormError('Please fill out all required fields and ensure Gross Amount is positive.');
+    if (!vendorCode || !poNo || !grossAmount) {
+      setFormError('Please fill all required fields');
       return;
     }
-    setSubmitting(true);
     setFormError(null);
+    setSubmitting(true);
     try {
+      const v = vendors.find(x => x.code === vendorCode) || {};
       const selectedPO = pos.find(p => p.po_no === poNo);
       const payload = {
-        vendor: vendors.find(v => v.code === vendorCode)?.name || '',
-        vendorCode: vendorCode,
+        vendor: v.name || v.legalName || v.vendor_name || vendorCode,
+        vendorCode: v.code || vendorCode,
         poNo: poNo,
         project: selectedPO ? selectedPO.project : '',
         amountRequested: grossAmount,
@@ -351,16 +372,33 @@ export default function PaymentsView() {
         tds_section: selectedPO?.tds_section || '',
         net_amount: netAmount,
         invoice_no: invoiceRef.trim(),
-        remarks: remarks.trim(),
-        status: 'Pending',
-        approval_stage: 'Procurement Approval'
+        invoiceRef,
+        remarks: remarks.trim()
       };
-
-      await call('createPaymentRequest', payload);
-      await refreshData();
-      setRequestModalOpen(false);
+      
+      let res;
+      if (editingPrId) {
+        res = await call('updatePaymentRequest', editingPrId, payload);
+      } else {
+        res = await call('createPaymentRequest', payload);
+      }
+      
+      if (res && res.ok) {
+        toast.success(editingPrId ? 'Payment Request Updated' : 'Payment Request Created');
+        setRequestModalOpen(false);
+        setEditingPrId(null);
+        setVendorCode('');
+        setPoNo('');
+        setGrossAmount(0);
+        setTdsAmount(0);
+        setInvoiceRef('');
+        setRemarks('');
+        await refreshData();
+      } else {
+        setFormError(res?.error || 'Failed to save request');
+      }
     } catch (err) {
-      setFormError(err.message || 'Failed to create payment request.');
+      setFormError(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -640,6 +678,7 @@ export default function PaymentsView() {
         onSelectPayment={handleSelectPayment}
         onSelectAll={handleSelectAllPayments}
         canActOnReq={canActOnReq}
+        onEditPayment={handleEditPayment}
       />
       
       <MultiSelectActionBar
@@ -680,17 +719,36 @@ export default function PaymentsView() {
         submitting={submitting}
       />
 
-      <PaymentFormModal
-        requestModalOpen={requestModalOpen} setRequestModalOpen={setRequestModalOpen}
-        vendorCode={vendorCode} setVendorCode={setVendorCode} vendors={vendors}
-        poNo={poNo} handlePOChange={handlePOChange} vendorPOs={vendorPOs}
-        grossAmount={grossAmount} handleGrossAmountChange={handleGrossAmountChange}
-        tdsAmount={tdsAmount} setTdsAmount={setTdsAmount} netAmount={netAmount}
-        invoiceRef={invoiceRef} setInvoiceRef={setInvoiceRef} remarks={remarks} setRemarks={setRemarks}
-        formError={formError} submitting={submitting} handleSubmitRequest={handleCreateRequest}
-        projectSummary={projectSummary} progressWidths={progressWidths} getHealthTheme={getHealthTheme}
-        getVendorPOs={getVendorPOs} setPoNo={setPoNo}
-      />
+      {requestModalOpen && (
+        <PaymentFormModal
+          requestModalOpen={requestModalOpen}
+          setRequestModalOpen={setRequestModalOpen}
+          vendorCode={vendorCode}
+          setVendorCode={setVendorCode}
+          vendors={vendors}
+          poNo={poNo}
+          handlePOChange={handlePOChange}
+          vendorPOs={vendorPOs}
+          grossAmount={grossAmount}
+          handleGrossAmountChange={handleGrossAmountChange}
+          tdsAmount={tdsAmount}
+          setTdsAmount={setTdsAmount}
+          netAmount={netAmount}
+          invoiceRef={invoiceRef}
+          setInvoiceRef={setInvoiceRef}
+          remarks={remarks}
+          setRemarks={setRemarks}
+          formError={formError}
+          submitting={submitting}
+          handleSubmitRequest={handleSubmitRequest}
+          projectSummary={projectSummary}
+          progressWidths={progressWidths}
+          getHealthTheme={getHealthTheme}
+          getVendorPOs={getVendorPOs}
+          setPoNo={setPoNo}
+          isEditMode={!!editingPrId}
+        />
+      )}
       
       <PaymentApprovalModal
         workflowModalOpen={workflowModalOpen} setWorkflowModalOpen={setWorkflowModalOpen}

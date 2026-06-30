@@ -4,6 +4,7 @@ import { sendPOEmail } from '../../email.js';
 import { POService } from '../../../../src/modules/purchase-orders/services/POService';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { logAudit, requireAdminConsole, ensureSettingsTable } from '../core.js';
+import { SYSTEM_FALLBACK_EMAIL } from '../../config.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -12,7 +13,7 @@ function requireAuth(session) {
 
 export async function savePO(payload, session) {
   requireAuth(session);
-  return POService.createPO(payload, session?.email || 'admin@luxeworx.com');
+  return POService.createPO(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
 }
 
 
@@ -142,7 +143,7 @@ export async function updatePOFull(poNo, payload, session) {
       [nextPoNo, 'Re-submitted to Draft (Financial Change)', session?.email || 'unknown', 'PO value or vendor changed - approval reset to Draft', new Date().toISOString()]
     );
   }
-  await logAudit(session?.email || 'admin@luxeworx.com', 'PO Updated', `PO#${nextPoNo} edited. Changes: ${changesSummary}`, 'Procurement');
+  await logAudit(session?.email || SYSTEM_FALLBACK_EMAIL, 'PO Updated', `PO#${nextPoNo} edited. Changes: ${changesSummary}`, 'Procurement');
   return { ok: true, poNo: nextPoNo, oldPoNo: originalPoNo, newStatus, changesLogged: auditChanges };
 }
 

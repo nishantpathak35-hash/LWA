@@ -15,7 +15,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
-import { logAudit, getSetting, DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS } from './core.js';
+import { logAudit, getSetting, setSetting, DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS, requireAdminConsole } from './core.js';
 
 
 function getJwtSecret() {
@@ -126,4 +126,22 @@ export async function setCompanySettings(payload, session) {
   await logAudit(session.email, 'Company Settings Updated', `${payload?.name || ''}, ${payload?.gstin || ''}`, 'Settings');
   return { ok: true };
 }
-
+
+export async function getDefaultCCRecipients(session) {
+  requireAuth(session);
+  const raw = await getSetting('default_cc_recipients', null);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function setDefaultCCRecipients(emails, session) {
+  requireAdminConsole(session);
+  const validEmails = (emails || []).map(e => String(e).trim().toLowerCase()).filter(e => e.includes('@'));
+  await setSetting('default_cc_recipients', JSON.stringify(validEmails));
+  await logAudit(session.email, 'Email CC Settings Updated', JSON.stringify(validEmails), 'Settings');
+  return { ok: true, cc: validEmails };
+}

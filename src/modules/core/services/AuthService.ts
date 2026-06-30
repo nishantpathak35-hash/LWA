@@ -1,4 +1,14 @@
+// Centralized Super Admin identity — single source of truth
+const SUPER_ADMIN_EMAIL = 'nishant@luxeworxatelier.com';
+
 export class AuthService {
+  /**
+   * Check if the given email is the Super Admin.
+   */
+  static isSuperAdmin(email: string): boolean {
+    return String(email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+  }
+
   /**
    * Verifies if a user session is active.
    * Throws an error if unauthorized.
@@ -13,7 +23,7 @@ export class AuthService {
    * Verifies if the session has admin/director privileges.
    */
   static requireAdminConsole(session: any): void {
-    if (session?.email === 'admin@luxeworx.com') return;
+    if (AuthService.isSuperAdmin(session?.email)) return;
     const roles = session?.roles || [];
     if (!session || (!roles.includes('admin') && !roles.includes('director'))) {
       throw new Error('AUTH:Unauthorized');

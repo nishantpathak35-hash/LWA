@@ -16,6 +16,7 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { logAudit, getSetting, DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS } from './core.js';
+import { isSuperAdmin } from '../config.js';
 
 
 function getJwtSecret() {
@@ -245,7 +246,7 @@ export async function getProjectFinancialSummary(requestId, session) {
 
   // Check if the user is a super admin or director, or has 'approve_payment' or 'reject_payment' permissions
   const roles = session.roles || [];
-  const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || session.email === 'admin@luxeworx.com';
+  const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || isSuperAdmin(session.email);
 
   // 2. Authorization check: Creator of the payment request must NOT be allowed to view the summary (unless Director/Admin)
   if (!isDirOrAdmin && session.email === pr.created_by) {
@@ -284,7 +285,7 @@ export async function getProjectFinancialSummary(requestId, session) {
 export async function mergeProjects(targetProject, sourceProjects, session) {
   requireAuth(session);
   const roles = session.roles || [];
-  const isAdmin = roles.includes('admin') || session.email === 'admin@luxeworx.com';
+  const isAdmin = roles.includes('admin') || isSuperAdmin(session.email);
   const isDirector = roles.includes('director');
   
   if (!isAdmin && !isDirector) {

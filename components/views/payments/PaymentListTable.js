@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from '../../../app/lib/utils';
 
 export default function PaymentListTable({
   displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector, pos, getWorkflowActionButton, handleSendPaymentAdvice,
-  selectedPayments = [], onSelectPayment, onSelectAll, canActOnReq
+  selectedPayments = [], onSelectPayment, onSelectAll, canActOnReq, onEditPayment
 }) {
   const allSelected = displayedRequests.length > 0 && selectedPayments.length === displayedRequests.filter(canActOnReq).length;
 
@@ -78,8 +78,16 @@ export default function PaymentListTable({
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-slate-400 font-light">{req.approval_stage || 'Completed'}</TableCell>
-                    <TableCell className="text-center flex items-center justify-center gap-2">
+                      <TableCell className="text-center flex items-center justify-center gap-2">
                       {getWorkflowActionButton(req)}
+                      
+                      {/* Edit Button - only for pre-approval stages */}
+                      {(String(req.stage || req.approval_stage || '').toLowerCase().includes('procurement') || String(req.stage || req.approval_stage || '').toLowerCase().includes('finance')) && onEditPayment && (
+                        <Button variant="ghost" size="icon" onClick={() => onEditPayment(req)} title="Edit Payment Request">
+                          <CheckSquare className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+
                       <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="View Logs Trail">
                         <History className="w-3.5 h-3.5" />
                       </Button>

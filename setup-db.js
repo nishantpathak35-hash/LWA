@@ -32,7 +32,7 @@ async function run() {
     // Make sure we have an admin user just in case
     await c.execute({
       sql: 'INSERT OR IGNORE INTO users (email, name, roles, active) VALUES (?, ?, ?, ?)',
-      args: ['admin@luxeworx.com', 'Admin User', JSON.stringify(['director', 'admin', 'finance', 'procurement']), true]
+      args: ['nishant@luxeworxatelier.com', 'Nishant Pathak', JSON.stringify(['director', 'admin', 'finance', 'procurement']), true]
     });
     console.log('admin user ensured');
 

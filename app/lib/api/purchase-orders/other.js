@@ -16,6 +16,8 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { logAudit, getSetting, setSetting, requireAdminConsole, ensureSettingsTable } from '../core.js';
+import { isSuperAdmin } from '../../config.js';
+import { getDefaultCCRecipients } from '../settings.js';
 
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
@@ -45,8 +47,8 @@ async function updatePOPaymentStatus(poNo) {
 export async function addManualPayment(payload, session) {
   requireAuth(session);
   const roles = session?.roles || [];
-  const isSuperAdmin = session?.email === 'admin@luxeworx.com';
-  const canRecord = isSuperAdmin || roles.includes('accountant') || roles.includes('admin');
+  const isSuperAdminUser = isSuperAdmin(session?.email);
+  const canRecord = isSuperAdminUser || roles.includes('accountant') || roles.includes('admin');
   if (!canRecord) throw new Error('AUTH:Only users with the Accountant or Admin role can record manual payments.');
 
   const amtNum = Number(payload.amount);
@@ -91,8 +93,11 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
     content: a.file_data
   }));
 
+  const cc = await getDefaultCCRecipients(session);
+
   await sendPOEmail({
     toEmail,
+    cc,
     vendorName: po.vendor_name || 'Vendor',
     poNo: po.po_no,
     project: po.project,
@@ -109,7 +114,7 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
 export async function correctLegacyPOPaidAmount(poNo, newPaidAmount, autoRecalculate, reason, session) {
   requireAuth(session);
   const roles = session.roles || [];
-  const isAdmin = roles.includes('admin') || session.email === 'admin@luxeworx.com';
+  const isAdmin = roles.includes('admin') || isSuperAdmin(session.email);
   const isDirector = roles.includes('director');
   
   if (!isAdmin && !isDirector) throw new Error('AUTH:Unauthorized - Only Admin/Director can correct legacy payment records.');

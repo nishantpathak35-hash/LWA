@@ -8,13 +8,13 @@ export default function PaymentFormModal({
   poNo, handlePOChange, vendorPOs, grossAmount, handleGrossAmountChange,
   tdsAmount, setTdsAmount, netAmount, invoiceRef, setInvoiceRef, remarks, setRemarks,
   formError, submitting, handleSubmitRequest, projectSummary, progressWidths, getHealthTheme,
-  getVendorPOs, setPoNo
+  getVendorPOs, setPoNo, isEditMode
 }) {
   const selectedPO = vendorPOs?.find(p => p.po_no === poNo) || null;
   return (
     <>
-      {/* Create Payment Request Dialog */}
-      <Dialog open={requestModalOpen} onClose={() => setRequestModalOpen(false)} title="New Payment Request">
+      {/* Create / Edit Payment Request Dialog */}
+      <Dialog open={requestModalOpen} onClose={() => setRequestModalOpen(false)} title={isEditMode ? "Edit Payment Request" : "New Payment Request"}>
         <form onSubmit={handleSubmitRequest} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -24,7 +24,7 @@ export default function PaymentFormModal({
                 setVendorCode(newVendorCode);
                 const validPOs = getVendorPOs(newVendorCode);
                 setPoNo(validPOs[0]?.po_no || '');
-              }}>
+              }} disabled={isEditMode}>
                 {vendors.map((v, idx) => (
                   <option key={idx} value={v.code}>{v.name} ({v.code})</option>
                 ))}
@@ -32,7 +32,7 @@ export default function PaymentFormModal({
             </div>
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PURCHASE ORDER *</label>
-              <Select value={poNo} onChange={(e) => handlePOChange(e.target.value)}>
+              <Select value={poNo} onChange={(e) => handlePOChange(e.target.value)} disabled={isEditMode}>
                 <option value="">Select PO...</option>
                 {vendorPOs.map((p, idx) => (
                   <option key={idx} value={p.po_no}>{p.po_no} (Project: {p.project})</option>
@@ -119,7 +119,7 @@ export default function PaymentFormModal({
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Submit Request'}
+              {submitting ? (isEditMode ? 'Updating...' : 'Submitting...') : (isEditMode ? 'Update Request' : 'Submit Request')}
             </Button>
           </div>
         </form>

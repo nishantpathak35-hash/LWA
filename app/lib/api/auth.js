@@ -16,6 +16,7 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { requireAdminConsole, normalizeRoleName, getSetting, setSetting, logAudit } from './core.js';
+import { isSuperAdmin, SUPER_ADMIN_EMAIL } from '../config.js';
 
 
 function getJwtSecret() {
@@ -164,8 +165,8 @@ export async function getMySession(token) {
     }
 
     const rawRoles = JSON.parse(user.roles || '[]');
-    const isSuperAdmin = user.email === 'admin@luxeworx.com';
-    const roles = isSuperAdmin ? Array.from(new Set([...rawRoles, 'admin', 'director', 'finance', 'procurement', 'proc', 'accountant', 'maker'])) : rawRoles;
+    const superAdmin = isSuperAdmin(user.email);
+    const roles = superAdmin ? Array.from(new Set([...rawRoles, 'admin', 'director', 'finance', 'procurement', 'proc', 'accountant', 'maker'])) : rawRoles;
 
     return {
       email: user.email,

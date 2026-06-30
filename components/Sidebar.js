@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useAppState } from './StateProvider';
+import { isSuperAdmin } from '../app/lib/config';
 import BrandIdentity from './BrandIdentity';
 import { 
   LayoutDashboard, 
@@ -12,14 +13,18 @@ import {
   BarChart3, 
   Settings, 
   LogOut,
-  UserCircle
+  UserCircle,
+  Repeat2
 } from 'lucide-react';
 import { Badge } from './ui/core';
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
-  const { user, activeView, setActiveView, logout, payments, hasPermission } = useAppState();
+  const { user, activeView, setActiveView, logout, payments, hasPermission, activeRole, setActiveRole } = useAppState();
 
-  const roles = user?.roles || [];
+  const dbRoles = user?.roles || [];
+  const isSuper = user && isSuperAdmin(user.email);
+  const roles = isSuper && !dbRoles.includes('admin') ? [...dbRoles, 'admin'] : dbRoles;
+  
   const isAdmin = roles.includes('admin');
   const isDirector = roles.includes('director');
   const isFinance = roles.includes('finance');
@@ -107,6 +112,32 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                 </span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Role Switcher for Super Admin */}
+        {user && isSuperAdmin(user.email) && (
+          <div className="p-2.5 bg-violet-950/30 border border-violet-900/40 rounded-xl space-y-2">
+            <div className="flex items-center gap-1.5 text-[10px] text-violet-400 font-medium uppercase tracking-wider">
+              <Repeat2 className="w-3 h-3" />
+              Role Impersonation
+            </div>
+            <select
+              value={activeRole || ''}
+              onChange={(e) => setActiveRole(e.target.value || null)}
+              className="w-full text-xs bg-slate-900/80 border border-slate-800 text-slate-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-violet-500/40 cursor-pointer"
+            >
+              <option value="">Super Admin (Full Access)</option>
+              <option value="procurement">Procurement</option>
+              <option value="finance">Finance</option>
+              <option value="director">Director</option>
+              <option value="accountant">Accountant</option>
+            </select>
+            {activeRole && (
+              <div className="text-[10px] text-amber-400/80 flex items-center gap-1">
+                ⚡ Viewing as: <span className="font-semibold capitalize">{activeRole}</span>
+              </div>
+            )}
           </div>
         )}
 

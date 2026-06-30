@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useAppState } from '../StateProvider';
 import { Bell, CheckCircle2, Clock, AlertTriangle, CreditCard, X } from 'lucide-react';
 import { formatTimeAgo } from '../../app/lib/utils';
+import { isSuperAdmin } from '../../app/lib/config';
 
 /**
  * NotificationsPanel
@@ -49,7 +50,7 @@ export function NotificationsPanel() {
   }, [open]);
 
   const roles = user?.roles || [];
-  const isAdmin = user?.email === 'admin@luxeworx.com' || roles.includes('admin');
+  const isAdmin = isSuperAdmin(user?.email) || roles.includes('admin');
   const isDirector = roles.includes('director');
   const isFinance = roles.includes('finance');
   const isProcurement = roles.some(r => ['proc', 'procurement', 'maker'].includes(r));

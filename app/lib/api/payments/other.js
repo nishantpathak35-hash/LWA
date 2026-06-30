@@ -4,8 +4,9 @@ import { sendPaymentAdviceEmail } from '../../email.js';
 import { PaymentService } from '../../../../src/modules/payments/services/PaymentService';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { logAudit } from '../core.js';
-// Fix Bug #3: import listPaymentRequests so transitionPaymentWorkflow can call it
+import { SYSTEM_FALLBACK_EMAIL } from '../../config.js';
 import { listPaymentRequests } from './read.js';
+import { getDefaultCCRecipients } from '../settings.js';
 
 function invalidateProjectCache(project) {
   // no-op — kept for call-site compatibility
@@ -44,8 +45,11 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
   const tdsAmt = Number(pr.tds_amount || 0);
   const netAmt = Math.max(0, baseAmt - tdsAmt);
 
+  const cc = await getDefaultCCRecipients(session);
+
   await sendPaymentAdviceEmail({
     toEmail,
+    cc,
     vendorName: pr.vendor_name || 'Vendor',
     poNo: pr.po_no,
     project: pr.project,
@@ -68,7 +72,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
 
   for (const id of ids) {
     try {
-      await PaymentService.approvePaymentRequest(id, session?.email || 'admin@luxeworx.com', session?.roles || [], approvalData?.tds_configs?.[id] || {});
+      await PaymentService.approvePaymentRequest(id, session?.email || SYSTEM_FALLBACK_EMAIL, session?.roles || [], approvalData?.tds_configs?.[id] || {});
       approvedIds.push(id);
     } catch (e) {
       failedIds.push(id);
@@ -95,7 +99,7 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
 
   for (const id of ids) {
     try {
-      await PaymentService.rejectPaymentRequest(id, session?.email || 'admin@luxeworx.com', session?.roles || [], rejectionData?.remarks || '');
+      await PaymentService.rejectPaymentRequest(id, session?.email || SYSTEM_FALLBACK_EMAIL, session?.roles || [], rejectionData?.remarks || '');
       rejectedIds.push(id);
     } catch (e) {
       failedIds.push(id);
@@ -139,7 +143,7 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
         utrRef: utrRef,
         paymentDate: today,
         paymentMode: 'Bank Transfer'
-      }, session?.email || 'admin@luxeworx.com');
+      }, session?.email || SYSTEM_FALLBACK_EMAIL);
 
       remittedIds.push(id);
       invalidateProjectCache(pr.project);
@@ -161,7 +165,7 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
 
   if (remittedIds.length > 0) {
     await logAudit(
-      session?.email || 'admin@luxeworx.com',
+      session?.email || SYSTEM_FALLBACK_EMAIL,
       'Bulk Remittance',
       'Completed bulk remittance of ' + remittedIds.length + ' payment(s)',
       'Finance'

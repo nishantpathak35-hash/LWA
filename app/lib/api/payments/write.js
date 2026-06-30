@@ -3,6 +3,7 @@ import { queryAll, queryGet, queryRun } from '../../db.js';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { PaymentService } from '../../../../src/modules/payments/services/PaymentService';
 import { requireAdminConsole, ensureSettingsTable, logAudit } from '../core.js';
+import { isSuperAdmin, SYSTEM_FALLBACK_EMAIL } from '../../config.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -33,14 +34,19 @@ async function updatePOPaymentStatus(poNo) {
 
 export async function createPaymentRequest(payload, session) {
   requireAuth(session);
-  return PaymentService.createPaymentRequest(payload, session?.email || 'admin@luxeworx.com');
+  return PaymentService.createPaymentRequest(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+}
+
+export async function updatePaymentRequest(prId, payload, session) {
+  requireAuth(session);
+  return PaymentService.updatePaymentRequest(prId, payload, session?.email || SYSTEM_FALLBACK_EMAIL);
 }
 
 
 export async function deleteRemittedPayment(prId, reason, session) {
   requireAuth(session);
   const roles = session.roles || [];
-  const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || session.email === 'admin@luxeworx.com';
+  const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || isSuperAdmin(session.email);
   const isFinance = roles.includes('finance');
   
   if (!isDirOrAdmin && !isFinance) {

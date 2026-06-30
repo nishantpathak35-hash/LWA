@@ -38,6 +38,7 @@ export default function ReportsTables({
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>PO</TableHead>
                 <TableHead>Vendor</TableHead>
@@ -55,6 +56,9 @@ export default function ReportsTables({
                 entries.map((e, idx) => (
                   <TableRow key={e.id || idx}>
                     <TableCell className="font-semibold text-gold">{e.id}</TableCell>
+                    <TableCell className="text-xs text-slate-400">
+                      {e.transaction_date ? new Date(e.transaction_date).toLocaleDateString('en-IN') : '—'}
+                    </TableCell>
                     <TableCell>{e.project_id}</TableCell>
                     <TableCell className="font-mono text-xs">{e.po_id}</TableCell>
                     <TableCell>{e.vendor_id}</TableCell>
@@ -75,7 +79,7 @@ export default function ReportsTables({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10 text-slate-500">
+                <TableCell colSpan={12} className="text-center py-10 text-slate-500">
                     No TDS deductions found.
                   </TableCell>
                 </TableRow>
@@ -327,6 +331,7 @@ export default function ReportsTables({
         <TableHeader>
           <TableRow>
             <TableHead>ID</TableHead>
+            <TableHead>Date</TableHead>
             <TableHead>Vendor</TableHead>
             <TableHead>Project</TableHead>
             <TableHead>PO</TableHead>
@@ -352,6 +357,9 @@ export default function ReportsTables({
               return (
                 <TableRow key={p.rowNumber || idx}>
                   <TableCell className="font-semibold text-gold">{p.sNo}</TableCell>
+                  <TableCell className="text-xs text-slate-400">
+                    {p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}
+                  </TableCell>
                   <TableCell className="font-semibold text-slate-200">{p.vendor}</TableCell>
                   <TableCell>{p.project || '—'}</TableCell>
                   <TableCell className="font-mono text-xs">{p.poNo || '—'}</TableCell>

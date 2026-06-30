@@ -6,6 +6,7 @@ import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Dialog } from '../ui/core';
 import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loader2, ClipboardList, ChevronLeft, ChevronRight, Search, ArrowUpDown } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
+import { isSuperAdmin } from '../../app/lib/config';
 import SettingsCompanyTab from './settings/SettingsCompanyTab';
 import SettingsSystemTab from './settings/SettingsSystemTab';
 import SettingsAuditTab from './settings/SettingsAuditTab';
@@ -27,14 +28,16 @@ export default function SettingsView() {
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [resetPwdModalOpen, setResetPwdModalOpen] = useState(false);
   
+  const generateRandomPassword = () => Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-4).toUpperCase() + '!';
+  
   // Dialog Form inputs
   const [targetEmail, setTargetEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRoles, setNewUserRoles] = useState({ proc: false, finance: true, director: false });
-  const [newUserPassword, setNewUserPassword] = useState('ChangeMe123!');
+  const [newUserPassword, setNewUserPassword] = useState(generateRandomPassword());
   
   const [editAccessRoles, setEditAccessRoles] = useState({ proc: false, finance: false, director: false });
-  const [resetPasswordVal, setResetPasswordVal] = useState('ChangeMe123!');
+  const [resetPasswordVal, setResetPasswordVal] = useState(generateRandomPassword());
   const [inviteResult, setInviteResult] = useState(null);
 
   // System settings states
@@ -125,7 +128,7 @@ export default function SettingsView() {
   }, [call, auditPage, auditSearch, auditFilterType, auditFilterDept, auditSortDir]);
 
   // Verify Director access
-  const isDirector = user?.email === 'admin@luxeworx.com' || user?.roles?.includes('director');
+  const isDirector = isSuperAdmin(user?.email) || user?.roles?.includes('director');
 
   // Load Users Tab Data
   const loadUsers = useCallback(async () => {
@@ -147,6 +150,18 @@ export default function SettingsView() {
       setPoPrefix(prefix || '');
     } catch (e) {
       console.error('Failed to load PO prefix:', e);
+    }
+  }, [call]);
+
+  const [ccEmails, setCcEmails] = useState('');
+  const [savingEmailConfig, setSavingEmailConfig] = useState(false);
+
+  const loadEmailConfig = useCallback(async () => {
+    try {
+      const ccs = await call('getDefaultCCRecipients');
+      setCcEmails((ccs || []).join(', '));
+    } catch (e) {
+      console.error('Failed to load CC recipients:', e);
     }
   }, [call]);
 
@@ -176,10 +191,12 @@ export default function SettingsView() {
       loadCompany();
     } else if (activeTab === 'audit') {
       loadAuditLog();
+    } else if (activeTab === 'email_config') {
+      loadEmailConfig();
     }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [activeTab, isDirector, loadPermissions, loadSystem, loadUsers, loadCompany, loadAuditLog]);
+  }, [activeTab, isDirector, loadPermissions, loadSystem, loadUsers, loadCompany, loadAuditLog, loadEmailConfig]);
 
   // Re-fetch audit log when filters change while audit tab is active
   useEffect(() => {
@@ -407,6 +424,20 @@ export default function SettingsView() {
     }
   };
 
+  const handleSaveEmailConfig = async () => {
+    setSavingEmailConfig(true);
+    try {
+      const emails = ccEmails.split(',').map(e => e.trim()).filter(e => e);
+      await call('setDefaultCCRecipients', emails);
+      toast.success('Email CC configuration saved.');
+      await loadEmailConfig();
+    } catch (e) {
+      toast.error('Error: ' + (e.message || String(e)));
+    } finally {
+      setSavingEmailConfig(false);
+    }
+  };
+
   const handleInviteUserSubmit = async (e) => {
     e.preventDefault();
     const roles = Object.keys(newUserRoles).filter(r => newUserRoles[r]);
@@ -573,6 +604,13 @@ export default function SettingsView() {
           <ClipboardList className="w-4 h-4" /> Audit Log
         </Button>
         <Button
+          onClick={() => setActiveTab('email_config')}
+          size="sm"
+          variant={activeTab === 'email_config' ? 'primary' : 'ghost'}
+        >
+          📧 Email Configuration
+        </Button>
+        <Button
           onClick={() => setActiveTab('legacy_correction')}
           size="sm"
           variant={activeTab === 'legacy_correction' ? 'primary' : 'ghost'}
@@ -630,10 +668,40 @@ export default function SettingsView() {
           legacyReason={legacyReason} setLegacyReason={setLegacyReason}
           legacySubmitting={legacySubmitting}
           handleSearchLegacyPO={handleSearchLegacyPO} handleCorrectLegacyPO={handleCorrectLegacyPO}
-          mergeTargetProject={mergeTargetProject} setMergeTargetProject={setMergeTargetProject}
-          mergeSourceProjects={mergeSourceProjects} setMergeSourceProjects={setMergeSourceProjects}
-          mergeSubmitting={mergeSubmitting} handleMergeProjects={handleMergeProjects}
+          projectMergerSource={projectMergerSource} setProjectMergerSource={setProjectMergerSource}
+          projectMergerTarget={projectMergerTarget} setProjectMergerTarget={setProjectMergerTarget}
+          mergeSubmitting={mergeSubmitting} handleProjectMerger={handleProjectMerger}
+          projects={projects}
         />
+      )}
+
+      {/* Email Config Tab */}
+      {activeTab === 'email_config' && (
+        <Card className="max-w-2xl border-slate-800">
+          <CardHeader>
+            <CardTitle className="text-slate-200">Email CC Configuration</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-slate-400 mb-1.5 block">Default CC Recipients</label>
+              <Input 
+                value={ccEmails} 
+                onChange={e => setCcEmails(e.target.value)} 
+                placeholder="email1@example.com, email2@example.com"
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-slate-500 mt-2 font-light">
+                Comma-separated list of email addresses that will be CC'd on all automated emails (e.g., PO and Payment Advices).
+              </p>
+            </div>
+            
+            <div className="pt-4 flex justify-end">
+              <Button variant="primary" onClick={handleSaveEmailConfig} disabled={savingEmailConfig}>
+                {savingEmailConfig ? 'Saving...' : 'Save Configuration'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Company Settings Tab */}

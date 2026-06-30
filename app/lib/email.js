@@ -22,7 +22,7 @@ function handleResendError(error, defaultMsg) {
   throw new Error(msg);
 }
 
-async function sendEmailData({ toEmail, subject, html, attachments }) {
+async function sendEmailData({ toEmail, cc, subject, html, attachments }) {
   if (process.env.BREVO_API_KEY) {
     const brevoPayload = {
       sender: { name: COMPANY, email: process.env.BREVO_FROM_EMAIL || 'accounts@luxeworxatelier.com' },
@@ -30,6 +30,9 @@ async function sendEmailData({ toEmail, subject, html, attachments }) {
       subject: subject,
       htmlContent: html
     };
+    if (cc && Array.isArray(cc) && cc.length > 0) {
+      brevoPayload.cc = cc.map(email => ({ email }));
+    }
     if (attachments && attachments.length > 0) {
       brevoPayload.attachment = attachments.map(att => ({
         name: att.filename,
@@ -58,6 +61,9 @@ async function sendEmailData({ toEmail, subject, html, attachments }) {
       subject: subject,
       html
     };
+    if (cc && Array.isArray(cc) && cc.length > 0) {
+      payload.cc = cc;
+    }
     if (attachments && attachments.length > 0) {
       payload.attachments = attachments.map(att => ({
         filename: att.filename,
@@ -111,7 +117,7 @@ export async function sendInviteEmail({ toEmail, toName, inviteUrl, roles }) {
 }
 
 // ── Payment Advice Email ─────────────────────────────────────────────────────
-export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, project, amount, grossAmount, tdsAmount, remittanceRef, paymentDate }) {
+export async function sendPaymentAdviceEmail({ toEmail, cc, vendorName, poNo, project, amount, grossAmount, tdsAmount, remittanceRef, paymentDate }) {
   const html = `
   <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0b0f;color:#e2e8f0;border-radius:12px;overflow:hidden">
     <div style="background:linear-gradient(135deg,#c8a45a,#a07840);padding:32px;text-align:center">
@@ -145,13 +151,14 @@ export async function sendPaymentAdviceEmail({ toEmail, vendorName, poNo, projec
 
   return sendEmailData({
     toEmail,
+    cc,
     subject: `Payment Advice — ${poNo || 'Payment'} — ₹${Number(amount || 0).toLocaleString('en-IN')}`,
     html
   });
 }
 
 // ── PO Email ─────────────────────────────────────────────────────────────────
-export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, items, grandTotal, terms, attachments }) {
+export async function sendPOEmail({ toEmail, cc, vendorName, poNo, project, poDate, items, grandTotal, terms, attachments }) {
   const itemRows = (items || []).map((it, i) => `
     <tr style="border-bottom:1px solid #1e2330">
       <td style="padding:10px 12px;color:#94a3b8;font-size:12px">${i + 1}</td>
@@ -223,6 +230,7 @@ export async function sendPOEmail({ toEmail, vendorName, poNo, project, poDate, 
 
   return sendEmailData({
     toEmail,
+    cc,
     subject: `Purchase Order ${poNo} — ${COMPANY}`,
     html,
     attachments

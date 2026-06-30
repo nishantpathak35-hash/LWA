@@ -6,6 +6,7 @@ import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Select, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Dialog } from '../ui/core';
 import { FileText, Download, Calendar, Loader2, Mail } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
+import { isSuperAdmin } from '../../app/lib/config';
 
 // Helper to format values as Indian Rupees / Lakhs
 
@@ -31,7 +32,7 @@ export default function ReportsView() {
   const [submitting, setSubmitting] = useState(false);
 
   const roles = user?.roles || [];
-  const isAdmin = user?.email === 'admin@luxeworx.com' || roles.includes('admin');
+  const isAdmin = isSuperAdmin(user?.email) || roles.includes('admin');
   const isFinance = roles.includes('finance');
   const isDirector = roles.includes('director');
   const canRemit = isAdmin || isFinance || isDirector;
@@ -90,9 +91,10 @@ export default function ReportsView() {
 
     if (reportType === 'TDS_Register') {
       const entries = data.entries || [];
-      csvContent += "ID,Project,PO,Vendor,Gross Amount,TDS Amount,TDS %,TDS Section,Govt Status,Deducted At\n";
+      csvContent += "ID,Date,Project,PO,Vendor,Gross Amount,TDS Amount,TDS %,TDS Section,Govt Status,Deducted At\n";
       entries.forEach(e => {
-        csvContent += `"${e.id}","${e.project_id}","${e.po_id}","${e.vendor_id}",${e.amount_requested},${e.approved_amount ?? e.gross_amount},${e.tds_amount},${e.tds_percentage},"${e.tds_section}","${e.government_payment_status}","${e.deducted_at || ''}"\n`;
+        const dateStr = e.transaction_date ? new Date(e.transaction_date).toLocaleDateString('en-IN') : '';
+        csvContent += `"${e.id}","${dateStr}","${e.project_id}","${e.po_id}","${e.vendor_id}",${e.amount_requested},${e.approved_amount ?? e.gross_amount},${e.tds_amount},${e.tds_percentage},"${e.tds_section}","${e.government_payment_status}","${e.deducted_at || ''}"\n`;
       });
     } else if (reportType === 'Vendor_TDS') {
       const vData = data.vendors || [];

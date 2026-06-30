@@ -15,6 +15,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
+import { SYSTEM_FALLBACK_EMAIL } from '../config.js';
 
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
@@ -77,12 +78,12 @@ function requireAuth(session) {
 
 export async function addVendor(payload, session) {
   requireAuth(session);
-  return VendorService.addVendor(payload, session?.email || 'admin@luxeworx.com');
+  return VendorService.addVendor(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
 }
 
 export async function updateVendor(payload, session) {
   requireAuth(session);
-  return VendorService.updateVendor(payload, session?.email || 'admin@luxeworx.com');
+  return VendorService.updateVendor(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
 }
 
 export async function getVendorByName(name, session) {

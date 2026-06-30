@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { isSuperAdmin } from '../app/lib/config';
 
 const StateContext = createContext(null);
 
@@ -37,6 +38,8 @@ export function StateProvider({ children }) {
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
   const [featurePermissions, setFeaturePermissions] = useState({});
+  // Role switching: when Super Admin selects a specific role to impersonate
+  const [activeRole, setActiveRole] = useState(null);
   // Command-palette deep-link: when set, POsView highlights/scrolls to this PO
   const [targetPo, setTargetPo] = useState(null);
 
@@ -123,7 +126,14 @@ export function StateProvider({ children }) {
     try {
       const bundle = await call('getBootBundle');
       if (bundle) {
-        if (bundle.user) setUser(bundle.user);
+        if (bundle.user || bundle.session) {
+          const u = bundle.user || bundle.session;
+          if (u && isSuperAdmin(u.email)) {
+            if (!u.roles) u.roles = [];
+            if (!u.roles.includes('admin')) u.roles = [...u.roles, 'admin'];
+          }
+          setUser(u);
+        }
         if (bundle.kpis) setKpis(bundle.kpis);
         if (bundle.master) {
           setVendors(bundle.master.vendors || []);
@@ -153,7 +163,12 @@ export function StateProvider({ children }) {
         const bundle = await call('getBootBundle');
         if (!active) return;
         if (bundle?.user || bundle?.session) {
-          setUser(bundle.user || bundle.session);
+          const u = bundle.user || bundle.session;
+          if (u && isSuperAdmin(u.email)) {
+            if (!u.roles) u.roles = [];
+            if (!u.roles.includes('admin')) u.roles = [...u.roles, 'admin'];
+          }
+          setUser(u);
           if (bundle.kpis) setKpis(bundle.kpis);
           if (bundle.master) {
             setVendors(bundle.master.vendors || []);
@@ -222,7 +237,29 @@ export function StateProvider({ children }) {
 
   const hasPermission = useCallback((feature) => {
     if (!user) return false;
-    if (user.email === 'admin@luxeworx.com') return true;
+
+    // When Super Admin is impersonating a specific role, use ONLY that role's permissions
+    if (isSuperAdmin(user.email) && activeRole) {
+      // Canonical role-alias mapping: DB value → featurePermissions key
+      const ROLE_MAP = {
+        'procurement': 'proc',
+        'maker':       'proc',
+        'proc':        'proc',
+        'finance':     'finance',
+        'accountant':  'accountant',
+        'director':    'director',
+      };
+      const roleKey = ROLE_MAP[activeRole] ?? activeRole;
+      // Director always has full access even when impersonated
+      if (activeRole === 'director') return true;
+      if (featurePermissions[roleKey] && featurePermissions[roleKey].includes(feature)) {
+        return true;
+      }
+      return false;
+    }
+
+    // Super Admin with no impersonation — full access
+    if (isSuperAdmin(user.email)) return true;
     const roles = user.roles || [];
     // Admin and Director always have full access
     if (roles.includes('admin') || roles.includes('director')) return true;
@@ -242,7 +279,7 @@ export function StateProvider({ children }) {
       }
     }
     return false;
-  }, [user, featurePermissions]);
+  }, [user, featurePermissions, activeRole]);
 
   const value = {
     token,
@@ -262,6 +299,8 @@ export function StateProvider({ children }) {
     setPayments,
     featurePermissions,
     hasPermission,
+    activeRole,
+    setActiveRole,
     login,
     logout,
     call,
