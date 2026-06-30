@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Dialog, Button } from '../../ui/core';
-import { UploadCloud, FileJson, CheckCircle, Loader2 } from 'lucide-react';
+import { UploadCloud, FileJson, CheckCircle, Loader2, Server } from 'lucide-react';
 import { extractInvoiceData, generateTallyXML } from '../../../app/lib/ai/invoiceParser';
 import { useAppState } from '../../StateProvider';
 
@@ -11,6 +11,7 @@ export default function InvoiceUploadModal({ open, onClose }) {
   const [progress, setProgress] = useState(0);
   const [extractedData, setExtractedData] = useState(null);
   const [tallyXml, setTallyXml] = useState(null);
+  const [isPushing, setIsPushing] = useState(false);
   const [error, setError] = useState('');
   
   const fileInputRef = useRef(null);
@@ -55,10 +56,32 @@ export default function InvoiceUploadModal({ open, onClose }) {
     const dataStr = "data:text/xml;charset=utf-8," + encodeURIComponent(tallyXml);
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `tally_import_${extractedData?.invoiceNo || 'invoice'}.xml`);
+    downloadAnchorNode.setAttribute("download", `tally_import_invoice.xml`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
+  };
+
+  const handlePushToTally = async () => {
+    if (!tallyXml) return;
+    setIsPushing(true);
+    try {
+      const res = await fetch('/api/tally/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ xml: tallyXml })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('🎉 Successfully pushed to Tally! The invoice is now in your ledger.');
+      } else {
+        alert('Failed to push: ' + data.error);
+      }
+    } catch (err) {
+      alert('Error pushing to Tally: ' + err.message);
+    } finally {
+      setIsPushing(false);
+    }
   };
 
   const handleReset = () => {
@@ -155,9 +178,13 @@ export default function InvoiceUploadModal({ open, onClose }) {
 
             <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
               <Button variant="ghost" onClick={() => { handleReset(); onClose(); }}>Cancel</Button>
-              <Button variant="primary" onClick={handleDownloadXML} className="gap-2 bg-blue-600 hover:bg-blue-500 text-white border-0">
+              <Button variant="outline" onClick={handleDownloadXML} className="gap-2 border-slate-700 hover:bg-slate-800 text-slate-300">
                 <FileJson className="w-4 h-4" />
-                Download Tally XML
+                Save XML
+              </Button>
+              <Button variant="primary" disabled={isPushing} onClick={handlePushToTally} className="gap-2 bg-emerald-600 hover:bg-emerald-500 text-white border-0">
+                {isPushing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Server className="w-4 h-4" />}
+                {isPushing ? "Pushing..." : "Push Directly to Tally"}
               </Button>
             </div>
 
