@@ -668,10 +668,9 @@ export default function SettingsView() {
           legacyReason={legacyReason} setLegacyReason={setLegacyReason}
           legacySubmitting={legacySubmitting}
           handleSearchLegacyPO={handleSearchLegacyPO} handleCorrectLegacyPO={handleCorrectLegacyPO}
-          projectMergerSource={projectMergerSource} setProjectMergerSource={setProjectMergerSource}
-          projectMergerTarget={projectMergerTarget} setProjectMergerTarget={setProjectMergerTarget}
-          mergeSubmitting={mergeSubmitting} handleProjectMerger={handleProjectMerger}
-          projects={projects}
+          mergeSourceProjects={mergeSourceProjects} setMergeSourceProjects={setMergeSourceProjects}
+          mergeTargetProject={mergeTargetProject} setMergeTargetProject={setMergeTargetProject}
+          mergeSubmitting={mergeSubmitting} handleMergeProjects={handleMergeProjects}
         />
       )}
 
