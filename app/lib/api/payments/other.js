@@ -74,6 +74,20 @@ export async function bulkApprovePayments(ids, approvalData, session) {
     try {
       await PaymentService.approvePaymentRequest(id, session?.email || SYSTEM_FALLBACK_EMAIL, session?.roles || [], approvalData?.tds_configs?.[id] || {});
       approvedIds.push(id);
+      
+      // WhatsApp Notification
+      try {
+        const { sendWhatsAppMessage } = await import('../../../../backend/whatsapp-bot.js');
+        const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
+        if (pr) {
+          const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [pr.submitted_by || pr.created_by]);
+          if (submitter?.whatsapp_number) {
+            await sendWhatsAppMessage(submitter.whatsapp_number, `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Approved by ${session?.name || session?.email}.`);
+          }
+        }
+      } catch (error) {
+        console.error('WhatsApp notification failed:', error.message);
+      }
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
@@ -101,6 +115,20 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
     try {
       await PaymentService.rejectPaymentRequest(id, session?.email || SYSTEM_FALLBACK_EMAIL, session?.roles || [], rejectionData?.remarks || '');
       rejectedIds.push(id);
+      
+      // WhatsApp Notification
+      try {
+        const { sendWhatsAppMessage } = await import('../../../../backend/whatsapp-bot.js');
+        const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
+        if (pr) {
+          const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [pr.submitted_by || pr.created_by]);
+          if (submitter?.whatsapp_number) {
+            await sendWhatsAppMessage(submitter.whatsapp_number, `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Rejected by ${session?.name || session?.email}.`);
+          }
+        }
+      } catch (error) {
+        console.error('WhatsApp notification failed:', error.message);
+      }
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
