@@ -9,6 +9,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   serverExternalPackages: ['@libsql/client'],
+  allowedDevOrigins: ['armor-subcommittee-interpreted-sees.trycloudflare.com'],
 };
 
 export default nextConfig;

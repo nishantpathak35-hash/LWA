@@ -17,6 +17,6 @@
     Local : Field : Name Field : Set as : ""
 
 [Function: ImportAIInvoice]
-    ;; The path \\tsclient\C maps to your local laptop's C: drive over Remote Desktop!
-    01 : Import Object : Vouchers : "\\tsclient\C\Users\GCV\Downloads\tally_import_invoice.xml" : Yes
+    ;; Change the path below to match wherever you paste the file on the server
+    01 : Import Object : Vouchers : "C:\EXPORT\tally_import_invoice.xml" : Yes
     02 : MsgBox : "Success" : "AI Invoice imported successfully!"
