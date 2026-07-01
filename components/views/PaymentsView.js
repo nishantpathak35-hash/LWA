@@ -778,6 +778,34 @@ export default function PaymentsView() {
         onClose={() => setInvoiceModalOpen(false)} 
       />
 
+      {/* Payment Advice Modal */}
+      <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">
+        <div className="space-y-4">
+          <div className="text-sm text-slate-400">
+            Enter the vendor's email address or WhatsApp number (with country code, e.g. 919876543210).
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400 font-light">Contact Detail</label>
+            <Input
+              type="text"
+              placeholder="Email or Phone Number"
+              value={adviceContact}
+              onChange={e => setAdviceContact(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
+            <Button variant="ghost" onClick={() => setAdviceModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={() => executeSendAdvice('whatsapp')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              Send via WhatsApp
+            </Button>
+            <Button variant="primary" onClick={() => executeSendAdvice('email')}>
+              Send via Email
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
