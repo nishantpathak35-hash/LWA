@@ -244,6 +244,7 @@ export async function getMasterData(session) {
       balance: (Number(p.po_value) || 0) - (Number(p.legacy_paid) || 0),
       status: p.approval_status || p.status || 'Draft',
       approval_status: p.approval_status || p.status || 'Draft',
+      payment_status: p.payment_status || 'Unpaid',
       payment_eligible: isPOEligibleForPayment(p),
       terms: p.terms || '',
       tds_section: p.tds_section || '',
