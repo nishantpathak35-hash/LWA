@@ -40,6 +40,7 @@ const ALLOWED_METHODS = new Set([
   'deleteUserAdmin',
   'setUserActiveAdmin',
   'setUserRolesAdmin',
+  'setUserWhatsAppAdmin',
   'resetUserPasswordAdmin',
   'addCustomRole',
   'getPOPrefix',
