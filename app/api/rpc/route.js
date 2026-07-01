@@ -55,6 +55,7 @@ const ALLOWED_METHODS = new Set([
   'updateProjectFinancials',
   'acceptInvite',
   'sendPaymentAdvice',
+  'sendPaymentAdviceWhatsApp',
   'sendPOToVendor',
   'createPaymentRequest',
   'bulkApprovePayments',

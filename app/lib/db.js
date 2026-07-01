@@ -35,6 +35,16 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `).catch(err => console.error('Failed to create attachments table:', err.message));
+
+  tursoClient.execute(`
+    CREATE TABLE IF NOT EXISTS whatsapp_outbox (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phone TEXT NOT NULL,
+      message TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).catch(err => console.error('Failed to create whatsapp_outbox table:', err.message));
 }
 
 async function executeWithRetry(action, retries = 3, delay = 300) {

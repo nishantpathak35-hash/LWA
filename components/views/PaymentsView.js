@@ -510,24 +510,42 @@ export default function PaymentsView() {
     } catch (e) { console.error('Failed to reload payment history:', e); }
   };
 
+  const [adviceModalOpen, setAdviceModalOpen] = useState(false);
+  const [adviceTargetIds, setAdviceTargetIds] = useState([]);
+  const [adviceContact, setAdviceContact] = useState('');
+  
   const handleSendPaymentAdvice = async (reqId) => {
-    const req = payments.find(p => p.id === reqId);
-    const vendor = vendors.find(v => v.code === req?.vendor_code || v.name === req?.vendor_name);
-    const defaultEmail = vendor?.email || '';
-    let email = defaultEmail;
-    if (!email) {
-      email = prompt("Enter vendor's email address to send payment advice:", "");
-      if (email === null) return;
-    }
-    if (!email.trim()) {
-      toast.error('Email address is required.');
-      return;
-    }
+    setAdviceTargetIds([reqId]);
+    setAdviceContact('');
+    setAdviceModalOpen(true);
+  };
+
+  const handleSendMultiWhatsApp = () => {
+    setAdviceTargetIds(selectedPayments);
+    setAdviceContact('');
+    setAdviceModalOpen(true);
+  };
+
+  const executeSendAdvice = async (method) => {
+    if (!adviceContact) return toast('Please enter a contact (email or phone).');
     try {
-      await call('sendPaymentAdvice', reqId, email.trim());
-      toast.success('Payment advice email has been sent successfully to ' + email.trim() + '.');
+      if (method === 'email') {
+        for (const targetId of adviceTargetIds) {
+          await call('sendPaymentAdvice', targetId, adviceContact.trim());
+        }
+        toast.success(`Payment advice email sent to ${adviceContact.trim()}`);
+      } else if (method === 'whatsapp') {
+        for (const targetId of adviceTargetIds) {
+          await call('sendPaymentAdviceWhatsApp', targetId, adviceContact.trim());
+        }
+        toast.success(`Payment advice WhatsApp sent to ${adviceContact.trim()}`);
+      }
+      setAdviceModalOpen(false);
+      if (adviceTargetIds.length > 1) {
+        setSelectedPayments([]);
+      }
     } catch (err) {
-      toast.error('Failed to send payment advice: ' + err.message);
+      toast.error('Failed to send payment advice: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -701,6 +719,7 @@ export default function PaymentsView() {
         onApproveSelected={handleBulkApproveReview}
         onRejectSelected={() => setBulkRejectModalOpen(true)}
         onClearSelection={() => setSelectedPayments([])}
+        onSendToWhatsApp={handleSendMultiWhatsApp}
       />
 
       <BulkApprovalReviewModal
@@ -806,6 +825,34 @@ export default function PaymentsView() {
           </div>
         </div>
       </Dialog>
+      <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">
+        <div className="space-y-4">
+          <div className="text-sm text-slate-400">
+            Enter the vendor's email address or WhatsApp number (with country code, e.g. 919876543210).
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400 font-light">Contact Detail</label>
+            <Input
+              type="text"
+              placeholder="Email or Phone Number"
+              value={adviceContact}
+              onChange={e => setAdviceContact(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
+            <Button variant="ghost" onClick={() => setAdviceModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={() => executeSendAdvice('whatsapp')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              Send via WhatsApp
+            </Button>
+            <Button variant="primary" onClick={() => executeSendAdvice('email')}>
+              Send via Email
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
     </div>
   );
 }

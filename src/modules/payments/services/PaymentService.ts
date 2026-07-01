@@ -3,6 +3,7 @@ import { IPaymentInput, IPaymentRequestInput, IPaymentRequest } from '../types/P
 import { approvalEngine } from '../../core/services/ApprovalEngine';
 import { POService } from '../../purchase-orders/services/POService';
 import { logAudit } from '../../../../app/lib/api.js';
+import { notifyQueueUsers } from '../../../../app/lib/whatsapp.js';
 
 export class PaymentService {
   /**
@@ -54,6 +55,10 @@ export class PaymentService {
     });
 
     await logAudit(userEmail, 'Payment Request', `Requested ${reqAmt} for PO#${payload.poNo}`, 'Finance');
+    
+    // Auto-notify the first queue (Procurement)
+    await notifyQueueUsers('procurement', `*New Payment Request*\n\nA new payment request of ₹${reqAmt.toLocaleString('en-IN')} for PO# *${payload.poNo}* has been submitted and is waiting for Procurement approval.\n\nProject: ${payload.project || linkedPO.project}`);
+
     return { ok: true };
   }
 
@@ -124,6 +129,15 @@ export class PaymentService {
       `Approved payment ID ${prId} (stage transitioned from ${oldStage} to ${newStage}). Requested: ${pr.amount_requested||0}, Approved: ${approvedAmount}, TDS: ${tdsAmount} (${tdsSec})`,
       oldStage
     );
+
+    let queueRole = '';
+    if (newStage === 'Pending Finance') queueRole = 'finance';
+    else if (newStage === 'Pending Director') queueRole = 'director';
+    else if (newStage === 'Ready to Remit') queueRole = 'finance';
+    
+    if (queueRole) {
+      await notifyQueueUsers(queueRole, `*Payment Request Updated*\n\nPayment Request ID ${prId} for PO# *${pr.po_no}* is now in stage: *${newStage}* and requires your attention.\n\nAmount: ₹${approvedAmount.toLocaleString('en-IN')}`);
+    }
 
     return { ok: true };
   }

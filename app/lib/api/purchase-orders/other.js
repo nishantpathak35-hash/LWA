@@ -147,3 +147,24 @@ export async function correctLegacyPOPaidAmount(poNo, newPaidAmount, autoRecalcu
 
   return { ok: true, message: 'Legacy payment corrected successfully.' };
 }
+
+export async function sendPOToVendorWhatsApp(poNo, phoneOverride, session) {
+  requireAuth(session);
+  const po = await queryGet('SELECT * FROM purchase_orders WHERE po_no = ?', [poNo]);
+  if (!po) throw new Error('PO not found: ' + poNo);
+
+  const vendor = await queryGet('SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?', [po.vendor_name, po.vendor_key]);
+  const toPhone = phoneOverride || vendor?.phone || vendor?.contact_number;
+  if (!toPhone) throw new Error('No phone number provided for WhatsApp PO Delivery.');
+
+  const total = Number(po.po_value || 0);
+
+  const message = `*Purchase Order Issued*\n\nDear ${po.vendor_name || 'Vendor'},\n\nPlease find attached the Purchase Order *${po.po_no}* for the project *${po.project || 'N/A'}*.\n\nTotal Value: ₹${total.toLocaleString('en-IN')}\n\nDelivery/Terms: ${po.terms || 'As per standard terms'}\n\nPlease reach out if you have any questions.\n\nThank you,\nLUXEWORX ATELIER`;
+
+  const { enqueueWhatsAppMessage } = await import('../../whatsapp.js');
+  await enqueueWhatsAppMessage(toPhone, message);
+  
+  await logAudit(session?.email || 'system', 'PO Sent via WhatsApp', `PO#${po.po_no} WhatsApp sent to ${toPhone}`, 'Procurement');
+
+  return { ok: true, phone: toPhone };
+}

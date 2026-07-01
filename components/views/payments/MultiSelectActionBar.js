@@ -113,6 +113,14 @@ export default function MultiSelectActionBar({
           </Button>
           <Button 
             variant="outline" 
+            onClick={onSendToWhatsApp} 
+            className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
+            title="Send selected to WhatsApp"
+          >
+            Send to WhatsApp
+          </Button>
+          <Button 
+            variant="outline" 
             onClick={onRejectSelected} 
             className="border-rose-500/50 text-rose-400 hover:bg-rose-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!allSelectedActionable}
