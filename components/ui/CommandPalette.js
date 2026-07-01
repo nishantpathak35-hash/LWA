@@ -6,7 +6,7 @@ import { useAppState } from '../StateProvider';
 import { Search, FileText, Building2, Briefcase, ChevronRight, X, LayoutDashboard, CreditCard, Receipt, BarChart3, Settings } from 'lucide-react';
 
 export function CommandPalette() {
-  const { pos, vendors, projects, setActiveView, setTargetPo } = useAppState();
+  const { pos, vendors, projects, payments, setActiveView, setTargetPo } = useAppState();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -53,9 +53,11 @@ export function CommandPalette() {
       title: po.po_no,
       subtitle: `${po.vendor_name || 'Unknown Vendor'} • ${po.project || 'No Project'}`,
       icon: <FileText className="w-4 h-4 text-emerald-400" />,
-      action: () => {
-        setTargetPo(po.po_no);
-        setActiveView('pos');
+      href: `/po/${encodeURIComponent(po.po_no)}`,
+      action: (e) => {
+        if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
+        e?.preventDefault();
+        window.open(`/po/${encodeURIComponent(po.po_no)}`, '_blank');
         setOpen(false);
       }
     }));
@@ -70,8 +72,10 @@ export function CommandPalette() {
       title: v.name,
       subtitle: v.vendor_type || 'Vendor',
       icon: <Building2 className="w-4 h-4 text-sky-400" />,
-      action: () => {
-        // We don't have a specific vendor expander yet, but we can jump to vendors tab
+      href: `/?view=vendors&vendor=${v.id}`,
+      action: (e) => {
+        if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
+        e?.preventDefault();
         setActiveView('vendors');
         setOpen(false);
       }
@@ -86,13 +90,35 @@ export function CommandPalette() {
       title: p.project,
       subtitle: `Value: ₹${Number(p.projectValue || 0).toLocaleString()}`,
       icon: <Briefcase className="w-4 h-4 text-amber-400" />,
-      action: () => {
+      href: `/?view=dashboard&project=${encodeURIComponent(p.project)}`,
+      action: (e) => {
+        if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
+        e?.preventDefault();
         setActiveView('dashboard');
         setOpen(false);
       }
     }));
 
-    results = [...matchedPOs, ...matchedVendors, ...matchedProjects];
+    // Search Payments
+    const matchedPayments = (payments || []).filter(pay => 
+      (pay.payment_req_no && pay.payment_req_no.toLowerCase().includes(normalizedQuery)) ||
+      (pay.po_no && pay.po_no.toLowerCase().includes(normalizedQuery))
+    ).slice(0, 3).map(pay => ({
+      id: `payment-${pay.id}`,
+      type: 'Payment',
+      title: pay.payment_req_no || `Payment ${pay.id}`,
+      subtitle: `PO: ${pay.po_no || 'N/A'} • ₹${Number(pay.amount || 0).toLocaleString()}`,
+      icon: <CreditCard className="w-4 h-4 text-purple-400" />,
+      href: `/?view=payments&payment=${pay.id}`,
+      action: (e) => {
+        if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
+        e?.preventDefault();
+        setActiveView('payments');
+        setOpen(false);
+      }
+    }));
+
+    results = [...matchedPOs, ...matchedVendors, ...matchedProjects, ...matchedPayments];
   }
 
   const handleKeyDown = (e) => {
@@ -105,7 +131,7 @@ export function CommandPalette() {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (results[activeIndex]) {
-        results[activeIndex].action();
+        results[activeIndex].action(e);
       }
     }
   };
@@ -166,27 +192,49 @@ export function CommandPalette() {
             </div>
           )}
 
-          {results.map((res, idx) => (
-            <div
-              key={res.id}
-              onClick={res.action}
-              onMouseEnter={() => setActiveIndex(idx)}
-              className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${idx === activeIndex ? 'bg-slate-800/80 text-white' : 'text-slate-300 hover:bg-slate-900/50'}`}
-            >
-              <div className="flex items-center gap-4">
-                <div className={`p-2 rounded-lg bg-slate-900 shadow-sm border border-slate-800 ${idx === activeIndex ? 'border-slate-700' : ''}`}>
-                  {res.icon}
+          {results.map((res, idx) => {
+            const inner = (
+              <>
+                <div className="flex items-center gap-4">
+                  <div className={`p-2 rounded-lg bg-slate-900 shadow-sm border border-slate-800 ${idx === activeIndex ? 'border-slate-700' : ''}`}>
+                    {res.icon}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">{res.title}</div>
+                    <div className={`text-xs ${idx === activeIndex ? 'text-slate-400' : 'text-slate-500'}`}>{res.subtitle}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-semibold text-sm">{res.title}</div>
-                  <div className={`text-xs ${idx === activeIndex ? 'text-slate-400' : 'text-slate-500'}`}>{res.subtitle}</div>
+                <div className={`text-xs font-medium px-2 py-1 rounded-md ${idx === activeIndex ? 'bg-slate-700 text-slate-300' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
+                  {res.type}
                 </div>
+              </>
+            );
+
+            if (res.href) {
+              return (
+                <a
+                  key={res.id}
+                  href={res.href}
+                  onClick={res.action}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors block w-full ${idx === activeIndex ? 'bg-slate-800/80 text-white' : 'text-slate-300 hover:bg-slate-900/50'}`}
+                >
+                  {inner}
+                </a>
+              );
+            }
+
+            return (
+              <div
+                key={res.id}
+                onClick={res.action}
+                onMouseEnter={() => setActiveIndex(idx)}
+                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${idx === activeIndex ? 'bg-slate-800/80 text-white' : 'text-slate-300 hover:bg-slate-900/50'}`}
+              >
+                {inner}
               </div>
-              <div className={`text-xs font-medium px-2 py-1 rounded-md ${idx === activeIndex ? 'bg-slate-700 text-slate-300' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
-                {res.type}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         
         <div className="px-4 py-3 border-t border-slate-800/50 bg-slate-900/50 flex items-center justify-between text-[10px] text-slate-500">

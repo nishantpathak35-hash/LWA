@@ -29,6 +29,18 @@ export function StateProvider({ children }) {
     } else {
       setLoading(false);
     }
+    
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      if (view) {
+        setActiveView(view);
+      }
+      const targetPo = params.get('po');
+      if (targetPo) {
+        setTargetPo(targetPo);
+      }
+    }
   }, []);
 
   // Cached data state
