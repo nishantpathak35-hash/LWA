@@ -88,7 +88,7 @@ export default function SettingsUsersTab({
                         <TableCell className="text-xs text-slate-500">
                           {u.lastLogin ? (
                             <div className="space-y-0.5">
-                              <div className="text-slate-300 font-medium">{new Date(u.lastLogin).toLocaleString()}</div>
+                              <div className="text-slate-300 font-medium">{new Date(u.lastLogin).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</div>
                               {(u.lastLoginIp || u.lastLoginDevice) && (
                                 <div className="text-[10px] text-slate-500 font-mono tracking-tight leading-tight">
                                   {u.lastLoginIp && <div>IP: {u.lastLoginIp}</div>}
