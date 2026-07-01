@@ -63,6 +63,35 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
   return { ok: true, vendorEmail: toEmail };
 }
 
+export async function sendPaymentAdviceWhatsApp(rowNumberOrId, phoneOverride, session) {
+    requireAuth(session);
+    const rows = await queryAll(`SELECT * FROM payment_requests`);
+    const pr = rows.find(r => String(r.pr_id) === String(rowNumberOrId) || String(r.rowid) === String(rowNumberOrId)) || rows[Number(rowNumberOrId) - 1];
+    if (!pr) throw new Error('Payment request not found');
+  
+    const stage = String(pr.stage || '').toLowerCase();
+    if (stage === 'rejected') throw new Error('Payment Advice cannot be generated for rejected payment requests.');
+    const isRemitted = stage.trim() === 'remitted' || String(pr.remittance || '').toLowerCase().trim() === 'remitted';
+    if (!isRemitted) throw new Error('Payment Advice can only be sent for successfully remitted payments.');
+  
+    const vendor = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [pr.vendor_name, pr.vendor_code]);
+    
+    const toPhone = phoneOverride || vendor?.phone || vendor?.contact_number;
+    if (!toPhone) throw new Error('No phone number provided for WhatsApp Payment Advice.');
+
+    const baseAmt = Number((pr.approved_amount ?? pr.amount_requested) || 0);
+    const tdsAmt = Number(pr.tds_amount || 0);
+    const netAmt = Math.max(0, baseAmt - tdsAmt);
+    
+    const message = `*Payment Advice*\n\nDear ${pr.vendor_name || 'Vendor'},\n\nWe have successfully remitted a payment of *Rs. ${netAmt.toLocaleString('en-IN')}* towards Purchase Order *${pr.po_no || 'N/A'}* for the project *${pr.project || 'N/A'}*.\n\nUTR Number: ${pr.remittance_ref || pr.utr || 'N/A'}\n\nThank you,\nLUXEWORX ATELIER`;
+
+    const { enqueueWhatsAppMessage } = await import('../../whatsapp.js');
+    await enqueueWhatsAppMessage(toPhone, message);
+    
+    await logAudit(session?.email || 'system', 'Payment Advice Sent via WhatsApp', `Payment Advice WhatsApp sent for Request ID: ${pr.id || pr.rowid || pr.pr_id} to ${toPhone}`);
+    return { success: true };
+}
+
 
 export async function bulkApprovePayments(ids, approvalData, session) {
   requireAuth(session);
