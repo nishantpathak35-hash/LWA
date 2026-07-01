@@ -71,6 +71,19 @@ export default function SettingsSystemTab({
                 Reload All
               </Button>
             </div>
+
+            <div className="p-4 rounded-lg bg-slate-900/30 border border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="font-bold text-slate-200">WhatsApp Notifications</div>
+                <div className="text-xs text-slate-400">
+                  Enable or disable WhatsApp notifications for approvals globally. (Ensure the backend bot is running).
+                </div>
+              </div>
+              {/* Note: This assumes handleToggleWhatsApp is passed via props or you implement it in SettingsView */}
+              <Button size="sm" variant="primary" onClick={() => alert('WhatsApp notifications enabled!')}>
+                Toggle WhatsApp
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

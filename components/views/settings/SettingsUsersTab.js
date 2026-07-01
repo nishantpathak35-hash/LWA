@@ -55,6 +55,7 @@ export default function SettingsUsersTab({
                 <TableRow>
                   <TableHead>Email</TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>WhatsApp</TableHead>
                   <TableHead>Access Roles</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>LAST ACTIVE</TableHead>
@@ -77,6 +78,7 @@ export default function SettingsUsersTab({
                       <TableRow key={u.email || idx}>
                         <TableCell className="font-semibold text-slate-200">{u.email}</TableCell>
                         <TableCell>{u.name || '—'}</TableCell>
+                        <TableCell>{u.whatsapp_number || '—'}</TableCell>
                         <TableCell className="flex gap-1.5 flex-wrap">
                           {rs.map(r => (
                             <Badge key={r} variant={r === 'director' ? 'warning' : 'default'}>
