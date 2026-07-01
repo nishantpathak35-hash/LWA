@@ -1,6 +1,10 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
+require('dotenv').config({ path: './.env' });
+const { createClient } = require('@libsql/client');
+
+const db = createClient({url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN});
 
 /**
  * WhatsApp Bot Initialization
@@ -17,23 +21,37 @@ const client = new Client({
 
 let isReady = false;
 
-client.on('qr', (qr) => {
+async function setSetting(key, value) {
+    try {
+        await db.execute({
+            sql: `INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?`,
+            args: [key, value, value]
+        });
+    } catch(e) { console.error('DB Error:', e.message); }
+}
+
+client.on('qr', async (qr) => {
     // Generate and scan this code with your phone
     console.log('Scan this QR code with your secondary WhatsApp number:');
     qrcode.generate(qr, { small: true });
+    await setSetting('whatsapp_qr', qr);
+    await setSetting('whatsapp_status', 'pending');
 });
 
-client.on('ready', () => {
+client.on('ready', async () => {
     console.log('WhatsApp Bot is ready!');
     isReady = true;
+    await setSetting('whatsapp_qr', '');
+    await setSetting('whatsapp_status', 'ready');
 });
 
 client.on('authenticated', () => {
     console.log('WhatsApp Bot authenticated successfully.');
 });
 
-client.on('auth_failure', msg => {
+client.on('auth_failure', async msg => {
     console.error('WhatsApp Bot authentication failure:', msg);
+    await setSetting('whatsapp_status', 'failed');
 });
 
 client.initialize();

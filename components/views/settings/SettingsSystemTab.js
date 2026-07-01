@@ -1,6 +1,40 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '../../ui/core';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
+
+function WhatsAppLogin() {
+  const [qr, setQr] = React.useState(null);
+  const [status, setStatus] = React.useState('offline');
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch('/api/whatsapp/status');
+        const data = await res.json();
+        setQr(data.qr);
+        setStatus(data.status);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStatus();
+    const int = setInterval(fetchStatus, 3000);
+    return () => clearInterval(int);
+  }, []);
+
+  if (loading) return <Loader2 className="w-5 h-5 animate-spin text-slate-400" />;
+  if (status === 'ready') return <span className="text-emerald-500 font-bold text-sm bg-emerald-950/30 px-3 py-1 rounded border border-emerald-900/50">WhatsApp Connected</span>;
+  if (qr) return (
+    <div className="flex flex-col items-center gap-2 bg-white p-2 rounded">
+      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qr)}`} alt="WhatsApp QR Code" width={150} height={150} />
+      <span className="text-[10px] text-slate-900 font-medium">Scan to connect</span>
+    </div>
+  );
+  return <span className="text-amber-500 font-bold text-sm">Bot Offline (run node backend/whatsapp-bot.js)</span>;
+}
 
 export default function SettingsSystemTab({
   activeTab,
@@ -76,13 +110,10 @@ export default function SettingsSystemTab({
               <div className="space-y-1">
                 <div className="font-bold text-slate-200">WhatsApp Notifications</div>
                 <div className="text-xs text-slate-400">
-                  Enable or disable WhatsApp notifications for approvals globally. (Ensure the backend bot is running).
+                  Enable or disable WhatsApp notifications for approvals globally. Scan the QR code to link your account.
                 </div>
               </div>
-              {/* Note: This assumes handleToggleWhatsApp is passed via props or you implement it in SettingsView */}
-              <Button size="sm" variant="primary" onClick={() => alert('WhatsApp notifications enabled!')}>
-                Toggle WhatsApp
-              </Button>
+              <WhatsAppLogin />
             </div>
           </CardContent>
         </Card>
