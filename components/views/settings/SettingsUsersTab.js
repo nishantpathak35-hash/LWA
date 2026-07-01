@@ -57,7 +57,7 @@ export default function SettingsUsersTab({
                   <TableHead>Name</TableHead>
                   <TableHead>Access Roles</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
+                  <TableHead>LAST ACTIVE</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>

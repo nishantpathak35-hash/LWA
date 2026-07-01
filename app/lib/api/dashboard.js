@@ -90,6 +90,11 @@ export async function getBootBundle(session) {
   requireAuth(session);
   // Ensure schema migrations (e.g. approved_amount column) run BEFORE parallel queries
   await ensureSettingsTable();
+
+  // Track user activity on every boot/refresh so "Last Login" acts as "Last Active"
+  if (session && session.email) {
+    queryRun(`UPDATE users SET last_login = ? WHERE LOWER(email) = ?`, [new Date().toISOString(), session.email.trim().toLowerCase()]).catch(e => console.error(e));
+  }
   const [kpis, master, payments, featurePermissions] = await Promise.all([
     getDashboardKPIs(session),
     getMasterData(session),
