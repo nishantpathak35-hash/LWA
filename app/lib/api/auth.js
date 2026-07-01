@@ -316,4 +316,11 @@ export async function acceptInvite(token, password) {
   return { ok: true, email: user.email };
 }
 
-// --- EMAIL ACTIONS ---
+// --- EMAIL ACTIONS ---
+export async function setUserWhatsAppAdmin(email, whatsapp_number, session) {
+  requireAdminConsole(session);
+  await queryRun('UPDATE users SET whatsapp_number = ? WHERE LOWER(email) = ?', [whatsapp_number || null, String(email).trim().toLowerCase()]);
+  await logAudit(session.email, 'User WhatsApp Updated', email, 'Settings');
+  return { ok: true };
+}
+

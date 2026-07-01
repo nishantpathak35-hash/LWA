@@ -6,7 +6,9 @@ import { cn } from '../../../app/lib/utils';
 export default function SettingsUsersTab({
   usersSearch, setUsersSearch,
   handleExportUsers,
-  setTargetEmail, setNewUserName, setNewUserPassword, setNewUserRoles, setInviteResult, setInviteModalOpen,
+  setTargetEmail, setNewUserName, setNewUserPassword, setNewUserRoles,
+  newWhatsApp, setNewWhatsApp, editWhatsApp, setEditWhatsApp,
+  setInviteResult, setInviteModalOpen,
   loading, filteredUsers,
   setEditAccessRoles, setAccessModalOpen,
   setResetPasswordVal, setResetPwdModalOpen,
@@ -35,6 +37,7 @@ export default function SettingsUsersTab({
                 setTargetEmail('');
                 setNewUserName('');
                 setNewUserPassword('ChangeMe123!');
+                setNewWhatsApp('');
                 setNewUserRoles({ proc: false, finance: true, director: false });
                 setInviteResult(null);
                 setInviteModalOpen(true);
@@ -112,6 +115,7 @@ export default function SettingsUsersTab({
                               const updatedRoles = { proc: false, finance: false, director: false };
                               rs.forEach(role => { updatedRoles[role] = true; });
                               setEditAccessRoles(updatedRoles);
+                              setEditWhatsApp(u.whatsapp_number || '');
                               setAccessModalOpen(true);
                             }}
                           >

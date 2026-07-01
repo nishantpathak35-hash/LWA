@@ -77,12 +77,12 @@ export async function bulkApprovePayments(ids, approvalData, session) {
       
       // WhatsApp Notification
       try {
-        const { sendWhatsAppMessage } = await import('../../../../backend/whatsapp-bot.js');
         const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
         if (pr) {
           const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [pr.submitted_by || pr.created_by]);
           if (submitter?.whatsapp_number) {
-            await sendWhatsAppMessage(submitter.whatsapp_number, `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Approved by ${session?.name || session?.email}.`);
+            const msg = `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Approved by ${session?.name || session?.email}.`;
+            await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [submitter.whatsapp_number, msg]);
           }
         }
       } catch (error) {
@@ -118,12 +118,12 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
       
       // WhatsApp Notification
       try {
-        const { sendWhatsAppMessage } = await import('../../../../backend/whatsapp-bot.js');
         const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
         if (pr) {
           const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [pr.submitted_by || pr.created_by]);
           if (submitter?.whatsapp_number) {
-            await sendWhatsAppMessage(submitter.whatsapp_number, `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Rejected by ${session?.name || session?.email}.`);
+            const msg = `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Rejected by ${session?.name || session?.email}.`;
+            await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [submitter.whatsapp_number, msg]);
           }
         }
       } catch (error) {

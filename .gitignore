@@ -44,3 +44,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+.wwebjs_auth/
+.wwebjs_cache/
+

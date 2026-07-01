@@ -15,6 +15,11 @@ const db = createClient({url: process.env.TURSO_DATABASE_URL, authToken: process
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
     puppeteer: {
+        executablePath: fs.existsSync('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') 
+            ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
+            : fs.existsSync('C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe')
+                ? 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+                : undefined,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     }
 });
@@ -77,6 +82,26 @@ async function sendWhatsAppMessage(phoneNumber, message) {
         console.error(`Failed to send WhatsApp message to ${phoneNumber}:`, error.message);
     }
 }
+
+// Outbox Poller
+setInterval(async () => {
+    if (!isReady) return;
+    try {
+        const res = await db.execute(`SELECT * FROM whatsapp_outbox WHERE status = 'pending' LIMIT 5`);
+        if (res.rows && res.rows.length > 0) {
+            for (const row of res.rows) {
+                console.log(`Processing outbox ID ${row.id} for ${row.phone}`);
+                await sendWhatsAppMessage(row.phone, row.message);
+                await db.execute({
+                    sql: `UPDATE whatsapp_outbox SET status = 'sent' WHERE id = ?`,
+                    args: [row.id]
+                });
+            }
+        }
+    } catch (e) {
+        console.error('Outbox poll error:', e.message);
+    }
+}, 5000);
 
 module.exports = {
     sendWhatsAppMessage,

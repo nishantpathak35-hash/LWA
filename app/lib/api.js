@@ -13,3 +13,5 @@ export { getFeaturePermissions, setFeaturePermissions, clearAllCaches, getCompan
 export { listAuditLog, getPaymentReportRows, getTDSRegisterReport, getVendorTDSReport, getProjectTDSReport, getApprovalAuditReport, getDayWiseApprovalReport } from './api/reports.js';
 export { uploadAttachment, getAttachments, deleteAttachment } from './api/attachments.js';
 export { getInvoices, saveInvoice } from './api/invoices.js';
+export { setUserWhatsAppAdmin } from './api/auth.js';
+

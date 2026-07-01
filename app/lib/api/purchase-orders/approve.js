@@ -30,11 +30,11 @@ export async function submitPOForApproval(poNo, session) {
 
   // WhatsApp Notification
   try {
-    const { sendWhatsAppMessage } = await import('../../../../backend/whatsapp-bot.js');
     const approvers = await queryAll(`SELECT whatsapp_number FROM users WHERE roles LIKE '%director%' OR roles LIKE '%admin%'`);
     for (const approver of approvers) {
       if (approver.whatsapp_number) {
-        await sendWhatsAppMessage(approver.whatsapp_number, `Action Required: PO #${poNo} for ${po.vendor_name || 'Vendor'} is pending your approval. Amount: ${po.net_payable_amount || po.total_amount || 0}`);
+        const msg = `Action Required: PO #${poNo} for ${po.vendor_name || 'Vendor'} is pending your approval. Amount: ${po.net_payable_amount || po.total_amount || 0}`;
+        await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [approver.whatsapp_number, msg]);
       }
     }
   } catch (error) {
@@ -77,10 +77,10 @@ export async function approvePO(poNo, action, remarks, session) {
 
   // WhatsApp Notification
   try {
-    const { sendWhatsAppMessage } = await import('../../../../backend/whatsapp-bot.js');
     const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [po.submitted_by || po.created_by]);
     if (submitter?.whatsapp_number) {
-      await sendWhatsAppMessage(submitter.whatsapp_number, `Update: PO #${poNo} for ${po.vendor_name || 'Vendor'} has been ${newStatus} by ${session?.name || session?.email}.`);
+      const msg = `Update: PO #${poNo} for ${po.vendor_name || 'Vendor'} has been ${newStatus} by ${session?.name || session?.email}.`;
+      await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [submitter.whatsapp_number, msg]);
     }
   } catch (error) {
     console.error('WhatsApp notification failed:', error.message);

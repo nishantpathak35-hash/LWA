@@ -35,8 +35,10 @@ export default function SettingsView() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserRoles, setNewUserRoles] = useState({ proc: false, finance: true, director: false });
   const [newUserPassword, setNewUserPassword] = useState(generateRandomPassword());
+  const [newWhatsApp, setNewWhatsApp] = useState('');
   
   const [editAccessRoles, setEditAccessRoles] = useState({ proc: false, finance: false, director: false });
+  const [editWhatsApp, setEditWhatsApp] = useState('');
   const [resetPasswordVal, setResetPasswordVal] = useState(generateRandomPassword());
   const [inviteResult, setInviteResult] = useState(null);
 
@@ -457,6 +459,10 @@ export default function SettingsView() {
         password: newUserPassword
       });
       
+      if (newWhatsApp) {
+        await call('setUserWhatsAppAdmin', targetEmail, newWhatsApp);
+      }
+      
       if (res && res.emailSent) {
         toast(`User created & invite email sent to ${targetEmail}`);
         setInviteModalOpen(false);
@@ -478,6 +484,9 @@ export default function SettingsView() {
     }
     try {
       await call('setUserRolesAdmin', targetEmail, roles);
+      if (editWhatsApp !== undefined) {
+        await call('setUserWhatsAppAdmin', targetEmail, editWhatsApp);
+      }
       toast.success('Access updated successfully.');
       setAccessModalOpen(false);
       loadUsers();
@@ -635,6 +644,8 @@ export default function SettingsView() {
           handleExportUsers={handleExportUsers}
           setTargetEmail={setTargetEmail} setNewUserName={setNewUserName}
           setNewUserPassword={setNewUserPassword} setNewUserRoles={setNewUserRoles}
+          newWhatsApp={newWhatsApp} setNewWhatsApp={setNewWhatsApp}
+          editWhatsApp={editWhatsApp} setEditWhatsApp={setEditWhatsApp}
           setInviteResult={setInviteResult} setInviteModalOpen={setInviteModalOpen}
           loading={loading} filteredUsers={filteredUsers}
           setEditAccessRoles={setEditAccessRoles} setAccessModalOpen={setAccessModalOpen}
@@ -812,6 +823,15 @@ export default function SettingsView() {
                 onChange={e => setNewUserPassword(e.target.value)}
               />
             </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-slate-400 font-light">WhatsApp Number (Optional)</label>
+              <Input
+                type="text"
+                placeholder="e.g. +919876543210"
+                value={newWhatsApp}
+                onChange={e => setNewWhatsApp(e.target.value)}
+              />
+            </div>
             <div className="text-xs text-slate-500 pt-1">
               Share the email + temp password with the user. They should change it on first login.
             </div>
@@ -845,6 +865,15 @@ export default function SettingsView() {
                 <span className="text-sm font-semibold text-slate-200 capitalize">{r}</span>
               </label>
             ))}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400 font-light">WhatsApp Number</label>
+            <Input
+              type="text"
+              placeholder="e.g. +919876543210"
+              value={editWhatsApp}
+              onChange={e => setEditWhatsApp(e.target.value)}
+            />
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
             <Button variant="ghost" onClick={() => setAccessModalOpen(false)}>
