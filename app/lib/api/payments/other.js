@@ -245,12 +245,16 @@ export async function reconcileRemittedPaymentsToPOLedger(session, targetPoNo = 
     );
     const totalPaid = Number(sysSumRow?.total) || 0;
     const poVal = Number(po.revised_po_value || po.po_value || 0);
-    const finalPayable = poVal - totalPaid;
+    const finalPayable = Math.max(0, poVal - totalPaid);
+
+    let paymentStatus = 'Unpaid';
+    if (totalPaid >= poVal && poVal > 0) paymentStatus = 'Fully Paid';
+    else if (totalPaid > 0) paymentStatus = 'Partially Paid';
 
     // Update PO ledger
     await queryRun(
-      `UPDATE purchase_orders SET legacy_paid = ?, final_payable = ? WHERE po_no = ?`,
-      [totalPaid, finalPayable, poNo]
+      `UPDATE purchase_orders SET legacy_paid = ?, final_payable = ?, payment_status = ? WHERE po_no = ?`,
+      [totalPaid, finalPayable, paymentStatus, poNo]
     );
     
     reconciledCount++;
