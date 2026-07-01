@@ -18,6 +18,7 @@ export default function MultiSelectActionBar({
   onApproveSelected,
   onRejectSelected,
   onClearSelection,
+  onSendToWhatsApp,
   loadingSummary,
   allSelectedActionable = true
 }) {
