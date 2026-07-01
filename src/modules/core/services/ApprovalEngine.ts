@@ -28,32 +28,19 @@ export class ApprovalEngine {
   ];
 
   public getNextStage(currentStage: string, userRoles: string[]): { newStage: string; updates: Record<string, string> } {
-    let stage = currentStage;
-    let accumulatedUpdates: Record<string, string> = {};
-
-    // Auto-advance through stages if user has higher permissions (like admin/director)
-    for (let i = 0; i < this.transitions.length; i++) {
-      const transition = this.transitions.find(t => t.fromStage === stage);
-      if (!transition) break; // No further transitions or unknown stage
-
-      const hasRequiredRole = transition.requiredRoles.some(role => userRoles.includes(role));
-      
-      if (hasRequiredRole) {
-        stage = transition.toStage;
-        accumulatedUpdates = { ...accumulatedUpdates, ...transition.updates };
-        
-        // If they only have procurement, stop after first advance.
-        // If they have finance, stop after finance advance, unless they are admin/director.
-        if (!userRoles.includes('director') && !userRoles.includes('admin')) {
-           if (userRoles.includes('finance') && stage === 'Pending Director') break;
-           if (!userRoles.includes('finance') && stage === 'Pending Finance') break;
-        }
-      } else {
-        break; // Stop if they don't have the role for the *current* transition
-      }
+    const transition = this.transitions.find(t => t.fromStage === currentStage);
+    
+    if (!transition) {
+      return { newStage: currentStage, updates: {} };
     }
 
-    return { newStage: stage, updates: accumulatedUpdates };
+    const hasRequiredRole = transition.requiredRoles.some(role => userRoles.includes(role));
+    
+    if (hasRequiredRole) {
+      return { newStage: transition.toStage, updates: transition.updates };
+    }
+    
+    return { newStage: currentStage, updates: {} };
   }
 
   public getRejectStage(currentStage: string, userRoles: string[]): { newStage: string; updates: Record<string, string> } {
