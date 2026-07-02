@@ -123,8 +123,8 @@ export default function VendorsView() {
     setEditPreferredWhatsappContact(v.preferred_whatsapp_contact || 'Primary');
     try {
       const details = await call('getVendorByName', v.vendor_code);
-      setEditAccountNo(details.accountNo || '');
-      setEditIfsc(details.ifsc || '');
+      setEditAccountNo(details?.accountNo || '');
+      setEditIfsc(details?.ifsc || '');
       setEditModalOpen(true);
     } catch (err) { toast.error('Failed to load vendor: ' + err.message); }
   };
