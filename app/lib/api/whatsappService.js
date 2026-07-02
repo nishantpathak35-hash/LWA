@@ -70,7 +70,7 @@ export async function sendInternalWhatsApp(recipientEmail, selectedRecords, modu
     innerMsg = formatBulkPaymentMessage(selectedRecords);
   } else {
     // Generic formatter
-    innerMsg = `*${moduleName} Review*\n\nPlease review the following records.\n`;
+    innerMsg = `📋 *${moduleName} Review*\n\nPlease review the following records:\n`;
     
     // Group by project if available
     const byProject = {};
@@ -85,33 +85,32 @@ export async function sendInternalWhatsApp(recipientEmail, selectedRecords, modu
     });
 
     for (const [project, items] of Object.entries(byProject)) {
-      items.forEach(item => {
-        innerMsg += `\n--------------------------------------------------\n`;
-        if (project !== 'General') innerMsg += `Project : ${project}\n`;
-        if (item.vendor_name || item.vendor) innerMsg += `Vendor : ${item.vendor_name || item.vendor}\n`;
-        if (item.po_no) innerMsg += `PO No : ${item.po_no}\n`;
-        if (item.invoice_ref || item.invoice_no) innerMsg += `Invoice : ${item.invoice_ref || item.invoice_no}\n`;
+      if (project !== 'General') innerMsg += `\n🏗️ *Project:* ${project}\n`;
+      items.forEach((item, index) => {
+        innerMsg += `\n🔸 *Record ${index + 1}*\n`;
+        if (item.vendor_name || item.vendor) innerMsg += `👤 *Vendor:* ${item.vendor_name || item.vendor}\n`;
+        if (item.po_no) innerMsg += `📄 *PO No:* ${item.po_no}\n`;
+        if (item.invoice_ref || item.invoice_no) innerMsg += `🧾 *Invoice:* ${item.invoice_ref || item.invoice_no}\n`;
         
         const amt = Number(item.amount || item.gross_amount || item.total_amount || 0);
-        if (amt > 0) innerMsg += `Amount : ${formatCurrency(amt)}\n`;
+        if (amt > 0) innerMsg += `💰 *Amount:* ${formatCurrency(amt)}\n`;
         
         const date = item.due_date || item.created_at || item.date;
-        if (date) innerMsg += `Date : ${formatDate(date)}\n`;
+        if (date) innerMsg += `📅 *Date:* ${formatDate(date)}\n`;
         
-        if (item.status || item.stage) innerMsg += `Status : ${item.status || item.stage}\n`;
+        if (item.status || item.stage) innerMsg += `🚥 *Status:* ${item.status || item.stage}\n`;
       });
+      innerMsg += `\n〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️\n`;
     }
 
-    innerMsg += `\n--------------------------------------------------\n`;
-    innerMsg += `Total Records : ${selectedRecords.length}\n`;
-    if (totalAmount > 0) innerMsg += `Total Amount : ${formatCurrency(totalAmount)}\n`;
-    innerMsg += `\nPlease review.\n\nRegards,\nERP System`;
+    innerMsg += `\n📊 *Summary*\n`;
+    innerMsg += `Total Records: *${selectedRecords.length}*\n`;
+    if (totalAmount > 0) innerMsg += `Total Amount: *${formatCurrency(totalAmount)}*\n`;
+    innerMsg += `\nPlease review.\n\nRegards,\n🏢 *ERP System*`;
   }
   
-  // Actually, formatBulkPaymentMessage already adds Regards, ERP System.
-  // We need to avoid double appending. 
   // Let's refine `fullMessage`.
-  let fullMessage = `*Internal Notification from ${sender?.name || senderEmail}*\n\n${innerMsg}`;
+  let fullMessage = `🔔 *Internal Notification from ${sender?.name || senderEmail}*\n\n${innerMsg}`;
   
   await enqueueWhatsAppMessage(number, fullMessage);
   
@@ -141,26 +140,27 @@ export function formatBulkPaymentMessage(payments) {
     totalCount++;
   });
   
-  let msg = `*Payment Approval Request*\n\nPlease review the following payment requests.\n`;
+  let msg = `💸 *Payment Approval Request*\n\nPlease review the following payment requests:\n`;
   
   for (const [project, items] of Object.entries(byProject)) {
-    items.forEach(item => {
+    if (project !== 'General') msg += `\n🏗️ *Project:* ${project}\n`;
+    items.forEach((item, index) => {
       const amt = Number(item.amount_requested || item.approved_amount || item.gross_amount || 0);
-      msg += `\n--------------------------------------------------\n`;
-      msg += `Project : ${project}\n`;
-      msg += `Vendor : ${item.vendor_name}\n`;
-      msg += `PO No : ${item.po_no}\n`;
-      msg += `Invoice : ${item.invoice_ref || item.invoice_no || 'N/A'}\n`;
-      msg += `Amount : ${formatCurrency(amt)}\n`;
-      msg += `Due Date : ${formatDate(item.due_date || item.created_at)}\n`;
-      msg += `Status : ${item.stage}\n`;
+      msg += `\n🔸 *Request ${index + 1}*\n`;
+      msg += `👤 *Vendor:* ${item.vendor_name}\n`;
+      msg += `📄 *PO No:* ${item.po_no}\n`;
+      msg += `🧾 *Invoice:* ${item.invoice_ref || item.invoice_no || 'N/A'}\n`;
+      msg += `💰 *Amount:* ${formatCurrency(amt)}\n`;
+      msg += `⏳ *Due Date:* ${formatDate(item.due_date || item.created_at)}\n`;
+      msg += `🚥 *Status:* ${item.stage}\n`;
     });
+    msg += `\n〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️\n`;
   }
   
-  msg += `\n--------------------------------------------------\n`;
-  msg += `Total Payments : ${totalCount}\n`;
-  msg += `Total Amount : ${formatCurrency(totalAmount)}\n\n`;
-  msg += `Please review and approve.\n\nRegards,\nERP System`;
+  msg += `\n📊 *Summary*\n`;
+  msg += `Total Payments: *${totalCount}*\n`;
+  msg += `Total Amount: *${formatCurrency(totalAmount)}*\n\n`;
+  msg += `Please review and approve.\n\nRegards,\n🏢 *ERP System*`;
   
   return msg;
 }
@@ -182,7 +182,7 @@ export async function whatsappPO(poNo, session, preferredContactOverride = null)
   
   const { number, name } = await getVendorWhatsAppNumber(po.vendor_code, preferredContactOverride);
   
-  const msg = `*Purchase Order Issued*\n\nDear ${name},\n\nPlease find attached Purchase Order *${poNo}*.\n\nRegards,\nERP System`;
+  const msg = `📦 *Purchase Order Issued*\n\nDear *${name}*,\n\nPlease find attached Purchase Order *${poNo}*.\n\nIf you have any questions, please reach out to us.\n\nRegards,\n🏢 *ERP System*`;
   // We can also attach PDF later using mediaUrl
   await enqueueWhatsAppMessage(number, msg);
   await logWhatsAppAudit(senderEmail, name, number, 'Purchase Orders', poNo, 1);
@@ -197,7 +197,7 @@ export async function whatsappPaymentAdvice(prId, session) {
   const { number, name } = await getVendorWhatsAppNumber(pr.vendor_code);
   
   const amt = Number(pr.approved_amount || 0);
-  const msg = `*Payment Advice*\n\nDear ${name},\n\nWe have successfully remitted a payment of *${formatCurrency(amt)}* towards Purchase Order *${pr.po_no}* for the project *${pr.project}*.\n\nThank you,\nERP System`;
+  const msg = `💸 *Payment Advice*\n\nDear *${name}*,\n\nWe have successfully remitted a payment of *${formatCurrency(amt)}* towards Purchase Order *${pr.po_no}* for the project *${pr.project}*.\n\nThank you for your business!\n\nRegards,\n🏢 *ERP System*`;
   
   await enqueueWhatsAppMessage(number, msg);
   await logWhatsAppAudit(senderEmail, name, number, 'Payment Advice', prId, 1);
