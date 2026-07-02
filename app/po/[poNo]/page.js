@@ -239,7 +239,7 @@ export default async function POPdfPage({ params }) {
                 
                 <span className="text-gray-500 mt-1">Site Address:</span>
                 <span className="text-xs text-gray-600 whitespace-pre-line leading-relaxed mt-1">
-                  {projectMaster?.site_address || `${companyName} Site Delivery\nC/O Project: ${po.project || ''}`}
+                  {projectMaster?.site_address || '—'}
                 </span>
               </div>
             </div>
