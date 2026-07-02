@@ -15,12 +15,14 @@ const db = createClient({url: process.env.TURSO_DATABASE_URL, authToken: process
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
     puppeteer: {
-        executablePath: fs.existsSync('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') 
-            ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
-            : fs.existsSync('C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe')
-                ? 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
-                : undefined,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (
+            fs.existsSync('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') 
+                ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
+                : fs.existsSync('C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe')
+                    ? 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+                    : undefined
+        ),
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
     }
 });
 

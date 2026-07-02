@@ -1,0 +1,10 @@
+services:
+  - type: worker
+    name: whatsapp-bot
+    env: docker
+    dockerfilePath: ./Dockerfile.whatsapp
+    envVars:
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
