@@ -176,7 +176,7 @@ export default async function POPdfPage({ params }) {
         {/* Header Block */}
         {logoUri && (
           <div style={{ width: '220px', height: '60px', overflow: 'hidden', position: 'relative', marginBottom: '16px' }}>
-            <img src={logoUri} alt="Company Logo" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-58%, -50%)', height: '350px', mixBlendMode: 'multiply' }} className="max-w-none" />
+            <img src={logoUri} alt="Company Logo" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-58%, -50%)', height: '350px' }} className="max-w-none" />
           </div>
         )}
         <div className="flex justify-between items-start border-b border-slate-350 pb-6 gap-6">
@@ -334,8 +334,7 @@ export default async function POPdfPage({ params }) {
             <div className="w-48 border-t border-slate-400 mx-auto pt-2 relative">
               {(po.status === 'Approved' && signatureUri) && (
                 <div 
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 h-auto opacity-95 pointer-events-none" 
-                  style={{ mixBlendMode: 'multiply', filter: 'contrast(1.2) grayscale(100%)' }}
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 h-auto opacity-90 pointer-events-none" 
                 >
                   <Image src={signatureUri} alt="Signature & Stamp" width={128} height={128} unoptimized className="w-full h-auto object-contain" />
                 </div>

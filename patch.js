@@ -1,19 +1,34 @@
 const fs = require('fs');
-
-const path = 'app/lib/api/dashboard.js';
-let content = fs.readFileSync(path, 'utf8');
-
-const regex = /status: p\.approval_status \|\| p\.status \|\| 'Draft',\s*approval_status: p\.approval_status \|\| p\.status \|\| 'Draft',\s*payment_eligible: isPOEligibleForPayment\(p\),/g;
-
-const replacement = `status: p.approval_status || p.status || 'Draft',
-      approval_status: p.approval_status || p.status || 'Draft',
-      payment_status: p.payment_status || 'Unpaid',
-      payment_eligible: isPOEligibleForPayment(p),`;
-
-if (regex.test(content)) {
-  content = content.replace(regex, replacement);
-  fs.writeFileSync(path, content, 'utf8');
-  console.log("Successfully patched dashboard.js");
-} else {
-  console.log("Target not found!");
-}
+let c = fs.readFileSync('app/lib/api/vendors.js', 'utf8');
+c = c.replace(/export async function getVendorByName\([\s\S]*?\n\}/, `export async function getVendorByName(name, session) {
+  requireAuth(session);
+  const row = await queryGet('SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?', [name, name]);
+  if (!row) return null;
+  return {
+    vendorId: row.vendor_code || '',
+    legalName: row.legal_name || '',
+    tradeName: row.trade_name || '',
+    gstin: row.gstin || '',
+    pan: row.pan || '',
+    status: row.status || 'Active',
+    address: row.address || '',
+    stateCode: '',
+    vendorType: row.vendor_type || '',
+    email: row.email || '',
+    mobile: row.mobile_number || '',
+    bankName: '',
+    bankBranch: '',
+    accountNo: row.bank_account || '',
+    ifsc: row.ifsc || '',
+    primaryContactName: row.primary_contact_name || '',
+    primaryContactNo: row.primary_contact_no || '',
+    accountsContactName: row.accounts_contact_name || '',
+    accountsContactNo: row.accounts_contact_no || '',
+    purchaseContactName: row.purchase_contact_name || '',
+    purchaseContactNo: row.purchase_contact_no || '',
+    whatsappNumber: row.whatsapp_number || '',
+    mobileNumber: row.mobile_number || '',
+    preferredWhatsappContact: row.preferred_whatsapp_contact || 'Primary'
+  };
+}`);
+fs.writeFileSync('app/lib/api/vendors.js', c);

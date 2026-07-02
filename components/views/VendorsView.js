@@ -109,20 +109,28 @@ export default function VendorsView() {
 
   const handleOpenEditModal = async (v) => {
     setFormError(null); setSubmitting(false);
-    setEditVendorId(v.vendor_code); setEditLegalName(v.legal_name || ''); setEditTradeName(v.trade_name || '');
-    setEditGstin(v.gstin || ''); setEditPan(v.pan || ''); setEditStatus(v.status || 'Active');
-    setEditAddress(v.address || '');
-    setEditPrimaryContactName(v.primary_contact_name || '');
-    setEditPrimaryContactNo(v.primary_contact_no || '');
-    setEditAccountsContactName(v.accounts_contact_name || '');
-    setEditAccountsContactNo(v.accounts_contact_no || '');
-    setEditPurchaseContactName(v.purchase_contact_name || '');
-    setEditPurchaseContactNo(v.purchase_contact_no || '');
-    setEditWhatsappNumber(v.whatsapp_number || '');
-    setEditMobileNumber(v.mobile_number || '');
-    setEditPreferredWhatsappContact(v.preferred_whatsapp_contact || 'Primary');
+    const vendorCode = v.code || v.vendorId || v.vendor_code;
+    
     try {
-      const details = await call('getVendorByName', v.vendor_code);
+      const details = await call('getVendorByName', vendorCode);
+      
+      setEditVendorId(details?.vendorId || vendorCode); 
+      setEditLegalName(details?.legalName || v.legalName || ''); 
+      setEditTradeName(details?.tradeName || v.name || '');
+      setEditGstin(details?.gstin || v.gstin || ''); 
+      setEditPan(details?.pan || v.pan || ''); 
+      setEditStatus(details?.status || v.status || 'Active');
+      setEditAddress(details?.address || v.address || '');
+      setEditPrimaryContactName(details?.primaryContactName || '');
+      setEditPrimaryContactNo(details?.primaryContactNo || '');
+      setEditAccountsContactName(details?.accountsContactName || '');
+      setEditAccountsContactNo(details?.accountsContactNo || '');
+      setEditPurchaseContactName(details?.purchaseContactName || '');
+      setEditPurchaseContactNo(details?.purchaseContactNo || '');
+      setEditWhatsappNumber(details?.whatsappNumber || '');
+      setEditMobileNumber(details?.mobileNumber || '');
+      setEditPreferredWhatsappContact(details?.preferredWhatsappContact || 'Primary');
+
       setEditAccountNo(details?.accountNo || '');
       setEditIfsc(details?.ifsc || '');
       setEditModalOpen(true);
