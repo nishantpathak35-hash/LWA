@@ -119,7 +119,9 @@ export default function SettingsUsersTab({
                             onClick={() => {
                               setTargetEmail(u.email);
                               const updatedRoles = { proc: false, finance: false, director: false };
-                              const rs = (u.roles || '').split(',').map(r => r.trim()).filter(Boolean);
+                              const rs = Array.isArray(u.roles) 
+                                ? u.roles 
+                                : (typeof u.roles === 'string' ? u.roles.split(',') : []).map(r => r.trim()).filter(Boolean);
                               rs.forEach(role => { updatedRoles[role] = true; });
                               setEditAccessRoles(updatedRoles);
                               setEditWhatsApp(u.whatsapp_number || '');
