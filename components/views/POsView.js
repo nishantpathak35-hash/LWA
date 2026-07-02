@@ -134,7 +134,7 @@ export default function POsView() {
   const isFinance    = roles.includes('finance');
   const isAccountant = roles.includes('accountant');
   const canCreate    = isProcurement || isAdmin || isDirector;
-  const canApprove   = isDirector || isAdmin || isFinance || isProcurement;
+  const canApprove   = isDirector || isAdmin || isFinance;
   const canManualPay = isAccountant || isAdmin; // Manual Payment: Accountant role only (+ Admin)
 
   // ── Derived Totals ──
@@ -319,6 +319,78 @@ export default function POsView() {
     } catch (e) {
       toast.error('Failed to send PO via WhatsApp: ' + (e.message || 'Unknown error'));
     }
+  };
+
+  const handleSendPOEmail = (poNumber) => {
+    const poObj = pos.find(p => p.po_no === poNumber);
+    const vendorCode = poObj?.vendor_key || poObj?.vendor_code;
+    const vendor = vendors.find(v => v.code === vendorCode || (v.name && v.name === poObj?.vendor_name));
+    const masterEmail = vendor?.email || poObj?.vendor_email;
+
+    let email = '';
+    if (masterEmail) {
+      if (!window.confirm(`Email PO ${poNumber} to vendor master email (${masterEmail}) with the latest PDF attached?\n\n(Default CCs will also be included)`)) return;
+      email = ''; // Leave blank so backend uses master email
+    } else {
+      email = window.prompt(`Vendor master email not found. Please enter vendor email address for PO ${poNumber}:`, '');
+      if (!email) return;
+      if (!window.confirm(`Email PO ${poNumber} to ${email} with the latest PDF attached?\n\n(Default CCs will also be included)`)) return;
+    }
+
+    toast(`Generating PDF and emailing PO...`);
+    
+    // Completely decouple the heavy PDF generation from the click event handler
+    // This fixes the "Event handlers blocked UI updates" INP issue in Vercel Toolbar
+    setTimeout(async () => {
+      try {
+        const fullDetails = await call('getPOFullDetails', poNumber);
+        if (!fullDetails) throw new Error("Could not fetch PO details for PDF generation");
+
+        // Load the actual PO page in a hidden iframe to capture its exact layout
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.top = '-9999px';
+        iframe.style.width = '1200px';
+        iframe.style.height = '1600px';
+        document.body.appendChild(iframe);
+        iframe.src = `/po/${encodeURIComponent(poNumber)}`;
+        
+        await new Promise(resolve => {
+          iframe.onload = resolve;
+        });
+        
+        // Allow extra time for fonts and images to render in iframe
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        const html2pdf = (await import('html2pdf.js')).default;
+        const iframeDoc = iframe.contentWindow.document;
+        const targetElement = iframeDoc.querySelector('.max-w-4xl') || iframeDoc.body;
+        
+        // Hide the print action bar so it doesn't appear in the PDF
+        const actionBar = targetElement.querySelector('.no-print');
+        if (actionBar) actionBar.style.display = 'none';
+
+        const pdfBase64 = await html2pdf().set({
+          margin: [10, 10, 10, 10],
+          filename: `${poNumber.replace(/\//g, '_')}.pdf`,
+          image: { type: 'jpeg', quality: 0.85 },
+          html2canvas: { scale: 3, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(targetElement).output('datauristring');
+        
+        document.body.removeChild(iframe);
+
+        const pdfAttachment = {
+          filename: `${poNumber.replace(/\//g, '_')}.pdf`,
+          content: pdfBase64.split(',')[1]
+        };
+
+        await call('sendPOToVendor', poNumber, email, pdfAttachment);
+        toast.success(`PO ${poNumber} emailed successfully.`);
+      } catch (e) {
+        toast.error('Failed to send PO via email: ' + (e.message || 'Unknown error'));
+      }
+    }, 500);
   };
 
   // ─── Save PO ──────────────────────────────────────────────────────────────
@@ -545,6 +617,7 @@ export default function POsView() {
         setEditingPoNo={setEditingPoNo}
         handleViewPOHistory={handleViewPOHistory}
         handleSendPOWhatsApp={handleSendPOWhatsApp}
+        handleSendPOEmail={handleSendPOEmail}
         getStatusBadge={getStatusBadge} getPaymentStatusBadge={getPaymentStatusBadge}
       />
 

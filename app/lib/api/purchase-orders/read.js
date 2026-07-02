@@ -194,24 +194,47 @@ export async function getNextPONumber(session) {
   }
 
   let maxSeq = 0;
-  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`^${escaped}(\\d+)$`);
+  let padLen = 3;
 
   for (const no of existing) {
-    const m = no.match(re);
-    if (m) {
-      const n = parseInt(m[1], 10);
-      if (n > maxSeq) maxSeq = n;
+    if (no.startsWith(prefix)) {
+      // Find the last continuous sequence of digits in the string
+      const m = no.match(/(\d+)$/);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n > maxSeq) {
+          maxSeq = n;
+          padLen = Math.max(3, m[1].length);
+        } else if (n === maxSeq) {
+          padLen = Math.max(padLen, m[1].length);
+        }
+      }
     }
   }
 
-  let padLen = 3;
+  // If the user's prefix doesn't end with a non-alphanumeric delimiter (like / or -),
+  // and the existing POs have a delimiter (like prefix + '/' + seq),
+  // we should probably append the delimiter. But if maxSeq > 0, we can just append
+  // the formatted number to the prefix exactly as it is configured, UNLESS 
+  // they want us to auto-append a slash if they missed it. 
+  // The simplest fix is to just append the next sequence number directly to whatever 
+  // prefix they configured. If they missed the slash, they can add it in settings.
+  // Wait, if we just return prefix + seq, and prefix is "LAIPL/PO/26-27", we get "LAIPL/PO/26-27043".
+  // If the previous was "LAIPL/PO/26-27/042", maybe we should sniff the delimiter?
+  
+  // Sniff delimiter from the highest matched PO
+  let delimiter = '';
   for (const no of existing) {
-    const m = no.match(re);
-    if (m && m[1].length > padLen) padLen = m[1].length;
+    if (no.startsWith(prefix)) {
+      const m = no.match(/(\d+)$/);
+      if (m && parseInt(m[1], 10) === maxSeq) {
+        delimiter = no.substring(prefix.length, no.length - m[1].length);
+        break;
+      }
+    }
   }
 
-  return `${prefix}${String(maxSeq + 1).padStart(padLen, '0')}`;
+  return `${prefix}${delimiter}${String(maxSeq + 1).padStart(padLen, '0')}`;
 }
 
 export async function getPOFullDetails(poNo, session) {

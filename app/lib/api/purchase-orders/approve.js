@@ -52,7 +52,7 @@ export async function approvePO(poNo, action, remarks, session) {
 
 
   const roles = session?.roles || [];
-  const canApprove = roles.includes('director') || roles.includes('admin') || roles.includes('finance') || roles.some(r => ['procurement', 'proc', 'maker'].includes(r));
+  const canApprove = roles.includes('director') || roles.includes('admin') || roles.includes('finance');
   if (!canApprove) throw new Error('AUTH:Insufficient permissions to approve/reject POs');
 
   const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);

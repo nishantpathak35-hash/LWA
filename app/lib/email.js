@@ -159,72 +159,55 @@ export async function sendPaymentAdviceEmail({ toEmail, cc, vendorName, poNo, pr
 
 // ── PO Email ─────────────────────────────────────────────────────────────────
 export async function sendPOEmail({ toEmail, cc, vendorName, poNo, project, poDate, items, grandTotal, terms, attachments }) {
-  const itemRows = (items || []).map((it, i) => `
-    <tr style="border-bottom:1px solid #1e2330">
-      <td style="padding:10px 12px;color:#94a3b8;font-size:12px">${i + 1}</td>
-      <td style="padding:10px 12px;color:#e2e8f0;font-size:13px">${it.desc || it.description || ''}</td>
-      <td style="padding:10px 12px;color:#94a3b8;font-size:12px;text-align:center">${it.qty || 1}</td>
-      <td style="padding:10px 12px;color:#94a3b8;font-size:12px;text-align:center">${it.unit || it.uom || 'Nos'}</td>
-      <td style="padding:10px 12px;color:#94a3b8;font-size:12px;text-align:right">₹${Number(it.rate || 0).toLocaleString('en-IN')}</td>
-      <td style="padding:10px 12px;color:#c8a45a;font-size:13px;font-weight:600;text-align:right">₹${Number(it.amount || 0).toLocaleString('en-IN')}</td>
-    </tr>`).join('');
-
+  const formattedTotal = Number(grandTotal || 0).toLocaleString('en-IN');
+  const projectName = project || 'N/A';
+  
   const html = `
-  <div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;background:#0a0b0f;color:#e2e8f0;border-radius:12px;overflow:hidden">
-    <div style="background:linear-gradient(135deg,#c8a45a,#a07840);padding:32px;display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <h1 style="margin:0;color:#fff;font-size:22px">${COMPANY}</h1>
-        <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:13px">Finance Operations</p>
-      </div>
-      <div style="text-align:right">
-        <div style="color:#fff;font-size:20px;font-weight:700">PURCHASE ORDER</div>
-        <div style="color:rgba(255,255,255,0.9);font-size:14px;margin-top:4px">${poNo}</div>
-      </div>
-    </div>
-    <div style="padding:32px">
-      <table style="width:100%;margin-bottom:24px">
-        <tr>
-          <td style="vertical-align:top;width:50%">
-            <div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Vendor</div>
-            <div style="color:#e2e8f0;font-weight:700;font-size:15px">${vendorName}</div>
-          </td>
-          <td style="vertical-align:top;text-align:right">
-            <div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">PO Date</div>
-            <div style="color:#e2e8f0">${poDate || new Date().toLocaleDateString('en-IN')}</div>
-            <div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">Project</div>
-            <div style="color:#c8a45a;font-weight:600">${project || '—'}</div>
-          </td>
-        </tr>
-      </table>
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#111827;line-height:1.6;font-size:15px;background:#ffffff;padding:32px;">
+    
+    <h2 style="margin:0 0 24px 0;font-size:20px;font-weight:600;color:#111827;">Purchase Order</h2>
+    
+    <p style="margin:0 0 16px 0;">Dear ${vendorName},</p>
+    
+    <p style="margin:0 0 24px 0;">
+      Attached is Purchase Order <strong>${poNo}</strong> for the <strong>${projectName}</strong> project.
+    </p>
 
-      <table style="width:100%;border-collapse:collapse;background:#0d0e14;border-radius:8px;overflow:hidden">
-        <thead>
-          <tr style="background:#1e2330">
-            <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:left">#</th>
-            <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:left">DESCRIPTION</th>
-            <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:center">QTY</th>
-            <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:center">UOM</th>
-            <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:right">RATE</th>
-            <th style="padding:10px 12px;color:#64748b;font-size:11px;font-weight:600;text-align:right">AMOUNT</th>
-          </tr>
-        </thead>
-        <tbody>${itemRows || '<tr><td colspan="6" style="padding:20px;text-align:center;color:#475569">No line items</td></tr>'}</tbody>
-        <tfoot>
-          <tr style="background:#1e2330">
-            <td colspan="5" style="padding:14px 12px;color:#94a3b8;font-weight:600;text-align:right">GRAND TOTAL</td>
-            <td style="padding:14px 12px;color:#3dd68c;font-weight:700;font-size:16px;text-align:right">₹${Number(grandTotal || 0).toLocaleString('en-IN')}</td>
-          </tr>
-        </tfoot>
-      </table>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
 
-      ${terms ? `<div style="margin-top:24px;padding:16px;background:#0d0e14;border-radius:8px;border-left:3px solid #c8a45a"><div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Terms & Conditions</div><div style="color:#94a3b8;font-size:13px;line-height:1.6">${terms}</div></div>` : ''}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 24px 0;">
+      <tr>
+        <td style="padding:0 0 12px 0;width:50%;">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">PO Number</div>
+          <div style="font-weight:500;">${poNo}</div>
+        </td>
+        <td style="padding:0 0 12px 0;width:50%;">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">Project</div>
+          <div style="font-weight:500;">${projectName}</div>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:0;">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">Order Value</div>
+          <div style="font-weight:500;">₹${formattedTotal}</div>
+        </td>
+      </tr>
+    </table>
 
-      <p style="color:#64748b;font-size:12px;margin-top:24px">
-        Please acknowledge receipt of this Purchase Order. For queries, contact our procurement team.
-      </p>
-    </div>
-    <div style="background:#0d0e14;padding:16px 32px;border-top:1px solid #1e2330;text-align:center">
-      <p style="color:#475569;font-size:11px;margin:0">${COMPANY} · Finance Operations · <a href="${APP_URL}" style="color:#c8a45a">${APP_URL}</a></p>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+
+    <h3 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#111827;">Action Required</h3>
+    <ul style="margin:0 0 32px 0;padding-left:20px;color:#374151;">
+      <li style="margin-bottom:8px;">Review the attached Purchase Order.</li>
+      <li style="margin-bottom:8px;">Confirm receipt.</li>
+      <li style="margin-bottom:0;">Contact Procurement if any clarification is required.</li>
+    </ul>
+
+    <p style="margin:0 0 16px 0;">Regards,</p>
+    
+    <div style="color:#4b5563;">
+      <p style="margin:0;">Procurement</p>
+      <p style="margin:0;font-weight:500;color:#111827;">${COMPANY}</p>
     </div>
   </div>`;
 

@@ -83,6 +83,16 @@ export default async function POPdfPage({ params }) {
   // Fetch Vendor Details
   const vendor = await queryGet('SELECT * FROM vendors WHERE vendor_code = ? OR legal_name = ?', [po.vendor_key, po.vendor_name]);
 
+  // Fetch Project Master Details
+  let projectMaster = null;
+  if (po.project) {
+    try {
+      projectMaster = await queryGet('SELECT * FROM project_financials WHERE project = ?', [po.project]);
+    } catch (e) {
+      console.error("Failed to fetch project master:", e.message);
+    }
+  }
+
   // Fetch PO Line Items
   const items = await queryAll('SELECT * FROM po_items WHERE po_no = ?', [decodedPoNo]);
 
@@ -219,11 +229,19 @@ export default async function POPdfPage({ params }) {
             <h3 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-2">Shipping & Project Info</h3>
             <div className="text-sm font-sans space-y-1">
               <p className="font-semibold text-gray-800 text-base font-serif">{po.project || companyName}</p>
-              <p><span className="text-gray-500">Project Ref:</span> <span className="font-medium text-gray-700">{po.project || '—'}</span></p>
-              <p className="text-xs text-gray-600 mt-2 whitespace-pre-line leading-relaxed">
-                {companyName} Site Delivery
-                {po.project ? `\nC/O Project: ${po.project}` : ''}
-              </p>
+              
+              <div className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 mt-2">
+                <span className="text-gray-500">Project Ref:</span>
+                <span className="font-medium text-gray-700">{projectMaster?.project_ref || '—'}</span>
+                
+                <span className="text-gray-500">Client:</span>
+                <span className="font-medium text-gray-700">{projectMaster?.client || '—'}</span>
+                
+                <span className="text-gray-500 mt-1">Site Address:</span>
+                <span className="text-xs text-gray-600 whitespace-pre-line leading-relaxed mt-1">
+                  {projectMaster?.site_address || `${companyName} Site Delivery\nC/O Project: ${po.project || ''}`}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -304,43 +322,48 @@ export default async function POPdfPage({ params }) {
           </div>
         </div>
 
-        {/* Terms and Conditions block */}
-        <div className="border-t border-gray-200 pt-6">
-          <h4 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-2">Terms &amp; Conditions</h4>
-          {po.terms ? (
-            <div className="text-[11px] text-gray-600 font-sans whitespace-pre-line leading-relaxed">
-              {po.terms}
-            </div>
-          ) : (
-            <ol className="list-decimal list-inside text-[10px] text-gray-500 font-sans space-y-1 leading-relaxed">
-              <li>Material must match specifications exactly; any deviations require written approval prior to dispatch.</li>
-              <li>Delivery to be completed on or before the Expected Delivery Date. Delays may attract penalty.</li>
-              <li>Invoice must reference this Purchase Order number and should be sent to billing.</li>
-              <li>Payment will be processed strictly as per the Payment Terms agreed in the Vendor master contract.</li>
-              <li>All disputes are subject to Mumbai jurisdiction.</li>
-            </ol>
-          )}
-        </div>
-
-        {/* Signatures block */}
-        <div className="grid grid-cols-2 gap-8 pt-12">
-          <div className="text-center font-sans">
-            <div className="w-48 border-t border-gray-400 mx-auto pt-2">
-              <p className="text-xs font-bold text-gray-700">Vendor Acceptance</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Signature &amp; Company Seal</p>
-            </div>
+        {/* Terms & Signatures wrapper for proper page breaking */}
+        <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          {/* Terms & Conditions */}
+          <div className="pt-8 mt-8 border-t border-gray-300">
+            <h3 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-3">Terms &amp; Conditions</h3>
+            {po.terms ? (
+              <div className="text-[10px] text-gray-600 font-sans whitespace-pre-wrap leading-relaxed">
+                {po.terms}
+              </div>
+            ) : (
+              <ol className="list-decimal list-inside text-[10px] text-gray-500 font-sans space-y-1 leading-relaxed">
+                <li>Material must match specifications exactly; any deviations require written approval prior to dispatch.</li>
+                <li>Delivery to be completed on or before the Expected Delivery Date. Delays may attract penalty.</li>
+                <li>Invoice must reference this Purchase Order number and should be sent to billing.</li>
+                <li>Payment will be processed strictly as per the Payment Terms agreed in the Vendor master contract.</li>
+                <li>All disputes are subject to Mumbai jurisdiction.</li>
+              </ol>
+            )}
           </div>
-          <div className="text-center font-sans">
-            <div className="w-48 border-t border-gray-400 mx-auto pt-2 relative">
-              {(po.status === 'Approved' && signatureUri) && (
-                <div 
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 h-auto opacity-90 pointer-events-none" 
-                >
-                  <Image src={signatureUri} alt="Signature & Stamp" width={128} height={128} unoptimized className="w-full h-auto object-contain" />
-                </div>
-              )}
-              <p className="text-xs font-bold text-gray-700">Authorised Signatory</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">For {companyName}</p>
+
+          {/* Signatures block */}
+          <div className="grid grid-cols-2 gap-8 pt-6">
+            <div className="text-center font-sans flex flex-col items-center justify-end">
+              <div className="h-32 mb-2 pointer-events-none flex items-end justify-center">
+                {/* Empty space for vendor signature */}
+              </div>
+              <div className="w-48 border-t border-gray-400 mx-auto pt-2">
+                <p className="text-xs font-bold text-gray-700">Vendor Acceptance</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Signature &amp; Company Seal</p>
+              </div>
+            </div>
+            
+            <div className="text-center font-sans flex flex-col items-center justify-end">
+              <div className="h-32 mb-2 pointer-events-none flex items-end justify-center">
+                {(po.status === 'Approved' && signatureUri) && (
+                  <Image src={signatureUri} alt="Signature & Stamp" width={128} height={128} unoptimized className="w-32 h-auto object-contain opacity-90" />
+                )}
+              </div>
+              <div className="w-48 border-t border-gray-400 mx-auto pt-2">
+                <p className="text-xs font-bold text-gray-700">Authorised Signatory</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">For {companyName}</p>
+              </div>
             </div>
           </div>
         </div>

@@ -76,7 +76,7 @@ export async function setPOPrefix(prefix, session) {
   return { ok: true, prefix: value };
 }
 
-export async function sendPOToVendor(poNo, emailOverride, session) {
+export async function sendPOToVendor(poNo, emailOverride, pdfAttachment, session) {
   requireAuth(session);
   const po = await queryGet('SELECT * FROM purchase_orders WHERE po_no = ?', [poNo]);
   if (!po) throw new Error('PO not found: ' + poNo);
@@ -92,6 +92,10 @@ export async function sendPOToVendor(poNo, emailOverride, session) {
     filename: a.file_name,
     content: a.file_data
   }));
+
+  if (pdfAttachment && pdfAttachment.filename && pdfAttachment.content) {
+    attachments.push(pdfAttachment);
+  }
 
   const cc = await getDefaultCCRecipients(session);
 

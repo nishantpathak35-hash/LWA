@@ -15,6 +15,9 @@ export default function ProjectsView() {
   // New Project State
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectRef, setNewProjectRef] = useState('');
+  const [newClient, setNewClient] = useState('');
+  const [newSiteAddress, setNewSiteAddress] = useState('');
   const [creating, setCreating] = useState(false);
 
   async function loadDetails() {
@@ -57,8 +60,17 @@ export default function ProjectsView() {
     if (!newProjectName.trim()) return;
     setCreating(true);
     try {
-      await call('updateProjectFinancials', { project: newProjectName.trim(), projectValue: 0 });
+      await call('updateProjectFinancials', { 
+        project: newProjectName.trim(), 
+        projectValue: 0,
+        project_ref: newProjectRef.trim(),
+        client: newClient.trim(),
+        site_address: newSiteAddress.trim()
+      });
       setNewProjectName('');
+      setNewProjectRef('');
+      setNewClient('');
+      setNewSiteAddress('');
       setShowNewProjectModal(false);
       await loadDetails();
       if (refresh) refresh(); // Trigger global state refresh if available
@@ -92,6 +104,7 @@ export default function ProjectsView() {
         <ProjectDetails
           selectedProject={selectedProject}
           projectPOs={projectPOs}
+          onUpdateProject={() => { loadDetails(); if (refresh) refresh(); }}
         />
       </div>
 
@@ -100,6 +113,12 @@ export default function ProjectsView() {
         setShowNewProjectModal={setShowNewProjectModal}
         newProjectName={newProjectName}
         setNewProjectName={setNewProjectName}
+        newProjectRef={newProjectRef}
+        setNewProjectRef={setNewProjectRef}
+        newClient={newClient}
+        setNewClient={setNewClient}
+        newSiteAddress={newSiteAddress}
+        setNewSiteAddress={setNewSiteAddress}
         creating={creating}
         handleCreateProject={handleCreateProject}
       />

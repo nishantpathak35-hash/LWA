@@ -1,10 +1,49 @@
 'use client';
-import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
+import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Dialog, Button, Input } from '../../ui/core';
 import { formatCurrency } from '../../../app/lib/utils';
 import { Folder, TrendingUp, DollarSign, Wallet } from 'lucide-react';
+import { useAppState } from '../../StateProvider';
 
-export default function ProjectDetails({ selectedProject, projectPOs }) {
+export default function ProjectDetails({ selectedProject, projectPOs, onUpdateProject }) {
+  const { call } = useAppState();
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editRef, setEditRef] = useState('');
+  const [editClient, setEditClient] = useState('');
+  const [editSiteAddress, setEditSiteAddress] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (selectedProject) {
+      setEditRef(selectedProject.project_ref || '');
+      setEditClient(selectedProject.client || '');
+      setEditSiteAddress(selectedProject.site_address || '');
+    }
+  }, [selectedProject]);
+
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    try {
+      await call('updateProjectFinancials', {
+        project: selectedProject.project,
+        projectValue: selectedProject.projectValue,
+        bcs: selectedProject.bcs,
+        inflow: selectedProject.inflow,
+        clientDebit: selectedProject.invoiceValue,
+        tds: selectedProject.tds,
+        project_ref: editRef,
+        client: editClient,
+        site_address: editSiteAddress
+      });
+      setShowEditModal(false);
+      if (onUpdateProject) onUpdateProject();
+    } catch (e) {
+      alert("Failed to update settings: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!selectedProject) {
     return (
       <div className="p-12 text-center text-slate-500 text-sm font-light Card rounded-xl border border-slate-900/60">
@@ -15,6 +54,30 @@ export default function ProjectDetails({ selectedProject, projectPOs }) {
 
   return (
     <div className="space-y-8">
+      {/* Project Details Header & Actions */}
+      <div className="flex justify-between items-start">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-medium text-slate-200">{selectedProject.project}</h2>
+            {selectedProject.project_ref && (
+              <Badge variant="default" className="text-[10px] uppercase tracking-wider">{selectedProject.project_ref}</Badge>
+            )}
+          </div>
+          {selectedProject.client && (
+            <p className="text-sm text-slate-400">Client: <span className="text-slate-300">{selectedProject.client}</span></p>
+          )}
+          {selectedProject.site_address && (
+            <p className="text-sm text-slate-400 mt-2 max-w-xl whitespace-pre-line leading-relaxed">
+              <span className="font-medium text-slate-500 uppercase text-[10px] tracking-wider block mb-0.5">Site Address</span>
+              {selectedProject.site_address}
+            </p>
+          )}
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => setShowEditModal(true)} className="text-slate-400 hover:text-gold">
+          Edit Settings
+        </Button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border-slate-900 bg-slate-950/40">
@@ -105,6 +168,57 @@ export default function ProjectDetails({ selectedProject, projectPOs }) {
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title={`Edit Project Settings — ${selectedProject.project}`}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-slate-400 font-light mb-1 block">Project Reference</label>
+            <Input
+              value={editRef}
+              onChange={(e) => setEditRef(e.target.value)}
+              placeholder="e.g. MT-PH2-001"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 font-light mb-1 block">Client</label>
+            <Input
+              value={editClient}
+              onChange={(e) => setEditClient(e.target.value)}
+              placeholder="e.g. Acme Corp"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 font-light mb-1 block">Site Address</label>
+            <textarea
+              className="w-full bg-slate-900/50 border border-slate-700/50 rounded-lg p-3 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition-all resize-none"
+              rows="3"
+              value={editSiteAddress}
+              onChange={(e) => setEditSiteAddress(e.target.value)}
+              placeholder="Enter full site address..."
+            />
+          </div>
+          <div className="flex justify-end pt-4 border-t border-slate-900/60">
+            <Button
+              variant="ghost"
+              onClick={() => setShowEditModal(false)}
+              className="mr-3"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSaveSettings}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Settings'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

@@ -12,7 +12,7 @@ export default function POListTable({
   handleOpenModal, handleSubmitForApproval, handleOpenApproval, handleDuplicatePO, handleDeletePO,
   reloadPayments, setMpDate, setMpAmount, setMpMode, setMpUtr, setMpBank, setMpRef, setMpRemarks, setMpError, setManualPayModalOpen, setEditingPoNo,
   handleViewPOHistory,
-  handleSendPOWhatsApp,
+  handleSendPOWhatsApp, handleSendPOEmail,
   getStatusBadge, getPaymentStatusBadge
 }) {
   return (
@@ -102,7 +102,7 @@ export default function POListTable({
                                   type="button"
                                   onClick={() => {
                                     setOpenActionMenuPoNo(null);
-                                    window.open(`mailto:?subject=Purchase Order ${encodeURIComponent(po.po_no)}&body=Please find attached the Purchase Order ${encodeURIComponent(po.po_no)}. You can view it here: ${window.location.origin}/po/${encodeURIComponent(po.po_no)}`);
+                                    if (handleSendPOEmail) handleSendPOEmail(po.po_no);
                                   }}
                                   className="flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-slate-100 hover:bg-slate-900 transition-colors text-left font-sans"
                                 >

@@ -121,6 +121,7 @@ export default function VendorsView() {
       setEditPan(details?.pan || v.pan || ''); 
       setEditStatus(details?.status || v.status || 'Active');
       setEditAddress(details?.address || v.address || '');
+      setEditEmail(details?.email || v.email || '');
       setEditPrimaryContactName(details?.primaryContactName || '');
       setEditPrimaryContactNo(details?.primaryContactNo || '');
       setEditAccountsContactName(details?.accountsContactName || '');

@@ -16,6 +16,8 @@ export default function POFormModal(props) {
     findVendorBySelection, projects, editingPO, calcItem, tdsPct, setTdsPct, getPaymentStatusBadge
   } = props;
 
+  const selectedProjectData = projects.find(p => p?.name === project);
+
   return (
     <>
       {/* ── Create / Edit PO Dialog ────────────────────────────────────────── */}
@@ -65,6 +67,26 @@ export default function POFormModal(props) {
               </Select>
             </div>
           </div>
+
+          {/* Project Details Info Box */}
+          {selectedProjectData && (
+            <div className="bg-slate-900/30 border border-slate-900 rounded-lg p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <span className="text-[10px] font-medium text-slate-500 tracking-wider uppercase block mb-1">Project Ref</span>
+                <span className="text-sm text-slate-300">{selectedProjectData.project_ref || '—'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-medium text-slate-500 tracking-wider uppercase block mb-1">Client</span>
+                <span className="text-sm text-slate-300">{selectedProjectData.client || '—'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-medium text-slate-500 tracking-wider uppercase block mb-1">Site Address</span>
+                <span className="text-sm text-slate-300 whitespace-pre-line leading-relaxed block max-h-24 overflow-y-auto">{selectedProjectData.site_address || '—'}</span>
+              </div>
+            </div>
+          )}
+
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

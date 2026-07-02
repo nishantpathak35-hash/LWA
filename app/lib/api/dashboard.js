@@ -226,7 +226,8 @@ export async function getMasterData(session) {
     legalName: v.legal_name || v.name || v.vendor_code, 
     status: v.status,
     gstin: v.gstin || '',
-    address: v.address || ''
+    address: v.address || '',
+    email: v.email || v.contact_email || ''
   }));
   
   masterVendors.forEach(v => {
