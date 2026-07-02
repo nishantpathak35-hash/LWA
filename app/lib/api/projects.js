@@ -210,18 +210,28 @@ export async function updateProjectFinancials(payload, session) {
       inflow REAL DEFAULT 0,
       invoice_value REAL DEFAULT 0,
       tds REAL DEFAULT 0,
+      project_ref TEXT,
+      client TEXT,
+      site_address TEXT,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  try { await queryRun(`ALTER TABLE project_financials ADD COLUMN project_ref TEXT`); } catch(e){}
+  try { await queryRun(`ALTER TABLE project_financials ADD COLUMN client TEXT`); } catch(e){}
+  try { await queryRun(`ALTER TABLE project_financials ADD COLUMN site_address TEXT`); } catch(e){}
+
   await queryRun(
-    `INSERT INTO project_financials (project, project_value, bcs, inflow, invoice_value, tds, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO project_financials (project, project_value, bcs, inflow, invoice_value, tds, project_ref, client, site_address, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(project) DO UPDATE SET
        project_value = excluded.project_value,
        bcs = excluded.bcs,
        inflow = excluded.inflow,
        invoice_value = excluded.invoice_value,
        tds = excluded.tds,
+       project_ref = excluded.project_ref,
+       client = excluded.client,
+       site_address = excluded.site_address,
        updated_at = excluded.updated_at`,
     [
       String(payload.project),
@@ -230,6 +240,9 @@ export async function updateProjectFinancials(payload, session) {
       Number(payload.inflow) || 0,
       Number(payload.clientDebit) || 0,
       Number(payload.tds) || 0,
+      payload.project_ref || '',
+      payload.client || '',
+      payload.site_address || '',
       new Date().toISOString()
     ]
   );
