@@ -8,7 +8,7 @@ export function Card({ className, ...props }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-card/60 shadow-xl shadow-black/5 backdrop-blur-md overflow-hidden transition-colors duration-200",
+        "glass-card rounded-xl overflow-hidden",
         className
       )}
       {...props}
@@ -17,7 +17,7 @@ export function Card({ className, ...props }) {
 }
 
 export function CardHeader({ className, ...props }) {
-  return <div className={cn("p-6 border-b border-border/60 flex items-center justify-between", className)} {...props} />;
+  return <div className={cn("p-6 border-b border-border/40 flex items-center justify-between bg-card/30", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }) {
@@ -32,23 +32,23 @@ export function CardContent({ className, ...props }) {
 export function Badge({ className, variant = 'default', ...props }) {
   const variants = {
     default: "border-border bg-muted/40 text-muted-foreground",
-    ok: "border-emerald-500/20 bg-emerald-500/5 text-emerald-400",
-    success: "border-emerald-500/20 bg-emerald-500/5 text-emerald-400",
-    remitted: "border-emerald-500/20 bg-emerald-500/5 text-emerald-400",
-    err: "border-red-500/20 bg-red-500/5 text-red-400",
-    error: "border-red-500/20 bg-red-500/5 text-red-400",
-    rejected: "border-red-500/20 bg-red-500/5 text-red-400",
-    pending: "border-amber-500/20 bg-amber-500/5 text-amber-400",
-    warning: "border-amber-500/20 bg-amber-500/5 text-amber-400",
-    info: "border-sky-500/20 bg-sky-500/5 text-sky-400",
-    active: "border-emerald-500/20 bg-emerald-500/5 text-emerald-400",
+    ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    remitted: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    err: "border-red-500/30 bg-red-500/10 text-red-400",
+    error: "border-red-500/30 bg-red-500/10 text-red-400",
+    rejected: "border-red-500/30 bg-red-500/10 text-red-400",
+    pending: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+    warning: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+    info: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+    active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
     inactive: "border-border bg-muted/20 text-muted-foreground/60",
   };
 
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border tracking-wide transition-colors duration-200",
+        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border tracking-wide transition-colors duration-200 backdrop-blur-sm",
         variants[variant] || variants.default,
         className
       )}
@@ -59,13 +59,13 @@ export function Badge({ className, variant = 'default', ...props }) {
 
 // --- BUTTON ---
 export function Button({ className, variant = 'default', size = 'default', ...props }) {
-  const base = "inline-flex items-center justify-center rounded-lg font-medium text-sm transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed select-none gap-2";
+  const base = "inline-flex items-center justify-center rounded-lg font-medium text-sm transition-all duration-300 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed select-none gap-2";
   
   const variants = {
-    default: "bg-muted hover:bg-muted/80 border border-border text-foreground active:bg-background/85",
-    primary: "bg-gradient-to-r from-gold to-yellow-600 hover:from-yellow-600 hover:to-gold active:from-yellow-700 text-slate-950 font-semibold shadow-md shadow-gold/5",
-    destructive: "bg-red-950/20 hover:bg-red-950/40 border border-red-900/50 text-red-400 active:bg-red-950/60",
-    ghost: "hover:bg-muted text-muted-foreground hover:text-foreground",
+    default: "bg-muted/80 hover:bg-muted border border-border text-foreground active:scale-[0.98]",
+    primary: "bg-gradient-to-r from-gold to-yellow-600 hover:from-yellow-600 hover:to-gold active:scale-[0.98] text-slate-950 font-semibold shadow-[0_0_15px_rgba(197,168,128,0.15)] hover:shadow-[0_0_20px_rgba(197,168,128,0.3)]",
+    destructive: "bg-red-950/20 hover:bg-red-950/40 border border-red-900/50 text-red-400 active:scale-[0.98]",
+    ghost: "hover:bg-muted/50 text-muted-foreground hover:text-foreground active:scale-[0.98]",
     link: "underline-offset-4 hover:underline text-primary p-0",
   };
 
@@ -89,7 +89,7 @@ export function Input({ className, ...props }) {
   return (
     <input
       className={cn(
-        "w-full px-3.5 py-2 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground/60 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all duration-200",
+        "w-full px-3.5 py-2 bg-background/50 backdrop-blur-sm border border-border rounded-lg text-foreground placeholder-muted-foreground/50 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all duration-300 hover:border-border/80 shadow-sm inset-shadow-sm",
         className
       )}
       {...props}

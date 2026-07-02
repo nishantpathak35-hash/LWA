@@ -572,31 +572,33 @@ export default function SettingsView() {
   const roleLabels = { 'proc': 'Procurement', 'finance': 'Finance', 'accountant': 'Accountant', 'director': 'Director' };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in glass-card p-6 md:p-8 rounded-2xl mx-auto w-full max-w-7xl">
       {/* Title */}
       <div>
-        <h2 className="text-2xl font-light text-slate-100 flex items-center gap-2.5 font-serif">
-          <Settings className="w-5 h-5 text-gold" />
-          Settings
+        <h2 className="text-3xl font-light text-foreground flex items-center gap-3 font-serif mb-2">
+          <Settings className="w-6 h-6 text-primary" />
+          System Settings
         </h2>
-        <p className="text-xs font-light text-slate-400 mt-1">
+        <p className="text-sm font-light text-muted-foreground mt-1 tracking-wide">
           Manage system configurations, user invitations, roles, and feature permissions.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-900 pb-3">
+      <div className="flex gap-3 border-b border-border/50 pb-4 overflow-x-auto">
         <Button
           onClick={() => setActiveTab('users')}
-          size="sm"
+          size="default"
           variant={activeTab === 'users' ? 'primary' : 'ghost'}
+          className={activeTab === 'users' ? 'shadow-lg shadow-gold/20' : ''}
         >
           <Users className="w-4 h-4" /> Users & Access
         </Button>
         <Button
           onClick={() => setActiveTab('permissions')}
-          size="sm"
+          size="default"
           variant={activeTab === 'permissions' ? 'primary' : 'ghost'}
+          className={activeTab === 'permissions' ? 'shadow-lg shadow-gold/20' : ''}
         >
           <Shield className="w-4 h-4" /> Feature Permissions
         </Button>

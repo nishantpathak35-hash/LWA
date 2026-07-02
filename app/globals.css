@@ -105,198 +105,47 @@
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Glassmorphism utility */
-.glass {
-  background: rgba(8, 12, 24, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+/* --- PREMIUM UTILITIES & MICRO-ANIMATIONS --- */
+.glass-card {
+  @apply bg-card/70 backdrop-blur-md border border-border/50 shadow-sm transition-all duration-300;
+}
+.glass-card:hover {
+  @apply bg-card/85 border-border shadow-md;
+}
+.glass-panel {
+  @apply bg-background/80 backdrop-blur-xl border-b border-border/50;
+}
+.premium-btn {
+  @apply transition-all duration-300 hover:shadow-[0_0_15px_rgba(197,168,128,0.3)] hover:-translate-y-[1px];
 }
 
-/* --- LIGHT MODE SPECIFIC ADJUSTMENTS & OVERRIDES --- */
-:root {
-  --shadow-soft: 0 4px 12px -2px rgba(15, 23, 42, 0.03), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
-  --shadow-card: 0 8px 24px -4px rgba(15, 23, 42, 0.04), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+/* Base structural fixes to ensure text readability without hacky overrides */
+.text-slate-100, .text-slate-200, .text-slate-300, .text-slate-400 {
+  color: hsl(var(--muted-foreground));
+}
+.dark .text-slate-100, .dark .text-slate-200, .dark .text-slate-300, .dark .text-slate-400 {
+  color: #cbd5e1; /* slate-300 */
 }
 
-html:not(.dark) {
-  background-color: hsl(var(--background));
+.text-slate-900, .text-slate-800 {
   color: hsl(var(--foreground));
 }
-
-/* Map hardcoded text-slate-100, text-slate-200, text-slate-300, text-slate-400 to light colors */
-html:not(.dark) .text-slate-100,
-html:not(.dark) .text-slate-200,
-html:not(.dark) .text-slate-200.font-semibold,
-html:not(.dark) .text-slate-200.capitalize,
-html:not(.dark) .text-slate-200.truncate,
-html:not(.dark) .text-slate-200.break-all {
-  color: hsl(var(--foreground)) !important;
+.dark .text-slate-900, .dark .text-slate-800 {
+  color: #e2e8f0; /* slate-200 */
 }
 
-html:not(.dark) .text-slate-300,
-html:not(.dark) .text-slate-350,
-html:not(.dark) .text-slate-400,
-html:not(.dark) .text-slate-500,
-html:not(.dark) .text-muted-foreground {
-  color: hsl(var(--muted-foreground)) !important;
+.bg-slate-900, .bg-slate-950, .bg-slate-800, .bg-slate-900\/40 {
+  @apply bg-card border-border;
+}
+.border-slate-800, .border-slate-900 {
+  @apply border-border;
 }
 
-html:not(.dark) .text-slate-400.font-light,
-html:not(.dark) .text-slate-400.col-span-2 {
-  color: hsl(var(--muted-foreground)) !important;
+/* Beautiful Scrollbars */
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
 }
-
-/* Force light card, list and sidebar/dropdown bg */
-html:not(.dark) .bg-slate-900,
-html:not(.dark) .bg-slate-950,
-html:not(.dark) .bg-slate-900\/40,
-html:not(.dark) .bg-slate-900\/30,
-html:not(.dark) .bg-slate-950\/40,
-html:not(.dark) .bg-slate-950\/80 {
-  background-color: hsl(var(--card)) !important;
-}
-
-/* Clean background for dialog panels */
-html:not(.dark) .bg-background {
-  background-color: hsl(var(--background)) !important;
-}
-
-/* Card overrides for beautiful appearance */
-html:not(.dark) .rounded-xl.border,
-html:not(.dark) .border-slate-900,
-html:not(.dark) .border-slate-950,
-html:not(.dark) .border-slate-900\/60,
-html:not(.dark) .border-slate-900\/40 {
-  border-color: hsl(var(--border)) !important;
-}
-
-html:not(.dark) .rounded-xl.border {
-  background-color: hsl(var(--card)) !important;
-  box-shadow: var(--shadow-card) !important;
-}
-
-/* Header gradient in dashboard */
-html:not(.dark) .from-card {
-  --tw-gradient-from: hsl(var(--card)) !important;
-  --tw-gradient-to: hsl(var(--card) / 0.1) !important;
-}
-
-/* Table styling for readability */
-html:not(.dark) th {
-  color: hsl(var(--muted-foreground)) !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.05em !important;
-  background-color: hsl(var(--background)) !important;
-  border-bottom: 1px solid hsl(var(--border)) !important;
-}
-
-html:not(.dark) td {
-  color: hsl(var(--foreground) / 0.9) !important;
-  border-bottom: 1px solid hsl(var(--border) / 0.5) !important;
-}
-
-html:not(.dark) tr:hover {
-  background-color: hsl(var(--accent) / 0.65) !important;
-}
-
-html:not(.dark) .hover\:bg-slate-900:hover,
-html:not(.dark) .hover\:bg-slate-950:hover,
-html:not(.dark) .group:hover .text-slate-350 {
-  background-color: hsl(var(--accent)) !important;
-  color: hsl(var(--foreground)) !important;
-}
-
-/* Dropdown text alignment and hover */
-html:not(.dark) .text-slate-300:hover,
-html:not(.dark) .text-slate-400:hover {
-  color: hsl(var(--foreground)) !important;
-}
-
-/* Input and Form overrides */
-html:not(.dark) input,
-html:not(.dark) select,
-html:not(.dark) textarea {
-  background-color: #ffffff !important;
-  border-color: hsl(var(--border)) !important;
-  color: hsl(var(--foreground)) !important;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
-}
-
-html:not(.dark) input:focus,
-html:not(.dark) select:focus,
-html:not(.dark) textarea:focus {
-  border-color: hsl(var(--primary) / 0.5) !important;
-  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.15) !important;
-}
-
-/* Buttons */
-html:not(.dark) .bg-muted {
-  background-color: hsl(var(--accent)) !important;
-  border-color: hsl(var(--border)) !important;
-}
-html:not(.dark) .bg-muted:hover {
-  background-color: hsl(var(--accent) / 0.8) !important;
-}
-
-/* Badges / Tags */
-html:not(.dark) .text-emerald-400 {
-  color: #059669 !important; /* emerald-600 */
-}
-html:not(.dark) .bg-emerald-500\/5 {
-  background-color: #d1fae5 !important; /* emerald-100 */
-}
-html:not(.dark) .border-emerald-500\/20 {
-  border-color: #a7f3d0 !important;
-}
-
-html:not(.dark) .text-red-400 {
-  color: #dc2626 !important; /* red-600 */
-}
-html:not(.dark) .bg-red-500\/5 {
-  background-color: #fee2e2 !important; /* red-100 */
-}
-html:not(.dark) .border-red-500\/20 {
-  border-color: #fca5a5 !important;
-}
-
-html:not(.dark) .text-amber-500,
-html:not(.dark) .text-amber-400 {
-  color: #d97706 !important; /* amber-600 */
-}
-html:not(.dark) .bg-amber-500\/5 {
-  background-color: #fef3c7 !important; /* amber-100 */
-}
-html:not(.dark) .border-amber-500\/20 {
-  border-color: #fde68a !important;
-}
-
-html:not(.dark) .text-sky-400 {
-  color: #0284c7 !important; /* sky-600 */
-}
-html:not(.dark) .bg-sky-500\/5 {
-  background-color: #e0f2fe !important; /* sky-100 */
-}
-html:not(.dark) .border-sky-500\/20 {
-  border-color: #bae6fd !important;
-}
-
-html:not(.dark) .text-violet-400 {
-  color: #7c3aed !important; /* violet-600 */
-}
-
-/* Destructive Button overrides */
-html:not(.dark) .bg-red-950\/20 {
-  background-color: #fee2e2 !important;
-  border-color: #fca5a5 !important;
-}
-html:not(.dark) .hover\:bg-red-950\/40:hover {
-  background-color: #fecaca !important;
-}
-
-/* Scrollbars */
-html:not(.dark) ::-webkit-scrollbar-thumb {
-  background: hsl(var(--border) / 0.8) !important;
-}
-html:not(.dark) ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.3) !important;
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.5);
 }
