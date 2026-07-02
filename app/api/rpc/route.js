@@ -37,10 +37,12 @@ const ALLOWED_METHODS = new Set([
   'inviteUserAdmin',
   'sendInvite',
   'listUsersAdmin',
+  'listActiveUsers',
   'deleteUserAdmin',
   'setUserActiveAdmin',
   'setUserRolesAdmin',
   'setUserWhatsAppAdmin',
+  'updateUserDetailsAdmin',
   'resetUserPasswordAdmin',
   'addCustomRole',
   'getPOPrefix',
@@ -88,7 +90,10 @@ const ALLOWED_METHODS = new Set([
   'remitPaymentRequest',
   'uploadAttachment',
   'getAttachments',
-  'deleteAttachment'
+  'deleteAttachment',
+  'sendInternalWhatsApp',
+  'whatsappPO',
+  'whatsappPaymentAdvice'
 ]);
 
 export async function POST(request) {

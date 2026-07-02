@@ -1,4 +1,4 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 require('dotenv').config({ path: './.env' });
@@ -66,16 +66,39 @@ client.initialize();
  * @param {string} phoneNumber - The phone number to send the message to (include country code without + or 00).
  * @param {string} message - The message content.
  */
-async function sendWhatsAppMessage(phoneNumber, message) {
+async function sendWhatsAppMessage(phoneNumber, message, mediaUrl = null) {
     if (!isReady) {
         console.warn('WhatsApp Bot is not ready yet. Message not sent:', message);
         return;
     }
 
     try {
-        // WhatsApp IDs are typically in the format: [country code][number]@c.us
-        const chatId = `${phoneNumber.replace(/\D/g, '')}@c.us`;
-        await client.sendMessage(chatId, message);
+        let cleanNumber = phoneNumber.replace(/\D/g, '');
+        // If it's a 10-digit Indian number, add the 91 country code prefix automatically
+        if (cleanNumber.length === 10) {
+            cleanNumber = '91' + cleanNumber;
+        }
+
+        const numberDetails = await client.getNumberId(cleanNumber);
+        if (!numberDetails) {
+            console.error(`Failed to send WhatsApp message to ${phoneNumber}: Number not registered on WhatsApp`);
+            return;
+        }
+
+        const chatId = numberDetails._serialized;
+        
+        if (mediaUrl) {
+            try {
+                const media = await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true });
+                await client.sendMessage(chatId, message, { media });
+            } catch (mediaError) {
+                console.error(`Failed to load media from ${mediaUrl}:`, mediaError.message);
+                // Fallback to sending just text if media fails
+                await client.sendMessage(chatId, message);
+            }
+        } else {
+            await client.sendMessage(chatId, message);
+        }
         console.log(`WhatsApp message sent to ${phoneNumber}`);
     } catch (error) {
         // WhatsApp send failures must NEVER block or fail the actual approval/payment flow, only log the error.
@@ -91,7 +114,7 @@ setInterval(async () => {
         if (res.rows && res.rows.length > 0) {
             for (const row of res.rows) {
                 console.log(`Processing outbox ID ${row.id} for ${row.phone}`);
-                await sendWhatsAppMessage(row.phone, row.message);
+                await sendWhatsAppMessage(row.phone, row.message, row.media_url);
                 await db.execute({
                     sql: `UPDATE whatsapp_outbox SET status = 'sent' WHERE id = ?`,
                     args: [row.id]

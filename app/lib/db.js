@@ -41,6 +41,7 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       phone TEXT NOT NULL,
       message TEXT NOT NULL,
+      media_url TEXT,
       status TEXT DEFAULT 'pending',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )

@@ -57,7 +57,7 @@ export class PaymentService {
     await logAudit(userEmail, 'Payment Request', `Requested ${reqAmt} for PO#${payload.poNo}`, 'Finance');
     
     // Auto-notify the first queue (Procurement)
-    await notifyQueueUsers('procurement', `*New Payment Request*\n\nA new payment request of ₹${reqAmt.toLocaleString('en-IN')} for PO# *${payload.poNo}* has been submitted and is waiting for Procurement approval.\n\nProject: ${payload.project || linkedPO.project}`);
+    await notifyQueueUsers('procurement', `*New Payment Request*\n\nA new payment request of ₹${reqAmt.toLocaleString('en-IN')} for PO# *${payload.poNo}* has been submitted and is waiting for Procurement approval.\n\nProject: ${payload.project || linkedPO.project}`, payload.invoice_url);
 
     return { ok: true };
   }

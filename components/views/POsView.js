@@ -312,30 +312,12 @@ export default function POsView() {
   };
 
   // ─── Send Email ───────────────────────────────────────────────────────────
-  const [sendModalOpen, setSendModalOpen] = useState(false);
-  const [sendTargetId, setSendTargetId] = useState(null);
-  const [sendContact, setSendContact] = useState('');
-
-  const handleSendVendorEmail = async (poNumber) => {
-    setSendTargetId(poNumber);
-    setSendContact('');
-    setSendModalOpen(true);
-  };
-
-  const executeSendPO = async (method) => {
-    if (!sendContact) return toast('Please enter a contact (email or phone).');
+  const handleSendPOWhatsApp = async (poNumber) => {
     try {
-      if (method === 'email') {
-        await call('sendPOToVendor', sendTargetId, sendContact.trim());
-        toast(`PO ${sendTargetId} sent via Email to ${sendContact.trim()}.`);
-      } else if (method === 'whatsapp') {
-        await call('sendPOToVendorWhatsApp', sendTargetId, sendContact.trim());
-        toast(`PO ${sendTargetId} sent via WhatsApp to ${sendContact.trim()}.`);
-      }
-      await refreshData();
-      setSendModalOpen(false);
-    } catch (e) { 
-      toast.error(`Failed: ${e.message}`); 
+      await call('whatsappPO', poNumber);
+      toast.success('PO WhatsApp queued successfully');
+    } catch (e) {
+      toast.error('Failed to send PO via WhatsApp: ' + (e.message || 'Unknown error'));
     }
   };
 
@@ -540,40 +522,7 @@ export default function POsView() {
   return (
     <div className="space-y-8 animate-fade-in font-sans">
       {/* Header / Filters */}
-      <POSaveModal 
-        showSaveModal={showSaveModal} 
-        setShowSaveModal={setShowSaveModal} 
-        handleSavePO={handleSavePO} 
-      />
 
-      <Dialog open={sendModalOpen} onClose={() => setSendModalOpen(false)} title="Send Purchase Order">
-        <div className="space-y-4">
-          <div className="text-sm text-slate-400">
-            Enter the vendor's email address or WhatsApp number (with country code, e.g. 919876543210).
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-slate-400 font-light">Contact Detail</label>
-            <Input
-              type="text"
-              placeholder="Email or Phone Number"
-              value={sendContact}
-              onChange={e => setSendContact(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
-            <Button variant="ghost" onClick={() => setSendModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={() => executeSendPO('whatsapp')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              Send via WhatsApp
-            </Button>
-            <Button variant="primary" onClick={() => executeSendPO('email')}>
-              Send via Email
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-      
       <POFilters
         canCreate={canCreate}
         filteredPOs={filteredPOs}
@@ -595,6 +544,7 @@ export default function POsView() {
         setMpRemarks={setMpRemarks} setMpError={setMpError} setManualPayModalOpen={setManualPayModalOpen}
         setEditingPoNo={setEditingPoNo}
         handleViewPOHistory={handleViewPOHistory}
+        handleSendPOWhatsApp={handleSendPOWhatsApp}
         getStatusBadge={getStatusBadge} getPaymentStatusBadge={getPaymentStatusBadge}
       />
 

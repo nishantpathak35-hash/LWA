@@ -26,8 +26,6 @@ export default function MultiSelectActionBar({
 
   if (selectedRequests.length === 0) return null;
 
-  const allSelectedRemitted = selectedRequests.every(r => r.can_send_payment_advice);
-
   return (
     <div className="fixed bottom-6 inset-x-0 mx-auto z-50 pointer-events-none w-[95%] sm:w-11/12 max-w-5xl md:pl-64">
       <div className="w-full animate-fade-in min-w-0">
@@ -117,9 +115,8 @@ export default function MultiSelectActionBar({
           <Button 
             variant="outline" 
             onClick={onSendToWhatsApp} 
-            className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!allSelectedRemitted}
-            title={!allSelectedRemitted ? "Payment Advice can only be sent for successfully remitted payments" : "Send selected to WhatsApp"}
+            className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
+            title="Send selected to WhatsApp"
           >
             Send to WhatsApp
           </Button>

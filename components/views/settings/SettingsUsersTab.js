@@ -7,7 +7,10 @@ export default function SettingsUsersTab({
   usersSearch, setUsersSearch,
   handleExportUsers,
   setTargetEmail, setNewUserName, setNewUserPassword, setNewUserRoles,
-  newWhatsApp, setNewWhatsApp, editWhatsApp, setEditWhatsApp,
+  newWhatsApp, setNewWhatsApp,
+  newEmployeeId, setNewEmployeeId, newDepartment, setNewDepartment, newMobileNumber, setNewMobileNumber,
+  editWhatsApp, setEditWhatsApp,
+  editEmployeeId, setEditEmployeeId, editDepartment, setEditDepartment, editMobileNumber, setEditMobileNumber,
   setInviteResult, setInviteModalOpen,
   loading, filteredUsers,
   setEditAccessRoles, setAccessModalOpen,
@@ -38,6 +41,9 @@ export default function SettingsUsersTab({
                 setNewUserName('');
                 setNewUserPassword('ChangeMe123!');
                 setNewWhatsApp('');
+                setNewEmployeeId('');
+                setNewDepartment('');
+                setNewMobileNumber('');
                 setNewUserRoles({ proc: false, finance: true, director: false });
                 setInviteResult(null);
                 setInviteModalOpen(true);
@@ -113,9 +119,13 @@ export default function SettingsUsersTab({
                             onClick={() => {
                               setTargetEmail(u.email);
                               const updatedRoles = { proc: false, finance: false, director: false };
+                              const rs = (u.roles || '').split(',').map(r => r.trim()).filter(Boolean);
                               rs.forEach(role => { updatedRoles[role] = true; });
                               setEditAccessRoles(updatedRoles);
                               setEditWhatsApp(u.whatsapp_number || '');
+                              setEditEmployeeId(u.employee_id || '');
+                              setEditDepartment(u.department || '');
+                              setEditMobileNumber(u.mobile_number || '');
                               setAccessModalOpen(true);
                             }}
                           >

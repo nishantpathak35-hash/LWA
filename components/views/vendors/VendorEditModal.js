@@ -10,7 +10,12 @@ export default function VendorEditModal({
   editGstin, setEditGstin, editPan, setEditPan,
   editEmail, setEditEmail, editStatus, setEditStatus,
   editAccountNo, setEditAccountNo, editIfsc, setEditIfsc,
-  editAddress, setEditAddress, formError, submitting, handleEditSubmit
+  editAddress, setEditAddress, formError, submitting, handleEditSubmit,
+  editPrimaryContactName, setEditPrimaryContactName, editPrimaryContactNo, setEditPrimaryContactNo,
+  editAccountsContactName, setEditAccountsContactName, editAccountsContactNo, setEditAccountsContactNo,
+  editPurchaseContactName, setEditPurchaseContactName, editPurchaseContactNo, setEditPurchaseContactNo,
+  editWhatsappNumber, setEditWhatsappNumber, editMobileNumber, setEditMobileNumber,
+  editPreferredWhatsappContact, setEditPreferredWhatsappContact
 }) {
   return (
     <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Vendor Details">
@@ -77,6 +82,53 @@ export default function VendorEditModal({
             <AttachmentsSection entityType="vendor" entityId={editVendorId} />
           </div>
         )}
+
+        <div className="mt-6 space-y-4 border-t border-slate-700/50 pt-4">
+          <h3 className="text-sm font-medium text-slate-300">Contact Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PRIMARY CONTACT NAME</label>
+              <Input type="text" value={editPrimaryContactName} onChange={(e) => setEditPrimaryContactName(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PRIMARY CONTACT NO</label>
+              <Input type="text" value={editPrimaryContactNo} onChange={(e) => setEditPrimaryContactNo(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">ACCOUNTS CONTACT NAME</label>
+              <Input type="text" value={editAccountsContactName} onChange={(e) => setEditAccountsContactName(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">ACCOUNTS CONTACT NO</label>
+              <Input type="text" value={editAccountsContactNo} onChange={(e) => setEditAccountsContactNo(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PURCHASE CONTACT NAME</label>
+              <Input type="text" value={editPurchaseContactName} onChange={(e) => setEditPurchaseContactName(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PURCHASE CONTACT NO</label>
+              <Input type="text" value={editPurchaseContactNo} onChange={(e) => setEditPurchaseContactNo(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">WHATSAPP NUMBER</label>
+              <Input type="text" value={editWhatsappNumber} onChange={(e) => setEditWhatsappNumber(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">MOBILE NUMBER</label>
+              <Input type="text" value={editMobileNumber} onChange={(e) => setEditMobileNumber(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PREFERRED WHATSAPP CONTACT</label>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold" value={editPreferredWhatsappContact} onChange={(e) => setEditPreferredWhatsappContact(e.target.value)}>
+                <option value="Primary">Primary Contact</option>
+                <option value="Accounts">Accounts Contact</option>
+                <option value="Purchase">Purchase Contact</option>
+                <option value="Other">WhatsApp/Mobile Number</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
         {formError && (
           <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">

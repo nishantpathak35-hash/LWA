@@ -160,6 +160,18 @@ export default function ReportsView() {
     setAdviceModalOpen(true);
   };
 
+  const handleSendPaymentAdviceWhatsApp = async (payment) => {
+    setSendingAdviceId(payment.id);
+    try {
+      await call('whatsappPaymentAdvice', payment.id);
+      toast.success('Payment advice WhatsApp queued successfully');
+    } catch (err) {
+      toast.error('Failed to send WhatsApp: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSendingAdviceId(null);
+    }
+  };
+
   const executeSendAdvice = async (method) => {
     if (!adviceContact) return toast('Please enter a contact (email or phone).');
     
@@ -263,7 +275,9 @@ export default function ReportsView() {
           <ReportsTables
             loading={loading} data={data} reportType={reportType}
             isAdmin={isAdmin} isFinance={isFinance} isDirector={isDirector} canRemit={canRemit}
-            handleSendPaymentAdvice={handleSendPaymentAdvice} sendingAdviceId={sendingAdviceId}
+            handleSendPaymentAdvice={handleSendPaymentAdvice} 
+            handleSendPaymentAdviceWhatsApp={handleSendPaymentAdviceWhatsApp}
+            sendingAdviceId={sendingAdviceId}
             handleOpenRemitModal={handleOpenRemitModal} handleDeleteRemittedPayment={handleDeleteRemittedPayment}
           />
         </CardContent>

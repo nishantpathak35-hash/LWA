@@ -17,6 +17,7 @@ import MultiSelectActionBar from './payments/MultiSelectActionBar';
 import BulkApprovalReviewModal from './payments/BulkApprovalReviewModal';
 import BulkRejectModal from './payments/BulkRejectModal';
 import InvoiceUploadModal from './payments/InvoiceUploadModal';
+import InternalWhatsAppModal from '../ui/InternalWhatsAppModal';
 
 export default function PaymentsView() {
   const { payments, setPayments, vendors, pos, user, call, refreshData } = useAppState();
@@ -51,6 +52,7 @@ export default function PaymentsView() {
   const [activeMultiSelectProjectIndex, setActiveMultiSelectProjectIndex] = useState(0);
   const [bulkApproveModalOpen, setBulkApproveModalOpen] = useState(false);
   const [bulkRejectModalOpen, setBulkRejectModalOpen] = useState(false);
+  const [internalWaModalOpen, setInternalWaModalOpen] = useState(false);
   const [bulkRejectComment, setBulkRejectComment] = useState('');
   const [bulkApprovalData, setBulkApprovalData] = useState([]); // Array of request details for review grid
 
@@ -514,16 +516,23 @@ export default function PaymentsView() {
   const [adviceTargetIds, setAdviceTargetIds] = useState([]);
   const [adviceContact, setAdviceContact] = useState('');
   
-  const handleSendPaymentAdvice = async (reqId) => {
-    setAdviceTargetIds([reqId]);
-    setAdviceContact('');
-    setAdviceModalOpen(true);
+  const handleSendPaymentAdvice = async (reqId, method) => {
+    if (method === 'whatsapp') {
+      try {
+        await call('whatsappPaymentAdvice', reqId);
+        toast.success(`Payment advice WhatsApp queued successfully!`);
+      } catch (err) {
+        toast.error('Failed to send WhatsApp: ' + (err.message || 'Unknown error'));
+      }
+    } else {
+      setAdviceTargetIds([reqId]);
+      setAdviceContact('');
+      setAdviceModalOpen(true);
+    }
   };
 
   const handleSendMultiWhatsApp = () => {
-    setAdviceTargetIds(selectedPayments);
-    setAdviceContact('');
-    setAdviceModalOpen(true);
+    setInternalWaModalOpen(true);
   };
 
   const executeSendAdvice = async (method) => {
@@ -730,6 +739,13 @@ export default function PaymentsView() {
         onConfirmApprove={submitBulkApprove}
         submitting={submitting}
         canEditApprovalTds={canEditApprovalTds}
+      />
+
+      <InternalWhatsAppModal
+        isOpen={internalWaModalOpen}
+        onClose={() => setInternalWaModalOpen(false)}
+        selectedRecords={selectedRequestsData}
+        moduleName="Payment Requests"
       />
 
       <BulkRejectModal

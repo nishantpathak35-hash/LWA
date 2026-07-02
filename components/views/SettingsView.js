@@ -36,9 +36,15 @@ export default function SettingsView() {
   const [newUserRoles, setNewUserRoles] = useState({ proc: false, finance: true, director: false });
   const [newUserPassword, setNewUserPassword] = useState(generateRandomPassword());
   const [newWhatsApp, setNewWhatsApp] = useState('');
+  const [newEmployeeId, setNewEmployeeId] = useState('');
+  const [newDepartment, setNewDepartment] = useState('');
+  const [newMobileNumber, setNewMobileNumber] = useState('');
   
   const [editAccessRoles, setEditAccessRoles] = useState({ proc: false, finance: false, director: false });
   const [editWhatsApp, setEditWhatsApp] = useState('');
+  const [editEmployeeId, setEditEmployeeId] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editMobileNumber, setEditMobileNumber] = useState('');
   const [resetPasswordVal, setResetPasswordVal] = useState(generateRandomPassword());
   const [inviteResult, setInviteResult] = useState(null);
 
@@ -456,12 +462,12 @@ export default function SettingsView() {
         email: targetEmail,
         name: newUserName,
         roles: roles,
-        password: newUserPassword
+        password: newUserPassword,
+        employeeId: newEmployeeId,
+        department: newDepartment,
+        mobileNumber: newMobileNumber,
+        whatsappNumber: newWhatsApp
       });
-      
-      if (newWhatsApp) {
-        await call('setUserWhatsAppAdmin', targetEmail, newWhatsApp);
-      }
       
       if (res && res.emailSent) {
         toast(`User created & invite email sent to ${targetEmail}`);
@@ -484,9 +490,12 @@ export default function SettingsView() {
     }
     try {
       await call('setUserRolesAdmin', targetEmail, roles);
-      if (editWhatsApp !== undefined) {
-        await call('setUserWhatsAppAdmin', targetEmail, editWhatsApp);
-      }
+      await call('updateUserDetailsAdmin', targetEmail, {
+        whatsappNumber: editWhatsApp,
+        mobileNumber: editMobileNumber,
+        department: editDepartment,
+        employeeId: editEmployeeId
+      });
       toast.success('Access updated successfully.');
       setAccessModalOpen(false);
       loadUsers();
@@ -645,7 +654,13 @@ export default function SettingsView() {
           setTargetEmail={setTargetEmail} setNewUserName={setNewUserName}
           setNewUserPassword={setNewUserPassword} setNewUserRoles={setNewUserRoles}
           newWhatsApp={newWhatsApp} setNewWhatsApp={setNewWhatsApp}
+          newEmployeeId={newEmployeeId} setNewEmployeeId={setNewEmployeeId}
+          newDepartment={newDepartment} setNewDepartment={setNewDepartment}
+          newMobileNumber={newMobileNumber} setNewMobileNumber={setNewMobileNumber}
           editWhatsApp={editWhatsApp} setEditWhatsApp={setEditWhatsApp}
+          editEmployeeId={editEmployeeId} setEditEmployeeId={setEditEmployeeId}
+          editDepartment={editDepartment} setEditDepartment={setEditDepartment}
+          editMobileNumber={editMobileNumber} setEditMobileNumber={setEditMobileNumber}
           setInviteResult={setInviteResult} setInviteModalOpen={setInviteModalOpen}
           loading={loading} filteredUsers={filteredUsers}
           setEditAccessRoles={setEditAccessRoles} setAccessModalOpen={setAccessModalOpen}
@@ -823,15 +838,42 @@ export default function SettingsView() {
                 onChange={e => setNewUserPassword(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-light">WhatsApp Number (Optional)</label>
-              <Input
-                type="text"
-                placeholder="e.g. +919876543210"
-                value={newWhatsApp}
-                onChange={e => setNewWhatsApp(e.target.value)}
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-light">Employee ID</label>
+                <Input
+                  type="text"
+                  placeholder="EMP-001"
+                  value={newEmployeeId}
+                  onChange={e => setNewEmployeeId(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-light">Department</label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Finance"
+                  value={newDepartment}
+                  onChange={e => setNewDepartment(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-light">Mobile Number</label>
+                <Input
+                  type="text"
+                  placeholder="e.g. +919876543210"
+                  value={newMobileNumber}
+                  onChange={e => setNewMobileNumber(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-light">WhatsApp Number</label>
+                <Input
+                  type="text"
+                  placeholder="e.g. +919876543210"
+                  value={newWhatsApp}
+                  onChange={e => setNewWhatsApp(e.target.value)}
+                />
+              </div>
             <div className="text-xs text-slate-500 pt-1">
               Share the email + temp password with the user. They should change it on first login.
             </div>
@@ -866,15 +908,44 @@ export default function SettingsView() {
               </label>
             ))}
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-slate-400 font-light">WhatsApp Number</label>
-            <Input
-              type="text"
-              placeholder="e.g. +919876543210"
-              value={editWhatsApp}
-              onChange={e => setEditWhatsApp(e.target.value)}
-            />
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-900">
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-light">Employee ID</label>
+                <Input
+                  type="text"
+                  placeholder="EMP-001"
+                  value={editEmployeeId}
+                  onChange={e => setEditEmployeeId(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-light">Department</label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Finance"
+                  value={editDepartment}
+                  onChange={e => setEditDepartment(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-light">Mobile Number</label>
+                <Input
+                  type="text"
+                  placeholder="e.g. +919876543210"
+                  value={editMobileNumber}
+                  onChange={e => setEditMobileNumber(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-light">WhatsApp Number</label>
+                <Input
+                  type="text"
+                  placeholder="e.g. +919876543210"
+                  value={editWhatsApp}
+                  onChange={e => setEditWhatsApp(e.target.value)}
+                />
+              </div>
+            </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
             <Button variant="ghost" onClick={() => setAccessModalOpen(false)}>
               Cancel

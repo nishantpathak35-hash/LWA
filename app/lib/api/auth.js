@@ -248,7 +248,21 @@ export async function listUsersAdmin(session) {
     hasToken: !!u.invite_token,
     lastLogin: u.last_login || null,
     lastLoginIp: u.last_login_ip || null,
-    lastLoginDevice: u.last_login_device || null
+    lastLoginDevice: u.last_login_device || null,
+    whatsapp_number: u.whatsapp_number || null
+  }));
+}
+
+export async function listActiveUsers(session) {
+  requireAuth(session);
+  const users = await queryAll(`SELECT email, name, department, whatsapp_number, mobile_number FROM users WHERE active = 1`);
+  return users.map(u => ({
+    email: u.email,
+    name: u.name,
+    department: u.department || null,
+    whatsapp_number: u.whatsapp_number || null,
+    mobile_number: u.mobile_number || null,
+    active: true
   }));
 }
 

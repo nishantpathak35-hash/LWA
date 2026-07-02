@@ -30,6 +30,15 @@ export default function VendorsView() {
   const [editEmail, setEditEmail] = useState('');
   const [editAccountNo, setEditAccountNo] = useState('');
   const [editIfsc, setEditIfsc] = useState('');
+  const [editPrimaryContactName, setEditPrimaryContactName] = useState('');
+  const [editPrimaryContactNo, setEditPrimaryContactNo] = useState('');
+  const [editAccountsContactName, setEditAccountsContactName] = useState('');
+  const [editAccountsContactNo, setEditAccountsContactNo] = useState('');
+  const [editPurchaseContactName, setEditPurchaseContactName] = useState('');
+  const [editPurchaseContactNo, setEditPurchaseContactNo] = useState('');
+  const [editWhatsappNumber, setEditWhatsappNumber] = useState('');
+  const [editMobileNumber, setEditMobileNumber] = useState('');
+  const [editPreferredWhatsappContact, setEditPreferredWhatsappContact] = useState('Primary');
 
   // Form state
   const [name, setName] = useState('');
@@ -39,6 +48,15 @@ export default function VendorsView() {
   const [address, setAddress] = useState('');
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [primaryContactName, setPrimaryContactName] = useState('');
+  const [primaryContactNo, setPrimaryContactNo] = useState('');
+  const [accountsContactName, setAccountsContactName] = useState('');
+  const [accountsContactNo, setAccountsContactNo] = useState('');
+  const [purchaseContactName, setPurchaseContactName] = useState('');
+  const [purchaseContactNo, setPurchaseContactNo] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [preferredWhatsappContact, setPreferredWhatsappContact] = useState('Primary');
 
   const roles = user?.roles || [];
   const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
@@ -54,6 +72,8 @@ export default function VendorsView() {
 
   const handleOpenModal = () => {
     setName(''); setLegalName(''); setVendorCode(''); setGstin(''); setAddress('');
+    setPrimaryContactName(''); setPrimaryContactNo(''); setAccountsContactName(''); setAccountsContactNo('');
+    setPurchaseContactName(''); setPurchaseContactNo(''); setWhatsappNumber(''); setMobileNumber(''); setPreferredWhatsappContact('Primary');
     setFormError(null);
     setModalOpen(true);
   };
@@ -63,7 +83,12 @@ export default function VendorsView() {
     if (!name || !vendorCode) { setFormError('Vendor Name and Vendor Code are required.'); return; }
     setSubmitting(true); setFormError(null);
     try {
-      const payload = { legalName: legalName || name, tradeName: name, vendorCode: vendorCode.trim().toUpperCase(), gstin: gstin.trim(), address: address.trim(), status: 'Active' };
+      const payload = { 
+        legalName: legalName || name, tradeName: name, vendorCode: vendorCode.trim().toUpperCase(), 
+        gstin: gstin.trim(), address: address.trim(), status: 'Active',
+        primaryContactName, primaryContactNo, accountsContactName, accountsContactNo,
+        purchaseContactName, purchaseContactNo, whatsappNumber, mobileNumber, preferredWhatsappContact
+      };
       await call('addVendor', payload);
       await refreshData();
       setModalOpen(false);
@@ -84,22 +109,22 @@ export default function VendorsView() {
 
   const handleOpenEditModal = async (v) => {
     setFormError(null); setSubmitting(false);
+    setEditVendorId(v.vendor_code); setEditLegalName(v.legal_name || ''); setEditTradeName(v.trade_name || '');
+    setEditGstin(v.gstin || ''); setEditPan(v.pan || ''); setEditStatus(v.status || 'Active');
+    setEditAddress(v.address || '');
+    setEditPrimaryContactName(v.primary_contact_name || '');
+    setEditPrimaryContactNo(v.primary_contact_no || '');
+    setEditAccountsContactName(v.accounts_contact_name || '');
+    setEditAccountsContactNo(v.accounts_contact_no || '');
+    setEditPurchaseContactName(v.purchase_contact_name || '');
+    setEditPurchaseContactNo(v.purchase_contact_no || '');
+    setEditWhatsappNumber(v.whatsapp_number || '');
+    setEditMobileNumber(v.mobile_number || '');
+    setEditPreferredWhatsappContact(v.preferred_whatsapp_contact || 'Primary');
     try {
-      const fullVendor = await call('getVendorByName', v.code || v.name);
-      const src = fullVendor || v;
-      // Use vendor_code as the stable entityId for attachments.
-      // Fall back through v.code → legalName → name for legacy PO-sourced vendors.
-      const resolvedId = src.vendorId || v.code || src.legalName || v.legalName || v.name || '';
-      setEditVendorId(resolvedId);
-      setEditLegalName(src.legalName || v.legalName || v.name || '');
-      setEditTradeName(src.tradeName || v.name || '');
-      setEditGstin(src.gstin || v.gstin || '');
-      setEditPan(src.pan || '');
-      setEditStatus(src.status || 'Active');
-      setEditAddress(src.address || v.address || '');
-      setEditEmail(src.email || v.email || '');
-      setEditAccountNo(src.accountNo || v.accountNo || '');
-      setEditIfsc(src.ifsc || v.ifsc || '');
+      const details = await call('getVendorByName', v.vendor_code);
+      setEditAccountNo(details.accountNo || '');
+      setEditIfsc(details.ifsc || '');
       setEditModalOpen(true);
     } catch (err) { toast.error('Failed to load vendor: ' + err.message); }
   };
@@ -109,7 +134,15 @@ export default function VendorsView() {
     if (!editLegalName) { setFormError('Legal Name is required.'); return; }
     setSubmitting(true); setFormError(null);
     try {
-      const payload = { vendorId: editVendorId, legalName: editLegalName, tradeName: editTradeName, gstin: editGstin.trim().toUpperCase(), pan: editPan.trim().toUpperCase(), status: editStatus, address: editAddress.trim(), email: editEmail.trim(), accountNo: editAccountNo.trim(), ifsc: editIfsc.trim().toUpperCase() };
+      const payload = { 
+        vendorId: editVendorId, legalName: editLegalName, tradeName: editTradeName, gstin: editGstin.trim().toUpperCase(), 
+        pan: editPan.trim().toUpperCase(), status: editStatus, address: editAddress.trim(), 
+        email: editEmail.trim(), accountNo: editAccountNo.trim(), ifsc: editIfsc.trim().toUpperCase(),
+        primaryContactName: editPrimaryContactName, primaryContactNo: editPrimaryContactNo,
+        accountsContactName: editAccountsContactName, accountsContactNo: editAccountsContactNo,
+        purchaseContactName: editPurchaseContactName, purchaseContactNo: editPurchaseContactNo,
+        whatsappNumber: editWhatsappNumber, mobileNumber: editMobileNumber, preferredWhatsappContact: editPreferredWhatsappContact
+      };
       await call('updateVendor', payload);
       await refreshData();
       setEditModalOpen(false);
@@ -133,6 +166,15 @@ export default function VendorsView() {
         vendorCode={vendorCode} setVendorCode={setVendorCode} gstin={gstin} setGstin={setGstin}
         address={address} setAddress={setAddress} formError={formError} submitting={submitting}
         handleOnboardSubmit={handleOnboardSubmit}
+        primaryContactName={primaryContactName} setPrimaryContactName={setPrimaryContactName}
+        primaryContactNo={primaryContactNo} setPrimaryContactNo={setPrimaryContactNo}
+        accountsContactName={accountsContactName} setAccountsContactName={setAccountsContactName}
+        accountsContactNo={accountsContactNo} setAccountsContactNo={setAccountsContactNo}
+        purchaseContactName={purchaseContactName} setPurchaseContactName={setPurchaseContactName}
+        purchaseContactNo={purchaseContactNo} setPurchaseContactNo={setPurchaseContactNo}
+        whatsappNumber={whatsappNumber} setWhatsappNumber={setWhatsappNumber}
+        mobileNumber={mobileNumber} setMobileNumber={setMobileNumber}
+        preferredWhatsappContact={preferredWhatsappContact} setPreferredWhatsappContact={setPreferredWhatsappContact}
       />
       <VendorViewModal
         viewModalOpen={viewModalOpen} setViewModalOpen={setViewModalOpen}
@@ -147,6 +189,15 @@ export default function VendorsView() {
         editAccountNo={editAccountNo} setEditAccountNo={setEditAccountNo}
         editIfsc={editIfsc} setEditIfsc={setEditIfsc} editAddress={editAddress} setEditAddress={setEditAddress}
         formError={formError} submitting={submitting} handleEditSubmit={handleEditSubmit}
+        editPrimaryContactName={editPrimaryContactName} setEditPrimaryContactName={setEditPrimaryContactName}
+        editPrimaryContactNo={editPrimaryContactNo} setEditPrimaryContactNo={setEditPrimaryContactNo}
+        editAccountsContactName={editAccountsContactName} setEditAccountsContactName={setEditAccountsContactName}
+        editAccountsContactNo={editAccountsContactNo} setEditAccountsContactNo={setEditAccountsContactNo}
+        editPurchaseContactName={editPurchaseContactName} setEditPurchaseContactName={setEditPurchaseContactName}
+        editPurchaseContactNo={editPurchaseContactNo} setEditPurchaseContactNo={setEditPurchaseContactNo}
+        editWhatsappNumber={editWhatsappNumber} setEditWhatsappNumber={setEditWhatsappNumber}
+        editMobileNumber={editMobileNumber} setEditMobileNumber={setEditMobileNumber}
+        editPreferredWhatsappContact={editPreferredWhatsappContact} setEditPreferredWhatsappContact={setEditPreferredWhatsappContact}
       />
     </div>
   );

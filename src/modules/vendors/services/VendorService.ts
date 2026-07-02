@@ -36,7 +36,16 @@ export class VendorService {
       address: payload.address,
       email: payload.email,
       bank_account: payload.accountNo, // Mapping UI field to DB field
-      ifsc: payload.ifsc
+      ifsc: payload.ifsc,
+      primary_contact_name: payload.primaryContactName,
+      primary_contact_no: payload.primaryContactNo,
+      accounts_contact_name: payload.accountsContactName,
+      accounts_contact_no: payload.accountsContactNo,
+      purchase_contact_name: payload.purchaseContactName,
+      purchase_contact_no: payload.purchaseContactNo,
+      whatsapp_number: payload.whatsappNumber,
+      mobile_number: payload.mobileNumber,
+      preferred_whatsapp_contact: payload.preferredWhatsappContact || 'Primary'
     };
 
     await VendorRepository.create(newVendor);
@@ -65,7 +74,16 @@ export class VendorService {
       vendor_type: payload.vendorType,
       email: payload.email,
       bank_account: payload.accountNo,
-      ifsc: payload.ifsc
+      ifsc: payload.ifsc,
+      primary_contact_name: payload.primaryContactName,
+      primary_contact_no: payload.primaryContactNo,
+      accounts_contact_name: payload.accountsContactName,
+      accounts_contact_no: payload.accountsContactNo,
+      purchase_contact_name: payload.purchaseContactName,
+      purchase_contact_no: payload.purchaseContactNo,
+      whatsapp_number: payload.whatsappNumber,
+      mobile_number: payload.mobileNumber,
+      preferred_whatsapp_contact: payload.preferredWhatsappContact
     };
 
     if (!existing) {

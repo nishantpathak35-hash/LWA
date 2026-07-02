@@ -12,6 +12,7 @@ export default function POListTable({
   handleOpenModal, handleSubmitForApproval, handleOpenApproval, handleDuplicatePO, handleDeletePO,
   reloadPayments, setMpDate, setMpAmount, setMpMode, setMpUtr, setMpBank, setMpRef, setMpRemarks, setMpError, setManualPayModalOpen, setEditingPoNo,
   handleViewPOHistory,
+  handleSendPOWhatsApp,
   getStatusBadge, getPaymentStatusBadge
 }) {
   return (
@@ -106,6 +107,16 @@ export default function POListTable({
                                   className="flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-slate-100 hover:bg-slate-900 transition-colors text-left font-sans"
                                 >
                                   <Send className="w-3.5 h-3.5 text-slate-400" /> Email PO
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionMenuPoNo(null);
+                                    if (handleSendPOWhatsApp) handleSendPOWhatsApp(po.po_no);
+                                  }}
+                                  className="flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-emerald-400 hover:bg-slate-900 transition-colors text-left font-sans"
+                                >
+                                  <Send className="w-3.5 h-3.5 text-emerald-500" /> WhatsApp PO
                                 </button>
                                 {!isPending && (
                                   <button
