@@ -142,17 +142,17 @@ export default async function POPdfPage({ params }) {
   const grandTotal = subtotal + gstAmount - tdsAmount;
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-serif p-8 max-w-4xl mx-auto shadow-sm relative">
+    <div className="min-h-screen bg-white text-gray-900 font-serif p-8 max-w-4xl mx-auto shadow-sm relative">
       {/* Action bar (non-printable) */}
-      <div className="no-print mb-8 p-4 bg-slate-100 rounded-lg flex justify-between items-center font-sans text-sm">
+      <div className="no-print mb-8 p-4 bg-gray-100 rounded-lg flex justify-between items-center font-sans text-sm">
         <div>
           <span className="font-semibold">Purchase Order Print Preview</span>
-          <p className="text-xs text-slate-500 mt-0.5">Use the print dialog to save as a PDF file.</p>
+          <p className="text-xs text-gray-500 mt-0.5">Use the print dialog to save as a PDF file.</p>
         </div>
         <div className="flex gap-3">
           <button
             id="po-close-btn"
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-350 rounded-lg font-medium transition-colors cursor-pointer"
+            className="px-4 py-2 bg-gray-200 hover:bg-gray-350 rounded-lg font-medium transition-colors cursor-pointer"
           >
             Close
           </button>
@@ -166,10 +166,10 @@ export default async function POPdfPage({ params }) {
       </div>
 
       {/* Printable PO Sheet */}
-      <div className="border border-slate-300 p-8 md:p-10 space-y-8 relative z-10 bg-white/80">
+      <div className="border border-gray-300 p-8 md:p-10 space-y-8 relative z-10 bg-white/80">
         {po.status === 'Draft' && (
           <div className="absolute inset-0 z-50 flex items-center justify-center opacity-10 pointer-events-none overflow-hidden" style={{ transform: 'rotate(-45deg)' }}>
-            <span className="text-[140px] font-black text-slate-500 whitespace-nowrap">DRAFT ORDER</span>
+            <span className="text-[140px] font-black text-gray-500 whitespace-nowrap">DRAFT ORDER</span>
           </div>
         )}
         
@@ -179,48 +179,48 @@ export default async function POPdfPage({ params }) {
             <img src={logoUri} alt="Company Logo" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-58%, -50%)', height: '350px' }} className="max-w-none" />
           </div>
         )}
-        <div className="flex justify-between items-start border-b border-slate-350 pb-6 gap-6">
+        <div className="flex justify-between items-start border-b border-gray-350 pb-6 gap-6">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold tracking-wide text-slate-800 font-sans uppercase break-words leading-tight">
+            <h1 className="text-xl font-bold tracking-wide text-gray-800 font-sans uppercase break-words leading-tight">
               {companyName}
             </h1>
-            <div className="mt-3 text-xs font-sans text-slate-600 space-y-1 leading-relaxed whitespace-pre-line">
+            <div className="mt-3 text-xs font-sans text-gray-600 space-y-1 leading-relaxed whitespace-pre-line">
               {companyAddress}
               <div className="pt-2 space-y-0.5">
-                <p><span className="font-semibold text-slate-800">GSTIN:</span> {companyGstin}</p>
-                <p><span className="font-semibold text-slate-800">PAN:</span> {companyPan}</p>
+                <p><span className="font-semibold text-gray-800">GSTIN:</span> {companyGstin}</p>
+                <p><span className="font-semibold text-gray-800">PAN:</span> {companyPan}</p>
               </div>
             </div>
           </div>
           <div className="text-right flex-shrink-0">
             <h2 className="text-xl font-semibold tracking-wider text-amber-700 uppercase">Purchase Order</h2>
-            <div className="mt-4 text-xs font-sans text-slate-600 space-y-1.5">
-              <p><span className="text-slate-400">PO NO:</span> <strong className="text-slate-800 text-sm">{po.po_no}</strong></p>
-              <p><span className="text-slate-400">DATE:</span> <strong className="text-slate-800">{formatDate(po.po_date)}</strong></p>
-              <p><span className="text-slate-400">STATUS:</span> <span className="uppercase text-amber-700 font-semibold">{po.status || 'Active'}</span></p>
+            <div className="mt-4 text-xs font-sans text-gray-600 space-y-1.5">
+              <p><span className="text-gray-400">PO NO:</span> <strong className="text-gray-800 text-sm">{po.po_no}</strong></p>
+              <p><span className="text-gray-400">DATE:</span> <strong className="text-gray-800">{formatDate(po.po_date)}</strong></p>
+              <p><span className="text-gray-400">STATUS:</span> <span className="uppercase text-amber-700 font-semibold">{po.status || 'Active'}</span></p>
             </div>
           </div>
         </div>
 
         {/* Parties Address block */}
         <div className="grid grid-cols-2 gap-8">
-          <div className="border border-slate-200 p-4 rounded-lg bg-slate-50/50">
-            <h3 className="text-xs font-sans font-bold text-slate-500 uppercase tracking-wider mb-2">Vendor / Supplier</h3>
+          <div className="border border-gray-200 p-4 rounded-lg bg-gray-50/50">
+            <h3 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-2">Vendor / Supplier</h3>
             <div className="text-sm font-sans space-y-1">
-              <p className="font-semibold text-slate-800 text-base font-serif">{po.vendor_name}</p>
-              {vendor?.vendor_code && <p><span className="text-slate-500">Code:</span> {vendor.vendor_code}</p>}
-              {vendor?.gstin && <p><span className="text-slate-500">GSTIN:</span> {vendor.gstin}</p>}
-              {vendor?.pan && <p><span className="text-slate-500">PAN:</span> {vendor.pan}</p>}
-              {vendor?.address && <p className="text-xs text-slate-600 mt-2 whitespace-pre-line leading-relaxed">{vendor.address}</p>}
+              <p className="font-semibold text-gray-800 text-base font-serif">{po.vendor_name}</p>
+              {vendor?.vendor_code && <p><span className="text-gray-500">Code:</span> {vendor.vendor_code}</p>}
+              {vendor?.gstin && <p><span className="text-gray-500">GSTIN:</span> {vendor.gstin}</p>}
+              {vendor?.pan && <p><span className="text-gray-500">PAN:</span> {vendor.pan}</p>}
+              {vendor?.address && <p className="text-xs text-gray-600 mt-2 whitespace-pre-line leading-relaxed">{vendor.address}</p>}
             </div>
           </div>
           
-          <div className="border border-slate-200 p-4 rounded-lg bg-slate-50/50">
-            <h3 className="text-xs font-sans font-bold text-slate-500 uppercase tracking-wider mb-2">Shipping & Project Info</h3>
+          <div className="border border-gray-200 p-4 rounded-lg bg-gray-50/50">
+            <h3 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-2">Shipping & Project Info</h3>
             <div className="text-sm font-sans space-y-1">
-              <p className="font-semibold text-slate-800 text-base font-serif">{po.project || companyName}</p>
-              <p><span className="text-slate-500">Project Ref:</span> <span className="font-medium text-slate-700">{po.project || '—'}</span></p>
-              <p className="text-xs text-slate-600 mt-2 whitespace-pre-line leading-relaxed">
+              <p className="font-semibold text-gray-800 text-base font-serif">{po.project || companyName}</p>
+              <p><span className="text-gray-500">Project Ref:</span> <span className="font-medium text-gray-700">{po.project || '—'}</span></p>
+              <p className="text-xs text-gray-600 mt-2 whitespace-pre-line leading-relaxed">
                 {companyName} Site Delivery
                 {po.project ? `\nC/O Project: ${po.project}` : ''}
               </p>
@@ -230,33 +230,33 @@ export default async function POPdfPage({ params }) {
 
         {/* Line Items Table */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-slate-300 text-xs font-sans">
+          <table className="w-full border-collapse border border-gray-300 text-xs font-sans">
             <thead>
-              <tr className="bg-slate-100 text-slate-700 border-b border-slate-300">
-                <th className="border border-slate-300 p-2 text-center w-8">#</th>
-                <th className="border border-slate-300 p-2 text-left">Description</th>
-                <th className="border border-slate-300 p-2 text-center w-20">HSN/SAC</th>
-                <th className="border border-slate-300 p-2 text-center w-12">Qty</th>
-                <th className="border border-slate-300 p-2 text-center w-16">Unit</th>
-                <th className="border border-slate-300 p-2 text-right w-24">Rate (INR)</th>
-                <th className="border border-slate-300 p-2 text-right w-28">Amount</th>
+              <tr className="bg-gray-100 text-gray-700 border-b border-gray-300">
+                <th className="border border-gray-300 p-2 text-center w-8">#</th>
+                <th className="border border-gray-300 p-2 text-left">Description</th>
+                <th className="border border-gray-300 p-2 text-center w-20">HSN/SAC</th>
+                <th className="border border-gray-300 p-2 text-center w-12">Qty</th>
+                <th className="border border-gray-300 p-2 text-center w-16">Unit</th>
+                <th className="border border-gray-300 p-2 text-right w-24">Rate (INR)</th>
+                <th className="border border-gray-300 p-2 text-right w-28">Amount</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="border border-slate-300 p-4 text-center text-slate-400 italic">No line items specified</td>
+                  <td colSpan="7" className="border border-gray-300 p-4 text-center text-gray-400 italic">No line items specified</td>
                 </tr>
               ) : (
                 items.map((it, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/50">
-                    <td className="border border-slate-300 p-2 text-center">{idx + 1}</td>
-                    <td className="border border-slate-300 p-2 font-serif text-[13px]">{it.description}</td>
-                    <td className="border border-slate-300 p-2 text-center">{it.hsn_sac || '—'}</td>
-                    <td className="border border-slate-300 p-2 text-center">{it.qty}</td>
-                    <td className="border border-slate-300 p-2 text-center">{it.unit || 'Nos'}</td>
-                    <td className="border border-slate-300 p-2 text-right">{Number(it.rate).toLocaleString('en-IN')}</td>
-                    <td className="border border-slate-300 p-2 text-right font-medium">
+                  <tr key={idx} className="hover:bg-gray-50/50">
+                    <td className="border border-gray-300 p-2 text-center">{idx + 1}</td>
+                    <td className="border border-gray-300 p-2 font-serif text-[13px]">{it.description}</td>
+                    <td className="border border-gray-300 p-2 text-center">{it.hsn_sac || '—'}</td>
+                    <td className="border border-gray-300 p-2 text-center">{it.qty}</td>
+                    <td className="border border-gray-300 p-2 text-center">{it.unit || 'Nos'}</td>
+                    <td className="border border-gray-300 p-2 text-right">{Number(it.rate).toLocaleString('en-IN')}</td>
+                    <td className="border border-gray-300 p-2 text-right font-medium">
                       ₹{((Number(it.qty) || 0) * (Number(it.rate) || 0)).toLocaleString('en-IN')}
                     </td>
                   </tr>
@@ -269,35 +269,35 @@ export default async function POPdfPage({ params }) {
         {/* Summary & Sign Block */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start pt-4">
           <div className="space-y-4">
-            <div className="p-3 bg-amber-50/40 border-l-4 border-amber-500 text-xs font-sans text-slate-700 rounded-r-lg">
-              <strong className="text-slate-800">Total in Words:</strong>
+            <div className="p-3 bg-amber-50/40 border-l-4 border-amber-500 text-xs font-sans text-gray-700 rounded-r-lg">
+              <strong className="text-gray-800">Total in Words:</strong>
               <p className="mt-1 font-serif text-[13px] italic font-semibold text-amber-900">
                 {amountToWords(po.po_value || grandTotal)}
               </p>
             </div>
             
             {po.remarks && (
-              <div className="p-3 bg-slate-50 border border-slate-200 text-xs font-sans text-slate-700 rounded-lg">
+              <div className="p-3 bg-gray-50 border border-gray-200 text-xs font-sans text-gray-700 rounded-lg">
                 <strong>Remarks / Notes:</strong>
-                <p className="mt-1 text-slate-600 leading-relaxed whitespace-pre-line">{po.remarks}</p>
+                <p className="mt-1 text-gray-600 leading-relaxed whitespace-pre-line">{po.remarks}</p>
               </div>
             )}
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 font-sans text-xs space-y-2">
-            <div className="flex justify-between pb-1.5 border-b border-slate-200">
-              <span className="text-slate-500">Subtotal (Taxable):</span>
-              <span className="font-medium text-slate-800">₹{subtotal.toLocaleString('en-IN')}</span>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 font-sans text-xs space-y-2">
+            <div className="flex justify-between pb-1.5 border-b border-gray-200">
+              <span className="text-gray-500">Subtotal (Taxable):</span>
+              <span className="font-medium text-gray-800">₹{subtotal.toLocaleString('en-IN')}</span>
             </div>
-            <div className="flex justify-between pb-1.5 border-b border-slate-200">
-              <span className="text-slate-500">GST (+{gstPct}%):</span>
-              <span className="font-medium text-slate-800">₹{gstAmount.toLocaleString('en-IN')}</span>
+            <div className="flex justify-between pb-1.5 border-b border-gray-200">
+              <span className="text-gray-500">GST (+{gstPct}%):</span>
+              <span className="font-medium text-gray-800">₹{gstAmount.toLocaleString('en-IN')}</span>
             </div>
-            <div className="flex justify-between pb-1.5 border-b border-slate-200">
-              <span className="text-slate-500">TDS Deduction (-{tdsPct}%):</span>
+            <div className="flex justify-between pb-1.5 border-b border-gray-200">
+              <span className="text-gray-500">TDS Deduction (-{tdsPct}%):</span>
               <span className="font-medium text-red-600">-₹{tdsAmount.toLocaleString('en-IN')}</span>
             </div>
-            <div className="flex justify-between pt-1.5 text-sm font-bold text-slate-900">
+            <div className="flex justify-between pt-1.5 text-sm font-bold text-gray-900">
               <span>Grand Total:</span>
               <span className="text-amber-800 font-serif text-base">₹{Number(po.po_value || grandTotal).toLocaleString('en-IN')}</span>
             </div>
@@ -305,14 +305,14 @@ export default async function POPdfPage({ params }) {
         </div>
 
         {/* Terms and Conditions block */}
-        <div className="border-t border-slate-200 pt-6">
-          <h4 className="text-xs font-sans font-bold text-slate-500 uppercase tracking-wider mb-2">Terms &amp; Conditions</h4>
+        <div className="border-t border-gray-200 pt-6">
+          <h4 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-2">Terms &amp; Conditions</h4>
           {po.terms ? (
-            <div className="text-[11px] text-slate-600 font-sans whitespace-pre-line leading-relaxed">
+            <div className="text-[11px] text-gray-600 font-sans whitespace-pre-line leading-relaxed">
               {po.terms}
             </div>
           ) : (
-            <ol className="list-decimal list-inside text-[10px] text-slate-500 font-sans space-y-1 leading-relaxed">
+            <ol className="list-decimal list-inside text-[10px] text-gray-500 font-sans space-y-1 leading-relaxed">
               <li>Material must match specifications exactly; any deviations require written approval prior to dispatch.</li>
               <li>Delivery to be completed on or before the Expected Delivery Date. Delays may attract penalty.</li>
               <li>Invoice must reference this Purchase Order number and should be sent to billing.</li>
@@ -325,13 +325,13 @@ export default async function POPdfPage({ params }) {
         {/* Signatures block */}
         <div className="grid grid-cols-2 gap-8 pt-12">
           <div className="text-center font-sans">
-            <div className="w-48 border-t border-slate-400 mx-auto pt-2">
-              <p className="text-xs font-bold text-slate-700">Vendor Acceptance</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Signature &amp; Company Seal</p>
+            <div className="w-48 border-t border-gray-400 mx-auto pt-2">
+              <p className="text-xs font-bold text-gray-700">Vendor Acceptance</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">Signature &amp; Company Seal</p>
             </div>
           </div>
           <div className="text-center font-sans">
-            <div className="w-48 border-t border-slate-400 mx-auto pt-2 relative">
+            <div className="w-48 border-t border-gray-400 mx-auto pt-2 relative">
               {(po.status === 'Approved' && signatureUri) && (
                 <div 
                   className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 h-auto opacity-90 pointer-events-none" 
@@ -339,8 +339,8 @@ export default async function POPdfPage({ params }) {
                   <Image src={signatureUri} alt="Signature & Stamp" width={128} height={128} unoptimized className="w-full h-auto object-contain" />
                 </div>
               )}
-              <p className="text-xs font-bold text-slate-700">Authorised Signatory</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">For {companyName}</p>
+              <p className="text-xs font-bold text-gray-700">Authorised Signatory</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">For {companyName}</p>
             </div>
           </div>
         </div>
@@ -366,7 +366,7 @@ export default async function POPdfPage({ params }) {
           .border {
             border: none !important;
           }
-          .bg-slate-50\\/50 {
+          .bg-gray-50\\/50 {
             background-color: transparent !important;
           }
         }
