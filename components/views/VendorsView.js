@@ -80,11 +80,11 @@ export default function VendorsView() {
 
   const handleOnboardSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !vendorCode) { setFormError('Vendor Name and Vendor Code are required.'); return; }
+    if (!name) { setFormError('Vendor Name is required.'); return; }
     setSubmitting(true); setFormError(null);
     try {
       const payload = { 
-        legalName: legalName || name, tradeName: name, vendorCode: vendorCode.trim().toUpperCase(), 
+        legalName: legalName || name, tradeName: name, 
         gstin: gstin.trim(), address: address.trim(), status: 'Active',
         primaryContactName, primaryContactNo, accountsContactName, accountsContactNo,
         purchaseContactName, purchaseContactNo, whatsappNumber, mobileNumber, preferredWhatsappContact

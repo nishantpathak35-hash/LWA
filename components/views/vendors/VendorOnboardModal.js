@@ -15,14 +15,10 @@ export default function VendorOnboardModal({
   return (
     <Dialog open={modalOpen} onClose={() => setModalOpen(false)} title="Onboard New Vendor">
       <form onSubmit={handleOnboardSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <div>
             <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR DISPLAY NAME *</label>
             <Input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Atelier Marble Studio" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR CODE (UNIQUE) *</label>
-            <Input type="text" required value={vendorCode} onChange={(e) => setVendorCode(e.target.value)} placeholder="e.g. VEND-AM01" />
           </div>
         </div>
 
