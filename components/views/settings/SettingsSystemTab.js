@@ -105,8 +105,6 @@ export default function SettingsSystemTab({
                 Reload All
               </Button>
             </div>
-
-            </div>
           </CardContent>
         </Card>
       )}
