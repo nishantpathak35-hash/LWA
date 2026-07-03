@@ -165,6 +165,9 @@ async function _runMigrations() {
     queryRun(`CREATE INDEX IF NOT EXISTS idx_pah_po_no ON po_approval_history(po_no)`),
     queryRun(`CREATE INDEX IF NOT EXISTS idx_mp_po_no ON manual_payments(po_no)`),
     queryRun(`CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action_type)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_vendors_code ON vendors(vendor_code)`),
   ]);
 
   // ── Data recovery: restore po_date for any PO where it was accidentally wiped ──
