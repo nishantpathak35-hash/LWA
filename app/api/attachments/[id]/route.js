@@ -27,6 +27,10 @@ export async function GET(request, { params }) {
       return new NextResponse('Not Found', { status: 404 });
     }
 
+    if (attachment.file_data && attachment.file_data.startsWith('http')) {
+      return NextResponse.redirect(attachment.file_data);
+    }
+
     const buffer = Buffer.from(attachment.file_data, 'base64');
 
     const headers = new Headers();

@@ -2,6 +2,14 @@
 import { queryAll, queryGet, queryRun } from '../db.js';
 import { AuthService } from '../../../src/modules/core/services/AuthService';
 import { logAudit } from './core.js';
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -44,10 +52,25 @@ export async function uploadAttachment(payload, session) {
 
   await ensureAttachmentsTable();
 
+  let dataToStore = fileData; // Default to legacy base64 if Cloudinary is not configured
+
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+    try {
+      const dataUri = `data:${fileType || 'application/octet-stream'};base64,${fileData}`;
+      const uploadResult = await cloudinary.uploader.upload(dataUri, {
+        folder: `erp_attachments/${entityType}/${entityId}`,
+        resource_type: 'auto'
+      });
+      dataToStore = uploadResult.secure_url;
+    } catch (err) {
+      throw new Error('Failed to upload file to Cloudinary: ' + err.message);
+    }
+  }
+
   await queryRun(
     `INSERT INTO attachments (entity_type, entity_id, file_name, file_type, file_size, file_data, uploaded_by)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [entityType, entityId, fileName, fileType || '', fileSize || 0, fileData, session.email]
+    [entityType, entityId, fileName, fileType || '', fileSize || 0, dataToStore, session.email]
   );
 
   await logAudit(session.email, 'Attachment Uploaded', `Uploaded "${fileName}" to ${entityType}/${entityId}`);
