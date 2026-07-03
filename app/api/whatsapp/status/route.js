@@ -13,21 +13,21 @@ export async function GET() {
     // 1. Get State
     const stateRes = await fetch(`${host}/waInstance${idInstance}/getStateInstance/${apiToken}`, { cache: 'no-store' });
     if (!stateRes.ok) {
-       return NextResponse.json({ status: 'offline', qr: null, error: 'Failed to fetch state' });
+       console.error("Green API State Error:", stateRes.status, await stateRes.text());
+       return NextResponse.json({ status: 'offline', qr: null, error: `Failed to fetch state: ${stateRes.status}` });
     }
     
     const stateData = await stateRes.json();
     const currentState = stateData?.stateInstance; // "authorized", "notAuthorized", etc.
 
-    if (currentState === 'authorized') {
-      return NextResponse.json({ status: 'connected', qr: null });
+    if (currentState === 'authorized' || currentState === 'starting') {
+      return NextResponse.json({ status: currentState === 'starting' ? 'starting' : 'connected', qr: null });
     } else {
       // 2. Fetch QR code if not authorized
       const qrRes = await fetch(`${host}/waInstance${idInstance}/qr/${apiToken}`, { cache: 'no-store' });
       if (qrRes.ok) {
          const qrData = await qrRes.json();
          const base64Qr = qrData?.message;
-         // Return base64 QR as a data URI if it doesn't already have the prefix
          let qrUri = base64Qr;
          if (base64Qr && !base64Qr.startsWith('data:')) {
            qrUri = `data:image/png;base64,${base64Qr}`;

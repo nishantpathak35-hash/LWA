@@ -3,26 +3,39 @@ import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '../../u
 import { Smartphone, RefreshCw, QrCode } from 'lucide-react';
 import { toast } from '../../ui/Toast';
 
+const StatusBadge = ({ status, loading }) => {
+  if (loading) return <Badge variant="warning" className="animate-pulse">Checking...</Badge>;
+  if (status === 'authorized' || status === 'connected') {
+    return <Badge variant="success">Connected</Badge>;
+  } else if (status === 'starting') {
+    return <Badge variant="warning" className="bg-amber-900/50 text-amber-500 border border-amber-900/50">Starting / Connecting...</Badge>;
+  } else {
+    return <Badge variant="error">Not Authorized</Badge>;
+  }
+};
+
 export default function SettingsWhatsAppTab() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('offline');
   const [qrCode, setQrCode] = useState(null);
+  const [error, setError] = useState(null);
 
   const fetchStatus = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
       const res = await fetch('/api/whatsapp/status');
       const data = await res.json();
-      if (data.status) {
-        setStatus(data.status);
-      }
-      if (data.qr) {
+      if (res.ok) {
         setQrCode(data.qr);
+        setStatus(data.status);
       } else {
-        setQrCode(null);
+        setError(data.error || 'Failed to connect');
+        setStatus('offline');
       }
     } catch (err) {
       console.error(err);
+      setError(err.message);
+      setStatus('offline');
       toast.error('Failed to fetch WhatsApp status');
     } finally {
       setLoading(false);
@@ -31,6 +44,16 @@ export default function SettingsWhatsAppTab() {
 
   useEffect(() => {
     fetchStatus();
+    // Auto refresh every 5 seconds if not connected and not starting
+    const int = setInterval(() => {
+      setStatus((currentStatus) => {
+        if (currentStatus !== 'connected' && currentStatus !== 'starting' && currentStatus !== 'authorized') {
+          fetchStatus();
+        }
+        return currentStatus;
+      });
+    }, 5000);
+    return () => clearInterval(int);
   }, []);
 
   return (
@@ -48,20 +71,14 @@ export default function SettingsWhatsAppTab() {
             <p className="text-xs text-slate-500 mt-1">Live status from Green-API</p>
           </div>
           <div className="flex items-center gap-3">
-            {loading ? (
-              <Badge variant="warning" className="animate-pulse">Checking...</Badge>
-            ) : status === 'authorized' || status === 'connected' ? (
-              <Badge variant="success">Connected</Badge>
-            ) : (
-              <Badge variant="error">Not Authorized</Badge>
-            )}
+            <StatusBadge status={status} loading={loading} />
             <Button variant="ghost" size="icon" onClick={fetchStatus} disabled={loading} title="Refresh Status">
               <RefreshCw className={`w-4 h-4 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
 
-        {(!loading && status !== 'authorized' && status !== 'connected') && (
+        {(!loading && status !== 'authorized' && status !== 'connected' && status !== 'starting') && (
           <div className="p-6 bg-slate-800/30 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
             <QrCode className="w-12 h-12 text-slate-400 mb-3 opacity-50" />
             <h3 className="text-lg font-medium text-slate-200 mb-2">Device Not Linked</h3>

@@ -106,14 +106,6 @@ export default function SettingsSystemTab({
               </Button>
             </div>
 
-            <div className="p-4 rounded-lg bg-slate-900/30 border border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="font-bold text-slate-200">WhatsApp Notifications</div>
-                <div className="text-xs text-slate-400">
-                  Enable or disable WhatsApp notifications for approvals globally. Scan the QR code to link your account.
-                </div>
-              </div>
-              <WhatsAppLogin />
             </div>
           </CardContent>
         </Card>
