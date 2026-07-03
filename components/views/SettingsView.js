@@ -12,6 +12,7 @@ import SettingsSystemTab from './settings/SettingsSystemTab';
 import SettingsAuditTab from './settings/SettingsAuditTab';
 import SettingsPermissionsTab from './settings/SettingsPermissionsTab';
 import SettingsUsersTab from './settings/SettingsUsersTab';
+import SettingsWhatsAppTab from './settings/SettingsWhatsAppTab';
 
 export default function SettingsView() {
   const { call, user, refreshData } = useAppState();
@@ -631,6 +632,13 @@ export default function SettingsView() {
           📧 Email Configuration
         </Button>
         <Button
+          onClick={() => setActiveTab('whatsapp')}
+          size="sm"
+          variant={activeTab === 'whatsapp' ? 'primary' : 'ghost'}
+        >
+          📱 WhatsApp
+        </Button>
+        <Button
           onClick={() => setActiveTab('legacy_correction')}
           size="sm"
           variant={activeTab === 'legacy_correction' ? 'primary' : 'ghost'}
@@ -756,6 +764,10 @@ export default function SettingsView() {
       )}
 
 
+      {/* WhatsApp Tab */}
+      {activeTab === 'whatsapp' && (
+        <SettingsWhatsAppTab />
+      )}
 
       {/* Invite Modal */}
       <Dialog open={inviteModalOpen} onClose={() => setInviteModalOpen(false)} title="Invite User">
