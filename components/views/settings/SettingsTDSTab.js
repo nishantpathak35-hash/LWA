@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAppState } from '../../../StateProvider';
+import { useAppState } from '../../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
 import { toast } from '../../ui/Toast';
 import { Plus, Edit, Trash2 } from 'lucide-react';

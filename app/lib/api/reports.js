@@ -16,6 +16,14 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { getPRStatus } from './core.js';
+
+function requireAuth(session) {
+  AuthService.requireAuth(session);
+}
+
+export async function getAuditLogs(filters = {}, session) {
+  requireAuth(session);
+  const page = Number(filters.page) || 1;
   const pageSize = Math.min(Math.max(1, Number(filters.pageSize) || Number(filters.limit) || 50), 500);
   const offset = (page - 1) * pageSize;
 

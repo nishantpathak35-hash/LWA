@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { useAppState } from '../../../StateProvider';
+import { useAppState } from '../../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
 
 export default function SettingsApprovalWorkflowTab() {

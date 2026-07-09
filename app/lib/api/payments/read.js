@@ -11,7 +11,14 @@ import { PaymentRepository } from '../../../../src/modules/payments/repositories
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { SettingsService } from '../../../../src/modules/core/services/SettingsService';
 import { AuditService } from '../../../../src/modules/core/services/AuditService';
+function requireAuth(session) {
+  AuthService.requireAuth(session);
+}
 
+export async function listPaymentRequests(filters = {}, session) {
+  requireAuth(session);
+  const query = `
+    SELECT
       pr.*,
       COALESCE(v.legal_name, po.vendor_name) as joined_vendor_name,
       po.project as po_project,

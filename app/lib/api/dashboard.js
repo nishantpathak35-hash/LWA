@@ -189,82 +189,7 @@ export async function getDashboardKPIs(session) {
   };
 }
 
-export async function clearCacheAndGetMaster(session) {
-  requireAuth(session);
-  return getMasterData(session);
-}
 
-// --- DASHBOARD ---
-export async function getDashboardKPIs(session) {
-  requireAuth(session);
-
-  const [poResult, prResult, outflowRow, pendingRow] = await Promise.all([
-    queryAll(`SELECT po_no, po_value FROM purchase_orders`),
-    queryAll(`SELECT pr_id, amount_requested, approved_amount, tds_amount, stage, remittance FROM payment_requests`),
-    // Authoritative total outflow — same logic as calculateProjectOutflowSnapshots:
-    // system_payments linked to a PR → use net PR amount (after TDS); else use raw sp.amount
-    queryGet(
-      `SELECT COALESCE(SUM(
-         CASE
-           WHEN pr.pr_id IS NOT NULL
-             THEN CASE WHEN COALESCE(pr.approved_amount, pr.amount_requested,0) - COALESCE(pr.tds_amount,0) < 0 THEN 0
-                       ELSE COALESCE(pr.approved_amount, pr.amount_requested,0) - COALESCE(pr.tds_amount,0) END
-           ELSE COALESCE(sp.amount, 0)
-         END
-       ), 0) AS total
-       FROM system_payments sp
-       LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)`
-    ),
-    // Pending: non-remitted, non-rejected, non-cancelled payment requests
-    queryGet(
-      `SELECT COALESCE(SUM(COALESCE(approved_amount, amount_requested, 0)), 0) AS total
-       FROM payment_requests
-       WHERE LOWER(COALESCE(stage,'')) NOT LIKE '%remit%'
-         AND LOWER(COALESCE(stage,'')) NOT LIKE '%reject%'
-         AND LOWER(COALESCE(stage,'')) NOT LIKE '%cancel%'
-         AND LOWER(COALESCE(remittance,'')) NOT LIKE '%remit%'`
-    )
-  ]);
-
-  let totalPOValue = 0;
-  poResult.forEach(p => { totalPOValue += Number(p.po_value) || 0; });
-
-  const totalPaid   = Number(outflowRow?.total) || 0;
-  const pendingApproval = Number(pendingRow?.total) || 0;
-
-  // Payment stage breakdown for the pipeline chart
-  const stageMap = { pendingProc: 0, pendingFinance: 0, pendingDirector: 0, readyToRemit: 0, remitted: 0, rejected: 0 };
-  prResult.forEach(pr => {
-    const stage = String(pr.stage || '').trim().toLowerCase();
-    const amt = Number(pr.approved_amount ?? pr.amount_requested) || 0;
-    if (stage.includes('remit')) stageMap.remitted += amt;
-    else if (stage.includes('ready')) stageMap.readyToRemit += amt;
-    else if (stage.includes('director')) stageMap.pendingDirector += amt;
-    else if (stage.includes('finance')) stageMap.pendingFinance += amt;
-    else if (stage.includes('reject') || stage.includes('cancel')) stageMap.rejected += amt;
-    else stageMap.pendingProc += amt;
-  });
-
-  return {
-    pos: poResult.length,
-    prs: prResult.length,
-    totalPOValue,
-    totalPaid,
-    pendingRemit: stageMap.readyToRemit,
-    pendingApproval,
-    payments: {
-      total: prResult.length,
-      pendingProc:    stageMap.pendingProc,
-      pendingFinance: stageMap.pendingFinance,
-      pendingDirector: stageMap.pendingDirector,
-      readyToRemit:   stageMap.readyToRemit,
-      remitted:       stageMap.remitted,
-      rejected:       stageMap.rejected,
-      sumPending:     pendingApproval,
-      sumRemitted:    totalPaid
-    }
-  };
-}
 
 export async function getMasterData(session) {
   requireAuth(session);
@@ -311,6 +236,18 @@ export async function getMasterData(session) {
     gstin: v.gstin || '',
     address: v.address || '',
     email: v.email || v.contact_email || ''
+  }));
+  
+  masterVendors.forEach(v => {
+    if (v.name) poVendorMap[v.name] = v;
+  });
+
+  return {
+    vendors: Object.values(poVendorMap),
+    pos: pos.map(p => ({
+      po_no: p.po_no,
+      vendor_name: p.vendor_name,
+      project: p.project,
       po_date: p.po_date || '',
       expected_delivery_date: p.expected_delivery_date || '',
       category: p.category || '',
