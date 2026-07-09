@@ -14,7 +14,7 @@ import {
   Settings, 
   LogOut,
   UserCircle,
-  Repeat2
+  Repeat
 } from 'lucide-react';
 import { Badge } from './ui/core';
 
@@ -23,7 +23,11 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
 
   const dbRoles = user?.roles || [];
   const isSuper = user && isSuperAdmin(user.email);
-  const roles = isSuper && !dbRoles.includes('admin') ? [...dbRoles, 'admin'] : dbRoles;
+  
+  // If Super Admin is impersonating, use only the active role for the UI
+  const roles = isSuper 
+    ? (activeRole ? [activeRole] : (!dbRoles.includes('admin') ? [...dbRoles, 'admin'] : dbRoles))
+    : dbRoles;
   
   const isAdmin = roles.includes('admin');
   const isDirector = roles.includes('director');
@@ -120,7 +124,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
         {user && isSuperAdmin(user.email) && (
           <div className="p-2.5 bg-violet-950/30 border border-violet-900/40 rounded-xl space-y-2">
             <div className="flex items-center gap-1.5 text-[10px] text-violet-400 font-medium uppercase tracking-wider">
-              <Repeat2 className="w-3 h-3" />
+              <Repeat className="w-3 h-3" />
               Role Impersonation
             </div>
             <select

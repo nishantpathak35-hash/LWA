@@ -11,6 +11,7 @@ import { PaymentRepository } from '../../../../src/modules/payments/repositories
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { SettingsService } from '../../../../src/modules/core/services/SettingsService';
 import { AuditService } from '../../../../src/modules/core/services/AuditService';
+import { getPRStatus } from '../core.js';
 function requireAuth(session) {
   AuthService.requireAuth(session);
 }

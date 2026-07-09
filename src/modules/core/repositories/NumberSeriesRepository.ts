@@ -13,7 +13,7 @@ export class NumberSeriesRepository {
     await queryRun(
       `INSERT INTO number_series (module_type, prefix, separator, padding_length, starting_number, current_number, fy_format, include_fy)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [series.module_type, series.prefix || '', series.separator || '/', series.padding_length || 6,
+      [series.module_type, series.prefix || '', series.separator || '/', series.padding_length ?? 6,
        series.starting_number || 1, series.current_number || 0, series.fy_format || 'YYYY-YY', series.include_fy ? 1 : 0]
     );
   }

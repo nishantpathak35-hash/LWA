@@ -97,6 +97,17 @@ export class POService {
     }
 
     await logAudit(userEmail, 'PO Created', `PO#${poNo} vendor:${vendorName} value:${totalVal}`, 'Procurement');
+    
+    try {
+      const { NumberSeriesService } = await import('../../core/services/NumberSeriesService');
+      const expectedNext = await NumberSeriesService.peekNextNumber('purchase_order');
+      if (poNo === expectedNext) {
+        await NumberSeriesService.getNextNumber('purchase_order', userEmail);
+      }
+    } catch (e) {
+      console.error('Failed to consume number series:', e);
+    }
+
     return { ok: true, poNo };
   }
 

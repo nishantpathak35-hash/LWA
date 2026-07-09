@@ -34,25 +34,30 @@ export class NumberSeriesService {
     }
   }
 
-  /**
-   * Formats a number according to the series configuration.
-   * Example: prefix="PO", separator="/", FY="2026-27", padding=6, number=1
-   * → "PO/2026-27/000001"
-   */
   static formatNumber(series: any, number: number): string {
     const parts: string[] = [];
+    const separator = series.separator || '/';
     
     if (series.prefix) {
-      parts.push(series.prefix);
+      // Remove trailing separator from prefix if it exists to avoid double separators
+      let prefix = series.prefix;
+      if (prefix.endsWith(separator)) {
+        prefix = prefix.slice(0, -separator.length);
+      }
+      parts.push(prefix);
     }
 
     if (series.include_fy) {
       parts.push(this.getFinancialYear(series.fy_format));
     }
 
-    parts.push(String(number).padStart(series.padding_length || 6, '0'));
+    const padLen = series.padding_length !== undefined && series.padding_length !== null 
+      ? Number(series.padding_length) 
+      : 6;
 
-    return parts.join(series.separator || '/');
+    parts.push(String(number).padStart(padLen, '0'));
+
+    return parts.join(separator);
   }
 
   /**
@@ -62,7 +67,7 @@ export class NumberSeriesService {
     const series = {
       prefix: config.prefix || '',
       separator: config.separator || '/',
-      padding_length: config.padding_length || 6,
+      padding_length: config.padding_length !== undefined && config.padding_length !== null ? config.padding_length : 6,
       fy_format: config.fy_format || 'YYYY-YY',
       include_fy: config.include_fy ?? true
     };
@@ -73,6 +78,46 @@ export class NumberSeriesService {
       examples.push(this.formatNumber(series, startNum + i));
     }
     return examples;
+  }
+
+  /**
+   * Peeks at the next unique number for a module type without incrementing the counter.
+   * Useful for showing a preview in a form before actual submission.
+   */
+  static async peekNextNumber(moduleType: string): Promise<string> {
+    let series = await NumberSeriesRepository.findByModule(moduleType);
+    
+    // Auto-create default series if none exists
+    if (!series) {
+      await NumberSeriesRepository.create({
+        module_type: moduleType,
+        prefix: moduleType === 'purchase_order' ? 'PO' : moduleType.toUpperCase(),
+        separator: '-',
+        padding_length: 3,
+        starting_number: 1,
+        current_number: 0,
+        fy_format: 'YYYY-YY',
+        include_fy: false
+      });
+      series = await NumberSeriesRepository.findByModule(moduleType);
+    }
+
+    let currentNumber = series.current_number;
+    // If current_number is 0 (fresh series), sync with existing data
+    if (currentNumber === 0 && moduleType === 'purchase_order') {
+      const maxExisting = await this._syncWithExistingPOs(series);
+      if (maxExisting > 0) {
+        currentNumber = maxExisting;
+      }
+    }
+
+    // Ensure current_number >= starting_number - 1
+    if (currentNumber < (series.starting_number || 1) - 1) {
+      currentNumber = (series.starting_number || 1) - 1;
+    }
+
+    const nextNumber = currentNumber + 1;
+    return this.formatNumber(series, nextNumber);
   }
 
   /**

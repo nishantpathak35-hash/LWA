@@ -182,7 +182,7 @@ export async function getPOPrefix(session) {
 
 export async function getNextPONumber(session) {
   requireAuth(session);
-  return NumberSeriesService.getNextNumber('purchase_order', session.email);
+  return NumberSeriesService.peekNextNumber('purchase_order');
 }
 
 export async function getPOFullDetails(poNo, session) {

@@ -16,6 +16,7 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { getPRStatus } from './core.js';
+import { listPaymentRequests } from './payments.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);

@@ -251,7 +251,7 @@ export async function getMasterData(session) {
       po_date: p.po_date || '',
       expected_delivery_date: p.expected_delivery_date || '',
       category: p.category || '',
-      po_value: p.po_value, 
+      po_value: p.po_value,
       paid: p.legacy_paid || 0,
       balance: (Number(p.po_value) || 0) - (Number(p.legacy_paid) || 0),
       status: p.approval_status || p.status || 'Draft',
@@ -263,8 +263,10 @@ export async function getMasterData(session) {
       tds_pct: Number(p.tds_pct) || 0,
       tds_amount: Number(p.tds_amount) || 0,
       gst_total: Number(p.gst_total) || 0,
-      gst_mode: p.gst_mode || 'inter'
+      gst_mode: p.gst_mode || 'inter',
+      vendor_key: p.vendor_key || ''
     })),
+    tdsSections,
     categories: ['Goods', 'Services', 'Consulting', 'IT', 'Marketing', 'Admin', 'Capex', 'Opex', 'Other']
   };
 }
@@ -390,4 +392,3 @@ export async function getMasterHealth(session) {
   requireAuth(session);
   return { status: 'OK' };
 }
-

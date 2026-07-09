@@ -11,7 +11,7 @@ export default function SettingsNumberSeriesTab() {
   const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ prefix: '', current_number: 0 });
+  const [formData, setFormData] = useState({ prefix: '', current_number: 0, padding_length: 6 });
 
   const loadData = async () => {
     setLoading(true);
@@ -34,11 +34,12 @@ export default function SettingsNumberSeriesTab() {
       const config = configs.find(c => c.id === editingId);
       await call('updateNumberSeriesConfig', config.module_type, { 
         prefix: formData.prefix, 
-        current_number: Number(formData.current_number)
+        current_number: Number(formData.current_number),
+        padding_length: Number(formData.padding_length)
       });
       toast.success('Updated successfully');
       setEditingId(null);
-      setFormData({ prefix: '', current_number: 0 });
+      setFormData({ prefix: '', current_number: 0, padding_length: 6 });
       loadData();
     } catch (e) {
       toast.error(e.message || 'Error saving number series');
@@ -47,7 +48,7 @@ export default function SettingsNumberSeriesTab() {
 
   const handleEdit = (cfg) => {
     setEditingId(cfg.id);
-    setFormData({ prefix: cfg.prefix || '', current_number: cfg.current_number });
+    setFormData({ prefix: cfg.prefix || '', current_number: cfg.current_number, padding_length: cfg.padding_length || 6 });
   };
 
   return (
@@ -65,6 +66,10 @@ export default function SettingsNumberSeriesTab() {
             <div className="flex-1">
               <label className="text-xs text-slate-400 mb-1 block">Current Number</label>
               <Input type="number" value={formData.current_number} onChange={e => setFormData({...formData, current_number: e.target.value})} />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-slate-400 mb-1 block">Padding Length</label>
+              <Input type="number" value={formData.padding_length} onChange={e => setFormData({...formData, padding_length: e.target.value})} />
             </div>
             <Button onClick={handleSave} variant="primary">Update</Button>
             <Button onClick={() => setEditingId(null)} variant="ghost">Cancel</Button>
@@ -88,7 +93,7 @@ export default function SettingsNumberSeriesTab() {
                   <TableCell className="font-medium capitalize">{cfg.module_type.replace('_', ' ')}</TableCell>
                   <TableCell>{cfg.prefix}</TableCell>
                   <TableCell>{cfg.current_number}</TableCell>
-                  <TableCell className="font-mono text-xs text-slate-400">{cfg.prefix}{String(cfg.current_number).padStart(3, '0')}</TableCell>
+                  <TableCell className="font-mono text-xs text-slate-400">{cfg.prefix}{String(cfg.current_number).padStart(cfg.padding_length !== undefined && cfg.padding_length !== null ? Number(cfg.padding_length) : 6, '0')}</TableCell>
                   <TableCell className="text-right flex justify-end">
                     <Button size="icon" variant="ghost" onClick={() => handleEdit(cfg)}><Edit className="w-4 h-4" /></Button>
                   </TableCell>
