@@ -22,7 +22,7 @@ import POFormModal from './purchase-orders/POFormModal';
 import POApprovalModal from './purchase-orders/POApprovalModal';
 import POHistoryModal from './purchase-orders/POHistoryModal';
 import POManualPaymentModal from './purchase-orders/POManualPaymentModal';
-import { GST_RATES, TDS_SECTIONS, PAYMENT_MODES, UOM_OPTIONS } from './purchase-orders/po-constants';
+import { GST_RATES, PAYMENT_MODES, UOM_OPTIONS } from './purchase-orders/po-constants';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getStatusBadge(status) {
@@ -70,7 +70,7 @@ function findVendorSelection(vendors, code, name) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function POsView() {
-  const { pos, setPos, vendors, projects, user, call, refreshData } = useAppState();
+  const { pos, setPos, vendors, projects, user, call, refreshData, tdsSections } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [openActionMenuPoNo, setOpenActionMenuPoNo] = useState(null);
   const [poDateSortDir, setPoDateSortDir] = useState('desc');
@@ -278,8 +278,9 @@ export default function POsView() {
       setCategory('Goods');
       setGstMode('inter');
       setItems([{ description: '', hsnSac: '', quantity: 1, unit: 'Nos', rate: 0, gstPct: 18 }]);
-      setTdsSection('');
-      setTdsPct(0);
+      const defaultTds = tdsSections?.find(s => s.is_default);
+      setTdsSection(defaultTds?.section_code || '');
+      setTdsPct(defaultTds?.rate || 0);
       setTerms('');
       setNotes('');
       setPaymentData(null);
@@ -308,7 +309,7 @@ export default function POsView() {
   };
   const handleTdsSectionChange = (code) => {
     setTdsSection(code);
-    setTdsPct(TDS_SECTIONS.find(s => s.code === code)?.rate || 0);
+    setTdsPct(tdsSections?.find(s => s.section_code === code)?.rate || 0);
   };
 
   // ─── Send Email ───────────────────────────────────────────────────────────
@@ -637,7 +638,7 @@ export default function POsView() {
         handleSavePO={handleSavePO} summaryTotals={summaryTotals} tdsAmount={tdsAmount}
         netPayable={netPayable} showPayments={showPayments} setShowPayments={setShowPayments}
         loadingPayments={loadingPayments} paymentData={paymentData} getVendorSelectValue={getVendorSelectValue}
-        findVendorBySelection={findVendorBySelection}
+        findVendorBySelection={findVendorBySelection} tdsSections={tdsSections}
       />
       
       <POApprovalModal

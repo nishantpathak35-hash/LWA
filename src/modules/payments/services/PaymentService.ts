@@ -1,6 +1,6 @@
 import { PaymentRepository } from '../repositories/PaymentRepository';
 import { IPaymentInput, IPaymentRequestInput, IPaymentRequest } from '../types/Payment';
-import { approvalEngine } from '../../core/services/ApprovalEngine';
+import { ApprovalWorkflowService } from '../../core/services/ApprovalWorkflowService';
 import { POService } from '../../purchase-orders/services/POService';
 import { logAudit } from '../../../../app/lib/api.js';
 import { notifyQueueUsers } from '../../../../app/lib/whatsapp.js';
@@ -105,10 +105,10 @@ export class PaymentService {
     const approvedAmount = tdsConfig.approved_amount !== undefined ? Number(tdsConfig.approved_amount) : (pr.approved_amount || pr.amount_requested || 0);
     const tdsAmount = tdsConfig.amount !== undefined ? Number(tdsConfig.amount) : (pr.tds_amount || 0);
     const tdsPct = tdsConfig.percentage !== undefined ? Number(tdsConfig.percentage) : (pr.tds_percentage || 0);
-    const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '194C');
+    const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '');
 
     const oldStage = pr.stage || 'Pending Procurement';
-    const { newStage, updates } = approvalEngine.getNextStage(oldStage, userRoles);
+    const { newStage, updates } = await ApprovalWorkflowService.getNextStage('payment_request', oldStage, userRoles);
 
     if (oldStage === newStage) {
       throw new Error(`You do not have permission to approve this request, or it cannot be approved from its current stage (${oldStage}).`);
@@ -128,6 +128,15 @@ export class PaymentService {
       'Approve Payment',
       `Approved payment ID ${prId} (stage transitioned from ${oldStage} to ${newStage}). Requested: ${pr.amount_requested||0}, Approved: ${approvedAmount}, TDS: ${tdsAmount} (${tdsSec})`,
       oldStage
+    );
+
+    await ApprovalWorkflowService.recordApproval(
+      'payment_request', 
+      String(prId), 
+      oldStage, 
+      'Approved', 
+      userEmail, 
+      `Requested: ${pr.amount_requested||0}, Approved: ${approvedAmount}, TDS: ${tdsAmount} (${tdsSec})`
     );
 
     let queueRole = '';
@@ -150,7 +159,7 @@ export class PaymentService {
     if (!pr) throw new Error(`Payment request not found: ${prId}`);
 
     const oldStage = pr.stage;
-    const { newStage, updates } = approvalEngine.getRejectStage(oldStage, userRoles);
+    const { newStage, updates } = await ApprovalWorkflowService.getRejectStage('payment_request', oldStage, userRoles);
 
     await PaymentRepository.updateRequest(prId, {
       ...updates,
@@ -163,6 +172,15 @@ export class PaymentService {
       'Reject Payment',
       `Rejected payment ID ${prId} at stage ${oldStage}. Reason: ${rejectReason}`,
       oldStage
+    );
+
+    await ApprovalWorkflowService.recordApproval(
+      'payment_request', 
+      String(prId), 
+      oldStage, 
+      'Rejected', 
+      userEmail, 
+      `Reason: ${rejectReason}`
     );
 
     return { ok: true };

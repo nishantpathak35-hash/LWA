@@ -10,7 +10,8 @@ export default function BulkApprovalReviewModal({
   onUpdateApprovalData,    // Function to update a specific request's data
   onConfirmApprove,
   submitting,
-  canEditApprovalTds
+  canEditApprovalTds,
+  tdsSections
 }) {
   const totalApproved = selectedRequestsDetails.reduce((sum, req) => sum + (req.approvedAmount || 0), 0);
   const totalTds = selectedRequestsDetails.reduce((sum, req) => sum + (req.tdsAmt || 0), 0);
@@ -73,11 +74,12 @@ export default function BulkApprovalReviewModal({
                       disabled={!canEditApprovalTds}
                       className="h-8 text-xs w-full"
                     >
-                      <option value="194C">194C (2%)</option>
-                      <option value="194J">194J (10%)</option>
-                      <option value="194I">194I (10%)</option>
-                      <option value="194H">194H (5%)</option>
-                      <option value="NONE">None (0%)</option>
+                      <option value="">None (0%)</option>
+                      {tdsSections?.map(sec => (
+                        <option key={sec.section_code} value={sec.section_code}>
+                          {sec.section_code} ({sec.rate}%)
+                        </option>
+                      ))}
                     </Select>
                   </td>
                   <td className="px-4 py-3 align-top">

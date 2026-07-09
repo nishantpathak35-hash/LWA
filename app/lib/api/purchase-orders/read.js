@@ -172,69 +172,17 @@ export async function getPOPayments(poNo, session) {
   };
 }
 
+import { NumberSeriesService } from '../../../../src/modules/core/services/NumberSeriesService';
+
 export async function getPOPrefix(session) {
   requireAuth(session);
-  return getSetting('po_prefix', '');
+  const config = await NumberSeriesService.getConfig('purchase_order');
+  return config?.prefix || '';
 }
 
 export async function getNextPONumber(session) {
   requireAuth(session);
-  const prefix = await getSetting('po_prefix', '');
-
-  const rows = await queryAll(`SELECT po_no FROM purchase_orders ORDER BY po_no DESC`);
-  const existing = rows.map(r => String(r.po_no || ''));
-
-  if (!prefix) {
-    let maxN = 0;
-    for (const no of existing) {
-      const m = no.match(/^PO-(\d+)$/i);
-      if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
-    }
-    return `PO-${String(maxN + 1).padStart(3, '0')}`;
-  }
-
-  let maxSeq = 0;
-  let padLen = 3;
-
-  for (const no of existing) {
-    if (no.startsWith(prefix)) {
-      // Find the last continuous sequence of digits in the string
-      const m = no.match(/(\d+)$/);
-      if (m) {
-        const n = parseInt(m[1], 10);
-        if (n > maxSeq) {
-          maxSeq = n;
-          padLen = Math.max(3, m[1].length);
-        } else if (n === maxSeq) {
-          padLen = Math.max(padLen, m[1].length);
-        }
-      }
-    }
-  }
-
-  // If the user's prefix doesn't end with a non-alphanumeric delimiter (like / or -),
-  // and the existing POs have a delimiter (like prefix + '/' + seq),
-  // we should probably append the delimiter. But if maxSeq > 0, we can just append
-  // the formatted number to the prefix exactly as it is configured, UNLESS 
-  // they want us to auto-append a slash if they missed it. 
-  // The simplest fix is to just append the next sequence number directly to whatever 
-  // prefix they configured. If they missed the slash, they can add it in settings.
-  // Wait, if we just return prefix + seq, and prefix is "LAIPL/PO/26-27", we get "LAIPL/PO/26-27043".
-  // If the previous was "LAIPL/PO/26-27/042", maybe we should sniff the delimiter?
-  
-  // Sniff delimiter from the highest matched PO
-  let delimiter = '';
-  for (const no of existing) {
-    if (no.startsWith(prefix)) {
-      const m = no.match(/(\d+)$/);
-      if (m && parseInt(m[1], 10) === maxSeq) {
-        delimiter = no.substring(prefix.length, no.length - m[1].length);
-        break;
-      }
-    }
-  }
-
-  return `${prefix}${delimiter}${String(maxSeq + 1).padStart(padLen, '0')}`;
+  return NumberSeriesService.getNextNumber('purchase_order', session.email);
 }
 
 export async function getPOFullDetails(poNo, session) {

@@ -20,7 +20,7 @@ import InvoiceUploadModal from './payments/InvoiceUploadModal';
 import InternalWhatsAppModal from '../ui/InternalWhatsAppModal';
 
 export default function PaymentsView() {
-  const { payments, setPayments, vendors, pos, user, call, refreshData } = useAppState();
+  const { payments, setPayments, vendors, pos, user, call, refreshData, tdsSections } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('active'); // active, pending
   
@@ -43,7 +43,7 @@ export default function PaymentsView() {
   const [workflowAction, setWorkflowAction] = useState('approve'); // approve, reject, remit
   const [comment, setComment] = useState('');
   const [utr, setUtr] = useState('');
-  const [approvalTdsSec, setApprovalTdsSec] = useState('194C');
+  const [approvalTdsSec, setApprovalTdsSec] = useState('');
   const [approvalTdsAmt, setApprovalTdsAmt] = useState(0);
   const [approvalApprovedAmount, setApprovalApprovedAmount] = useState(0);
 
@@ -414,7 +414,8 @@ export default function PaymentsView() {
     setWorkflowAction(action);
     setComment('');
     setUtr('');
-    setApprovalTdsSec(req?.tds_section || relatedPO?.tds_section || '194C');
+    const defaultTds = tdsSections?.find(s => s.is_default)?.section_code || '';
+    setApprovalTdsSec(req?.tds_section || relatedPO?.tds_section || defaultTds);
     const baseRequestedAmt = Number(req?.amount_requested || req?.gross_amount || 0);
     setApprovalApprovedAmount(Number(req?.approved_amount ?? baseRequestedAmt));
     setApprovalTdsAmt(Number(req?.tds_amount || 0));
@@ -739,6 +740,7 @@ export default function PaymentsView() {
         onConfirmApprove={submitBulkApprove}
         submitting={submitting}
         canEditApprovalTds={canEditApprovalTds}
+        tdsSections={tdsSections}
       />
 
       <InternalWhatsAppModal
@@ -800,6 +802,7 @@ export default function PaymentsView() {
         comment={comment} setComment={setComment} submitting={submitting} handleWorkflowAction={handleWorkflowActionSubmit}
         loadingSummary={loadingSummary} projectSummary={projectSummary} getHealthTheme={getHealthTheme}
         selectedRequestGross={selectedRequestGross} progressWidths={progressWidths} formError={formError}
+        tdsSections={tdsSections}
       />
       
       <PaymentHistoryModal

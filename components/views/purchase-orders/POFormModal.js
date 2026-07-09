@@ -3,18 +3,23 @@ import { Dialog, Button, Input, Select, Textarea, Table, TableHeader, TableBody,
 import AttachmentsSection from '../../ui/AttachmentsSection';
 import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
-import { GST_RATES, TDS_SECTIONS, UOM_OPTIONS } from './po-constants';
+import { GST_RATES, UOM_OPTIONS } from './po-constants';
 
 export default function POFormModal(props) {
   const {
     modalOpen, setModalOpen, editingPoNo, poNo, setPoNo, project, setProject,
     vendorCode, setVendorCode, vendors, poDate, setPoDate, expectedDelivery, setExpectedDelivery,
     category, setCategory, items, handleItemChange, handleRemoveItemLine, handleAddItemLine,
-    tdsSection, handleTdsSectionChange, gstMode, setGstMode, terms, setTerms, notes, setNotes,
+    tdsSection, setTdsSection, gstMode, setGstMode, terms, setTerms, notes, setNotes,
     formError, submitting, handleSavePO, summaryTotals, tdsAmount, netPayable,
     showPayments, setShowPayments, loadingPayments, paymentData, getVendorSelectValue,
-    findVendorBySelection, projects, editingPO, calcItem, tdsPct, setTdsPct, getPaymentStatusBadge
+    findVendorBySelection, projects, editingPO, calcItem, tdsPct, setTdsPct, getPaymentStatusBadge, tdsSections
   } = props;
+
+  const handleTdsSectionChange = (code) => {
+    setTdsSection(code);
+    setTdsPct(tdsSections?.find(s => s.section_code === code)?.rate || 0);
+  };
 
   const selectedProjectData = projects.find(p => p?.name === project);
 
@@ -173,7 +178,8 @@ export default function POFormModal(props) {
               <div>
                 <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS SECTION</label>
                 <Select value={tdsSection} onChange={e => handleTdsSectionChange(e.target.value)}>
-                  {TDS_SECTIONS.map(s => <option key={s.code} value={s.code}>{s.label}</option>)}
+                  <option value="">None</option>
+                  {tdsSections?.map(s => <option key={s.section_code} value={s.section_code}>{s.section_code} ({s.rate}%)</option>)}
                 </Select>
               </div>
               <div>

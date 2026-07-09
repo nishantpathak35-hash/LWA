@@ -13,7 +13,9 @@ import SettingsAuditTab from './settings/SettingsAuditTab';
 import SettingsPermissionsTab from './settings/SettingsPermissionsTab';
 import SettingsUsersTab from './settings/SettingsUsersTab';
 import SettingsWhatsAppTab from './settings/SettingsWhatsAppTab';
-
+import SettingsTDSTab from './settings/SettingsTDSTab';
+import SettingsNumberSeriesTab from './settings/SettingsNumberSeriesTab';
+import SettingsApprovalWorkflowTab from './settings/SettingsApprovalWorkflowTab';
 export default function SettingsView() {
   const { call, user, refreshData } = useAppState();
   const [activeTab, setActiveTab] = useState('users');
@@ -639,6 +641,27 @@ export default function SettingsView() {
           📱 WhatsApp
         </Button>
         <Button
+          onClick={() => setActiveTab('tds')}
+          size="sm"
+          variant={activeTab === 'tds' ? 'primary' : 'ghost'}
+        >
+          💰 TDS Config
+        </Button>
+        <Button
+          onClick={() => setActiveTab('number_series')}
+          size="sm"
+          variant={activeTab === 'number_series' ? 'primary' : 'ghost'}
+        >
+          🔢 Number Series
+        </Button>
+        <Button
+          onClick={() => setActiveTab('workflow')}
+          size="sm"
+          variant={activeTab === 'workflow' ? 'primary' : 'ghost'}
+        >
+          🔄 Workflows
+        </Button>
+        <Button
           onClick={() => setActiveTab('legacy_correction')}
           size="sm"
           variant={activeTab === 'legacy_correction' ? 'primary' : 'ghost'}
@@ -768,6 +791,11 @@ export default function SettingsView() {
       {activeTab === 'whatsapp' && (
         <SettingsWhatsAppTab />
       )}
+
+      {/* Enterprise Config Tabs */}
+      {activeTab === 'tds' && <SettingsTDSTab />}
+      {activeTab === 'number_series' && <SettingsNumberSeriesTab />}
+      {activeTab === 'workflow' && <SettingsApprovalWorkflowTab />}
 
       {/* Invite Modal */}
       <Dialog open={inviteModalOpen} onClose={() => setInviteModalOpen(false)} title="Invite User">

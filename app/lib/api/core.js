@@ -156,6 +156,238 @@ async function _runMigrations() {
     )
   `);
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── ENTERPRISE CONFIGURATION ENGINE TABLES ──────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Approval Workflows ──
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS approval_workflows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      module_type TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      is_active INTEGER DEFAULT 1,
+      is_archived INTEGER DEFAULT 0,
+      version INTEGER DEFAULT 1,
+      created_by TEXT DEFAULT 'system',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ── Approval Workflow Stages ──
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS approval_workflow_stages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      workflow_id INTEGER NOT NULL,
+      stage_name TEXT NOT NULL,
+      sequence INTEGER NOT NULL,
+      approver_role TEXT DEFAULT '',
+      specific_user TEXT DEFAULT '',
+      department TEXT DEFAULT '',
+      min_approval_count INTEGER DEFAULT 1,
+      approval_type TEXT DEFAULT 'any_one',
+      comments_mandatory INTEGER DEFAULT 0,
+      auto_approval INTEGER DEFAULT 0,
+      escalation_ready INTEGER DEFAULT 0,
+      skip_conditions TEXT DEFAULT '',
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workflow_id) REFERENCES approval_workflows(id) ON DELETE CASCADE
+    )
+  `);
+
+  // ── Approval Execution (runtime state per entity) ──
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS approval_execution (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      workflow_id INTEGER NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      current_stage_id INTEGER,
+      status TEXT DEFAULT 'in_progress',
+      started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT,
+      FOREIGN KEY (workflow_id) REFERENCES approval_workflows(id)
+    )
+  `);
+
+  // ── Approval History (unified audit trail) ──
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS approval_history_v2 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      workflow_id INTEGER,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      stage_name TEXT NOT NULL,
+      action TEXT NOT NULL,
+      performed_by TEXT NOT NULL,
+      remarks TEXT DEFAULT '',
+      stage_sequence INTEGER DEFAULT 0,
+      metadata TEXT DEFAULT '',
+      timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workflow_id) REFERENCES approval_workflows(id)
+    )
+  `);
+
+  // ── Number Series ──
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS number_series (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      module_type TEXT NOT NULL UNIQUE,
+      prefix TEXT DEFAULT '',
+      separator TEXT DEFAULT '/',
+      padding_length INTEGER DEFAULT 6,
+      starting_number INTEGER DEFAULT 1,
+      current_number INTEGER DEFAULT 0,
+      fy_format TEXT DEFAULT 'YYYY-YY',
+      include_fy INTEGER DEFAULT 1,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ── Number Series Transactions (allocation audit) ──
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS number_series_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      series_id INTEGER NOT NULL,
+      allocated_number INTEGER NOT NULL,
+      formatted_number TEXT NOT NULL,
+      entity_id TEXT DEFAULT '',
+      allocated_by TEXT DEFAULT 'system',
+      allocated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (series_id) REFERENCES number_series(id)
+    )
+  `);
+
+  // ── TDS Sections Master ──
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS tds_sections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      section_code TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      rate REAL DEFAULT 0,
+      threshold REAL DEFAULT 0,
+      surcharge REAL DEFAULT 0,
+      cess REAL DEFAULT 0,
+      effective_from TEXT DEFAULT '',
+      effective_to TEXT DEFAULT '',
+      is_active INTEGER DEFAULT 1,
+      is_archived INTEGER DEFAULT 0,
+      is_default INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ── Global Configurations ──
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS global_configurations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      config_key TEXT NOT NULL UNIQUE,
+      config_value TEXT DEFAULT '',
+      config_type TEXT DEFAULT 'string',
+      module TEXT DEFAULT 'global',
+      description TEXT DEFAULT '',
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── SEED DATA MIGRATIONS ────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  try {
+    const seedKey = 'enterprise_config_seed_v1';
+    const seedDone = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [seedKey]);
+    if (!seedDone) {
+      // ── Seed TDS Sections ──
+      const tdsSections = [
+        ['194C', 'Contractors (1%/2%)', 2, 30000, 0, 0, 1],
+        ['194J', 'Professional/Technical Services (10%)', 10, 30000, 0, 0, 0],
+        ['194H', 'Commission/Brokerage (5%)', 5, 15000, 0, 0, 0],
+        ['194I', 'Rent (10%)', 10, 240000, 0, 0, 0],
+        ['194A', 'Interest other than securities (10%)', 10, 40000, 0, 0, 0],
+        ['194Q', 'Purchase of Goods (0.1%)', 0.1, 5000000, 0, 0, 0],
+        ['194IB', 'Rent by Individual/HUF (5%)', 5, 50000, 0, 0, 0],
+        ['194M', 'Certain payments by Individual/HUF (5%)', 5, 5000000, 0, 0, 0],
+        ['194N', 'Cash withdrawal (2%)', 2, 10000000, 0, 0, 0],
+        ['194O', 'E-commerce operator (1%)', 1, 500000, 0, 0, 0],
+        ['206C', 'TCS on sale of goods (0.1%)', 0.1, 5000000, 0, 0, 0],
+      ];
+      for (let i = 0; i < tdsSections.length; i++) {
+        const [code, desc, rate, threshold, surcharge, cess, isDefault] = tdsSections[i];
+        await queryRun(
+          `INSERT OR IGNORE INTO tds_sections (section_code, description, rate, threshold, surcharge, cess, is_default, sort_order, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+          [code, desc, rate, threshold, surcharge, cess, isDefault, i + 1]
+        );
+      }
+
+      // ── Seed Default Approval Workflows ──
+      // Payment Requests: 3-stage pipeline matching current behavior
+      await queryRun(
+        `INSERT OR IGNORE INTO approval_workflows (name, module_type, description, is_active, created_by)
+         VALUES ('Default Payment Approval', 'payment_request', 'Standard 3-stage payment approval pipeline', 1, 'system')`
+      );
+      const prWorkflow = await queryGet(`SELECT id FROM approval_workflows WHERE module_type = 'payment_request' AND name = 'Default Payment Approval'`);
+      if (prWorkflow) {
+        const prStages = [
+          [prWorkflow.id, 'Pending Procurement', 1, 'procurement', 'any_one'],
+          [prWorkflow.id, 'Pending Finance', 2, 'finance', 'any_one'],
+          [prWorkflow.id, 'Pending Director', 3, 'director', 'any_one'],
+        ];
+        for (const [wfId, name, seq, role, type] of prStages) {
+          await queryRun(
+            `INSERT OR IGNORE INTO approval_workflow_stages (workflow_id, stage_name, sequence, approver_role, approval_type)
+             VALUES (?, ?, ?, ?, ?)`,
+            [wfId, name, seq, role, type]
+          );
+        }
+      }
+
+      // Purchase Orders: Simple 2-step matching current behavior
+      await queryRun(
+        `INSERT OR IGNORE INTO approval_workflows (name, module_type, description, is_active, created_by)
+         VALUES ('Default PO Approval', 'purchase_order', 'Standard PO approval - submit and approve/reject', 1, 'system')`
+      );
+      const poWorkflow = await queryGet(`SELECT id FROM approval_workflows WHERE module_type = 'purchase_order' AND name = 'Default PO Approval'`);
+      if (poWorkflow) {
+        await queryRun(
+          `INSERT OR IGNORE INTO approval_workflow_stages (workflow_id, stage_name, sequence, approver_role, approval_type)
+           VALUES (?, 'Pending Approval', 1, 'director', 'any_one')`,
+          [poWorkflow.id]
+        );
+      }
+
+      // ── Seed Number Series from existing po_prefix ──
+      const existingPrefix = await queryGet(`SELECT value FROM app_settings WHERE key = 'po_prefix'`);
+      await queryRun(
+        `INSERT OR IGNORE INTO number_series (module_type, prefix, separator, padding_length, starting_number, current_number, fy_format, include_fy)
+         VALUES ('purchase_order', ?, '/', 6, 1, 0, 'YYYY-YY', 0)`,
+        [existingPrefix?.value || '']
+      );
+
+      // ── Seed Global Configurations ──
+      await queryRun(
+        `INSERT OR IGNORE INTO global_configurations (config_key, config_value, config_type, module, description)
+         VALUES ('default_tds_section', '194C', 'string', 'global', 'Default TDS section for new records')`
+      );
+
+      // Mark seed as complete
+      await queryRun(
+        `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`,
+        [seedKey, new Date().toISOString(), new Date().toISOString()]
+      );
+      console.log('[Migration] Enterprise configuration seed data created successfully');
+    }
+  } catch (e) {
+    console.error('Enterprise config seed migration failed (non-fatal):', e.message);
+  }
+
   // ── Performance: indexes on hot query columns (idempotent IF NOT EXISTS) ──
   await Promise.allSettled([
     queryRun(`CREATE INDEX IF NOT EXISTS idx_pr_po_no ON payment_requests(po_no)`),
@@ -168,6 +400,18 @@ async function _runMigrations() {
     queryRun(`CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp)`),
     queryRun(`CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id)`),
     queryRun(`CREATE INDEX IF NOT EXISTS idx_vendors_code ON vendors(vendor_code)`),
+    // ── New enterprise config indexes ──
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_aw_module ON approval_workflows(module_type)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_aw_active ON approval_workflows(is_active)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_aws_workflow ON approval_workflow_stages(workflow_id)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_aws_sequence ON approval_workflow_stages(workflow_id, sequence)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_ae_entity ON approval_execution(entity_type, entity_id)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_ahv2_entity ON approval_history_v2(entity_type, entity_id)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_ns_module ON number_series(module_type)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_tds_code ON tds_sections(section_code)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_tds_active ON tds_sections(is_active)`),
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_gc_key ON global_configurations(config_key)`),
+    queryRun(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tds_code_unique ON tds_sections(section_code)`),
   ]);
 
   // ── Data recovery: restore po_date for any PO where it was accidentally wiped ──

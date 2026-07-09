@@ -15,3 +15,6 @@ export { uploadAttachment, getAttachments, deleteAttachment } from './api/attach
 export { getInvoices, saveInvoice } from './api/invoices.js';
 export { setUserWhatsAppAdmin, updateUserDetailsAdmin } from './api/auth.js';
 export { sendInternalWhatsApp, whatsappPO, whatsappPaymentAdvice } from './api/whatsappService.js';
+export { getApprovalWorkflows, getApprovalWorkflow, createApprovalWorkflow, updateApprovalWorkflow, deleteApprovalWorkflow, cloneApprovalWorkflow, activateApprovalWorkflow, deactivateApprovalWorkflow, reorderWorkflowStages } from './api/workflow.js';
+export { getNumberSeriesConfig, getAllNumberSeriesConfigs, updateNumberSeriesConfig, previewNumberSeries, getNextSeriesNumber } from './api/number-series.js';
+export { getTDSSections, getAllTDSSections, createTDSSection, updateTDSSection, deleteTDSSection, setDefaultTDS, toggleTDSStatus, getDefaultTDSConfig, setDefaultTDSConfig } from './api/tds.js';

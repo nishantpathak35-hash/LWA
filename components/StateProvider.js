@@ -50,6 +50,7 @@ export function StateProvider({ children }) {
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [tdsSections, setTdsSections] = useState([]);
   const [featurePermissions, setFeaturePermissions] = useState({});
   // Role switching: when Super Admin selects a specific role to impersonate
   const [activeRole, setActiveRole] = useState(null);
@@ -152,6 +153,7 @@ export function StateProvider({ children }) {
           setVendors(bundle.master.vendors || []);
           setPos(bundle.master.pos || []);
           setProjects(bundle.master.projects || []);
+          setTdsSections(bundle.master.tdsSections || []);
         }
         setPayments(bundle.payments || []);
         if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
@@ -199,6 +201,7 @@ export function StateProvider({ children }) {
             setVendors(bundle.master.vendors || []);
             setPos(bundle.master.pos || []);
             setProjects(bundle.master.projects || []);
+            setTdsSections(bundle.master.tdsSections || []);
           }
           setPayments(bundle.payments || []);
           if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
@@ -337,6 +340,8 @@ export function StateProvider({ children }) {
     setPayments,
     invoices,
     setInvoices,
+    tdsSections,
+    setTdsSections,
     featurePermissions,
     setFeaturePermissions,
     hasPermission,

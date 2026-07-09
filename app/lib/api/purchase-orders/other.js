@@ -68,10 +68,12 @@ export async function addManualPayment(payload, session) {
   return { ok: true, poNo: payload.poNo, ...updated };
 }
 
+import { NumberSeriesService } from '../../../../src/modules/core/services/NumberSeriesService';
+
 export async function setPOPrefix(prefix, session) {
   requireAdminConsole(session);
   const value = String(prefix || '').trim();
-  await setSetting('po_prefix', value);
+  await NumberSeriesService.updateConfig('purchase_order', { prefix: value });
   await logAudit(session.email, 'PO Prefix Updated', value || '(default)', 'Settings');
   return { ok: true, prefix: value };
 }

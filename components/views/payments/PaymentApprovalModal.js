@@ -9,7 +9,8 @@ export default function PaymentApprovalModal({
   canEditApprovalTds, approvalTdsSec, setApprovalTdsSec, approvalTdsAmt, setApprovalTdsAmt,
   approvalApprovedAmount, setApprovalApprovedAmount, displayedTdsHold, displayedApprovedAmount,
   displayedNetAfterTds, utr, setUtr, comment, setComment, submitting, handleWorkflowAction,
-  loadingSummary, projectSummary, getHealthTheme, selectedRequestGross, progressWidths, formError
+  loadingSummary, projectSummary, getHealthTheme, selectedRequestGross, progressWidths, formError,
+  tdsSections
 }) {
   return (
     <>
@@ -84,10 +85,12 @@ export default function PaymentApprovalModal({
                 <div>
                   <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS SECTION</label>
                   <Select value={approvalTdsSec} onChange={(e) => setApprovalTdsSec(e.target.value)} disabled={!canEditApprovalTds}>
-                    <option value="194C">194C (Contractors - 2%)</option>
-                    <option value="194J">194J (Professional - 10%)</option>
-                    <option value="194I">194I (Rent - 10%)</option>
-                    <option value="194H">194H (Commission - 5%)</option>
+                    <option value="">None (No TDS)</option>
+                    {tdsSections?.map(sec => (
+                      <option key={sec.section_code} value={sec.section_code}>
+                        {sec.section_code} ({sec.description} - {sec.rate}%)
+                      </option>
+                    ))}
                   </Select>
                 </div>
                 <div>

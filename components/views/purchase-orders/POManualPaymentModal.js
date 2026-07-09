@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea } from '../../ui/core';
+import { ShieldAlert } from 'lucide-react';
 import { PAYMENT_MODES } from './po-constants';
 import { formatCurrency } from '../../../app/lib/utils';
 

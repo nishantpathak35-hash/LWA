@@ -8,6 +8,8 @@ function requireAuth(session) {
 }
 
 
+import { ApprovalWorkflowService } from '../../../../src/modules/core/services/ApprovalWorkflowService';
+
 export async function submitPOForApproval(poNo, session) {
   requireAuth(session);
   if (!poNo) throw new Error('PO Number is required');
@@ -18,14 +20,17 @@ export async function submitPOForApproval(poNo, session) {
   if (st !== 'draft' && st !== 'rejected') {
     throw new Error(`PO is already in status "${po.approval_status || po.status}" and cannot be submitted again.`);
   }
+
+  // Get initial workflow stage
+  const nextStageObj = await ApprovalWorkflowService.getNextStage('purchase_order', 'Draft', session?.roles || []);
+  const initialStage = nextStageObj.newStage !== 'Draft' ? nextStageObj.newStage : 'Pending Approval';
+
   await queryRun(
-    `UPDATE purchase_orders SET approval_status = 'Pending Approval', status = 'Pending Approval', submitted_by = ?, submitted_at = ? WHERE po_no = ?`,
-    [session?.email || 'unknown', new Date().toISOString(), poNo]
+    `UPDATE purchase_orders SET approval_status = ?, status = ?, submitted_by = ?, submitted_at = ? WHERE po_no = ?`,
+    [initialStage, initialStage, session?.email || 'unknown', new Date().toISOString(), poNo]
   );
-  await queryRun(
-    `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
-    [poNo, 'Submitted for Approval', session?.email || 'unknown', 'Submitted by creator', new Date().toISOString()]
-  );
+  
+  await ApprovalWorkflowService.recordApproval('purchase_order', poNo, 'Draft', 'Submitted for Approval', session?.email || 'unknown', 'Submitted by creator');
   await logAudit(session?.email || 'system', 'PO Submitted', 'PO#' + poNo + ' submitted for approval', 'Procurement');
 
   // WhatsApp Notification
@@ -41,45 +46,47 @@ export async function submitPOForApproval(poNo, session) {
     console.error('WhatsApp notification failed:', error.message);
   }
 
-  return { ok: true, poNo, status: 'Pending Approval' };
+  return { ok: true, poNo, status: initialStage };
 }
-
 
 export async function approvePO(poNo, action, remarks, session) {
   requireAuth(session);
   if (!poNo) throw new Error('PO Number is required');
   if (!action || !['approve', 'reject'].includes(action)) throw new Error('Action must be approve or reject');
 
-
-  const roles = session?.roles || [];
-  const canApprove = roles.includes('director') || roles.includes('admin') || roles.includes('finance');
-  if (!canApprove) throw new Error('AUTH:Insufficient permissions to approve/reject POs');
-
   const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [poNo]);
   if (!po) throw new Error('PO not found: ' + poNo);
-  const st = String(po.approval_status || po.status || '').toLowerCase();
-  if (st !== 'pending approval' && st !== 'pending_approval') {
-    throw new Error(`PO is not pending approval (current status: ${po.approval_status || po.status})`);
+  
+  const currentStage = po.approval_status || po.status || 'Draft';
+  if (currentStage === 'Approved' || currentStage === 'Rejected' || currentStage === 'Draft') {
+    throw new Error(`PO cannot be approved/rejected from current status: ${currentStage}`);
   }
 
-  const newStatus = action === 'approve' ? 'Approved' : 'Rejected';
+  let newStatus = '';
+  
+  if (action === 'reject') {
+    const rejObj = await ApprovalWorkflowService.getRejectStage('purchase_order', currentStage, session?.roles || []);
+    newStatus = rejObj.newStage;
+  } else {
+    const nextObj = await ApprovalWorkflowService.getNextStage('purchase_order', currentStage, session?.roles || []);
+    newStatus = nextObj.newStage !== currentStage ? nextObj.newStage : 'Approved'; // Fallback to 'Approved' if no next stage
+  }
+
   const now = new Date().toISOString();
 
   await queryRun(
     `UPDATE purchase_orders SET approval_status = ?, status = ?, approved_by = ?, approved_at = ?, approval_remarks = ? WHERE po_no = ?`,
     [newStatus, newStatus, session?.email || 'unknown', now, remarks || '', poNo]
   );
-  await queryRun(
-    `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
-    [poNo, newStatus, session?.email || 'unknown', remarks || '', now]
-  );
-  await logAudit(session?.email || 'system', 'PO ' + newStatus, 'PO#' + poNo + ' ' + newStatus + ' by ' + (session?.email || 'unknown'), 'Procurement');
+  
+  await ApprovalWorkflowService.recordApproval('purchase_order', poNo, currentStage, newStatus === 'Rejected' ? 'Rejected' : 'Approved', session?.email || 'unknown', remarks || '');
+  await logAudit(session?.email || 'system', 'PO ' + action, 'PO#' + poNo + ' ' + action + ' by ' + (session?.email || 'unknown'), 'Procurement');
 
   // WhatsApp Notification
   try {
     const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [po.submitted_by || po.created_by]);
     if (submitter?.whatsapp_number) {
-      const msg = `Update: PO #${poNo} for ${po.vendor_name || 'Vendor'} has been ${newStatus} by ${session?.name || session?.email}.`;
+      const msg = `Update: PO #${poNo} for ${po.vendor_name || 'Vendor'} has been ${action === 'approve' ? 'Approved' : 'Rejected'} by ${session?.name || session?.email}.`;
       await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [submitter.whatsapp_number, msg]);
     }
   } catch (error) {
