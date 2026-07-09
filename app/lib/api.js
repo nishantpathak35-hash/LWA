@@ -10,7 +10,7 @@ export { addVendor, updateVendor, getVendorByName, getVendorSummary } from './ap
 export { listPOsJson, getPOsByVendor, savePO, updatePOFull, deletePOFull, submitPOForApproval, approvePO, addPOComment, getPOApprovalHistory, addManualPayment, getPOPayments, getPOPrefix, getNextPONumber, setPOPrefix, sendPOToVendor, sendPOToVendorWhatsApp, getPOFullDetails, getPOItems, correctLegacyPOPaidAmount } from './api/purchase-orders.js';
 export { listPaymentRequests, getApprovalQueue, getRemittanceQueue, getCommandCenter, sendPaymentAdvice, sendPaymentAdviceWhatsApp, createPaymentRequest, updatePaymentRequest, bulkApprovePayments, bulkRejectPayments, bulkRemitPayments, approvePaymentWithChain, transitionPaymentWorkflow, setPaymentHold, getApprovalHistory, reconcileRemittedPaymentsToPOLedger, deleteRemittedPayment, addPaymentComment } from './api/payments.js';
 export { getFeaturePermissions, setFeaturePermissions, clearAllCaches, getCompanySettings, setCompanySettings, getDefaultCCRecipients, setDefaultCCRecipients } from './api/settings.js';
-export { listAuditLog, getPaymentReportRows, getTDSRegisterReport, getVendorTDSReport, getProjectTDSReport, getApprovalAuditReport, getDayWiseApprovalReport } from './api/reports.js';
+export { getAuditLogs, getPaymentReportRows, getTDSRegisterReport, getVendorTDSReport, getProjectTDSReport, getApprovalAuditReport, getDayWiseApprovalReport } from './api/reports.js';
 export { uploadAttachment, getAttachments, deleteAttachment } from './api/attachments.js';
 export { getInvoices, saveInvoice } from './api/invoices.js';
 export { setUserWhatsAppAdmin, updateUserDetailsAdmin } from './api/auth.js';
