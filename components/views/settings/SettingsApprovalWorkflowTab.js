@@ -8,7 +8,9 @@ export default function SettingsApprovalWorkflowTab() {
   const [workflows, setWorkflows] = useState([]);
   
   useEffect(() => {
-    call('getApprovalWorkflows').then(res => setWorkflows(res || []));
+    call('getApprovalWorkflows')
+      .then(res => setWorkflows(Array.isArray(res) ? res : []))
+      .catch(e => { console.error(e); setWorkflows([]); });
   }, [call]);
 
   return (
@@ -29,7 +31,7 @@ export default function SettingsApprovalWorkflowTab() {
           <TableBody>
             {workflows.map(wf => (
               <TableRow key={wf.id}>
-                <TableCell className="font-medium capitalize">{wf.module_type.replace('_', ' ')}</TableCell>
+                <TableCell className="font-medium capitalize">{(wf.module_type || '').replace('_', ' ')}</TableCell>
                 <TableCell>{wf.name}</TableCell>
                 <TableCell><Badge variant={wf.is_active ? 'success' : 'secondary'}>{wf.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
                 <TableCell>v{wf.version}</TableCell>
