@@ -266,6 +266,7 @@ export async function getMasterData(session) {
       gst_mode: p.gst_mode || 'inter',
       vendor_key: p.vendor_key || ''
     })),
+    projects: Array.from(projectSet).map(p => ({ name: p })).sort((a, b) => a.name.localeCompare(b.name)),
     tdsSections,
     categories: ['Goods', 'Services', 'Consulting', 'IT', 'Marketing', 'Admin', 'Capex', 'Opex', 'Other']
   };
