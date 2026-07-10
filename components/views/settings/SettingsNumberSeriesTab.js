@@ -11,7 +11,7 @@ export default function SettingsNumberSeriesTab() {
   const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ prefix: '', current_number: 0, padding_length: 6 });
+  const [formData, setFormData] = useState({ prefix: '', current_number: 0, padding_length: 3 });
 
   const loadData = async () => {
     setLoading(true);
@@ -39,7 +39,7 @@ export default function SettingsNumberSeriesTab() {
       });
       toast.success('Updated successfully');
       setEditingId(null);
-      setFormData({ prefix: '', current_number: 0, padding_length: 6 });
+      setFormData({ prefix: '', current_number: 0, padding_length: 3 });
       loadData();
     } catch (e) {
       toast.error(e.message || 'Error saving number series');
@@ -48,7 +48,7 @@ export default function SettingsNumberSeriesTab() {
 
   const handleEdit = (cfg) => {
     setEditingId(cfg.id);
-    setFormData({ prefix: cfg.prefix || '', current_number: cfg.current_number, padding_length: cfg.padding_length || 6 });
+    setFormData({ prefix: cfg.prefix || '', current_number: cfg.current_number, padding_length: cfg.padding_length !== undefined && cfg.padding_length !== null ? cfg.padding_length : 3 });
   };
 
   return (
@@ -93,7 +93,7 @@ export default function SettingsNumberSeriesTab() {
                   <TableCell className="font-medium capitalize">{cfg.module_type.replace('_', ' ')}</TableCell>
                   <TableCell>{cfg.prefix}</TableCell>
                   <TableCell>{cfg.current_number}</TableCell>
-                  <TableCell className="font-mono text-xs text-slate-400">{cfg.prefix}{String(cfg.current_number).padStart(cfg.padding_length !== undefined && cfg.padding_length !== null ? Number(cfg.padding_length) : 6, '0')}</TableCell>
+                  <TableCell className="font-mono text-xs text-slate-400">{cfg.prefix}{String(cfg.current_number).padStart(cfg.padding_length !== undefined && cfg.padding_length !== null ? Number(cfg.padding_length) : 3, '0')}</TableCell>
                   <TableCell className="text-right flex justify-end">
                     <Button size="icon" variant="ghost" onClick={() => handleEdit(cfg)}><Edit className="w-4 h-4" /></Button>
                   </TableCell>
