@@ -29,14 +29,14 @@ export default function SettingsApprovalWorkflowTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {workflows.map(wf => {
-              if (!wf) return null;
+            {workflows.map((wf, idx) => {
+              if (!wf || typeof wf !== 'object') return null;
               return (
-                <TableRow key={wf.id}>
-                  <TableCell className="font-medium capitalize">{(wf.module_type || '').replace('_', ' ')}</TableCell>
-                  <TableCell>{wf.name}</TableCell>
-                  <TableCell><Badge variant={wf.is_active ? 'success' : 'secondary'}>{wf.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
-                  <TableCell>v{wf.version}</TableCell>
+                <TableRow key={wf.id || idx}>
+                  <TableCell className="font-medium capitalize">{String(wf.module_type || '').replace('_', ' ')}</TableCell>
+                  <TableCell>{String(wf.name || '')}</TableCell>
+                  <TableCell><Badge variant={wf.is_active ? 'success' : 'default'}>{wf.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
+                  <TableCell>v{wf.version || 1}</TableCell>
                 </TableRow>
               );
             })}
