@@ -267,7 +267,7 @@ export class ApprovalWorkflowService {
         }
       } else {
         // Last stage completed — mark as terminal
-        stage = 'Ready to Remit';
+        stage = moduleType === 'payment_request' ? 'Ready to Remit' : 'Approved';
       }
     }
 
