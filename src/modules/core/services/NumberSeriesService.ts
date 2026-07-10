@@ -53,7 +53,7 @@ export class NumberSeriesService {
 
     const padLen = series.padding_length !== undefined && series.padding_length !== null 
       ? Number(series.padding_length) 
-      : 6;
+      : 3;
 
     parts.push(String(number).padStart(padLen, '0'));
 
@@ -67,7 +67,7 @@ export class NumberSeriesService {
     const series = {
       prefix: config.prefix || '',
       separator: config.separator || '/',
-      padding_length: config.padding_length !== undefined && config.padding_length !== null ? config.padding_length : 6,
+      padding_length: config.padding_length !== undefined && config.padding_length !== null ? config.padding_length : 3,
       fy_format: config.fy_format || 'YYYY-YY',
       include_fy: config.include_fy ?? true
     };

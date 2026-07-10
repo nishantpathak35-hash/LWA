@@ -147,10 +147,11 @@ export default function POFormModal(props) {
                     placeholder="Code" className="h-10 text-xs" />
                   <Input type="number" required min="0.001" step="0.001" value={item.quantity}
                     onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="h-10 text-xs" />
-                  <Select value={item.unit || 'Nos'} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
-                    className="h-10 text-xs">
-                    {UOM_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                  </Select>
+                  <Input type="text" list={`uom-options-${idx}`} value={item.unit || 'Nos'} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
+                    className="h-10 text-xs" />
+                  <datalist id={`uom-options-${idx}`}>
+                    {UOM_OPTIONS.map(u => <option key={u.value} value={u.label} />)}
+                  </datalist>
                   <Input type="number" required min="0" step="0.01" value={item.rate}
                     onChange={e => handleItemChange(idx, 'rate', e.target.value)} className="h-10 text-xs" />
                   <Select value={item.gstPct} onChange={e => handleItemChange(idx, 'gstPct', Number(e.target.value))}
