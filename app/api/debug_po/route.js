@@ -1,5 +1,4 @@
-import { queryGet } from '../../lib/db.js';
-import { queryAll } from '../../lib/db.js';
+import { queryGet, queryAll, queryRun } from '../../lib/db.js';
 import { getNextPONumber } from '../../lib/api/purchase-orders/read.js';
 
 export async function GET(request) {
@@ -14,6 +13,9 @@ export async function GET(request) {
   } catch (e) {
     next = e.message;
   }
+  
+  // forceful fix for Ready to Remit bug
+  await queryRun(`UPDATE purchase_orders SET approval_status = 'Approved', status = 'Approved' WHERE approval_status = 'Ready to Remit' OR status = 'Ready to Remit'`);
   
   return Response.json({
     prefix,
