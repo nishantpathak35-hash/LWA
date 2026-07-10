@@ -13,9 +13,11 @@ export async function GET(request) {
   } catch (e) {
     next = e.message;
   }
+  // forceful fix for Ready to Remit bug (case-insensitive)
+  await queryRun(`UPDATE purchase_orders SET approval_status = 'Approved', status = 'Approved' WHERE LOWER(approval_status) LIKE '%remit%' OR LOWER(status) LIKE '%remit%'`);
   
-  // forceful fix for Ready to Remit bug
-  await queryRun(`UPDATE purchase_orders SET approval_status = 'Approved', status = 'Approved' WHERE approval_status = 'Ready to Remit' OR status = 'Ready to Remit'`);
+  // forceful fix for padding_length bug in number_series
+  await queryRun(`UPDATE number_series SET padding_length = 3 WHERE module_type = 'purchase_order'`);
   
   return Response.json({
     prefix,
