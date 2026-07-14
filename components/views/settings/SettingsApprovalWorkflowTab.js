@@ -8,7 +8,7 @@ export default function SettingsApprovalWorkflowTab() {
   const [workflows, setWorkflows] = useState([]);
   
   useEffect(() => {
-    call('getApprovalWorkflows')
+    call('getApprovalWorkflows', null)
       .then(res => setWorkflows(Array.isArray(res) ? res : []))
       .catch(e => { console.error(e); setWorkflows([]); });
   }, [call]);
