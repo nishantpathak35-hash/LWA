@@ -18,3 +18,5 @@ export { sendInternalWhatsApp, whatsappPO, whatsappPaymentAdvice } from './api/w
 export { getApprovalWorkflows, getApprovalWorkflow, createApprovalWorkflow, updateApprovalWorkflow, deleteApprovalWorkflow, cloneApprovalWorkflow, activateApprovalWorkflow, deactivateApprovalWorkflow, reorderWorkflowStages } from './api/workflow.js';
 export { getNumberSeriesConfig, getAllNumberSeriesConfigs, updateNumberSeriesConfig, previewNumberSeries, getNextSeriesNumber } from './api/number-series.js';
 export { getTDSSections, getAllTDSSections, createTDSSection, updateTDSSection, deleteTDSSection, setDefaultTDS, toggleTDSStatus, getDefaultTDSConfig, setDefaultTDSConfig } from './api/tds.js';
+export { submitDPR, listDPRs, getDPR, updateDPR, deleteDPR, listTemplates, createTemplate, updateTemplate, deleteTemplate, getDPRSettings, saveDPRSettings } from './api/dpr.js';
+export { listSchedules, saveSchedule, getWPRAggregation, createWPRReport, listWPRReports, getWPRReport, deleteWPRReport } from './api/wpr.js';

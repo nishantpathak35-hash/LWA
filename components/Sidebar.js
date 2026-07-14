@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppState } from './StateProvider';
 import { isSuperAdmin } from '../app/lib/config';
 import BrandIdentity from './BrandIdentity';
@@ -14,7 +14,11 @@ import {
   Settings, 
   LogOut,
   UserCircle,
-  Repeat
+  Repeat,
+  HardHat,
+  Package,
+  Wallet,
+  ChevronDown
 } from 'lucide-react';
 import { Badge } from './ui/core';
 
@@ -34,21 +38,17 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const isFinance = roles.includes('finance');
   const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
 
-  // Compute pending counts — mirrors backend getPRStatus logic.
-  // PRs track workflow via `stage`, not `status`.
+  // Compute pending counts
   const pendingPaymentsCount = payments.filter(p => {
     const stage = String(p.stage || p.approval_stage || '').toLowerCase().trim();
     const remittance = String(p.remittance || '').toLowerCase();
-    // Exclude terminal states
     if (remittance.includes('remit') || stage.includes('remit')) return false;
     if (stage.includes('reject') || stage.includes('cancel')) return false;
-    // Must be actually pending something
     if (!stage.includes('pending') && !stage.includes('procurement') && !stage.includes('finance') && !stage.includes('director') && !stage.includes('ready')) return false;
-    // Match the pending stage to the current user's role
     if (isProcurement && (stage.includes('proc') || stage.includes('procurement') || stage === 'pending')) return true;
     if (isFinance && (stage.includes('finance') || stage.includes('pending finance'))) return true;
     if (isDirector && (stage.includes('director') || stage.includes('ready to remit'))) return true;
-    if (isAdmin) return true; // admin sees all pending
+    if (isAdmin) return true;
     return false;
   }).length;
 
@@ -57,6 +57,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     { id: 'projects', label: 'Projects', icon: FolderKanban, feature: 'projects' },
     { id: 'vendors', label: 'Vendors', icon: Users, feature: 'vendors' },
     { id: 'pos', label: 'Purchase Orders', icon: Receipt, feature: 'purchase_orders' },
+    { id: 'site_dpr', label: 'Site DPR', icon: HardHat, feature: 'operations' },
+    { id: 'site_wpr', label: 'Site WPR', icon: HardHat, feature: 'operations' },
     { 
       id: 'payments', 
       label: 'Payments', 
@@ -75,26 +77,91 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   };
 
   const filteredMenuItems = menuItems.filter(item => {
-    // Admin and Director always see all items
     if (isAdmin || isDirector) {
-      // Still enforce the roles-only check for settings
       if (item.roles) return item.roles.some(r => roles.includes(r));
       return true;
     }
-    // Enforce role requirement for specific items (e.g. Settings)
     if (item.roles && !item.roles.some(r => roles.includes(r))) return false;
-    // Enforce feature permissions from Settings matrix
     if (item.feature && !hasPermission(item.feature)) return false;
     return true;
   });
+
+  // Group Configurations
+  const GROUPS = [
+    {
+      id: 'procurement',
+      label: 'PROCUREMENT',
+      icon: Package,
+      items: ['projects', 'vendors', 'pos']
+    },
+    {
+      id: 'finance',
+      label: 'FINANCE',
+      icon: Wallet,
+      items: ['dashboard', 'payments']
+    },
+    {
+      id: 'site_ops',
+      label: 'SITE OPS',
+      icon: HardHat,
+      items: ['site_dpr', 'site_wpr']
+    },
+    {
+      id: 'admin',
+      label: 'ADMIN',
+      icon: Settings,
+      items: ['invoices', 'reports', 'settings']
+    }
+  ];
+
+  const allowMultipleExpanded = false;
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  // Auto-expand group of the active route
+  useEffect(() => {
+    const activeGroup = GROUPS.find(g => 
+      g.items.some(itemId => filteredMenuItems.some(i => i.id === itemId && i.id === activeView))
+    );
+    if (activeGroup) {
+      setExpandedGroups(prev => {
+        if (allowMultipleExpanded) {
+          return { ...prev, [activeGroup.id]: true };
+        } else {
+          return { [activeGroup.id]: true };
+        }
+      });
+    }
+  }, [activeView]);
+
+  const toggleGroup = (groupId) => {
+    setExpandedGroups(prev => {
+      const isExpanded = !!prev[groupId];
+      if (allowMultipleExpanded) {
+        return { ...prev, [groupId]: !isExpanded };
+      } else {
+        return { [groupId]: !isExpanded };
+      }
+    });
+  };
+
+  const getGroupBadgeCount = (group) => {
+    return group.items.reduce((acc, itemId) => {
+      const item = filteredMenuItems.find(i => i.id === itemId);
+      if (item && item.badge) {
+        return acc + (parseInt(item.badge) || 0);
+      }
+      return acc;
+    }, 0);
+  };
 
   return (
     <aside className={`
       fixed inset-y-0 left-0 z-40 w-64 bg-slate-950/80 backdrop-blur-md border-r border-slate-900/60 p-6 flex flex-col justify-between transition-transform duration-300 md:translate-x-0 md:static md:h-screen
       ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
     `}>
-      <div className="space-y-8">
-        {/* Branding */}
+      {/* Scrollable Navigation Wrapper */}
+      <div className="flex flex-col flex-1 min-h-0 space-y-6 overflow-hidden">
+        {/* Branding (Fixed Top) */}
         <BrandIdentity
           title="LUXEWORX ATELIER INTERIOR PRIVATE LIMITED"
           subtitle="Payment Tracking System"
@@ -104,9 +171,9 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           subtitleClassName="text-[9px]"
         />
 
-        {/* User Card */}
+        {/* User Card (Fixed Top) */}
         {user && (
-          <div className="p-3 bg-slate-900/40 border border-slate-900 rounded-xl flex items-center gap-3">
+          <div className="p-3 bg-slate-900/40 border border-slate-900/60 rounded-xl flex items-center gap-3">
             <UserCircle className="w-10 h-10 text-slate-500" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-slate-200 truncate">{user.name || user.email}</p>
@@ -120,7 +187,93 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           </div>
         )}
 
-        {/* Role Switcher for Super Admin */}
+        {/* Dynamic Groups (Scrollable Middle) */}
+        <nav className="flex-1 overflow-y-auto min-h-0 pr-1 space-y-4 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+          {GROUPS.map((group) => {
+            const GroupIcon = group.icon;
+            const isExpanded = !!expandedGroups[group.id];
+            
+            // Filter items in this group that the user has permission to see
+            const visibleItems = group.items
+              .map(itemId => filteredMenuItems.find(i => i.id === itemId))
+              .filter(Boolean);
+
+            if (visibleItems.length === 0) return null;
+
+            const groupBadgeCount = getGroupBadgeCount(group);
+
+            return (
+              <div key={group.id} className="space-y-1">
+                {/* Group Header Button */}
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  aria-expanded={isExpanded}
+                  aria-controls={`nav-group-${group.id}`}
+                  className="w-full flex items-center justify-between py-2 text-slate-400 hover:text-slate-200 transition-colors focus:outline-none group/header"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <GroupIcon className="w-4 h-4 text-slate-500 group-hover/header:text-slate-400" />
+                    <span className="text-[11px] font-bold tracking-wider text-left uppercase">
+                      {group.label}
+                    </span>
+                    {!isExpanded && groupBadgeCount > 0 && (
+                      <Badge variant="pending" className="px-1.5 py-0.5 text-[9px] font-bold scale-90">
+                        {groupBadgeCount}
+                      </Badge>
+                    )}
+                  </div>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Sub-Items Container with smooth height transition */}
+                <div
+                  id={`nav-group-${group.id}`}
+                  className={`overflow-hidden transition-all duration-200 ease-in-out pl-4 border-l border-slate-900/60 ml-2 space-y-1 ${
+                    isExpanded ? 'max-h-96 opacity-100 py-1' : 'max-h-0 opacity-0 pointer-events-none'
+                  }`}
+                >
+                  {visibleItems.map(item => {
+                    const ItemIcon = item.icon;
+                    const isActive = activeView === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNavClick(item.id)}
+                        className={`
+                          w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all focus:outline-none relative group
+                          ${isActive 
+                            ? 'bg-gold/10 border border-gold/10 text-gold font-medium' 
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 border border-transparent'
+                          }
+                        `}
+                      >
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 rounded-r bg-gold" />
+                        )}
+                        
+                        <div className="flex items-center gap-2.5">
+                          <ItemIcon className={`w-3.5 h-3.5 transition-transform group-hover:scale-105 ${isActive ? 'text-gold' : 'text-slate-500 group-hover:text-slate-400'}`} />
+                          <span>{item.label}</span>
+                        </div>
+
+                        {item.badge && (
+                          <Badge variant={isActive ? 'pending' : 'default'} className="ml-2 font-semibold scale-90">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Footer Area (Fixed Bottom) */}
+      <div className="mt-6 pt-4 border-t border-slate-900/60 space-y-4">
+        {/* Relocated Role Switcher for Super Admin */}
         {user && isSuperAdmin(user.email) && (
           <div className="p-2.5 bg-violet-950/30 border border-violet-900/40 rounded-xl space-y-2">
             <div className="flex items-center gap-1.5 text-[10px] text-violet-400 font-medium uppercase tracking-wider">
@@ -130,7 +283,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
             <select
               value={activeRole || ''}
               onChange={(e) => setActiveRole(e.target.value || null)}
-              className="w-full text-xs bg-slate-900/80 border border-slate-800 text-slate-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-violet-500/40 cursor-pointer"
+              className="w-full text-[11px] bg-slate-900/80 border border-slate-800 text-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500/40 cursor-pointer"
             >
               <option value="">Super Admin (Full Access)</option>
               <option value="procurement">Procurement</option>
@@ -139,53 +292,14 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
               <option value="accountant">Accountant</option>
             </select>
             {activeRole && (
-              <div className="text-[10px] text-amber-400/80 flex items-center gap-1">
+              <div className="text-[9px] text-amber-400/80 flex items-center gap-1">
                 ⚡ Viewing as: <span className="font-semibold capitalize">{activeRole}</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Navigation Menu */}
-        <nav className="space-y-1">
-          {filteredMenuItems.map(item => {
-            const Icon = item.icon;
-            const isActive = activeView === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={`
-                  w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm transition-all focus:outline-none relative group
-                  ${isActive 
-                    ? 'bg-gold/10 border border-gold/10 text-gold font-medium' 
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 border border-transparent'
-                  }
-                `}
-              >
-                {/* Gold left border indicator for active view */}
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r bg-gold" />
-                )}
-                
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 transition-transform group-hover:scale-105 ${isActive ? 'text-gold' : 'text-slate-500 group-hover:text-slate-400'}`} />
-                  <span>{item.label}</span>
-                </div>
-
-                {item.badge && (
-                  <Badge variant={isActive ? 'pending' : 'default'} className="ml-2 font-semibold">
-                    {item.badge}
-                  </Badge>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Log out section */}
-      <div className="pt-6 border-t border-slate-900/60">
+        {/* Sign Out Button */}
         <button
           onClick={logout}
           className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-950/10 transition-all focus:outline-none"

@@ -11,6 +11,8 @@ import PaymentsView from './views/PaymentsView';
 import InvoicesView from './views/InvoicesView';
 import ReportsView from './views/ReportsView';
 import SettingsView from './views/SettingsView';
+import SiteDPRView from './views/operations/dpr/SiteDPRView';
+import SiteWPRView from './views/operations/wpr/SiteWPRView';
 import ErrorBoundary from './ErrorBoundary';
 import { NotificationsPanel } from './ui/NotificationsPanel';
 import { Menu, Sun, Moon, AlertTriangle, X } from 'lucide-react';
@@ -26,7 +28,9 @@ const VIEW_FEATURE_MAP = {
   payments: 'payments',
   invoices: 'payments',
   reports: 'reports',
-  settings: 'settings'
+  settings: 'settings',
+  site_dpr: 'operations',
+  site_wpr: 'operations'
 };
 
 const VIEW_LABELS = {
@@ -38,6 +42,8 @@ const VIEW_LABELS = {
   invoices: 'Invoices',
   reports: 'Reports',
   settings: 'Settings',
+  site_dpr: 'Site DPR',
+  site_wpr: 'Site WPR'
 };
 
 // Shortcut map: first key → second key → { view, children? }
@@ -55,7 +61,7 @@ const SHORTCUT_MAP = {
 };
 
 
-const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'payments', 'invoices', 'reports', 'settings'];
+const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'payments', 'invoices', 'reports', 'settings', 'site_dpr', 'site_wpr'];
 
 function getFirstAllowedView(hasPermission) {
   return ORDERED_VIEWS.find((viewId) => {
@@ -245,6 +251,8 @@ export default function MainLayout() {
       invoices:  <InvoicesView />,
       reports:   <ReportsView />,
       settings:  <SettingsView />,
+      site_dpr:  <SiteDPRView />,
+      site_wpr:  <SiteWPRView />,
     };
 
     return (

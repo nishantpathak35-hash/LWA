@@ -114,7 +114,25 @@ const ALLOWED_METHODS = new Set([
   'setDefaultTDS',
   'toggleTDSStatus',
   'getDefaultTDSConfig',
-  'setDefaultTDSConfig'
+  'setDefaultTDSConfig',
+  'submitDPR',
+  'listDPRs',
+  'getDPR',
+  'updateDPR',
+  'deleteDPR',
+  'listTemplates',
+  'createTemplate',
+  'updateTemplate',
+  'deleteTemplate',
+  'getDPRSettings',
+  'saveDPRSettings',
+  'listSchedules',
+  'saveSchedule',
+  'getWPRAggregation',
+  'createWPRReport',
+  'listWPRReports',
+  'getWPRReport',
+  'deleteWPRReport'
 ]);
 
 export async function POST(request) {
@@ -181,7 +199,7 @@ export async function POST(request) {
 
     // Invoke the requested method with resolved session
     const result = await api[method](...args, session);
-    return NextResponse.json(result);
+    return NextResponse.json(result === undefined ? { success: true } : result);
 
   } catch (error) {
     console.error('RPC Error:', error);

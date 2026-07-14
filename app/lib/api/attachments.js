@@ -74,7 +74,7 @@ export async function uploadAttachment(payload, session) {
   );
 
   await logAudit(session.email, 'Attachment Uploaded', `Uploaded "${fileName}" to ${entityType}/${entityId}`);
-  return { ok: true };
+  return { ok: true, url: dataToStore };
 }
 
 export async function getAttachments(payload, session) {
