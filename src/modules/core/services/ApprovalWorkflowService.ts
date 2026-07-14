@@ -233,7 +233,7 @@ export class ApprovalWorkflowService {
     let currentIdx = stages.findIndex((s: any) => s.stage_name === currentStage);
     if (currentIdx === -1) {
       // Unknown stage — treat as the first stage
-      return { newStage: currentStage, updates: {} };
+      currentIdx = 0;
     }
 
     let stage = currentStage;
@@ -246,10 +246,15 @@ export class ApprovalWorkflowService {
       const normalizedRoles = userRoles.map((r: string) => r.toLowerCase().trim());
 
       // Check if user has the required role for this stage
-      const hasRole = !requiredRole ||
+      let hasRole = !requiredRole ||
         normalizedRoles.includes(requiredRole) ||
         normalizedRoles.includes('admin') ||
         normalizedRoles.includes('director');
+
+      // Alias handling for procurement
+      if (!hasRole && ['proc', 'procurement', 'maker'].includes(requiredRole)) {
+        hasRole = normalizedRoles.some(r => ['proc', 'procurement', 'maker'].includes(r));
+      }
 
       if (!hasRole) break;
 
@@ -284,15 +289,20 @@ export class ApprovalWorkflowService {
     }
 
     const stages = workflow.stages;
-    const currentStageDef = stages.find((s: any) => s.stage_name === currentStage);
+    let currentStageDef = stages.find((s: any) => s.stage_name === currentStage);
     if (!currentStageDef) {
-      throw new Error(`Cannot reject from unknown stage: ${currentStage}`);
+      currentStageDef = stages[0];
     }
 
     const normalizedRoles = userRoles.map((r: string) => r.toLowerCase().trim());
     const isAdmin = normalizedRoles.includes('admin') || normalizedRoles.includes('director');
     const requiredRole = currentStageDef.approver_role;
-    const hasRole = isAdmin || normalizedRoles.includes(requiredRole);
+    let hasRole = isAdmin || normalizedRoles.includes(requiredRole);
+
+    // Alias handling for procurement
+    if (!hasRole && ['proc', 'procurement', 'maker'].includes(requiredRole)) {
+      hasRole = normalizedRoles.some(r => ['proc', 'procurement', 'maker'].includes(r));
+    }
 
     if (!hasRole) {
       throw new Error(`You do not have permission to reject this request from its current stage (${currentStage}).`);
