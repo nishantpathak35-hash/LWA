@@ -259,9 +259,15 @@ export class ApprovalWorkflowService {
       if (!hasRole) break;
 
       // Mark this stage's approval field
-      const roleKey = requiredRole || 'unknown';
-      accumulatedUpdates[`${roleKey}_approval`] = 'Approved';
-
+      let roleKey = requiredRole || 'unknown';
+      if (['proc', 'procurement', 'maker'].includes(roleKey)) {
+        accumulatedUpdates['proc_approval'] = 'Approved';
+      } else if (roleKey === 'finance') {
+        accumulatedUpdates['finance_approval'] = 'Approved';
+      } else if (['director', 'admin'].includes(roleKey)) {
+        accumulatedUpdates['director_approval'] = 'Approved';
+      }
+      
       // Advance to next stage or final stage
       if (i + 1 < stages.length) {
         stage = stages[i + 1].stage_name;
@@ -311,11 +317,22 @@ export class ApprovalWorkflowService {
     // Build rejection updates for all stages
     const updates: Record<string, string> = {};
     for (const s of stages) {
-      const roleKey = s.approver_role || 'unknown';
-      if (s.stage_name === currentStage) {
-        updates[`${roleKey}_approval`] = 'Rejected';
-      } else {
-        updates[`${roleKey}_approval`] = 'Pending';
+      const rawRole = s.approver_role || 'unknown';
+      let dbColumn = '';
+      if (['proc', 'procurement', 'maker'].includes(rawRole)) {
+        dbColumn = 'proc_approval';
+      } else if (rawRole === 'finance') {
+        dbColumn = 'finance_approval';
+      } else if (['director', 'admin'].includes(rawRole)) {
+        dbColumn = 'director_approval';
+      }
+      
+      if (dbColumn) {
+        if (s.stage_name === currentStage) {
+          updates[dbColumn] = 'Rejected';
+        } else {
+          updates[dbColumn] = 'Pending';
+        }
       }
     }
 
