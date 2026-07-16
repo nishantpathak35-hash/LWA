@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
-import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Presentation } from 'lucide-react';
 import { formatWPRToText } from '../../../../src/modules/operations/utils/wprFormatter';
+import { exportWPRToPPTX } from './wprPPTXExporter';
 
 export default function WPRDetailView({ wpr, onNavigate }) {
+  const [exporting, setExporting] = useState(false);
+
   const copyWhatsApp = () => {
     const text = formatWPRToText(wpr);
     try {
@@ -15,11 +18,23 @@ export default function WPRDetailView({ wpr, onNavigate }) {
     window.open(url, '_blank');
   };
 
+  const handleExportPPTX = async () => {
+    try {
+      setExporting(true);
+      await exportWPRToPPTX(wpr);
+    } catch (err) {
+      console.error('Failed to export PPTX:', err);
+      alert('Failed to export WPR to PPTX: ' + (err.message || err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const getVarianceBadge = (variance) => {
     const v = parseFloat(variance) || 0;
     if (v < -5) return <span className="bg-red-500/10 text-red-400 px-2.5 py-1 rounded text-xs font-semibold">Behind ({v}%)</span>;
     if (v > 5) return <span className="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded text-xs font-bold">Ahead (+{v}%)</span>;
-    return <span className="bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded text-xs font-semibold font-semibold">On Track ({v > 0 ? '+' : ''}{v}%)</span>;
+    return <span className="bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded text-xs font-semibold">On Track ({v > 0 ? '+' : ''}{v}%)</span>;
   };
 
   return (
@@ -29,9 +44,14 @@ export default function WPRDetailView({ wpr, onNavigate }) {
         <button onClick={() => onNavigate('history')} className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to History
         </button>
-        <Button variant="outline" onClick={copyWhatsApp} className="border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400">
-          <MessageCircle className="w-4 h-4 mr-2" /> Share WPR via WhatsApp
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportPPTX} disabled={exporting} className="border-gold/30 hover:bg-gold/10 text-gold">
+            <Presentation className="w-4 h-4 mr-2" /> {exporting ? 'Exporting...' : 'Export WPR to PPTX'}
+          </Button>
+          <Button variant="outline" onClick={copyWhatsApp} className="border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400">
+            <MessageCircle className="w-4 h-4 mr-2" /> Share WPR via WhatsApp
+          </Button>
+        </div>
       </div>
 
       {/* Detail Grid */}

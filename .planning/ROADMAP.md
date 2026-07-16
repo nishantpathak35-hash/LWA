@@ -6,10 +6,10 @@ Fixing 4 critical production bugs in the LWA application. The focus ranges from 
 
 ## Phases
 
-- [ ] **Phase 1: UI Text Visibility and Dropdown Contrast** - Address blanket CSS override issues and unreadable dropdown native option backgrounds.
-- [ ] **Phase 2: Reports Table Horizontal Scroll** - Add vertical-to-horizontal wheel scroll conversion and improve scrollbar layout for wide tables.
-- [ ] **Phase 3: Performance Optimization** - Prevent cold-start migration checks, reduce redundant RPC session queries, and parallelize invoice fetches.
-- [ ] **Phase 4: Real-time User Data Sync** - Design and implement a synchronization mechanism/polling update system.
+- [x] **Phase 1: UI Text Visibility and Dropdown Contrast** - Address blanket CSS override issues and unreadable dropdown native option backgrounds.
+- [x] **Phase 2: Reports Table Horizontal Scroll** - Add vertical-to-horizontal wheel scroll conversion and improve scrollbar layout for wide tables.
+- [x] **Phase 3: Performance Optimization** - Prevent cold-start migration checks, reduce redundant RPC session queries, and parallelize invoice fetches.
+- [x] **Phase 4: Real-time User Data Sync** - Design and implement a synchronization mechanism/polling update system.
 
 ## Phase Details
 
@@ -24,7 +24,7 @@ Fixing 4 critical production bugs in the LWA application. The focus ranges from 
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: Fix globals.css overrides, audit and resolve text/bg contrasts, and style native select options.
+- [x] 01-01: Fix globals.css overrides, audit and resolve text/bg contrasts, and style native select options.
 
 ### Phase 2: Reports Table Horizontal Scroll
 **Goal**: Make wide report tables easy to scroll horizontally using standard mouse wheel inputs.
@@ -36,7 +36,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01: Implement onWheel horizontal scroll conversion in Table component and increase scrollbar thickness.
+- [x] 02-01: Implement onWheel horizontal scroll conversion in Table component and increase scrollbar thickness.
 
 ### Phase 3: Performance Optimization
 **Goal**: Eliminate redundant database round-trips and parallelize boot fetches to speed up client load time.
@@ -49,7 +49,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 03-01: Optimize database schema migrations, cache/refactor RPC session query, and parallelize boot bundle calls.
+- [x] 03-01: Optimize database schema migrations, cache/refactor RPC session query, and parallelize boot bundle calls.
 
 ### Phase 4: Real-time User Data Sync
 **Goal**: Implement an efficient client sync mechanism to push updates to other users.
@@ -60,13 +60,13 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: Propose and implement sync improvements (focus/visibility refetch, faster polling, or SSE/real-time layer).
+- [x] 04-01: Propose and implement sync improvements (focus/visibility refetch, faster polling, or SSE/real-time layer).
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. UI Text Visibility and Dropdown Contrast | 0/1 | Not started | - |
-| 2. Reports Table Horizontal Scroll | 0/1 | Not started | - |
-| 3. Performance Optimization | 0/1 | Not started | - |
-| 4. Real-time User Data Sync | 0/1 | Not started | - |
+| 1. UI Text Visibility and Dropdown Contrast | 1/1 | Completed | 2026-07-16 |
+| 2. Reports Table Horizontal Scroll | 1/1 | Completed | 2026-07-16 |
+| 3. Performance Optimization | 1/1 | Completed | 2026-07-16 |
+| 4. Real-time User Data Sync | 1/1 | Completed | 2026-07-16 |

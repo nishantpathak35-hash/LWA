@@ -28,19 +28,20 @@ To streamline vendor procurement, payments, and weekly progress reporting with r
 - ✓ Payments scheduling, execution, and split-payment handling — v0.1
 - ✓ Vendors directory and onboarding — v0.1
 - ✓ Project master and site details — v0.1
-- ✓ Weekly Progress Report (WPR) view and PPTX exporting — v0.1
+- ✓ Weekly Progress Report (WPR) view and PPTX exporting — v0.1 / v1.0
+- ✓ **UI-01**: Remove blanket CSS override on `.text-slate-100/200/300/400` and `.bg-slate-800/900/950` — v1.0
+- ✓ **UI-02**: Audit components and replace raw color overrides with theme-aware tokens — v1.0
+- ✓ **UI-03**: Style raw `<option>` elements with explicit background/text colors or replace with themed Select component — v1.0
+- ✓ **UI-04**: Add vertical-to-horizontal wheel scroll handler to Table component — v1.0
+- ✓ **UI-05**: Increase scrollbar thickness/visibility for wide-table containers — v1.0
+- ✓ **PERF-01**: Move ALTER TABLE schema checks to a one-time migration or persisted database flag — v1.0
+- ✓ **PERF-02**: Reduce redundant session lookups in RPC route — v1.0
+- ✓ **PERF-03**: Parallelize invoice fetches with other KPI/master data in `getBootBundle()` — v1.0
+- ✓ **SYNC-01**: Implement low-effort or real-time sync mechanism (focus/visibility refetch + fast polling) — v1.0
 
 ### Active
 
-- [ ] **UI-01**: Remove blanket CSS override on `.text-slate-100/200/300/400` and `.bg-slate-800/900/950`.
-- [ ] **UI-02**: Audit components and replace raw color overrides with theme-aware tokens.
-- [ ] **UI-03**: Style raw `<option>` elements with explicit background/text colors or replace with themed Select component.
-- [ ] **UI-04**: Add vertical-to-horizontal wheel scroll handler to Table component.
-- [ ] **UI-05**: Increase scrollbar thickness/visibility for wide-table containers.
-- [ ] **PERF-01**: Move ALTER TABLE schema checks to a one-time migration or persisted database flag.
-- [ ] **PERF-02**: Reduce redundant session lookups in RPC route.
-- [ ] **PERF-03**: Parallelize invoice fetches with other KPI/master data in `getBootBundle()`.
-- [ ] **SYNC-01**: Implement low-effort or real-time sync mechanism (SSE, WebSockets/Supabase, or visibility refetch + fast polling).
+(No active requirements. Milestone complete.)
 
 ### Out of Scope
 

@@ -256,13 +256,30 @@ export function StateProvider({ children }) {
     }
   }, [callDirect]);
 
-  // Periodic auto-refresh every 120 seconds
+  // Periodic auto-refresh and focus-based sync
   useEffect(() => {
     if (!user) return;
+    
+    // Auto-refresh every 30 seconds
     const interval = window.setInterval(() => {
       refreshData();
-    }, 120000);
-    return () => window.clearInterval(interval);
+    }, 30000);
+
+    // Refresh immediately when window gains focus or tab becomes visible
+    const handleSync = () => {
+      if (document.visibilityState === 'visible') {
+        refreshData();
+      }
+    };
+
+    window.addEventListener('focus', handleSync);
+    document.addEventListener('visibilitychange', handleSync);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', handleSync);
+    };
   }, [user, refreshData]);
 
   const hasPermission = useCallback((feature) => {
