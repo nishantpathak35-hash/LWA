@@ -147,8 +147,15 @@ export async function loginUser(email, password, meta = {}) {
   return { token };
 }
 
+const sessionCache = new Map();
+
 export async function getMySession(token) {
   if (!token) throw new Error('AUTH:No token provided');
+  
+  const cached = sessionCache.get(token);
+  if (cached && (Date.now() - cached.timestamp < 10000)) {
+    return cached.session;
+  }
   
   try {
     const payload = decryptToken(token);
@@ -168,12 +175,26 @@ export async function getMySession(token) {
     const superAdmin = isSuperAdmin(user.email);
     const roles = superAdmin ? Array.from(new Set([...rawRoles, 'admin', 'director', 'finance', 'procurement', 'proc', 'accountant', 'maker'])) : rawRoles;
 
-    return {
+    const session = {
       email: user.email,
       name: user.name || user.email,
       roles: roles,
       active: true
     };
+
+    sessionCache.set(token, { session, timestamp: Date.now() });
+
+    // Clean up cache to prevent memory leaks
+    if (sessionCache.size > 1000) {
+      const now = Date.now();
+      for (const [k, v] of sessionCache.entries()) {
+        if (now - v.timestamp > 10000) {
+          sessionCache.delete(k);
+        }
+      }
+    }
+
+    return session;
   } catch (e) {
     console.error('getMySession validation failed:', e);
     throw new Error('AUTH:Invalid or expired token');

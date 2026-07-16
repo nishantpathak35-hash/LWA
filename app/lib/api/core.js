@@ -89,7 +89,6 @@ export async function ensureSettingsTable() {
 }
 
 async function _runMigrations() {
-
   await queryRun(`
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
@@ -97,6 +96,16 @@ async function _runMigrations() {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  const migrationsAppliedKey = 'migrations_applied_v1';
+  try {
+    const check = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [migrationsAppliedKey]);
+    if (check && check.value === 'true') {
+      return;
+    }
+  } catch (e) {
+    // Table might not exist yet or other query error, safe to proceed
+  }
   // Ensure all required columns exist (idempotent)
   const poColumns = [
     'terms', 'approval_status', 'submitted_by', 'submitted_at',
@@ -483,6 +492,16 @@ async function _runMigrations() {
     }
   } catch (e) {
     console.error('legacy_paid_recalc_v3 migration failed (non-fatal):', e.message);
+  }
+
+  // Mark all migrations as applied successfully
+  try {
+    await queryRun(
+      `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`,
+      [migrationsAppliedKey, 'true', new Date().toISOString()]
+    );
+  } catch (e) {
+    console.error('Failed to set migrations_applied_v1 flag:', e);
   }
 
   // Migration complete — promise remains cached so future calls are instant no-ops.

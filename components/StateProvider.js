@@ -159,17 +159,12 @@ export function StateProvider({ children }) {
         if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
           setFeaturePermissions(bundle.featurePermissions);
         }
-        
-        // Fetch invoices independently
-        try {
-          const invData = await call('getInvoices');
-          if (invData && Array.isArray(invData.data)) {
-            setInvoices(invData.data);
-          } else if (Array.isArray(invData)) {
-            setInvoices(invData);
+        if (bundle.invoices) {
+          if (Array.isArray(bundle.invoices)) {
+            setInvoices(bundle.invoices);
+          } else if (Array.isArray(bundle.invoices.data)) {
+            setInvoices(bundle.invoices.data);
           }
-        } catch (e) {
-          console.error('Failed to fetch invoices:', e);
         }
       }
     } catch (e) {
@@ -207,17 +202,12 @@ export function StateProvider({ children }) {
           if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
             setFeaturePermissions(bundle.featurePermissions);
           }
-          
-          // Fetch invoices independently
-          try {
-            const invData = await call('getInvoices');
-            if (invData && Array.isArray(invData.data)) {
-              setInvoices(invData.data);
-            } else if (Array.isArray(invData)) {
-              setInvoices(invData);
+          if (bundle.invoices) {
+            if (Array.isArray(bundle.invoices)) {
+              setInvoices(bundle.invoices);
+            } else if (Array.isArray(bundle.invoices.data)) {
+              setInvoices(bundle.invoices.data);
             }
-          } catch (e) {
-            console.error('Failed to fetch invoices:', e);
           }
         } else {
           logout();

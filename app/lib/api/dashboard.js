@@ -18,6 +18,7 @@ import path from 'path';
 import { ensureSettingsTable } from './core.js';
 import { listPaymentRequests } from './payments.js';
 import { getFeaturePermissions } from './settings.js';
+import { getInvoices } from './invoices.js';
 
 
 function getJwtSecret() {
@@ -95,11 +96,12 @@ export async function getBootBundle(session) {
   if (session && session.email) {
     queryRun(`UPDATE users SET last_login = ? WHERE LOWER(email) = ?`, [new Date().toISOString(), session.email.trim().toLowerCase()]).catch(e => console.error(e));
   }
-  const [kpis, master, payments, featurePermissions] = await Promise.all([
+  const [kpis, master, payments, featurePermissions, invoices] = await Promise.all([
     getDashboardKPIs(session),
     getMasterData(session),
     listPaymentRequests(undefined, session),
-    getFeaturePermissions(session)
+    getFeaturePermissions(session),
+    getInvoices()
   ]);
   
   return {
@@ -108,7 +110,8 @@ export async function getBootBundle(session) {
     kpis,
     master,
     payments,
-    featurePermissions
+    featurePermissions,
+    invoices
   };
 }
 
