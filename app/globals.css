@@ -139,3 +139,56 @@ select option {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary) / 0.5);
 }
+
+/* --- LIGHT MODE TAILWIND SLATE CLASS OVERRIDES --- */
+html:not(.dark) {
+  /* Text color overrides */
+  .text-slate-50,
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-100\/90,
+  .text-slate-200\/90 {
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  .text-slate-300,
+  .text-slate-400,
+  .text-slate-500,
+  .text-slate-300\/80,
+  .text-slate-400\/80,
+  .text-slate-500\/80 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Background color overrides */
+  .bg-slate-800,
+  .bg-slate-900,
+  .bg-slate-950 {
+    background-color: hsl(var(--card)) !important;
+  }
+  
+  /* Background opacity variants */
+  .bg-slate-800\/10, .bg-slate-900\/10, .bg-slate-950\/10 { background-color: hsl(var(--muted) / 0.1) !important; }
+  .bg-slate-800\/20, .bg-slate-900\/20, .bg-slate-950\/20 { background-color: hsl(var(--muted) / 0.2) !important; }
+  .bg-slate-800\/30, .bg-slate-900\/30, .bg-slate-950\/30 { background-color: hsl(var(--muted) / 0.3) !important; }
+  .bg-slate-800\/40, .bg-slate-900\/40, .bg-slate-950\/40 { background-color: hsl(var(--muted) / 0.4) !important; }
+  .bg-slate-800\/50, .bg-slate-900\/50, .bg-slate-950\/50 { background-color: hsl(var(--muted) / 0.5) !important; }
+  .bg-slate-800\/60, .bg-slate-900\/60, .bg-slate-950\/60 { background-color: hsl(var(--muted) / 0.6) !important; }
+  .bg-slate-800\/80, .bg-slate-900\/80, .bg-slate-950\/80 { background-color: hsl(var(--muted) / 0.8) !important; }
+
+  /* Border color overrides */
+  .border-slate-700,
+  .border-slate-800,
+  .border-slate-900 {
+    border-color: hsl(var(--border)) !important;
+  }
+  
+  /* Border opacity variants */
+  .border-slate-700\/10, .border-slate-800\/10, .border-slate-900\/10 { border-color: hsl(var(--border) / 0.1) !important; }
+  .border-slate-700\/20, .border-slate-800\/20, .border-slate-900\/20 { border-color: hsl(var(--border) / 0.2) !important; }
+  .border-slate-700\/30, .border-slate-800\/30, .border-slate-900\/30 { border-color: hsl(var(--border) / 0.3) !important; }
+  .border-slate-700\/40, .border-slate-800\/40, .border-slate-900\/40 { border-color: hsl(var(--border) / 0.4) !important; }
+  .border-slate-700\/50, .border-slate-800\/50, .border-slate-900\/50 { border-color: hsl(var(--border) / 0.5) !important; }
+  .border-slate-700\/60, .border-slate-800\/60, .border-slate-900\/60 { border-color: hsl(var(--border) / 0.6) !important; }
+  .border-slate-700\/80, .border-slate-800\/80, .border-slate-900\/80 { border-color: hsl(var(--border) / 0.8) !important; }
+}
