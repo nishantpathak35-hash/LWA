@@ -48,3 +48,8 @@ next-env.d.ts
 .wwebjs_auth/
 .wwebjs_cache/
 
+# local databases
+*.sqlite
+*.sqlite3
+dev.sqlite3
+lx.sqlite

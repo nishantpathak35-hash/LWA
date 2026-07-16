@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "migrate:cloudinary": "node migrate-to-cloudinary.js"
+    "migrate:cloudinary": "node scripts/migrate-to-cloudinary.js"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
