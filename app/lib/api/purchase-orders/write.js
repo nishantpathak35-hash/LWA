@@ -162,7 +162,7 @@ export async function deletePOFull(poNo, session) {
   }
 
   const paymentRequests = await queryAll(`SELECT pr_id FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
-  const requestIds = paymentRequests.map(pr => pr.pr_id).filter(id => id !== undefined && id !== null);
+  const requestIds = paymentRequests.map(pr => String(pr.pr_id)).filter(id => id !== undefined && id !== null && id !== 'undefined');
 
   await logAudit(
     session.email,

@@ -50,8 +50,8 @@ export async function deleteRemittedPayment(prId, reason, session) {
     `Deleted PR #${prId} for PO: ${poNo}, Vendor: ${vendor}, Amount: ${grossAmount}. Reason: ${reason}`
   );
 
-  // 3. Delete from system_payments if present
-  await queryRun(`DELETE FROM system_payments WHERE pr_key = ?`, [prId]);
+  // 3. Delete from system_payments if present (handling both string and integer binding)
+  await queryRun(`DELETE FROM system_payments WHERE pr_key = ? OR pr_key = ?`, [String(prId), Number(prId)]);
 
   // 4. Delete from payment_requests
   await queryRun(`DELETE FROM payment_requests WHERE pr_id = ?`, [prId]);
