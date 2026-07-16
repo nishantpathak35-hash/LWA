@@ -128,8 +128,31 @@ export function Select({ className, children, ...props }) {
 
 // --- TABLE ---
 export function Table({ className, ...props }) {
+  const containerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      const hasHorizontalOverflow = container.scrollWidth > container.clientWidth;
+      if (hasHorizontalOverflow && e.deltaY !== 0) {
+        container.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
-    <div className="w-full overflow-x-auto border border-border rounded-lg bg-card/40 transition-colors duration-200">
+    <div 
+      ref={containerRef}
+      className="w-full overflow-x-auto border border-border rounded-lg bg-card/40 transition-colors duration-200"
+    >
       <table className={cn("w-full border-collapse text-left text-sm", className)} {...props} />
     </div>
   );
