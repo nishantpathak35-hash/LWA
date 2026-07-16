@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, Button } from '../../ui/core';
+import { Dialog, Button, Input } from '../../ui/core';
 import { Loader2, Send } from 'lucide-react';
 import { ActivityTimeline } from '../../ui/ActivityTimeline';
 import { useAppState } from '../../StateProvider';
@@ -66,12 +66,11 @@ export default function PaymentHistoryModal({
             <div className="mt-auto pt-4 border-t border-slate-800 bg-slate-950/50 -mx-6 -mb-6 px-6 pb-6">
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">ADD COMMENT</label>
               <div className="flex gap-2">
-                <input
+                <Input
                   type="text"
                   placeholder="Ask a question or leave a note..."
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold"
                   onKeyDown={(e) => e.key === 'Enter' && !submittingComment && handleAddComment()}
                   disabled={submittingComment}
                 />

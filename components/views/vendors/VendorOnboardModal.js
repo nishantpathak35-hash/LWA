@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Dialog, Button, Input } from '../../ui/core';
+import { Dialog, Button, Input, Select } from '../../ui/core';
 import { ShieldAlert } from 'lucide-react';
 
 export default function VendorOnboardModal({ 
@@ -79,12 +79,12 @@ export default function VendorOnboardModal({
             </div>
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PREFERRED WHATSAPP CONTACT</label>
-              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold" value={preferredWhatsappContact} onChange={(e) => setPreferredWhatsappContact(e.target.value)}>
+              <Select value={preferredWhatsappContact} onChange={(e) => setPreferredWhatsappContact(e.target.value)}>
                 <option value="Primary">Primary Contact</option>
                 <option value="Accounts">Accounts Contact</option>
                 <option value="Purchase">Purchase Contact</option>
                 <option value="Other">WhatsApp/Mobile Number</option>
-              </select>
+              </Select>
             </div>
           </div>
         </div>

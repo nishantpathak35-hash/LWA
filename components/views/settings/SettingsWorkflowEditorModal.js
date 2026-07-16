@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, Button, Input, Badge } from '../../ui/core';
+import { Dialog, Button, Input, Badge, Select } from '../../ui/core';
 import { useAppState } from '../../StateProvider';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from '../../ui/Toast';
@@ -215,17 +215,16 @@ export default function SettingsWorkflowEditorModal({
                     
                     <div className="space-y-1">
                       <label className="text-xs text-slate-400 font-light">Approver Role</label>
-                      <select
+                      <Select
                         value={stage.approver_role || ''}
                         onChange={(e) => handleStageChange(idx, 'approver_role', e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold"
                       >
                         <option value="">-- Any Admin/Director --</option>
                         <option value="director">Director</option>
                         <option value="finance">Finance</option>
                         <option value="procurement">Procurement</option>
                         <option value="accountant">Accountant</option>
-                      </select>
+                      </Select>
                     </div>
 
                     <div className="space-y-1">
@@ -240,14 +239,13 @@ export default function SettingsWorkflowEditorModal({
                     
                     <div className="space-y-1">
                       <label className="text-xs text-slate-400 font-light">Approval Type</label>
-                      <select
+                      <Select
                         value={stage.approval_type || 'any_one'}
                         onChange={(e) => handleStageChange(idx, 'approval_type', e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold"
                       >
                         <option value="any_one">Any One (First wins)</option>
                         <option value="all_required">All Required</option>
-                      </select>
+                      </Select>
                     </div>
                   </div>
                 </div>
