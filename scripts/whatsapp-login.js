@@ -85,7 +85,7 @@ async function main() {
 
   const sock = makeWASocket({
     auth: state,
-    logger: pino({ level: 'silent' }),
+    logger: pino({ level: 'debug' }),
     printQRInTerminal: false,
     browser: ['LWA ERP', 'Chrome', '10.0'],
   });
@@ -112,6 +112,8 @@ async function main() {
 
     if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode;
+      const err = lastDisconnect?.error;
+      console.error('Connection closed details:', err);
       sock.ev.removeAllListeners('connection.update');
       sock.ev.removeAllListeners('creds.update');
       if (code !== DisconnectReason.loggedOut) {
