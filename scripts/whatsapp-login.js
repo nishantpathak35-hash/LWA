@@ -108,9 +108,11 @@ async function main() {
 
     if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode;
+      sock.ev.removeAllListeners('connection.update');
+      sock.ev.removeAllListeners('creds.update');
       if (code !== DisconnectReason.loggedOut) {
-        console.log('Connection closed, retrying...');
-        await main();
+        console.log('Connection closed. Retrying in 3 seconds...');
+        setTimeout(main, 3000);
       } else {
         console.log('Logged out. Please run this script again.');
         process.exit(1);
