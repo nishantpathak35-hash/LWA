@@ -1,0 +1,18 @@
+{
+  "services": {
+    "lwa-whatsapp-bot": {
+      "root": ".",
+      "framework": "nextjs",
+      "buildCommand": "npm run build"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "lwa-whatsapp-bot"
+      }
+    }
+  ]
+}
