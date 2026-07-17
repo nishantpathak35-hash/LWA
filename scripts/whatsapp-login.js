@@ -116,9 +116,11 @@ async function main() {
 
     if (connection === 'open') {
       console.log('\n✅ WhatsApp connected successfully!');
+      console.log('Finalizing database write...');
+      await saveCreds();
       console.log('Session saved to Turso. GitHub Actions will now use this session automatically.');
       console.log('You can close this terminal now.');
-      process.exit(0);
+      setTimeout(() => process.exit(0), 3000);
     }
 
     if (connection === 'close') {
