@@ -38,11 +38,15 @@ async function readData(key) {
 }
 
 async function writeData(key, value) {
-  const serialized = JSON.stringify(value, BufferJSON.replacer);
-  await db.execute({
-    sql: 'INSERT INTO whatsapp_session (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?',
-    args: [key, serialized, serialized]
-  });
+  try {
+    const serialized = JSON.stringify(value, BufferJSON.replacer);
+    await db.execute({
+      sql: 'INSERT INTO whatsapp_session (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?',
+      args: [key, serialized, serialized]
+    });
+  } catch (err) {
+    console.error(`Database write failed for key "${key}":`, err.message);
+  }
 }
 
 let isFirstRun = true;
