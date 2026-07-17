@@ -1,8 +1,10 @@
 import { queryRun, queryAll } from './db.js';
-import { useDbAuthState } from './db-auth.js';
-import { makeWASocket } from '@whiskeysockets/baileys';
-import pino from 'pino';
 
+/**
+ * Queues a WhatsApp message in the Turso database.
+ * The actual sending is handled by GitHub Actions (scripts/process-whatsapp-queue.js)
+ * which runs every 5 minutes on GitHub's free runners.
+ */
 export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
   if (!phone || !message) return;
 
@@ -10,109 +12,14 @@ export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
   let cleanPhone = String(phone).replace(/[^0-9]/g, '');
   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
-  let status = 'pending';
-
-  try {
-    const { state, saveCreds } = await useDbAuthState();
-
-    if (!state.creds || !state.creds.me) {
-      console.warn("WhatsApp is not authenticated. Please log in first.");
-      status = 'failed';
-    } else {
-      const chatId = `${cleanPhone}@s.whatsapp.net`;
-
-      await new Promise(async (resolve, reject) => {
-        let completed = false;
-
-        const sock = makeWASocket({
-          auth: state,
-          logger: pino({ level: 'silent' }),
-          printQRInTerminal: false,
-          connectTimeoutMs: 15000,
-          browser: ['LWA ERP', 'Chrome', '10.0'],
-        });
-
-        const timer = setTimeout(() => {
-          if (!completed) {
-            completed = true;
-            sock.ev.removeAllListeners('connection.update');
-            sock.ev.removeAllListeners('creds.update');
-            try { sock.ws.close(); } catch (e) {}
-            reject(new Error("Timeout waiting for WhatsApp connection to open."));
-          }
-        }, 8000);
-
-        sock.ev.on('creds.update', async () => {
-          await saveCreds();
-        });
-
-        sock.ev.on('connection.update', async (update) => {
-          const { connection, lastDisconnect } = update;
-
-          if (connection === 'open') {
-            try {
-              if (mediaUrl) {
-                let filename = 'document.pdf';
-                try {
-                  const urlObj = new URL(mediaUrl);
-                  const pathname = urlObj.pathname;
-                  const lastPart = pathname.substring(pathname.lastIndexOf('/') + 1);
-                  if (lastPart) {
-                    filename = decodeURIComponent(lastPart);
-                  }
-                } catch (e) {}
-
-                await sock.sendMessage(chatId, {
-                  document: { url: mediaUrl },
-                  fileName: filename,
-                  caption: message
-                });
-              } else {
-                await sock.sendMessage(chatId, { text: message });
-              }
-
-              status = 'sent';
-              console.log(`WhatsApp message successfully sent serverlessly to ${cleanPhone}`);
-            } catch (err) {
-              status = 'failed';
-              console.error("Failed to send WhatsApp message via Baileys socket:", err.message);
-            } finally {
-              if (!completed) {
-                completed = true;
-                clearTimeout(timer);
-                sock.ev.removeAllListeners('connection.update');
-                sock.ev.removeAllListeners('creds.update');
-                try { sock.ws.close(); } catch (e) {}
-                resolve();
-              }
-            }
-          }
-
-          if (connection === 'close') {
-            if (!completed) {
-              completed = true;
-              clearTimeout(timer);
-              sock.ev.removeAllListeners('connection.update');
-              sock.ev.removeAllListeners('creds.update');
-              resolve();
-            }
-          }
-        });
-      });
-    }
-  } catch (err) {
-    console.error("Vercel Serverless Baileys send error:", err.message);
-    status = 'failed';
-  }
-
-  // Log to database
   try {
     await queryRun(
       `INSERT INTO whatsapp_outbox (phone, message, media_url, status) VALUES (?, ?, ?, ?)`,
-      [cleanPhone, message, mediaUrl, status]
+      [cleanPhone, message, mediaUrl, 'pending']
     );
+    console.log(`WhatsApp message queued for ${cleanPhone}`);
   } catch (e) {
-    console.error('Failed to log WhatsApp message to outbox:', e.message);
+    console.error('Failed to queue WhatsApp message:', e.message);
   }
 }
 
