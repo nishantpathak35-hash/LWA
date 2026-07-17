@@ -45,12 +45,16 @@ async function writeData(key, value) {
   });
 }
 
+let isFirstRun = true;
+
 async function main() {
   await ensureTable();
 
-  // Clear any stale credentials to force a fresh QR code
-  console.log('Clearing old session from Turso...');
-  await db.execute('DELETE FROM whatsapp_session');
+  if (isFirstRun) {
+    isFirstRun = false;
+    console.log('Clearing old session from Turso to start fresh...');
+    await db.execute('DELETE FROM whatsapp_session');
+  }
 
   let creds = null;
   const { proto, initAuthCreds, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
