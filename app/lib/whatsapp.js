@@ -1,6 +1,6 @@
 import { queryRun, queryAll } from './db.js';
 import { useDbAuthState } from './db-auth.js';
-import makeWASocket from '@whiskeysockets/baileys';
+import { makeWASocket } from '@whiskeysockets/baileys';
 import pino from 'pino';
 
 export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
@@ -24,10 +24,12 @@ export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
       await new Promise(async (resolve, reject) => {
         let completed = false;
 
-        const sock = makeWASocket.default({
+        const sock = makeWASocket({
           auth: state,
           logger: pino({ level: 'silent' }),
-          printQRInTerminal: false
+          printQRInTerminal: false,
+          connectTimeoutMs: 15000,
+          browser: ['LWA ERP', 'Chrome', '10.0'],
         });
 
         const timer = setTimeout(() => {
