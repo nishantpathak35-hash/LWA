@@ -56,7 +56,7 @@ async function main() {
     await db.execute('DELETE FROM whatsapp_session');
   }
 
-  let creds = null;
+  let creds = await readData('creds');
   const { proto, initAuthCreds, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
   const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: [2, 3000, 1017531287] }));
   console.log(`Using WhatsApp version: ${version.join('.')}`);
