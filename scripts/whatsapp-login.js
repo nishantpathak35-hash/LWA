@@ -48,7 +48,11 @@ async function writeData(key, value) {
 async function main() {
   await ensureTable();
 
-  let creds = await readData('creds');
+  // Clear any stale credentials to force a fresh QR code
+  console.log('Clearing old session from Turso...');
+  await db.execute('DELETE FROM whatsapp_session');
+
+  let creds = null;
   const { proto, initAuthCreds } = require('@whiskeysockets/baileys');
   if (!creds) creds = initAuthCreds();
 
