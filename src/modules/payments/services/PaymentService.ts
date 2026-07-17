@@ -216,6 +216,9 @@ export class PaymentService {
     await PaymentRepository.updateRequest(prId, {
       remittance: 'Remitted',
       stage: 'Remitted',
+      // Bug 3c: persist UTR/date back onto the PR row so Payment Advice can display them
+      remittance_ref: payload.utrRef || payload.referenceNo || '',
+      remittance_date: payload.paymentDate || new Date().toISOString().split('T')[0],
       remarks: pr.remarks ? pr.remarks + ' | ' + (payload.remarks || '') : (payload.remarks || '')
     });
 

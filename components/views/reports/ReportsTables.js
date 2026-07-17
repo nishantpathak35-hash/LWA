@@ -338,6 +338,7 @@ export default function ReportsTables({
             <TableHead className="text-right">Gross Amount</TableHead>
             <TableHead className="text-right text-violet-400">TDS</TableHead>
             <TableHead className="text-right text-emerald-400 font-semibold">Net Payment</TableHead>
+            <TableHead className="text-right font-mono text-amber-300">UTR / Ref No.</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Workflow</TableHead>
             <TableHead>Rejected By</TableHead>
@@ -366,6 +367,7 @@ export default function ReportsTables({
                   <TableCell className="text-right">{fmtRupees(gross)}</TableCell>
                   <TableCell className="text-right text-violet-400">{fmtRupees(tds)}</TableCell>
                   <TableCell className="text-right text-emerald-400 font-semibold">{fmtRupees(net)}</TableCell>
+                  <TableCell className="font-mono text-xs text-amber-300">{p.remittance_ref || p.utr || '—'}</TableCell>
                   <TableCell>{stageBadge(p.stage)}</TableCell>
                   <TableCell>{wfSteps(p)}</TableCell>
                   <TableCell className={p.rejectedBy ? 'text-red-400' : 'text-slate-550'}>{rejBy}</TableCell>
@@ -428,7 +430,7 @@ export default function ReportsTables({
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={11} className="text-center py-10 text-slate-500">
+              <TableCell colSpan={13} className="text-center py-10 text-slate-500">
                 No items match your filters.
               </TableCell>
             </TableRow>

@@ -516,7 +516,21 @@ export default function PaymentsView() {
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
   const [adviceTargetIds, setAdviceTargetIds] = useState([]);
   const [adviceContact, setAdviceContact] = useState('');
+  const [adviceContactSource, setAdviceContactSource] = useState(''); // 'vendor_master' | 'empty'
   
+  // Bug 1 helper (PaymentsView parity): find vendor email for a given payment request ID
+  const findVendorEmailForReqId = (reqId) => {
+    const payment = payments.find(p => String(p.id) === String(reqId) || String(p.pr_id) === String(reqId));
+    if (!payment) return '';
+    const vendor = vendors.find(v => {
+      if (payment.vendor_code && ((v.code && v.code === payment.vendor_code) || (v.vendorId && v.vendorId === payment.vendor_code))) return true;
+      const vName = payment.vendor_name || payment.vendor;
+      if (vName && ((v.name && v.name.toLowerCase() === vName.toLowerCase()) || (v.legalName && v.legalName.toLowerCase() === vName.toLowerCase()))) return true;
+      return false;
+    });
+    return vendor?.email || '';
+  };
+
   const handleSendPaymentAdvice = async (reqId, method) => {
     if (method === 'whatsapp') {
       try {
@@ -527,7 +541,10 @@ export default function PaymentsView() {
       }
     } else {
       setAdviceTargetIds([reqId]);
-      setAdviceContact('');
+      // Bug 1: pre-fill from Vendor Master instead of always blanking
+      const vendorEmail = findVendorEmailForReqId(reqId);
+      setAdviceContact(vendorEmail);
+      setAdviceContactSource(vendorEmail ? 'vendor_master' : 'empty');
       setAdviceModalOpen(true);
     }
   };
@@ -816,41 +833,21 @@ export default function PaymentsView() {
         onClose={() => setInvoiceModalOpen(false)} 
       />
 
-      {/* Payment Advice Modal */}
+      {/* Payment Advice Modal — Bug 1: pre-filled from Vendor Master */}
       <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">
         <div className="space-y-4">
           <div className="text-sm text-slate-400">
-            Enter the vendor's email address or WhatsApp number (with country code, e.g. 919876543210).
+            {adviceContactSource === 'vendor_master'
+              ? 'Email pre-filled from Vendor Master. Confirm or update before sending.'
+              : 'No email on file for this vendor. Enter an email address or WhatsApp number (with country code, e.g. 919876543210).'}
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-slate-400 font-light">Contact Detail</label>
-            <Input
-              type="text"
-              placeholder="Email or Phone Number"
-              value={adviceContact}
-              onChange={e => setAdviceContact(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
-            <Button variant="ghost" onClick={() => setAdviceModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={() => executeSendAdvice('whatsapp')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              Send via WhatsApp
-            </Button>
-            <Button variant="primary" onClick={() => executeSendAdvice('email')}>
-              Send via Email
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-      <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">
-        <div className="space-y-4">
-          <div className="text-sm text-slate-400">
-            Enter the vendor's email address or WhatsApp number (with country code, e.g. 919876543210).
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-slate-400 font-light">Contact Detail</label>
+            <label className="text-xs text-slate-400 font-light">
+              Contact Detail
+              {adviceContactSource === 'vendor_master' && (
+                <span className="ml-2 text-emerald-400 text-[10px] font-medium">● From Vendor Master</span>
+              )}
+            </label>
             <Input
               type="text"
               placeholder="Email or Phone Number"

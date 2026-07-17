@@ -97,6 +97,18 @@ async function _runMigrations() {
     )
   `);
 
+  // ── Idempotent system_payments column additions (Bug 3a) ──────────────────
+  // These must run BEFORE the migrations_applied_v1 gate so they always execute
+  // on any DB that was initialised before these columns existed.
+  // ALTER TABLE ADD COLUMN on an already-existing column fails harmlessly.
+  await Promise.allSettled([
+    queryRun(`ALTER TABLE system_payments ADD COLUMN utr_ref TEXT DEFAULT ''`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN bank_name TEXT DEFAULT ''`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN payment_mode TEXT DEFAULT 'Bank Transfer'`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN remarks TEXT DEFAULT ''`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN reference_no TEXT DEFAULT ''`),
+  ]);
+
   const migrationsAppliedKey = 'migrations_applied_v1';
   try {
     const check = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [migrationsAppliedKey]);
@@ -409,6 +421,8 @@ async function _runMigrations() {
     queryRun(`CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp)`),
     queryRun(`CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id)`),
     queryRun(`CREATE INDEX IF NOT EXISTS idx_vendors_code ON vendors(vendor_code)`),
+    // Bug P3: Index vendors.legal_name to speed up the OR JOIN in listPaymentRequests
+    queryRun(`CREATE INDEX IF NOT EXISTS idx_vendors_legal_name ON vendors(legal_name)`),
     // ── New enterprise config indexes ──
     queryRun(`CREATE INDEX IF NOT EXISTS idx_aw_module ON approval_workflows(module_type)`),
     queryRun(`CREATE INDEX IF NOT EXISTS idx_aw_active ON approval_workflows(is_active)`),

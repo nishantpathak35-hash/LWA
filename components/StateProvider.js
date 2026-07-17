@@ -260,9 +260,11 @@ export function StateProvider({ children }) {
   useEffect(() => {
     if (!user) return;
     
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 30 seconds — but only when the tab is visible (P2 fix)
     const interval = window.setInterval(() => {
-      refreshData();
+      if (document.visibilityState === 'visible') {
+        refreshData();
+      }
     }, 30000);
 
     // Refresh immediately when window gains focus or tab becomes visible

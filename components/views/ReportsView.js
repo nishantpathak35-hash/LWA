@@ -1,7 +1,7 @@
 'use client';
 
 import { toast } from '../ui/Toast';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Select, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Dialog } from '../ui/core';
 import { FileText, Download, Calendar, Loader2, Mail } from 'lucide-react';
@@ -14,8 +14,30 @@ import ReportsHeader from './reports/ReportsHeader';
 import ReportsTables from './reports/ReportsTables';
 import ReportsRemitModal from './reports/ReportsRemitModal';
 
+// Bug 1 helper: find a vendor from the Vendor Master that matches this payment
+function findVendorForPayment(payment, vendors) {
+  if (!payment || !vendors || vendors.length === 0) return null;
+  // First try by vendor_code
+  if (payment.vendor_code) {
+    const v = vendors.find(v =>
+      (v.code && v.code === payment.vendor_code) ||
+      (v.vendorId && v.vendorId === payment.vendor_code)
+    );
+    if (v) return v;
+  }
+  // Fallback: match by name
+  const vendorName = payment.vendor || payment.vendor_name;
+  if (vendorName) {
+    return vendors.find(v =>
+      (v.name && v.name.toLowerCase() === vendorName.toLowerCase()) ||
+      (v.legalName && v.legalName.toLowerCase() === vendorName.toLowerCase())
+    ) || null;
+  }
+  return null;
+}
+
 export default function ReportsView() {
-  const { call, user, vendors, projects } = useAppState();
+  const { call, user, vendors, projects, refreshData } = useAppState();
   const [reportType, setReportType] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -37,10 +59,42 @@ export default function ReportsView() {
   const isDirector = roles.includes('director');
   const canRemit = isAdmin || isFinance || isDirector;
 
+  // Bug 5: Extract loadReport into a stable useCallback so handlers can call it
+  const loadReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      let result = null;
+      if (reportType === 'TDS_Register') {
+        result = await call('getTDSRegisterReport', startDate, endDate);
+      } else if (reportType === 'Vendor_TDS') {
+        result = await call('getVendorTDSReport', startDate, endDate);
+      } else if (reportType === 'Project_TDS') {
+        result = await call('getProjectTDSReport', startDate, endDate);
+      } else if (reportType === 'Approval_Audit') {
+        result = await call('getApprovalAuditReport', startDate, endDate);
+      } else if (reportType === 'Day_Wise') {
+        result = await call('getDayWiseApprovalReport', startDate, endDate);
+      } else if (['All', 'Approved', 'Rejected', 'Remit', 'Remitted'].includes(reportType)) {
+        result = await call('getPaymentReportRows', {
+          type: reportType,
+          vendor: vendorFilter,
+          project: projectFilter,
+          limit: 300
+        });
+      }
+      setData(result);
+    } catch (e) {
+      console.error('Failed to load report data:', e);
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [call, reportType, startDate, endDate, vendorFilter, projectFilter]);
+
   // Fetch report data when filter or type changes
   useEffect(() => {
     let active = true;
-    async function loadReport() {
+    async function fetchReport() {
       setLoading(true);
       try {
         let result = null;
@@ -78,7 +132,7 @@ export default function ReportsView() {
       }
     }
 
-    loadReport();
+    fetchReport();
     return () => { active = false; };
   }, [reportType, startDate, endDate, vendorFilter, projectFilter, call]);
 
@@ -123,15 +177,16 @@ export default function ReportsView() {
         });
       });
     } else {
-      // Legacy Payment Reports
+      // Bug 3e (CSV): Legacy Payment Reports — now includes UTR column
       const rows = data || [];
-      csvContent += "ID,Vendor,Project,PO,Gross Amount,TDS,Net Payment,Status,Rejected By\n";
+      csvContent += "ID,Vendor,Project,PO,Gross Amount,TDS,Net Payment,UTR / Ref No.,Status,Rejected By\n";
       rows.forEach(p => {
         const gross = Number(p.amountRequested || 0);
         const tds = Number(p.tdsAmount || p.tds_amount || 0);
         const net = gross - tds;
         const rejBy = p.rejectedBy ? ({ proc: 'Procurement', finance: 'Finance', director: 'Director' }[p.rejectedBy] || p.rejectedBy) : '—';
-        csvContent += `"${p.sNo}","${p.vendor}","${p.project || ''}","${p.poNo || ''}",${gross},${tds},${net},"${p.stage || ''}","${rejBy}"\n`;
+        const utrVal = p.remittance_ref || p.utr || '';
+        csvContent += `"${p.sNo}","${p.vendor}","${p.project || ''}","${p.poNo || ''}",${gross},${tds},${net},"${utrVal}","${p.stage || ''}","${rejBy}"\n`;
       });
     }
 
@@ -153,10 +208,15 @@ export default function ReportsView() {
   const [adviceModalOpen, setAdviceModalOpen] = useState(false);
   const [adviceTargetId, setAdviceTargetId] = useState(null);
   const [adviceContact, setAdviceContact] = useState('');
+  const [adviceContactSource, setAdviceContactSource] = useState(''); // 'vendor_master' | 'empty'
 
+  // Bug 1: Pre-fill vendor email from Vendor Master when opening the modal
   const handleSendPaymentAdvice = async (payment) => {
     setAdviceTargetId(payment.id);
-    setAdviceContact('');
+    const vendor = findVendorForPayment(payment, vendors);
+    const vendorEmail = vendor?.email || '';
+    setAdviceContact(vendorEmail);
+    setAdviceContactSource(vendorEmail ? 'vendor_master' : 'empty');
     setAdviceModalOpen(true);
   };
 
@@ -215,14 +275,9 @@ export default function ReportsView() {
       }
       toast.success('Payment remitted successfully.');
       setRemitModalOpen(false);
-      // Trigger a reload by toggling a state or reloading data
-      if (reportType) {
-        setReportType(prev => prev);
-        // We can just rely on the effect reacting to reportType changes if we force it, 
-        // but it might not. We can just call loadReport manually but it's defined inside useEffect.
-        // Easiest is to just do a soft reload of window or trigger a re-render
-        window.location.reload();
-      }
+      // Bug 5: Refresh data in-place — no full page reload
+      await loadReport();
+      await refreshData();
     } catch (err) {
       toast.error(err.message || 'Failed to remit payment');
     } finally {
@@ -240,7 +295,9 @@ export default function ReportsView() {
     try {
       await call('deleteRemittedPayment', payment.id, reason.trim());
       toast.success('Remitted payment deleted successfully.');
-      window.location.reload();
+      // Bug 5: Refresh data in-place — no full page reload
+      await loadReport();
+      await refreshData();
     } catch (err) {
       toast.error(err.message || 'Failed to delete payment');
     }
@@ -292,10 +349,17 @@ export default function ReportsView() {
       <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">
         <div className="space-y-4">
           <div className="text-sm text-slate-400">
-            Enter the vendor's email address or WhatsApp number (with country code, e.g. 919876543210).
+            {adviceContactSource === 'vendor_master'
+              ? 'Email pre-filled from Vendor Master. Confirm or update before sending.'
+              : 'No email on file for this vendor. Enter an email address or WhatsApp number (with country code, e.g. 919876543210).'}
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-slate-400 font-light">Contact Detail</label>
+            <label className="text-xs text-slate-400 font-light">
+              Contact Detail
+              {adviceContactSource === 'vendor_master' && (
+                <span className="ml-2 text-emerald-400 text-[10px] font-medium">● From Vendor Master</span>
+              )}
+            </label>
             <Input
               type="text"
               placeholder="Email or Phone Number"

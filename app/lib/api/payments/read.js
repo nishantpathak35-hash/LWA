@@ -18,6 +18,7 @@ function requireAuth(session) {
 
 export async function listPaymentRequests(filters = {}, session) {
   requireAuth(session);
+  // Bug 2: ORDER BY so newest payments always appear first (stable sort)
   const query = `
     SELECT
       pr.*,
@@ -27,6 +28,7 @@ export async function listPaymentRequests(filters = {}, session) {
     FROM payment_requests pr
     LEFT JOIN purchase_orders po ON pr.po_no = po.po_no
     LEFT JOIN vendors v ON (v.vendor_code = pr.vendor_code OR v.legal_name = po.vendor_name)
+    ORDER BY pr.created_at DESC, pr.pr_id DESC
   `;
   const rows = await queryAll(query);
 
@@ -70,6 +72,10 @@ export async function listPaymentRequests(filters = {}, session) {
       approval_status: status,
       can_send_payment_advice: String(stage || '').toLowerCase() === 'remitted' || String(r.remittance || '').toLowerCase() === 'remitted',
       remittance: r.remittance || '',
+      // Bug 3d: expose remittance_ref / remittance_date / utr so Reports and Payment Advice work
+      remittance_ref: r.remittance_ref || '',
+      remittance_date: r.remittance_date || null,
+      utr: r.remittance_ref || '',
       created_at: r.created_at,
       remarks: r.remarks || '',
       created_by: r.created_by || '',

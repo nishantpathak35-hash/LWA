@@ -20,9 +20,13 @@ function requireAuth(session) {
 
 export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
   requireAuth(session);
-  // rowNumberOrId can be a payment request id or row index
-  const rows = await queryAll(`SELECT * FROM payment_requests`);
-  const pr = rows.find(r => String(r.pr_id) === String(rowNumberOrId) || String(r.rowid) === String(rowNumberOrId)) || rows[Number(rowNumberOrId) - 1];
+  // P1 fix: query directly by pr_id; fall back to positional index only for legacy callers
+  let pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [rowNumberOrId]);
+  if (!pr) {
+    // Legacy fallback: rowNumberOrId is a 1-based row index
+    const rows = await queryAll(`SELECT * FROM payment_requests ORDER BY pr_id ASC`);
+    pr = rows[Number(rowNumberOrId) - 1];
+  }
   if (!pr) throw new Error('Payment request not found');
 
   // CRITICAL: Block Payment Advice for Rejected payouts
@@ -65,8 +69,12 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
 
 export async function sendPaymentAdviceWhatsApp(rowNumberOrId, phoneOverride, session) {
     requireAuth(session);
-    const rows = await queryAll(`SELECT * FROM payment_requests`);
-    const pr = rows.find(r => String(r.pr_id) === String(rowNumberOrId) || String(r.rowid) === String(rowNumberOrId)) || rows[Number(rowNumberOrId) - 1];
+    // P1 fix: query directly by pr_id; fall back to positional index only for legacy callers
+    let pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [rowNumberOrId]);
+    if (!pr) {
+      const rows = await queryAll(`SELECT * FROM payment_requests ORDER BY pr_id ASC`);
+      pr = rows[Number(rowNumberOrId) - 1];
+    }
     if (!pr) throw new Error('Payment request not found');
   
     const stage = String(pr.stage || '').toLowerCase();

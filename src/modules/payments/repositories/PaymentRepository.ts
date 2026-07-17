@@ -88,9 +88,10 @@ export class PaymentRepository {
         [payment.po_no, `MANUAL-${Date.now()}`, payment.amount, payment.recorded_by, new Date().toISOString()]
       );
     } else {
+      // Bug 3b: persist utr_ref + other fields added by Bug 3a migration
       await queryRun(
-        `INSERT INTO system_payments (po_no, pr_key, amount, remitted_by, created_at) VALUES (?, ?, ?, ?, ?)`,
-        [payment.po_no, payment.reference_no || `SYS-${Date.now()}`, payment.amount, payment.recorded_by, new Date().toISOString()]
+        `INSERT INTO system_payments (po_no, pr_key, amount, remitted_by, created_at, utr_ref, bank_name, payment_mode, remarks, reference_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [payment.po_no, payment.reference_no || `SYS-${Date.now()}`, payment.amount, payment.recorded_by, new Date().toISOString(), payment.utr_ref || '', payment.bank_name || '', payment.payment_mode || 'Bank Transfer', payment.remarks || '', payment.reference_no || '']
       );
     }
   }

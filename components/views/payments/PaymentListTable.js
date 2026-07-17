@@ -32,6 +32,7 @@ export default function PaymentListTable({
                     />
                   </TableHead>
                   <TableHead>ID</TableHead>
+                  <TableHead>Date</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Vendor</TableHead>
                   <TableHead>PO Number</TableHead>
@@ -60,6 +61,7 @@ export default function PaymentListTable({
                         />
                       </TableCell>
                       <TableCell className="font-semibold text-xs text-slate-400">#{req.id}</TableCell>
+                      <TableCell className="text-xs text-slate-400">{req.created_at ? formatDate(req.created_at) : '—'}</TableCell>
                       <TableCell>{req.project || '—'}</TableCell>
                       <TableCell className="font-medium text-slate-200">{req.vendor_name}</TableCell>
                       <TableCell className="font-mono text-xs">{req.po_no}</TableCell>
