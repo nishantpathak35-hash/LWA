@@ -3,57 +3,32 @@ import { queryRun, queryAll } from './db.js';
 export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
   if (!phone || !message) return;
 
-  // Clean phone number (Meta Cloud API expects country code and digits only, e.g. "919876543210")
+  // Clean phone number
   let cleanPhone = String(phone).replace(/[^0-9]/g, '');
   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
   let status = 'pending';
 
   try {
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const tunnelUrl = process.env.LOCAL_BOT_TUNNEL_URL;
+    const apiKey = process.env.LOCAL_BOT_API_KEY || 'lwa-secure-waha-api-key-2026-xyz';
 
-    if (!phoneNumberId || !accessToken) {
-      console.warn("WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_ACCESS_TOKEN is missing. Message logged as pending.");
+    if (!tunnelUrl) {
+      console.warn("LOCAL_BOT_TUNNEL_URL is missing. Message logged as pending.");
       status = 'failed';
     } else {
-      const apiUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
-      
-      let payload = {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
+      const apiUrl = `${tunnelUrl}/send-message`;
+      const payload = {
         to: cleanPhone,
+        message: message,
+        mediaUrl: mediaUrl
       };
-
-      if (mediaUrl) {
-        let filename = 'document.pdf';
-        try {
-          const urlObj = new URL(mediaUrl);
-          const pathname = urlObj.pathname;
-          const lastPart = pathname.substring(pathname.lastIndexOf('/') + 1);
-          if (lastPart) {
-            filename = decodeURIComponent(lastPart);
-          }
-        } catch (e) {}
-
-        payload.type = "document";
-        payload.document = {
-          link: mediaUrl,
-          filename: filename,
-          caption: message
-        };
-      } else {
-        payload.type = "text";
-        payload.text = {
-          body: message
-        };
-      }
 
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          'X-Api-Key': apiKey
         },
         body: JSON.stringify(payload)
       });
@@ -63,11 +38,11 @@ export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
       } else {
         status = 'failed';
         const errorText = await res.text();
-        console.error("Meta WhatsApp Cloud API error response:", errorText);
+        console.error("Local Bot API error response:", errorText);
       }
     }
   } catch (err) {
-    console.error("Meta WhatsApp Cloud API fetch error:", err.message);
+    console.error("Local Bot fetch error:", err.message);
     status = 'failed';
   }
 
