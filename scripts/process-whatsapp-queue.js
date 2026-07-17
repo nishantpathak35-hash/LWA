@@ -43,7 +43,9 @@ async function markMessage(id, status) {
 }
 
 async function main() {
-  const { proto, initAuthCreds } = require('@whiskeysockets/baileys');
+  const { proto, initAuthCreds, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+  const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: [2, 3000, 1017531287] }));
+  console.log(`Using WhatsApp version: ${version.join('.')}`);
 
   // Load creds from Turso
   let creds = await readData('creds');
@@ -92,6 +94,7 @@ async function main() {
     const timeout = setTimeout(() => reject(new Error('Timed out waiting for WhatsApp connection')), 30000);
 
     const sock = makeWASocket({
+      version,
       auth: state,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,

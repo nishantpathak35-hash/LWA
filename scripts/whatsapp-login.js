@@ -53,7 +53,9 @@ async function main() {
   await db.execute('DELETE FROM whatsapp_session');
 
   let creds = null;
-  const { proto, initAuthCreds } = require('@whiskeysockets/baileys');
+  const { proto, initAuthCreds, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+  const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: [2, 3000, 1017531287] }));
+  console.log(`Using WhatsApp version: ${version.join('.')}`);
   if (!creds) creds = initAuthCreds();
 
   const state = {
@@ -84,6 +86,7 @@ async function main() {
   const saveCreds = () => writeData('creds', state.creds);
 
   const sock = makeWASocket({
+    version,
     auth: state,
     logger: pino({ level: 'debug' }),
     printQRInTerminal: false,
