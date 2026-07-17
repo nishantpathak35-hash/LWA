@@ -1,4 +1,7 @@
 import { queryRun, queryAll } from './db.js';
+import { useDbAuthState } from './db-auth.js';
+import makeWASocket from '@whiskeysockets/baileys';
+import pino from 'pino';
 
 export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
   if (!phone || !message) return;
@@ -10,39 +13,93 @@ export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
   let status = 'pending';
 
   try {
-    const tunnelUrl = process.env.LOCAL_BOT_TUNNEL_URL;
-    const apiKey = process.env.LOCAL_BOT_API_KEY || 'lwa-secure-waha-api-key-2026-xyz';
+    const { state, saveCreds } = await useDbAuthState();
 
-    if (!tunnelUrl) {
-      console.warn("LOCAL_BOT_TUNNEL_URL is missing. Message logged as pending.");
+    if (!state.creds || !state.creds.me) {
+      console.warn("WhatsApp is not authenticated. Please log in first.");
       status = 'failed';
     } else {
-      const apiUrl = `${tunnelUrl}/send-message`;
-      const payload = {
-        to: cleanPhone,
-        message: message,
-        mediaUrl: mediaUrl
-      };
+      const chatId = `${cleanPhone}@s.whatsapp.net`;
 
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': apiKey
-        },
-        body: JSON.stringify(payload)
+      await new Promise(async (resolve, reject) => {
+        let completed = false;
+
+        const sock = makeWASocket.default({
+          auth: state,
+          logger: pino({ level: 'silent' }),
+          printQRInTerminal: false
+        });
+
+        const timer = setTimeout(() => {
+          if (!completed) {
+            completed = true;
+            sock.ev.removeAllListeners('connection.update');
+            sock.ev.removeAllListeners('creds.update');
+            try { sock.ws.close(); } catch (e) {}
+            reject(new Error("Timeout waiting for WhatsApp connection to open."));
+          }
+        }, 8000);
+
+        sock.ev.on('creds.update', async () => {
+          await saveCreds();
+        });
+
+        sock.ev.on('connection.update', async (update) => {
+          const { connection, lastDisconnect } = update;
+
+          if (connection === 'open') {
+            try {
+              if (mediaUrl) {
+                let filename = 'document.pdf';
+                try {
+                  const urlObj = new URL(mediaUrl);
+                  const pathname = urlObj.pathname;
+                  const lastPart = pathname.substring(pathname.lastIndexOf('/') + 1);
+                  if (lastPart) {
+                    filename = decodeURIComponent(lastPart);
+                  }
+                } catch (e) {}
+
+                await sock.sendMessage(chatId, {
+                  document: { url: mediaUrl },
+                  fileName: filename,
+                  caption: message
+                });
+              } else {
+                await sock.sendMessage(chatId, { text: message });
+              }
+
+              status = 'sent';
+              console.log(`WhatsApp message successfully sent serverlessly to ${cleanPhone}`);
+            } catch (err) {
+              status = 'failed';
+              console.error("Failed to send WhatsApp message via Baileys socket:", err.message);
+            } finally {
+              if (!completed) {
+                completed = true;
+                clearTimeout(timer);
+                sock.ev.removeAllListeners('connection.update');
+                sock.ev.removeAllListeners('creds.update');
+                try { sock.ws.close(); } catch (e) {}
+                resolve();
+              }
+            }
+          }
+
+          if (connection === 'close') {
+            if (!completed) {
+              completed = true;
+              clearTimeout(timer);
+              sock.ev.removeAllListeners('connection.update');
+              sock.ev.removeAllListeners('creds.update');
+              resolve();
+            }
+          }
+        });
       });
-
-      if (res.ok) {
-        status = 'sent';
-      } else {
-        status = 'failed';
-        const errorText = await res.text();
-        console.error("Local Bot API error response:", errorText);
-      }
     }
   } catch (err) {
-    console.error("Local Bot fetch error:", err.message);
+    console.error("Vercel Serverless Baileys send error:", err.message);
     status = 'failed';
   }
 

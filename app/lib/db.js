@@ -47,6 +47,13 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
     )
   `).catch(err => console.error('Failed to create whatsapp_outbox table:', err.message));
 
+  tursoClient.execute(`
+    CREATE TABLE IF NOT EXISTS whatsapp_session (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `).catch(err => console.error('Failed to create whatsapp_session table:', err.message));
+
   // --- Site DPR Operations Module Tables ---
   const dprTables = [
     `CREATE TABLE IF NOT EXISTS dpr_reports (
