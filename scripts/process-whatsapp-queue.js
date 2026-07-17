@@ -5,7 +5,7 @@
  * Reads pending messages from Turso, sends via Baileys, marks as sent.
  */
 
-require('dotenv').config({ path: '.env.local' });
+require('dotenv').config();
 const { createClient } = require('@libsql/client');
 const { makeWASocket, DisconnectReason, BufferJSON } = require('@whiskeysockets/baileys');
 const pino = require('pino');

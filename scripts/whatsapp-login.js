@@ -6,7 +6,7 @@
  * The session is saved to Turso and reused by GitHub Actions automatically.
  */
 
-require('dotenv').config({ path: '.env.local' });
+require('dotenv').config();
 const { createClient } = require('@libsql/client');
 const { makeWASocket, useMultiFileAuthState, DisconnectReason, BufferJSON } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
