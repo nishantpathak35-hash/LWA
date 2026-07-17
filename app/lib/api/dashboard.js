@@ -222,10 +222,21 @@ export async function getMasterData(session) {
     }
   });
 
+  // Build project list: collect names from POs + project_financials,
+  // and merge site_address / project_ref / client from project_financials
+  // so that POFormModal can show project site info and the PO PDF can use it.
+  const pfMap = {}; // keyed by project name
   try {
-    const pfRows = await queryAll(`SELECT project FROM project_financials`);
+    const pfRows = await queryAll(`SELECT * FROM project_financials`);
     pfRows.forEach(r => {
-      if (r.project) projectSet.add(r.project);
+      if (r.project) {
+        projectSet.add(r.project);
+        pfMap[r.project] = {
+          site_address: r.site_address || '',
+          project_ref: r.project_ref || '',
+          client: r.client || ''
+        };
+      }
     });
   } catch (e) { /* table might not exist yet */ }
 
@@ -269,7 +280,12 @@ export async function getMasterData(session) {
       gst_mode: p.gst_mode || 'inter',
       vendor_key: p.vendor_key || ''
     })),
-    projects: Array.from(projectSet).map(p => ({ name: p })).sort((a, b) => a.name.localeCompare(b.name)),
+    projects: Array.from(projectSet).map(p => ({
+      name: p,
+      site_address: pfMap[p]?.site_address || '',
+      project_ref: pfMap[p]?.project_ref || '',
+      client: pfMap[p]?.client || ''
+    })).sort((a, b) => a.name.localeCompare(b.name)),
     tdsSections,
     categories: ['Goods', 'Services', 'Consulting', 'IT', 'Marketing', 'Admin', 'Capex', 'Opex', 'Other']
   };
