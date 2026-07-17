@@ -3,67 +3,71 @@ import { queryRun, queryAll } from './db.js';
 export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
   if (!phone || !message) return;
 
-  // Clean phone number
+  // Clean phone number (Meta Cloud API expects country code and digits only, e.g. "919876543210")
   let cleanPhone = String(phone).replace(/[^0-9]/g, '');
   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
   let status = 'pending';
 
   try {
-    const wahaUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
-    const apiKey = process.env.WAHA_API_KEY;
-    const session = process.env.WAHA_SESSION || 'default';
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) {
-      headers['X-Api-Key'] = apiKey;
-    }
-
-    let apiUrl = `${wahaUrl}/api/sendText`;
-    let payload = {
-      session: session,
-      chatId: `${cleanPhone}@c.us`,
-      text: message
-    };
-
-    if (mediaUrl) {
-      apiUrl = `${wahaUrl}/api/sendFile`;
-      let filename = 'attachment';
-      try {
-        const urlObj = new URL(mediaUrl);
-        const pathname = urlObj.pathname;
-        const lastPart = pathname.substring(pathname.lastIndexOf('/') + 1);
-        if (lastPart) {
-          filename = decodeURIComponent(lastPart);
-        }
-      } catch (e) {}
-
-      payload = {
-        session: session,
-        chatId: `${cleanPhone}@c.us`,
-        file: {
-          url: mediaUrl,
-          filename: filename
-        },
-        caption: message
-      };
-    }
-
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(payload)
-    });
-
-    if (res.ok) {
-      status = 'sent';
-    } else {
+    if (!phoneNumberId || !accessToken) {
+      console.warn("WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_ACCESS_TOKEN is missing. Message logged as pending.");
       status = 'failed';
-      const errorText = await res.text();
-      console.error("WAHA API error response:", errorText);
+    } else {
+      const apiUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+      
+      let payload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: cleanPhone,
+      };
+
+      if (mediaUrl) {
+        let filename = 'document.pdf';
+        try {
+          const urlObj = new URL(mediaUrl);
+          const pathname = urlObj.pathname;
+          const lastPart = pathname.substring(pathname.lastIndexOf('/') + 1);
+          if (lastPart) {
+            filename = decodeURIComponent(lastPart);
+          }
+        } catch (e) {}
+
+        payload.type = "document";
+        payload.document = {
+          link: mediaUrl,
+          filename: filename,
+          caption: message
+        };
+      } else {
+        payload.type = "text";
+        payload.text = {
+          body: message
+        };
+      }
+
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        status = 'sent';
+      } else {
+        status = 'failed';
+        const errorText = await res.text();
+        console.error("Meta WhatsApp Cloud API error response:", errorText);
+      }
     }
   } catch (err) {
-    console.error("WAHA fetch error:", err.message);
+    console.error("Meta WhatsApp Cloud API fetch error:", err.message);
     status = 'failed';
   }
 
