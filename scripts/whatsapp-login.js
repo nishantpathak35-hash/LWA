@@ -92,7 +92,7 @@ async function main() {
   const sock = makeWASocket({
     version,
     auth: state,
-    logger: pino({ level: 'debug' }),
+    logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
     browser: ['LWA ERP', 'Chrome', '10.0'],
   });
