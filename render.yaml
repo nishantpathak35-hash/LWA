@@ -1,0 +1,13 @@
+services:
+  # Standalone Node.js WhatsApp Express Bot
+  - type: web
+    name: lwa-whatsapp-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node backend/whatsapp-bot.js
+    envVars:
+      - key: LOCAL_BOT_API_KEY
+        value: "lwa-secure-waha-api-key-2026-xyz"
+      - key: PORT
+        value: "10000"
