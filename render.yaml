@@ -2,12 +2,9 @@ services:
   # WhatsApp HTTP API (WAHA) service
   - type: web
     name: waha
-    env: docker
-    dockerImage: devlikeapro/waha:latest
+    runtime: image
+    image: docker.io/devlikeapro/waha:latest
     plan: starter
-    ports:
-      - port: 3000
-        protocol: http
     envVars:
       - key: WAHA_API_KEY
         sync: false
