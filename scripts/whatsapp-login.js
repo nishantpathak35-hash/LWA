@@ -10,6 +10,8 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
+console.log('Using DB URL:', process.env.TURSO_DATABASE_URL);
+
 async function ensureTable() {
   await db.execute(`
     CREATE TABLE IF NOT EXISTS whatsapp_session (
