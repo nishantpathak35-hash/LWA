@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  # WhatsApp HTTP API (WAHA) service
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: waha
+    ports:
+      - "3000:3000"
+    environment:
+      - WAHA_API_KEY=lwa-secure-waha-api-key-2026-xyz # Set your own secure API key
+      - WAHA_PRINT_QR=true
+    volumes:
+      - waha_sessions:/root/.waha
+    restart: always
+
+volumes:
+  waha_sessions:

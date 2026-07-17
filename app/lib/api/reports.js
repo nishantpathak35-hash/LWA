@@ -58,75 +58,7 @@ export async function getAuditLogs(filters = {}, session) {
     params.push(searchTerm, searchTerm, searchTerm);
   }
 
-  if (conditions.length > 0) {
-    whereClause = ` WHERE ${conditions.join(' AND ')}`;
-  }
 
-  const sortDir = String(filters.sortDir || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-  // Get total count for pagination
-  const countResult = await queryGet(`SELECT COUNT(*) as total FROM audit_logs${whereClause}`, params);
-  const total = Number(countResult?.total) || 0;
-
-  const rows = await queryAll(
-    `SELECT id, timestamp, user, action_type AS actionType, details, department FROM audit_logs${whereClause} ORDER BY timestamp ${sortDir} LIMIT ? OFFSET ?`,
-    [...params, pageSize, offset]
-  );
-
-  return {
-    rows,
-    total,
-    page,
-    pageSize,
-    totalPages: Math.ceil(total / pageSize)
-  };
-}
-
-
-export async function getPaymentReportRows(filters = {}, session) {
-  requireAuth(session);
-  const all = await listPaymentRequests({}, session);
-  return all.filter(r => {
-    const type = String(filters.type || 'All').toLowerCase();
-    if (type === 'all' && r.status === 'pending') return false;
-    if (filters.type && filters.type !== 'All') {
-      if (type === 'approved' && r.status !== 'approved') return false;
-      if (type === 'rejected' && r.status !== 'rejected') return false;
-      if (type === 'remit') {
-        const isReadyToRemit = String(r.stage).toLowerCase() === 'ready to remit';
-        if (!isReadyToRemit) return false;
-  const pageSize = Math.min(Math.max(1, Number(filters.pageSize) || Number(filters.limit) || 50), 500);
-  const offset = (page - 1) * pageSize;
-
-  let whereClause = '';
-  const conditions = [];
-  const params = [];
-
-  if (filters.user) {
-    conditions.push(`user = ?`);
-    params.push(filters.user);
-  }
-  if (filters.actionType) {
-    conditions.push(`action_type = ?`);
-    params.push(filters.actionType);
-  }
-  if (filters.department) {
-    conditions.push(`department = ?`);
-    params.push(filters.department);
-  }
-  if (filters.startDate) {
-    conditions.push(`timestamp >= ?`);
-    params.push(filters.startDate);
-  }
-  if (filters.endDate) {
-    conditions.push(`timestamp <= ?`);
-    params.push(filters.endDate);
-  }
-  if (filters.search) {
-    conditions.push(`(user LIKE ? OR action_type LIKE ? OR details LIKE ?)`);
-    const searchTerm = `%${filters.search}%`;
-    params.push(searchTerm, searchTerm, searchTerm);
-  }
 
   if (conditions.length > 0) {
     whereClause = ` WHERE ${conditions.join(' AND ')}`;
@@ -137,7 +69,6 @@ export async function getPaymentReportRows(filters = {}, session) {
   // Get total count for pagination
   const countResult = await queryGet(`SELECT COUNT(*) as total FROM audit_logs${whereClause}`, params);
   const total = Number(countResult?.total) || 0;
-
   const rows = await queryAll(
     `SELECT id, timestamp, user, action_type AS actionType, details, department FROM audit_logs${whereClause} ORDER BY timestamp ${sortDir} LIMIT ? OFFSET ?`,
     [...params, pageSize, offset]

@@ -2,6 +2,7 @@
 import { queryAll, queryGet, queryRun } from '../../db.js';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { logAudit } from '../core.js';
+import { enqueueWhatsAppMessage } from '../../whatsapp.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -39,7 +40,7 @@ export async function submitPOForApproval(poNo, session) {
     for (const approver of approvers) {
       if (approver.whatsapp_number) {
         const msg = `Action Required: PO #${poNo} for ${po.vendor_name || 'Vendor'} is pending your approval. Amount: ${po.net_payable_amount || po.total_amount || 0}`;
-        await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [approver.whatsapp_number, msg]);
+        await enqueueWhatsAppMessage(approver.whatsapp_number, msg);
       }
     }
   } catch (error) {
@@ -87,7 +88,7 @@ export async function approvePO(poNo, action, remarks, session) {
     const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [po.submitted_by || po.created_by]);
     if (submitter?.whatsapp_number) {
       const msg = `Update: PO #${poNo} for ${po.vendor_name || 'Vendor'} has been ${action === 'approve' ? 'Approved' : 'Rejected'} by ${session?.name || session?.email}.`;
-      await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [submitter.whatsapp_number, msg]);
+      await enqueueWhatsAppMessage(submitter.whatsapp_number, msg);
     }
   } catch (error) {
     console.error('WhatsApp notification failed:', error.message);

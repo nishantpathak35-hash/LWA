@@ -7,6 +7,7 @@ import { logAudit } from '../core.js';
 import { SYSTEM_FALLBACK_EMAIL } from '../../config.js';
 import { listPaymentRequests } from './read.js';
 import { getDefaultCCRecipients } from '../settings.js';
+import { enqueueWhatsAppMessage } from '../../whatsapp.js';
 
 function invalidateProjectCache(project) {
   // no-op — kept for call-site compatibility
@@ -93,7 +94,6 @@ export async function sendPaymentAdviceWhatsApp(rowNumberOrId, phoneOverride, se
     
     const message = `*Payment Advice*\n\nDear ${pr.vendor_name || 'Vendor'},\n\nWe have successfully remitted a payment of *Rs. ${netAmt.toLocaleString('en-IN')}* towards Purchase Order *${pr.po_no || 'N/A'}* for the project *${pr.project || 'N/A'}*.\n\nUTR Number: ${pr.remittance_ref || pr.utr || 'N/A'}\n\nThank you,\nLUXEWORX ATELIER`;
 
-    const { enqueueWhatsAppMessage } = await import('../../whatsapp.js');
     await enqueueWhatsAppMessage(toPhone, message);
     
     await logAudit(session?.email || 'system', 'Payment Advice Sent via WhatsApp', `Payment Advice WhatsApp sent for Request ID: ${pr.id || pr.rowid || pr.pr_id} to ${toPhone}`);
@@ -119,7 +119,7 @@ export async function bulkApprovePayments(ids, approvalData, session) {
           const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [pr.submitted_by || pr.created_by]);
           if (submitter?.whatsapp_number) {
             const msg = `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Approved by ${session?.name || session?.email}.`;
-            await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [submitter.whatsapp_number, msg]);
+            await enqueueWhatsAppMessage(submitter.whatsapp_number, msg);
           }
         }
       } catch (error) {
@@ -160,7 +160,7 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
           const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [pr.submitted_by || pr.created_by]);
           if (submitter?.whatsapp_number) {
             const msg = `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Rejected by ${session?.name || session?.email}.`;
-            await queryRun(`INSERT INTO whatsapp_outbox (phone, message) VALUES (?, ?)`, [submitter.whatsapp_number, msg]);
+            await enqueueWhatsAppMessage(submitter.whatsapp_number, msg);
           }
         }
       } catch (error) {

@@ -10,38 +10,60 @@ export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
   let status = 'pending';
 
   try {
-    const idInstance = process.env.GREEN_API_ID_INSTANCE;
-    const apiToken = process.env.GREEN_API_TOKEN_INSTANCE;
-    
-    // Fallback to cluster 7107 if API_URL not provided
-    const host = process.env.GREEN_API_URL || 'https://7107.api.greenapi.com';
+    const wahaUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
+    const apiKey = process.env.WAHA_API_KEY;
+    const session = process.env.WAHA_SESSION || 'default';
 
-    if (idInstance && apiToken) {
-      // Fire API request instantly to Green-API
-      const apiUrl = `${host}/waInstance${idInstance}/sendMessage/${apiToken}`;
-      const payload = {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers['X-Api-Key'] = apiKey;
+    }
+
+    let apiUrl = `${wahaUrl}/api/sendText`;
+    let payload = {
+      session: session,
+      chatId: `${cleanPhone}@c.us`,
+      text: message
+    };
+
+    if (mediaUrl) {
+      apiUrl = `${wahaUrl}/api/sendFile`;
+      let filename = 'attachment';
+      try {
+        const urlObj = new URL(mediaUrl);
+        const pathname = urlObj.pathname;
+        const lastPart = pathname.substring(pathname.lastIndexOf('/') + 1);
+        if (lastPart) {
+          filename = decodeURIComponent(lastPart);
+        }
+      } catch (e) {}
+
+      payload = {
+        session: session,
         chatId: `${cleanPhone}@c.us`,
-        message: message
+        file: {
+          url: mediaUrl,
+          filename: filename
+        },
+        caption: message
       };
+    }
 
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload)
+    });
 
-      if (res.ok) {
-        status = 'sent';
-      } else {
-        status = 'failed';
-        const errorText = await res.text();
-        console.error("Green-API error response:", errorText);
-      }
+    if (res.ok) {
+      status = 'sent';
     } else {
-      console.warn("GREEN_API_ID_INSTANCE or GREEN_API_TOKEN_INSTANCE is missing. Message logged as pending.");
+      status = 'failed';
+      const errorText = await res.text();
+      console.error("WAHA API error response:", errorText);
     }
   } catch (err) {
-    console.error("Green-API fetch error:", err.message);
+    console.error("WAHA fetch error:", err.message);
     status = 'failed';
   }
 
