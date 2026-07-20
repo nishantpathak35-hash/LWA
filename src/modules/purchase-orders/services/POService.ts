@@ -3,8 +3,8 @@ import { IPOInput, IPO, IPOItem } from '../types/PO';
 import { logAudit } from '../../../../app/lib/api.js';
 
 export class POService {
-  static async getAllPOs(): Promise<IPO[]> {
-    return PORepository.findAll();
+  static async getAllPOs(options?: { limit?: number; offset?: number }): Promise<IPO[]> {
+    return PORepository.findAll(options);
   }
 
   static async getPO(poNo: string): Promise<IPO | null> {

@@ -4,6 +4,7 @@ import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { PaymentService } from '../../../../src/modules/payments/services/PaymentService';
 import { requireAdminConsole, ensureSettingsTable, logAudit } from '../core.js';
 import { isSuperAdmin, SYSTEM_FALLBACK_EMAIL } from '../../config.js';
+import { emitBroadcast } from '../../broadcast.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -14,12 +15,16 @@ import { updatePOPaymentStatus } from '../shared.js';
 
 export async function createPaymentRequest(payload, session) {
   requireAuth(session);
-  return PaymentService.createPaymentRequest(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  const result = await PaymentService.createPaymentRequest(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  await emitBroadcast('payment', 'created', '');
+  return result;
 }
 
 export async function updatePaymentRequest(prId, payload, session) {
   requireAuth(session);
-  return PaymentService.updatePaymentRequest(prId, payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  const result = await PaymentService.updatePaymentRequest(prId, payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  await emitBroadcast('payment', 'updated', prId);
+  return result;
 }
 
 
@@ -59,6 +64,7 @@ export async function deleteRemittedPayment(prId, reason, session) {
   // 5. Update PO Paid Amount — now correctly calls the local implementation
   await updatePOPaymentStatus(poNo);
 
+  await emitBroadcast('payment', 'deleted', prId);
   return { ok: true, message: 'Payment deleted successfully.' };
 }
 

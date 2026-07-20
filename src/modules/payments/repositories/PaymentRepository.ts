@@ -17,7 +17,7 @@ export class PaymentRepository {
     );
   }
 
-  static async findAllRequests(filters: any = {}): Promise<IPaymentRequest[]> {
+  static async findAllRequests(filters: any = {}, options?: { limit?: number; offset?: number }): Promise<IPaymentRequest[]> {
     let sql = `SELECT * FROM payment_requests WHERE 1=1`;
     const params: any[] = [];
     if (filters.po_no) {
@@ -29,6 +29,10 @@ export class PaymentRepository {
       params.push(filters.vendor_code);
     }
     sql += ` ORDER BY pr_id DESC`;
+    const limit = options?.limit ?? 100;
+    const offset = options?.offset ?? 0;
+    sql += ` LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
     return queryAll(sql, params);
   }
 
@@ -47,21 +51,36 @@ export class PaymentRepository {
     await queryRun(sql, params);
   }
 
-  static async updateRequest(prId: string | number, updates: Partial<IPaymentRequest> & Record<string, any>): Promise<void> {
+  static async updateRequest(prId: string | number, updates: Partial<IPaymentRequest> & Record<string, any>, expectedVersion?: number): Promise<void> {
     const fields: string[] = [];
     const values: any[] = [];
     
     for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) {
+      if (value !== undefined && key !== 'version') {
         fields.push(`${key} = ?`);
         values.push(value);
       }
     }
 
     if (fields.length === 0) return;
-    const sql = `UPDATE payment_requests SET ${fields.join(', ')} WHERE pr_id = ?`;
+
+    // Always increment version on update
+    fields.push(`version = COALESCE(version, 1) + 1`);
+
+    let sql = `UPDATE payment_requests SET ${fields.join(', ')} WHERE pr_id = ?`;
     values.push(prId);
-    await queryRun(sql, values);
+
+    // Optimistic concurrency: if expectedVersion is provided, require it to match
+    if (expectedVersion !== undefined && expectedVersion !== null) {
+      sql += ` AND COALESCE(version, 1) = ?`;
+      values.push(expectedVersion);
+    }
+
+    const result = await queryRun(sql, values);
+
+    if (expectedVersion !== undefined && expectedVersion !== null && result?.rowsAffected === 0) {
+      throw new Error('CONFLICT: This payment request was modified by another user since you last loaded it. Please reload and try again.');
+    }
   }
 
   /**

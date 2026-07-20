@@ -1,6 +1,7 @@
 // Domain: vendors
 // Auto-extracted from api.js
 import { queryAll, queryGet, queryRun } from '../db.js';
+import { emitBroadcast } from '../broadcast.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from '../email.js';
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from '../poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from '../paymentCalculations.js';
@@ -78,12 +79,16 @@ function requireAuth(session) {
 
 export async function addVendor(payload, session) {
   requireAuth(session);
-  return VendorService.addVendor(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  const result = await VendorService.addVendor(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  await emitBroadcast('vendor', 'created', payload.vendor_code || payload.vendorCode || '');
+  return result;
 }
 
 export async function updateVendor(payload, session) {
   requireAuth(session);
-  return VendorService.updateVendor(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  const result = await VendorService.updateVendor(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  await emitBroadcast('vendor', 'updated', payload.vendor_code || payload.vendorCode || '');
+  return result;
 }
 
 export async function getVendorByName(name, session) {
@@ -114,7 +119,8 @@ export async function getVendorByName(name, session) {
     purchaseContactNo: row.purchase_contact_no || '',
     whatsappNumber: row.whatsapp_number || '',
     mobileNumber: row.mobile_number || '',
-    preferredWhatsappContact: row.preferred_whatsapp_contact || 'Primary'
+    preferredWhatsappContact: row.preferred_whatsapp_contact || 'Primary',
+    version: row.version || 1
   };
 }
 

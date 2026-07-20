@@ -7,7 +7,7 @@ import { logAudit } from '../core.js';
 import { SYSTEM_FALLBACK_EMAIL } from '../../config.js';
 import { listPaymentRequests } from './read.js';
 import { getDefaultCCRecipients } from '../settings.js';
-import { enqueueWhatsAppMessage } from '../../whatsapp.js';
+import { emitBroadcast } from '../../broadcast.js';
 
 function invalidateProjectCache(project) {
   // no-op — kept for call-site compatibility
@@ -68,37 +68,7 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
   return { ok: true, vendorEmail: toEmail };
 }
 
-export async function sendPaymentAdviceWhatsApp(rowNumberOrId, phoneOverride, session) {
-    requireAuth(session);
-    // P1 fix: query directly by pr_id; fall back to positional index only for legacy callers
-    let pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [rowNumberOrId]);
-    if (!pr) {
-      const rows = await queryAll(`SELECT * FROM payment_requests ORDER BY pr_id ASC`);
-      pr = rows[Number(rowNumberOrId) - 1];
-    }
-    if (!pr) throw new Error('Payment request not found');
-  
-    const stage = String(pr.stage || '').toLowerCase();
-    if (stage === 'rejected') throw new Error('Payment Advice cannot be generated for rejected payment requests.');
-    const isRemitted = stage.trim() === 'remitted' || String(pr.remittance || '').toLowerCase().trim() === 'remitted';
-    if (!isRemitted) throw new Error('Payment Advice can only be sent for successfully remitted payments.');
-  
-    const vendor = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [pr.vendor_name, pr.vendor_code]);
-    
-    const toPhone = phoneOverride || vendor?.phone || vendor?.contact_number;
-    if (!toPhone) throw new Error('No phone number provided for WhatsApp Payment Advice.');
 
-    const baseAmt = Number((pr.approved_amount ?? pr.amount_requested) || 0);
-    const tdsAmt = Number(pr.tds_amount || 0);
-    const netAmt = Math.max(0, baseAmt - tdsAmt);
-    
-    const message = `*Payment Advice*\n\nDear ${pr.vendor_name || 'Vendor'},\n\nWe have successfully remitted a payment of *Rs. ${netAmt.toLocaleString('en-IN')}* towards Purchase Order *${pr.po_no || 'N/A'}* for the project *${pr.project || 'N/A'}*.\n\nUTR Number: ${pr.remittance_ref || pr.utr || 'N/A'}\n\nThank you,\nLUXEWORX ATELIER`;
-
-    await enqueueWhatsAppMessage(toPhone, message);
-    
-    await logAudit(session?.email || 'system', 'Payment Advice Sent via WhatsApp', `Payment Advice WhatsApp sent for Request ID: ${pr.id || pr.rowid || pr.pr_id} to ${toPhone}`);
-    return { success: true };
-}
 
 
 export async function bulkApprovePayments(ids, approvalData, session) {
@@ -111,24 +81,14 @@ export async function bulkApprovePayments(ids, approvalData, session) {
     try {
       await PaymentService.approvePaymentRequest(id, session?.email || SYSTEM_FALLBACK_EMAIL, session?.roles || [], approvalData?.tds_configs?.[id] || {});
       approvedIds.push(id);
-      
-      // WhatsApp Notification
-      try {
-        const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
-        if (pr) {
-          const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [pr.submitted_by || pr.created_by]);
-          if (submitter?.whatsapp_number) {
-            const msg = `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Approved by ${session?.name || session?.email}.`;
-            await enqueueWhatsAppMessage(submitter.whatsapp_number, msg);
-          }
-        }
-      } catch (error) {
-        console.error('WhatsApp notification failed:', error.message);
-      }
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
     }
+  }
+
+  if (approvedIds.length > 0) {
+    await emitBroadcast('payment', 'updated', approvedIds.join(','));
   }
 
   return {
@@ -152,24 +112,14 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
     try {
       await PaymentService.rejectPaymentRequest(id, session?.email || SYSTEM_FALLBACK_EMAIL, session?.roles || [], rejectionData?.remarks || '');
       rejectedIds.push(id);
-      
-      // WhatsApp Notification
-      try {
-        const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
-        if (pr) {
-          const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [pr.submitted_by || pr.created_by]);
-          if (submitter?.whatsapp_number) {
-            const msg = `Update: Payment Request #${id} for ${pr.vendor_name || 'Vendor'} has been Rejected by ${session?.name || session?.email}.`;
-            await enqueueWhatsAppMessage(submitter.whatsapp_number, msg);
-          }
-        }
-      } catch (error) {
-        console.error('WhatsApp notification failed:', error.message);
-      }
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
     }
+  }
+
+  if (rejectedIds.length > 0) {
+    await emitBroadcast('payment', 'updated', rejectedIds.join(','));
   }
 
   return {
@@ -237,6 +187,10 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
     );
   }
 
+  if (remittedIds.length > 0) {
+    await emitBroadcast('payment', 'updated', remittedIds.join(','));
+  }
+
   return {
     ok: failedIds.length === 0,
     remitted: remittedIds.length,
@@ -284,6 +238,7 @@ export async function setPaymentHold(payload, session) {
       rowNumber
     ]
   );
+  await emitBroadcast('payment', 'updated', rowNumber);
   return { ok: true };
 }
 

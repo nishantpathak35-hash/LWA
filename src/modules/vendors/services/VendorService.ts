@@ -6,8 +6,8 @@ export class VendorService {
   /**
    * Fetch all vendors.
    */
-  static async getAllVendors(): Promise<IVendor[]> {
-    return VendorRepository.findAll();
+  static async getAllVendors(options?: { limit?: number; offset?: number }): Promise<IVendor[]> {
+    return VendorRepository.findAll(options);
   }
 
   /**
@@ -57,7 +57,7 @@ export class VendorService {
   /**
    * Update an existing vendor with validation and audit logging.
    */
-  static async updateVendor(payload: IVendorInput, userEmail: string): Promise<{ ok: boolean, vendorId: string }> {
+  static async updateVendor(payload: IVendorInput & { expectedVersion?: number }, userEmail: string): Promise<{ ok: boolean, vendorId: string }> {
     const vendorId = payload.vendorId || payload.vendorCode;
     if (!vendorId) throw new Error("Vendor ID is required for updating");
     
@@ -95,7 +95,7 @@ export class VendorService {
         gstin: payload.gstin || ''
       } as any);
     } else {
-      await VendorRepository.update(vendorId, updateData);
+      await VendorRepository.update(vendorId, updateData, payload.expectedVersion);
     }
 
     await logAudit(userEmail, 'Vendor Updated', vendorId, 'Vendors');

@@ -2,7 +2,7 @@
 import { queryAll, queryGet, queryRun } from '../../db.js';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { logAudit } from '../core.js';
-import { enqueueWhatsAppMessage } from '../../whatsapp.js';
+import { emitBroadcast } from '../../broadcast.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -34,19 +34,7 @@ export async function submitPOForApproval(poNo, session) {
   await ApprovalWorkflowService.recordApproval('purchase_order', poNo, 'Draft', 'Submitted for Approval', session?.email || 'unknown', 'Submitted by creator');
   await logAudit(session?.email || 'system', 'PO Submitted', 'PO#' + poNo + ' submitted for approval', 'Procurement');
 
-  // WhatsApp Notification
-  try {
-    const approvers = await queryAll(`SELECT whatsapp_number FROM users WHERE roles LIKE '%director%' OR roles LIKE '%admin%'`);
-    for (const approver of approvers) {
-      if (approver.whatsapp_number) {
-        const msg = `Action Required: PO #${poNo} for ${po.vendor_name || 'Vendor'} is pending your approval. Amount: ${po.net_payable_amount || po.total_amount || 0}`;
-        await enqueueWhatsAppMessage(approver.whatsapp_number, msg);
-      }
-    }
-  } catch (error) {
-    console.error('WhatsApp notification failed:', error.message);
-  }
-
+  await emitBroadcast('po', 'updated', poNo);
   return { ok: true, poNo, status: initialStage };
 }
 
@@ -83,17 +71,7 @@ export async function approvePO(poNo, action, remarks, session) {
   await ApprovalWorkflowService.recordApproval('purchase_order', poNo, currentStage, newStatus === 'Rejected' ? 'Rejected' : 'Approved', session?.email || 'unknown', remarks || '');
   await logAudit(session?.email || 'system', 'PO ' + action, 'PO#' + poNo + ' ' + action + ' by ' + (session?.email || 'unknown'), 'Procurement');
 
-  // WhatsApp Notification
-  try {
-    const submitter = await queryGet(`SELECT whatsapp_number FROM users WHERE email = ?`, [po.submitted_by || po.created_by]);
-    if (submitter?.whatsapp_number) {
-      const msg = `Update: PO #${poNo} for ${po.vendor_name || 'Vendor'} has been ${action === 'approve' ? 'Approved' : 'Rejected'} by ${session?.name || session?.email}.`;
-      await enqueueWhatsAppMessage(submitter.whatsapp_number, msg);
-    }
-  } catch (error) {
-    console.error('WhatsApp notification failed:', error.message);
-  }
-
+  await emitBroadcast('po', 'updated', poNo);
   return { ok: true, poNo, status: newStatus };
 }
 

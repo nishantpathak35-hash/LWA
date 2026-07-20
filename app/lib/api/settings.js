@@ -16,6 +16,7 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { logAudit, getSetting, setSetting, DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS, requireAdminConsole } from './core.js';
+import { emitBroadcast } from '../broadcast.js';
 
 
 import { requireAuth } from './shared.js';
@@ -49,6 +50,7 @@ export async function setFeaturePermissions(config, session) {
   });
   await setSetting('feature_permissions', JSON.stringify(sanitized));
   await logAudit(session.email, 'Feature Permissions Updated', JSON.stringify(sanitized), 'Settings');
+  await emitBroadcast('settings', 'updated', 'feature_permissions');
   return { ok: true, permissions: sanitized };
 }
 
@@ -67,6 +69,7 @@ export async function setCompanySettings(payload, session) {
   requireAdminConsole(session);
   await SettingsService.updateCompanySettings(payload);
   await logAudit(session.email, 'Company Settings Updated', `${payload?.name || ''}, ${payload?.gstin || ''}`, 'Settings');
+  await emitBroadcast('settings', 'updated', 'company');
   return { ok: true };
 }
 
@@ -86,5 +89,6 @@ export async function setDefaultCCRecipients(emails, session) {
   const validEmails = (emails || []).map(e => String(e).trim().toLowerCase()).filter(e => e.includes('@'));
   await setSetting('default_cc_recipients', JSON.stringify(validEmails));
   await logAudit(session.email, 'Email CC Settings Updated', JSON.stringify(validEmails), 'Settings');
+  await emitBroadcast('settings', 'updated', 'cc_recipients');
   return { ok: true, cc: validEmails };
 }

@@ -2,8 +2,10 @@ import { queryAll, queryGet, queryRun } from '../../../../app/lib/db.js';
 import { IVendor } from '../types/Vendor';
 
 export class VendorRepository {
-  static async findAll(): Promise<IVendor[]> {
-    return queryAll(`SELECT * FROM vendors`);
+  static async findAll(options?: { limit?: number; offset?: number }): Promise<IVendor[]> {
+    const limit = options?.limit ?? 100;
+    const offset = options?.offset ?? 0;
+    return queryAll(`SELECT * FROM vendors LIMIT ? OFFSET ?`, [limit, offset]);
   }
 
   static async findById(id: number): Promise<IVendor | null> {
@@ -37,7 +39,7 @@ export class VendorRepository {
     await queryRun(sql, params);
   }
 
-  static async update(vendorCode: string, vendor: Partial<IVendor>): Promise<void> {
+  static async update(vendorCode: string, vendor: Partial<IVendor>, expectedVersion?: number): Promise<void> {
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -58,9 +60,23 @@ export class VendorRepository {
 
     if (fields.length === 0) return;
 
-    const sql = `UPDATE vendors SET ${fields.join(', ')} WHERE vendor_code = ?`;
+    // Always increment version on update
+    fields.push(`version = COALESCE(version, 1) + 1`);
+
+    let sql = `UPDATE vendors SET ${fields.join(', ')} WHERE vendor_code = ?`;
     values.push(vendorCode);
 
-    await queryRun(sql, values);
+    // Optimistic concurrency: if expectedVersion is provided, require it to match
+    if (expectedVersion !== undefined && expectedVersion !== null) {
+      sql += ` AND COALESCE(version, 1) = ?`;
+      values.push(expectedVersion);
+    }
+
+    const result = await queryRun(sql, values);
+
+    // Check if the update matched any rows
+    if (expectedVersion !== undefined && expectedVersion !== null && result?.rowsAffected === 0) {
+      throw new Error('CONFLICT: This vendor was modified by another user since you last loaded it. Please reload and try again.');
+    }
   }
 }

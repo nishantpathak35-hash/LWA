@@ -5,13 +5,16 @@ export class PORepository {
   /**
    * Retrieves all purchase orders.
    */
-  static async findAll(): Promise<IPO[]> {
+  static async findAll(options?: { limit?: number; offset?: number }): Promise<IPO[]> {
+    const limit = options?.limit ?? 100;
+    const offset = options?.offset ?? 0;
     return queryAll(`
       SELECT p.*,
         p.legacy_paid as paid
       FROM purchase_orders p
       ORDER BY p.created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
   }
 
   /**
@@ -76,7 +79,7 @@ export class PORepository {
   /**
    * Updates an existing PO.
    */
-  static async update(poNo: string, po: Partial<IPO>): Promise<void> {
+  static async update(poNo: string, po: Partial<IPO>, expectedVersion?: number): Promise<void> {
     const fields: string[] = [];
     const values: any[] = [];
     
@@ -92,9 +95,22 @@ export class PORepository {
 
     if (fields.length === 0) return;
 
-    const sql = `UPDATE purchase_orders SET ${fields.join(', ')} WHERE po_no = ?`;
+    // Always increment version on update
+    fields.push(`version = COALESCE(version, 1) + 1`);
+
+    let sql = `UPDATE purchase_orders SET ${fields.join(', ')} WHERE po_no = ?`;
     values.push(poNo);
 
-    await queryRun(sql, values);
+    // Optimistic concurrency: if expectedVersion is provided, require it to match
+    if (expectedVersion !== undefined && expectedVersion !== null) {
+      sql += ` AND COALESCE(version, 1) = ?`;
+      values.push(expectedVersion);
+    }
+
+    const result = await queryRun(sql, values);
+
+    if (expectedVersion !== undefined && expectedVersion !== null && result?.rowsAffected === 0) {
+      throw new Error('CONFLICT: This purchase order was modified by another user since you last loaded it. Please reload and try again.');
+    }
   }
 }

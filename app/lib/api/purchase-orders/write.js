@@ -5,6 +5,7 @@ import { POService } from '../../../../src/modules/purchase-orders/services/POSe
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { logAudit, requireAdminConsole, ensureSettingsTable } from '../core.js';
 import { SYSTEM_FALLBACK_EMAIL } from '../../config.js';
+import { emitBroadcast } from '../../broadcast.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -13,7 +14,9 @@ function requireAuth(session) {
 
 export async function savePO(payload, session) {
   requireAuth(session);
-  return POService.createPO(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  const result = await POService.createPO(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  await emitBroadcast('po', 'created', payload.poNo || payload.po_no || '');
+  return result;
 }
 
 
@@ -88,23 +91,49 @@ export async function updatePOFull(poNo, payload, session) {
     }
   }
 
-  await queryRun(
-    `UPDATE purchase_orders SET
-      po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
-      approval_status = ?, status = ?,
-      tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
-      expected_delivery_date = ?, notes = ?, category = ?
-     WHERE po_no = ?`,
-    [nextPoNo,
-     payload.vendorCode || payload.vendor_key || existing.vendor_key || '',
-     vendorName, payload.project || '', totalVal, totalVal,
-     payload.poDate || existing.po_date || '', payload.terms || '',
-     newStatus, newStatus,
-     tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
-     payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
-     payload.category || existing.category || 'Goods',
-     originalPoNo]
-  );
+  const expectedVersion = payload.expectedVersion;
+  if (expectedVersion !== undefined && expectedVersion !== null) {
+    const result = await queryRun(
+      `UPDATE purchase_orders SET
+        po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
+        approval_status = ?, status = ?,
+        tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
+        expected_delivery_date = ?, notes = ?, category = ?,
+        version = COALESCE(version, 1) + 1
+       WHERE po_no = ? AND COALESCE(version, 1) = ?`,
+      [nextPoNo,
+       payload.vendorCode || payload.vendor_key || existing.vendor_key || '',
+       vendorName, payload.project || '', totalVal, totalVal,
+       payload.poDate || existing.po_date || '', payload.terms || '',
+       newStatus, newStatus,
+       tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
+       payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
+       payload.category || existing.category || 'Goods',
+       originalPoNo, expectedVersion]
+    );
+    if (result?.rowsAffected === 0) {
+      throw new Error(`Optimistic lock error: expected version ${expectedVersion} but PO has been modified by another user.`);
+    }
+  } else {
+    await queryRun(
+      `UPDATE purchase_orders SET
+        po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
+        approval_status = ?, status = ?,
+        tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
+        expected_delivery_date = ?, notes = ?, category = ?,
+        version = COALESCE(version, 1) + 1
+       WHERE po_no = ?`,
+      [nextPoNo,
+       payload.vendorCode || payload.vendor_key || existing.vendor_key || '',
+       vendorName, payload.project || '', totalVal, totalVal,
+       payload.poDate || existing.po_date || '', payload.terms || '',
+       newStatus, newStatus,
+       tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
+       payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
+       payload.category || existing.category || 'Goods',
+       originalPoNo]
+    );
+  }
 
   // If PO number was renamed, cascade to all linked tables
   if (nextPoNo !== originalPoNo) {
@@ -144,6 +173,7 @@ export async function updatePOFull(poNo, payload, session) {
     );
   }
   await logAudit(session?.email || SYSTEM_FALLBACK_EMAIL, 'PO Updated', `PO#${nextPoNo} edited. Changes: ${changesSummary}`, 'Procurement');
+  await emitBroadcast('po', 'updated', nextPoNo);
   return { ok: true, poNo: nextPoNo, oldPoNo: originalPoNo, newStatus, changesLogged: auditChanges };
 }
 
@@ -190,6 +220,7 @@ export async function deletePOFull(poNo, session) {
   await safeDelete(`DELETE FROM po_items WHERE po_no = ?`, [targetPoNo]);
   await queryRun(`DELETE FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
 
+  await emitBroadcast('po', 'deleted', targetPoNo);
   return { ok: true, poNo: targetPoNo };
 }
 
