@@ -66,7 +66,6 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
       feature: 'payments',
       badge: pendingPaymentsCount > 0 ? pendingPaymentsCount : null 
     },
-    { id: 'invoices', label: 'Invoices', icon: Receipt, feature: 'payments' },
     { id: 'reports', label: 'Reports', icon: BarChart3, feature: 'reports' },
     { id: 'settings', label: 'Settings', icon: Settings, roles: ['admin', 'director'], feature: 'settings' }
   ];
@@ -110,7 +109,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
       id: 'admin',
       label: 'ADMIN',
       icon: Settings,
-      items: ['invoices', 'reports', 'settings']
+      items: ['reports', 'settings']
     }
   ];
 

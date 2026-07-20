@@ -58,7 +58,7 @@ const SHORTCUT_MAP = {
 };
 
 
-const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'payments', 'invoices', 'reports', 'settings', 'site_dpr', 'site_wpr'];
+const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'payments', 'reports', 'settings', 'site_dpr', 'site_wpr'];
 
 function getFirstAllowedView(hasPermission) {
   return ORDERED_VIEWS.find((viewId) => {
