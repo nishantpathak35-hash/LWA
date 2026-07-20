@@ -36,23 +36,16 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
     )
   `).catch(err => console.error('Failed to create attachments table:', err.message));
 
+  // --- Broadcast events table for SSE real-time sync ---
   tursoClient.execute(`
-    CREATE TABLE IF NOT EXISTS whatsapp_outbox (
+    CREATE TABLE IF NOT EXISTS broadcast_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      phone TEXT NOT NULL,
-      message TEXT NOT NULL,
-      media_url TEXT,
-      status TEXT DEFAULT 'pending',
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      entity TEXT NOT NULL,
+      action TEXT NOT NULL,
+      entity_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
     )
-  `).catch(err => console.error('Failed to create whatsapp_outbox table:', err.message));
-
-  tursoClient.execute(`
-    CREATE TABLE IF NOT EXISTS whatsapp_session (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    )
-  `).catch(err => console.error('Failed to create whatsapp_session table:', err.message));
+  `).catch(err => console.error('Failed to create broadcast_events table:', err.message));
 
   // --- Site DPR Operations Module Tables ---
   const dprTables = [
@@ -109,6 +102,18 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
   
   for (const sql of dprTables) {
     tursoClient.execute(sql).catch(err => console.error('Failed to create DPR table:', err.message));
+  }
+
+  // --- Optimistic concurrency: add version columns if missing ---
+  const versionMigrations = [
+    `ALTER TABLE vendors ADD COLUMN version INTEGER DEFAULT 1`,
+    `ALTER TABLE purchase_orders ADD COLUMN version INTEGER DEFAULT 1`,
+    `ALTER TABLE payment_requests ADD COLUMN version INTEGER DEFAULT 1`,
+  ];
+  for (const sql of versionMigrations) {
+    tursoClient.execute(sql).catch(() => {
+      // Silently ignore — column already exists
+    });
   }
 }
 
