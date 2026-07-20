@@ -220,30 +220,13 @@ export default function ReportsView() {
     setAdviceModalOpen(true);
   };
 
-  const handleSendPaymentAdviceWhatsApp = async (payment) => {
-    setSendingAdviceId(payment.id);
-    try {
-      await call('whatsappPaymentAdvice', payment.id);
-      toast.success('Payment advice WhatsApp queued successfully');
-    } catch (err) {
-      toast.error('Failed to send WhatsApp: ' + (err.message || 'Unknown error'));
-    } finally {
-      setSendingAdviceId(null);
-    }
-  };
-
   const executeSendAdvice = async (method) => {
-    if (!adviceContact) return toast('Please enter a contact (email or phone).');
+    if (!adviceContact) return toast('Please enter an email.');
     
     setSendingAdviceId(adviceTargetId);
     try {
-      if (method === 'email') {
-        await call('sendPaymentAdvice', adviceTargetId, adviceContact.trim());
-        toast.success(`Payment advice email sent to ${adviceContact.trim()}`);
-      } else if (method === 'whatsapp') {
-        await call('sendPaymentAdviceWhatsApp', adviceTargetId, adviceContact.trim());
-        toast.success(`Payment advice WhatsApp sent to ${adviceContact.trim()}`);
-      }
+      await call('sendPaymentAdvice', adviceTargetId, adviceContact.trim());
+      toast.success(`Payment advice email sent to ${adviceContact.trim()}`);
       setAdviceModalOpen(false);
     } catch (err) {
       toast.error('Failed to send payment advice: ' + (err.message || 'Unknown error'));
@@ -333,7 +316,6 @@ export default function ReportsView() {
             loading={loading} data={data} reportType={reportType}
             isAdmin={isAdmin} isFinance={isFinance} isDirector={isDirector} canRemit={canRemit}
             handleSendPaymentAdvice={handleSendPaymentAdvice} 
-            handleSendPaymentAdviceWhatsApp={handleSendPaymentAdviceWhatsApp}
             sendingAdviceId={sendingAdviceId}
             handleOpenRemitModal={handleOpenRemitModal} handleDeleteRemittedPayment={handleDeleteRemittedPayment}
           />
@@ -351,7 +333,7 @@ export default function ReportsView() {
           <div className="text-sm text-slate-400">
             {adviceContactSource === 'vendor_master'
               ? 'Email pre-filled from Vendor Master. Confirm or update before sending.'
-              : 'No email on file for this vendor. Enter an email address or WhatsApp number (with country code, e.g. 919876543210).'}
+              : 'No email on file for this vendor. Enter an email address.'}
           </div>
           <div className="space-y-1.5">
             <label className="text-xs text-slate-400 font-light">
@@ -362,7 +344,7 @@ export default function ReportsView() {
             </label>
             <Input
               type="text"
-              placeholder="Email or Phone Number"
+              placeholder="Email address"
               value={adviceContact}
               onChange={e => setAdviceContact(e.target.value)}
             />
@@ -370,9 +352,6 @@ export default function ReportsView() {
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
             <Button variant="ghost" onClick={() => setAdviceModalOpen(false)}>
               Cancel
-            </Button>
-            <Button variant="primary" onClick={() => executeSendAdvice('whatsapp')} className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={sendingAdviceId !== null}>
-              {sendingAdviceId === adviceTargetId ? 'Sending...' : 'Send via WhatsApp'}
             </Button>
             <Button variant="primary" onClick={() => executeSendAdvice('email')} disabled={sendingAdviceId !== null}>
               {sendingAdviceId === adviceTargetId ? 'Sending...' : 'Send via Email'}

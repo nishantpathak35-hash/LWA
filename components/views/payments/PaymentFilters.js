@@ -3,7 +3,7 @@ import { Button, Input } from '../../ui/core';
 import { CreditCard, PlusCircle, Search } from 'lucide-react';
 
 export default function PaymentFilters({
-  canOnboard, handleOpenRequestModal, handleOpenInvoiceModal, activeTab, setActiveTab, searchQuery, setSearchQuery
+  canOnboard, handleOpenRequestModal, activeTab, setActiveTab, searchQuery, setSearchQuery
 }) {
   return (
     <>
@@ -21,9 +21,6 @@ export default function PaymentFilters({
 
         {canOnboard && (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleOpenInvoiceModal} className="border-gold text-gold hover:bg-gold/10">
-              🤖 AI Invoice Upload
-            </Button>
             <Button variant="primary" size="sm" onClick={handleOpenRequestModal}>
               <PlusCircle className="w-4 h-4" />
               New Payment Request

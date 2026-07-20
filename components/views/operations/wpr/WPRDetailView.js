@@ -1,34 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
-import { ArrowLeft, MessageCircle, Presentation } from 'lucide-react';
-import { formatWPRToText } from '../../../../src/modules/operations/utils/wprFormatter';
-import { exportWPRToPPTX } from './wprPPTXExporter';
+import { ArrowLeft } from 'lucide-react';
 
 export default function WPRDetailView({ wpr, onNavigate }) {
-  const [exporting, setExporting] = useState(false);
-
-  const copyWhatsApp = () => {
-    const text = formatWPRToText(wpr);
-    try {
-      navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-  };
-
-  const handleExportPPTX = async () => {
-    try {
-      setExporting(true);
-      await exportWPRToPPTX(wpr);
-    } catch (err) {
-      console.error('Failed to export PPTX:', err);
-      alert('Failed to export WPR to PPTX: ' + (err.message || err));
-    } finally {
-      setExporting(false);
-    }
-  };
 
   const getVarianceBadge = (variance) => {
     const v = parseFloat(variance) || 0;
@@ -44,14 +18,6 @@ export default function WPRDetailView({ wpr, onNavigate }) {
         <button onClick={() => onNavigate('history')} className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to History
         </button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportPPTX} disabled={exporting} className="border-gold/30 hover:bg-gold/10 text-gold">
-            <Presentation className="w-4 h-4 mr-2" /> {exporting ? 'Exporting...' : 'Export WPR to PPTX'}
-          </Button>
-          <Button variant="outline" onClick={copyWhatsApp} className="border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400">
-            <MessageCircle className="w-4 h-4 mr-2" /> Share WPR via WhatsApp
-          </Button>
-        </div>
       </div>
 
       {/* Detail Grid */}

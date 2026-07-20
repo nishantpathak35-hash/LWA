@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
-import { Eye, Trash2, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatWPRToText } from '../../../../src/modules/operations/utils/wprFormatter';
+import { Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
 
 export default function WPRHistory({ onNavigate, onView }) {
@@ -36,17 +35,6 @@ export default function WPRHistory({ onNavigate, onView }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const copyWhatsApp = (wpr) => {
-    const text = formatWPRToText(wpr);
-    try {
-      navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('Failed to copy WPR:', err);
-    }
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
   };
 
   const handleDelete = async (wpr) => {
@@ -124,9 +112,6 @@ export default function WPRHistory({ onNavigate, onView }) {
                     <td className="px-6 py-4">{getVarianceBadge(wpr.variance)}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => copyWhatsApp(wpr)} className="p-1.5 text-emerald-400 hover:bg-emerald-400/10 rounded" title="Copy for WhatsApp">
-                          <MessageCircle className="w-4 h-4" />
-                        </button>
                         <button onClick={() => onView(wpr)} className="p-1.5 text-slate-400 hover:bg-slate-400/10 rounded" title="View details">
                           <Eye className="w-4 h-4" />
                         </button>

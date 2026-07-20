@@ -12,7 +12,6 @@ import SettingsSystemTab from './settings/SettingsSystemTab';
 import SettingsAuditTab from './settings/SettingsAuditTab';
 import SettingsPermissionsTab from './settings/SettingsPermissionsTab';
 import SettingsUsersTab from './settings/SettingsUsersTab';
-import SettingsWhatsAppTab from './settings/SettingsWhatsAppTab';
 import SettingsTDSTab from './settings/SettingsTDSTab';
 import SettingsNumberSeriesTab from './settings/SettingsNumberSeriesTab';
 import SettingsApprovalWorkflowTab from './settings/SettingsApprovalWorkflowTab';
@@ -634,13 +633,6 @@ export default function SettingsView() {
           📧 Email Configuration
         </Button>
         <Button
-          onClick={() => setActiveTab('whatsapp')}
-          size="sm"
-          variant={activeTab === 'whatsapp' ? 'primary' : 'ghost'}
-        >
-          📱 WhatsApp
-        </Button>
-        <Button
           onClick={() => setActiveTab('tds')}
           size="sm"
           variant={activeTab === 'tds' ? 'primary' : 'ghost'}
@@ -786,11 +778,6 @@ export default function SettingsView() {
         />
       )}
 
-
-      {/* WhatsApp Tab */}
-      {activeTab === 'whatsapp' && (
-        <SettingsWhatsAppTab />
-      )}
 
       {/* Enterprise Config Tabs */}
       {activeTab === 'tds' && <SettingsTDSTab />}

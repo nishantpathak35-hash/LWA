@@ -8,7 +8,6 @@ export default function DPRSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
-    whatsappRecipients: '',
     weatherOptions: 'Normal, Rainy, Windy, Extreme Heat',
     shiftOptions: 'Day, Night',
     statusOptions: 'Normal, Delayed, Critical',
@@ -66,22 +65,10 @@ export default function DPRSettings() {
         <CardContent className="p-6 space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-200">DPR Configuration Settings</h2>
-            <p className="text-xs text-slate-400 mt-1 font-normal">Customize daily progress report variables, WhatsApp distribution list, and export format defaults.</p>
+            <p className="text-xs text-slate-400 mt-1 font-normal">Customize daily progress report variables and export format defaults.</p>
           </div>
 
           <div className="space-y-4">
-            {/* WhatsApp settings */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300">Default WhatsApp Recipients</label>
-              <input
-                type="text"
-                placeholder="Group links or recipient names (e.g. Project Delivery, +919876543210)"
-                value={settings.whatsappRecipients}
-                onChange={e => handleChange('whatsappRecipients', e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm text-slate-200 focus:border-gold outline-none"
-              />
-              <p className="text-[10px] text-slate-500 font-normal">Comma-separated names or links that populate automatically when formatting exports.</p>
-            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-800/60 pt-4">
               {/* Weather Options */}

@@ -18,7 +18,6 @@ export default function MultiSelectActionBar({
   onApproveSelected,
   onRejectSelected,
   onClearSelection,
-  onSendToWhatsApp,
   loadingSummary,
   allSelectedActionable = true
 }) {
@@ -111,14 +110,6 @@ export default function MultiSelectActionBar({
         <div className="bg-slate-950/90 px-6 py-4 border-t border-slate-800 flex justify-end gap-3">
           <Button variant="ghost" onClick={onClearSelection} className="text-slate-400 hover:text-slate-200">
             Clear Selection
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={onSendToWhatsApp} 
-            className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
-            title="Send selected to WhatsApp"
-          >
-            Send to WhatsApp
           </Button>
           <Button 
             variant="outline" 

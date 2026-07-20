@@ -1,40 +1,6 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '../../ui/core';
-import { Plus, Loader2 } from 'lucide-react';
-
-function WhatsAppLogin() {
-  const [qr, setQr] = React.useState(null);
-  const [status, setStatus] = React.useState('offline');
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const res = await fetch('/api/whatsapp/status');
-        const data = await res.json();
-        setQr(data.qr);
-        setStatus(data.status);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStatus();
-    const int = setInterval(fetchStatus, 3000);
-    return () => clearInterval(int);
-  }, []);
-
-  if (loading) return <Loader2 className="w-5 h-5 animate-spin text-slate-400" />;
-  if (status === 'ready') return <span className="text-emerald-500 font-bold text-sm bg-emerald-950/30 px-3 py-1 rounded border border-emerald-900/50">WhatsApp Connected</span>;
-  if (qr) return (
-    <div className="flex flex-col items-center gap-2 bg-white p-2 rounded">
-      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qr)}`} alt="WhatsApp QR Code" width={150} height={150} />
-      <span className="text-[10px] text-slate-900 font-medium">Scan to connect</span>
-    </div>
-  );
-  return <span className="text-amber-500 font-bold text-sm">Bot Offline (run node backend/whatsapp-bot.js)</span>;
-}
+import { Plus } from 'lucide-react';
 
 export default function SettingsSystemTab({
   activeTab,

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
-import { ArrowLeft, MessageCircle, Edit2, Trash2, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
-import { formatDPRToText } from '../../../../src/modules/operations/utils/dprFormatter';
+import { ArrowLeft, Edit2, Trash2, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
 
 export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
@@ -10,17 +9,6 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
   const [report, setReport] = useState(dpr);
 
   const isApprover = user?.role === 'admin' || user?.role === 'approver' || user?.is_admin;
-
-  const copyWhatsApp = () => {
-    const text = formatDPRToText(report);
-    try {
-      navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-  };
 
   const handleUpdateStatus = async (status) => {
     if (!confirm(`Are you sure you want to change the status of this report to ${status}?`)) return;
@@ -75,9 +63,6 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
           <ArrowLeft className="w-4 h-4" /> Back to History
         </button>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={copyWhatsApp} className="border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400">
-            <MessageCircle className="w-4 h-4 mr-2" /> Share via WhatsApp
-          </Button>
           <Button variant="outline" onClick={() => onEdit(report)}>
             <Edit2 className="w-4 h-4 mr-2" /> Edit DPR
           </Button>
