@@ -53,3 +53,5 @@ next-env.d.ts
 *.sqlite3
 dev.sqlite3
 lx.sqlite
+
+.env*

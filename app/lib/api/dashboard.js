@@ -18,7 +18,6 @@ import path from 'path';
 import { ensureSettingsTable } from './core.js';
 import { listPaymentRequests } from './payments.js';
 import { getFeaturePermissions } from './settings.js';
-import { getInvoices } from './invoices.js';
 
 
 function getJwtSecret() {
@@ -96,12 +95,11 @@ export async function getBootBundle(session) {
   if (session && session.email) {
     queryRun(`UPDATE users SET last_login = ? WHERE LOWER(email) = ?`, [new Date().toISOString(), session.email.trim().toLowerCase()]).catch(e => console.error(e));
   }
-  const [kpis, master, payments, featurePermissions, invoices] = await Promise.all([
+  const [kpis, master, payments, featurePermissions] = await Promise.all([
     getDashboardKPIs(session),
     getMasterData(session),
     listPaymentRequests(undefined, session),
-    getFeaturePermissions(session),
-    getInvoices()
+    getFeaturePermissions(session)
   ]);
   
   return {
@@ -110,8 +108,7 @@ export async function getBootBundle(session) {
     kpis,
     master,
     payments,
-    featurePermissions,
-    invoices
+    featurePermissions
   };
 }
 
@@ -411,4 +408,56 @@ export async function deduplicateSystemPayments(session) {
 export async function getMasterHealth(session) {
   requireAuth(session);
   return { status: 'OK' };
+}
+
+export async function getVendorsOnly(options, session) {
+  requireAuth(session);
+  const vendors = await VendorService.getAllVendors(options);
+  const masterVendors = vendors.map(v => ({
+    recordId: v.id,
+    code: v.vendor_code,
+    vendorId: v.vendor_code,
+    name: v.legal_name || v.name || v.vendor_code,
+    legalName: v.legal_name || v.name || v.vendor_code,
+    status: v.status,
+    gstin: v.gstin || '',
+    address: v.address || '',
+    email: v.email || v.contact_email || ''
+  }));
+  return { vendors: masterVendors };
+}
+
+export async function getPOsOnly(options, session) {
+  requireAuth(session);
+  const pos = await POService.getAllPOs(options);
+  return {
+    pos: pos.map(p => ({
+      po_no: p.po_no,
+      vendor_name: p.vendor_name,
+      project: p.project,
+      po_date: p.po_date || '',
+      expected_delivery_date: p.expected_delivery_date || '',
+      category: p.category || '',
+      po_value: p.po_value,
+      paid: p.legacy_paid || 0,
+      balance: (Number(p.po_value) || 0) - (Number(p.legacy_paid) || 0),
+      status: p.approval_status || p.status || 'Draft',
+      approval_status: p.approval_status || p.status || 'Draft',
+      payment_status: p.payment_status || 'Unpaid',
+      payment_eligible: isPOEligibleForPayment(p),
+      terms: p.terms || '',
+      tds_section: p.tds_section || '',
+      tds_pct: Number(p.tds_pct) || 0,
+      tds_amount: Number(p.tds_amount) || 0,
+      gst_total: Number(p.gst_total) || 0,
+      gst_mode: p.gst_mode || 'inter',
+      vendor_key: p.vendor_key || ''
+    }))
+  };
+}
+
+export async function getPaymentsOnly(options, session) {
+  requireAuth(session);
+  const payments = await listPaymentRequests(options, session);
+  return { payments };
 }

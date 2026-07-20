@@ -7,6 +7,9 @@ const ALLOWED_METHODS = new Set([
   'getMySession',
   'getBootData',
   'getBootBundle',
+  'getVendorsOnly',
+  'getPOsOnly',
+  'getPaymentsOnly',
   'clearCacheAndGetMaster',
   'getDashboardKPIs',
   'getMasterData',
@@ -18,8 +21,6 @@ const ALLOWED_METHODS = new Set([
   'listPOsJson',
   'getPOsByVendor',
   'listPaymentRequests',
-  'getInvoices',
-  'saveInvoice',
   'getApprovalQueue',
   'getRemittanceQueue',
   'getCommandCenter',
@@ -40,7 +41,6 @@ const ALLOWED_METHODS = new Set([
   'deleteUserAdmin',
   'setUserActiveAdmin',
   'setUserRolesAdmin',
-  'setUserWhatsAppAdmin',
   'updateUserDetailsAdmin',
   'resetUserPasswordAdmin',
   'addCustomRole',
@@ -56,7 +56,6 @@ const ALLOWED_METHODS = new Set([
   'updateProjectFinancials',
   'acceptInvite',
   'sendPaymentAdvice',
-  'sendPaymentAdviceWhatsApp',
   'sendPOToVendor',
   'createPaymentRequest',
   'bulkApprovePayments',
@@ -89,9 +88,6 @@ const ALLOWED_METHODS = new Set([
   'uploadAttachment',
   'getAttachments',
   'deleteAttachment',
-  'sendInternalWhatsApp',
-  'whatsappPO',
-  'whatsappPaymentAdvice',
   'getApprovalWorkflows',
   'getApprovalWorkflow',
   'createApprovalWorkflow',
@@ -185,7 +181,10 @@ export async function POST(request) {
       'listAuditLog',
       'getPaymentReportRows',
       'getApprovalQueue',
-      'getRemittanceQueue'
+      'getRemittanceQueue',
+      'getVendorsOnly',
+      'getPOsOnly',
+      'getPaymentsOnly'
     ]);
     if (twoParamMethods.has(method) && args.length === 0) {
       args.push(undefined);

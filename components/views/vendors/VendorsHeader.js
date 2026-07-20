@@ -4,7 +4,14 @@ import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody
 import { PlusCircle, Search, Eye, Edit2, CreditCard } from 'lucide-react';
 import { Users } from 'lucide-react';
 
-export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVendors, searchQuery, setSearchQuery, handleOpenViewModal, handleOpenEditModal, setActiveView }) {
+export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVendors, searchQuery, setSearchQuery, handleOpenViewModal, handleOpenEditModal, setActiveView, hasMoreVendors, loadMoreVendors }) {
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await loadMoreVendors();
+    setLoadingMore(false);
+  };
+
   return (
     <>
       {/* Header Panel */}
@@ -18,7 +25,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
             <p className="text-[11px] text-slate-500 mt-0.5">Manage onboarded vendor files and profiles.</p>
           </div>
         </div>
-
+ 
         {canOnboard && (
           <Button variant="primary" size="sm" onClick={handleOpenModal}>
             <PlusCircle className="w-4 h-4" />
@@ -26,7 +33,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           </Button>
         )}
       </div>
-
+ 
       {/* Search and Table Grid */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row gap-4">
@@ -48,49 +55,58 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
               No vendors found matching your filters.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Display Name</TableHead>
-                  <TableHead>Legal Name</TableHead>
-                  <TableHead>GSTIN</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredVendors.map((v, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="font-medium text-slate-200">{v.code}</TableCell>
-                    <TableCell>{v.name}</TableCell>
-                    <TableCell className="text-slate-400">{v.legalName || '-'}</TableCell>
-                    <TableCell className="font-mono text-xs">{v.gstin || '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant={String(v.status || '').toLowerCase() === 'active' ? 'success' : 'inactive'}>
-                        {v.status || 'Active'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center flex justify-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(v)} title="View Vendor Details">
-                        <Eye className="w-3.5 h-3.5" />
-                        View
-                      </Button>
-                      {canOnboard && (
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} title="Edit Vendor">
-                          <Edit2 className="w-3.5 h-3.5" />
-                          Edit
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={() => setActiveView('payments')} title="Request Payment">
-                        <CreditCard className="w-3.5 h-3.5" />
-                        Request
-                      </Button>
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Display Name</TableHead>
+                    <TableHead>Legal Name</TableHead>
+                    <TableHead>GSTIN</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredVendors.map((v, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-medium text-slate-200">{v.code}</TableCell>
+                      <TableCell>{v.name}</TableCell>
+                      <TableCell className="text-slate-400">{v.legalName || '-'}</TableCell>
+                      <TableCell className="font-mono text-xs">{v.gstin || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant={String(v.status || '').toLowerCase() === 'active' ? 'success' : 'inactive'}>
+                          {v.status || 'Active'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center flex justify-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(v)} title="View Vendor Details">
+                          <Eye className="w-3.5 h-3.5" />
+                          View
+                        </Button>
+                        {canOnboard && (
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} title="Edit Vendor">
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Edit
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => setActiveView('payments')} title="Request Payment">
+                          <CreditCard className="w-3.5 h-3.5" />
+                          Request
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {hasMoreVendors && (
+                <div className="flex justify-center p-4 border-t border-slate-900/50 bg-slate-950/20">
+                  <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="text-slate-400 hover:text-slate-100">
+                    {loadingMore ? 'Loading...' : 'Load More Vendors'}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

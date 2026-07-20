@@ -70,7 +70,7 @@ function findVendorSelection(vendors, code, name) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function POsView() {
-  const { pos, setPos, vendors, projects, user, call, refreshData, tdsSections } = useAppState();
+  const { pos, setPos, vendors, projects, user, call, refreshData, tdsSections, hasMorePOs, loadMorePOs } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [openActionMenuPoNo, setOpenActionMenuPoNo] = useState(null);
   const [poDateSortDir, setPoDateSortDir] = useState('desc');
@@ -313,14 +313,6 @@ export default function POsView() {
   };
 
   // ─── Send Email ───────────────────────────────────────────────────────────
-  const handleSendPOWhatsApp = async (poNumber) => {
-    try {
-      await call('whatsappPO', poNumber);
-      toast.success('PO WhatsApp queued successfully');
-    } catch (e) {
-      toast.error('Failed to send PO via WhatsApp: ' + (e.message || 'Unknown error'));
-    }
-  };
 
   const handleSendPOEmail = (poNumber) => {
     const poObj = pos.find(p => p.po_no === poNumber);
@@ -428,6 +420,7 @@ export default function POsView() {
         terms: terms.trim(),
         notes: notes.trim(),
         status: 'Draft',
+        expectedVersion: editingPO?.version,
         items: items.map(item => {
           const { gstAmt, total } = calcItem(item);
           return {
@@ -617,9 +610,9 @@ export default function POsView() {
         setMpRemarks={setMpRemarks} setMpError={setMpError} setManualPayModalOpen={setManualPayModalOpen}
         setEditingPoNo={setEditingPoNo}
         handleViewPOHistory={handleViewPOHistory}
-        handleSendPOWhatsApp={handleSendPOWhatsApp}
         handleSendPOEmail={handleSendPOEmail}
         getStatusBadge={getStatusBadge} getPaymentStatusBadge={getPaymentStatusBadge}
+        hasMorePOs={hasMorePOs} loadMorePOs={loadMorePOs}
       />
 
 

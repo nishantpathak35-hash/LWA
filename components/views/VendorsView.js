@@ -10,7 +10,7 @@ import VendorViewModal from './vendors/VendorViewModal';
 import VendorEditModal from './vendors/VendorEditModal';
 
 export default function VendorsView() {
-  const { vendors, user, call, refreshData, setActiveView } = useAppState();
+  const { vendors, user, call, refreshData, setActiveView, hasMoreVendors, loadMoreVendors } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -39,6 +39,7 @@ export default function VendorsView() {
   const [editWhatsappNumber, setEditWhatsappNumber] = useState('');
   const [editMobileNumber, setEditMobileNumber] = useState('');
   const [editPreferredWhatsappContact, setEditPreferredWhatsappContact] = useState('Primary');
+  const [editVersion, setEditVersion] = useState(null);
 
   // Form state
   const [name, setName] = useState('');
@@ -131,6 +132,7 @@ export default function VendorsView() {
       setEditWhatsappNumber(details?.whatsappNumber || '');
       setEditMobileNumber(details?.mobileNumber || '');
       setEditPreferredWhatsappContact(details?.preferredWhatsappContact || 'Primary');
+      setEditVersion(details?.version || null);
 
       setEditAccountNo(details?.accountNo || '');
       setEditIfsc(details?.ifsc || '');
@@ -150,7 +152,8 @@ export default function VendorsView() {
         primaryContactName: editPrimaryContactName, primaryContactNo: editPrimaryContactNo,
         accountsContactName: editAccountsContactName, accountsContactNo: editAccountsContactNo,
         purchaseContactName: editPurchaseContactName, purchaseContactNo: editPurchaseContactNo,
-        whatsappNumber: editWhatsappNumber, mobileNumber: editMobileNumber, preferredWhatsappContact: editPreferredWhatsappContact
+        whatsappNumber: editWhatsappNumber, mobileNumber: editMobileNumber, preferredWhatsappContact: editPreferredWhatsappContact,
+        expectedVersion: editVersion
       };
       await call('updateVendor', payload);
       await refreshData();
@@ -168,6 +171,7 @@ export default function VendorsView() {
         canOnboard={canOnboard} handleOpenModal={handleOpenModal}
         filteredVendors={filteredVendors} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
         handleOpenViewModal={handleOpenViewModal} handleOpenEditModal={handleOpenEditModal} setActiveView={setActiveView}
+        hasMoreVendors={hasMoreVendors} loadMoreVendors={loadMoreVendors}
       />
       <VendorOnboardModal
         modalOpen={modalOpen} setModalOpen={setModalOpen}

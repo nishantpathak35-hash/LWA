@@ -18,7 +18,8 @@ function requireAuth(session) {
 
 export async function listPaymentRequests(filters = {}, session) {
   requireAuth(session);
-  // Bug 2: ORDER BY so newest payments always appear first (stable sort)
+  const limit = filters?.limit ?? 100;
+  const offset = filters?.offset ?? 0;
   const query = `
     SELECT
       pr.*,
@@ -29,8 +30,9 @@ export async function listPaymentRequests(filters = {}, session) {
     LEFT JOIN purchase_orders po ON pr.po_no = po.po_no
     LEFT JOIN vendors v ON (v.vendor_code = pr.vendor_code OR v.legal_name = po.vendor_name)
     ORDER BY pr.created_at DESC, pr.pr_id DESC
+    LIMIT ? OFFSET ?
   `;
-  const rows = await queryAll(query);
+  const rows = await queryAll(query, [limit, offset]);
 
   return rows.map(r => {
     const stage = r.stage || 'Pending Procurement';

@@ -13,8 +13,16 @@ export default function POListTable({
   reloadPayments, setMpDate, setMpAmount, setMpMode, setMpUtr, setMpBank, setMpRef, setMpRemarks, setMpError, setManualPayModalOpen, setEditingPoNo,
   handleViewPOHistory,
   handleSendPOWhatsApp, handleSendPOEmail,
-  getStatusBadge, getPaymentStatusBadge
+  getStatusBadge, getPaymentStatusBadge,
+  hasMorePOs, loadMorePOs
 }) {
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await loadMorePOs();
+    setLoadingMore(false);
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-col sm:flex-row gap-4">
@@ -29,7 +37,8 @@ export default function POListTable({
         {filteredPOs.length === 0 ? (
           <div className="p-12 text-center text-slate-500 text-sm font-light">No purchase orders found.</div>
         ) : (
-          <Table>
+          <>
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>PO No</TableHead>
@@ -227,6 +236,14 @@ export default function POListTable({
               })}
             </TableBody>
           </Table>
+          {hasMorePOs && (
+            <div className="flex justify-center p-4 border-t border-slate-900/50 bg-slate-950/20">
+              <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="text-slate-400 hover:text-slate-100">
+                {loadingMore ? 'Loading...' : 'Load More Purchase Orders'}
+              </Button>
+            </div>
+          )}
+          </>
         )}
       </CardContent>
     </Card>

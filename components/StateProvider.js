@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { isSuperAdmin } from '../app/lib/config';
 
 const StateContext = createContext(null);
@@ -49,13 +49,15 @@ export function StateProvider({ children }) {
   const [pos, setPos] = useState([]);
   const [projects, setProjects] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [invoices, setInvoices] = useState([]);
   const [tdsSections, setTdsSections] = useState([]);
   const [featurePermissions, setFeaturePermissions] = useState({});
   // Role switching: when Super Admin selects a specific role to impersonate
   const [activeRole, setActiveRole] = useState(null);
   // Command-palette deep-link: when set, POsView highlights/scrolls to this PO
   const [targetPo, setTargetPo] = useState(null);
+  const [hasMoreVendors, setHasMoreVendors] = useState(true);
+  const [hasMorePOs, setHasMorePOs] = useState(true);
+  const [hasMorePayments, setHasMorePayments] = useState(true);
 
   const logout = useCallback(async () => {
     const currentToken = token || localStorage.getItem('lx_auth_token');
@@ -150,27 +152,128 @@ export function StateProvider({ children }) {
         }
         if (bundle.kpis) setKpis(bundle.kpis);
         if (bundle.master) {
-          setVendors(bundle.master.vendors || []);
-          setPos(bundle.master.pos || []);
+          const loadedVendors = bundle.master.vendors || [];
+          const loadedPOs = bundle.master.pos || [];
+          setVendors(loadedVendors);
+          setPos(loadedPOs);
           setProjects(bundle.master.projects || []);
           setTdsSections(bundle.master.tdsSections || []);
+          setHasMoreVendors(loadedVendors.length >= 100);
+          setHasMorePOs(loadedPOs.length >= 100);
         }
-        setPayments(bundle.payments || []);
+        const loadedPayments = bundle.payments || [];
+        setPayments(loadedPayments);
+        setHasMorePayments(loadedPayments.length >= 100);
         if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
           setFeaturePermissions(bundle.featurePermissions);
-        }
-        if (bundle.invoices) {
-          if (Array.isArray(bundle.invoices)) {
-            setInvoices(bundle.invoices);
-          } else if (Array.isArray(bundle.invoices.data)) {
-            setInvoices(bundle.invoices.data);
-          }
         }
       }
     } catch (e) {
       console.error('Data refresh failed:', e);
     }
   }, [token, call]);
+
+  const refreshVendors = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await call('getVendorsOnly', { limit: 100, offset: 0 });
+      if (res && res.vendors) {
+        setVendors(res.vendors);
+        setHasMoreVendors(res.vendors.length >= 100);
+      }
+    } catch (e) {
+      console.error('Vendors refresh failed:', e);
+    }
+  }, [token, call]);
+
+  const refreshPOs = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await call('getPOsOnly', { limit: 100, offset: 0 });
+      if (res && res.pos) {
+        setPos(res.pos);
+        setHasMorePOs(res.pos.length >= 100);
+      }
+    } catch (e) {
+      console.error('POs refresh failed:', e);
+    }
+  }, [token, call]);
+
+  const refreshPayments = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await call('getPaymentsOnly', { limit: 100, offset: 0 });
+      if (res && res.payments) {
+        setPayments(res.payments);
+        setHasMorePayments(res.payments.length >= 100);
+      }
+    } catch (e) {
+      console.error('Payments refresh failed:', e);
+    }
+  }, [token, call]);
+
+  const refreshKPIs = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await call('getDashboardKPIs');
+      if (res) {
+        setKpis(res);
+      }
+    } catch (e) {
+      console.error('KPIs refresh failed:', e);
+    }
+  }, [token, call]);
+
+  const loadMoreVendors = useCallback(async () => {
+    try {
+      const currentOffset = vendors.length;
+      const res = await call('getVendorsOnly', { limit: 100, offset: currentOffset });
+      if (res && res.vendors) {
+        setHasMoreVendors(res.vendors.length >= 100);
+        setVendors(prev => {
+          const existingCodes = new Set(prev.map(v => v.code));
+          const newVendors = res.vendors.filter(v => !existingCodes.has(v.code));
+          return [...prev, ...newVendors];
+        });
+      }
+    } catch (e) {
+      console.error('Load more vendors failed:', e);
+    }
+  }, [call, vendors]);
+
+  const loadMorePOs = useCallback(async () => {
+    try {
+      const currentOffset = pos.length;
+      const res = await call('getPOsOnly', { limit: 100, offset: currentOffset });
+      if (res && res.pos) {
+        setHasMorePOs(res.pos.length >= 100);
+        setPos(prev => {
+          const existingNos = new Set(prev.map(p => p.po_no));
+          const newPOs = res.pos.filter(p => !existingNos.has(p.po_no));
+          return [...prev, ...newPOs];
+        });
+      }
+    } catch (e) {
+      console.error('Load more POs failed:', e);
+    }
+  }, [call, pos]);
+
+  const loadMorePayments = useCallback(async () => {
+    try {
+      const currentOffset = payments.length;
+      const res = await call('getPaymentsOnly', { limit: 100, offset: currentOffset });
+      if (res && res.payments) {
+        setHasMorePayments(res.payments.length >= 100);
+        setPayments(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPayments = res.payments.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPayments];
+        });
+      }
+    } catch (e) {
+      console.error('Load more payments failed:', e);
+    }
+  }, [call, payments]);
 
   // Validate session when token changes
   useEffect(() => {
@@ -193,21 +296,20 @@ export function StateProvider({ children }) {
           setUser(u);
           if (bundle.kpis) setKpis(bundle.kpis);
           if (bundle.master) {
-            setVendors(bundle.master.vendors || []);
-            setPos(bundle.master.pos || []);
+            const loadedVendors = bundle.master.vendors || [];
+            const loadedPOs = bundle.master.pos || [];
+            setVendors(loadedVendors);
+            setPos(loadedPOs);
             setProjects(bundle.master.projects || []);
             setTdsSections(bundle.master.tdsSections || []);
+            setHasMoreVendors(loadedVendors.length >= 100);
+            setHasMorePOs(loadedPOs.length >= 100);
           }
-          setPayments(bundle.payments || []);
+          const loadedPayments = bundle.payments || [];
+          setPayments(loadedPayments);
+          setHasMorePayments(loadedPayments.length >= 100);
           if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
             setFeaturePermissions(bundle.featurePermissions);
-          }
-          if (bundle.invoices) {
-            if (Array.isArray(bundle.invoices)) {
-              setInvoices(bundle.invoices);
-            } else if (Array.isArray(bundle.invoices.data)) {
-              setInvoices(bundle.invoices.data);
-            }
           }
         } else {
           logout();
@@ -284,6 +386,92 @@ export function StateProvider({ children }) {
     };
   }, [user, refreshData]);
 
+  // SSE real-time subscription — primary sync mechanism
+  useEffect(() => {
+    if (!user || !token) return;
+
+    let eventSource = null;
+    let reconnectTimeout = null;
+    let debounceTimeout = null;
+    let backoff = 1000; // Start at 1s, exponential to max 30s
+    let active = true;
+    const activeRef = { current: true };
+
+    function connect() {
+      if (!activeRef.current) return;
+
+      const currentToken = token || localStorage.getItem('lx_auth_token');
+      if (!currentToken) return;
+
+      try {
+        eventSource = new EventSource(`/api/events?token=${encodeURIComponent(currentToken)}`);
+
+        eventSource.onopen = () => {
+          // Reset backoff on successful connection
+          backoff = 1000;
+        };
+
+        eventSource.onmessage = (event) => {
+          if (!activeRef.current) return;
+          let parsed = null;
+          try {
+            parsed = JSON.parse(event.data);
+          } catch (e) {}
+
+          if (debounceTimeout) clearTimeout(debounceTimeout);
+          debounceTimeout = setTimeout(() => {
+            if (!activeRef.current) return;
+            if (parsed && parsed.entity) {
+              if (parsed.entity === 'vendor') {
+                refreshVendors();
+              } else if (parsed.entity === 'po') {
+                refreshPOs();
+                refreshKPIs();
+              } else if (parsed.entity === 'payment') {
+                refreshPayments();
+                refreshKPIs();
+              } else {
+                refreshData();
+              }
+            } else {
+              refreshData();
+            }
+          }, 300);
+        };
+
+        eventSource.onerror = () => {
+          if (!activeRef.current) return;
+          // Close and reconnect with backoff
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          reconnectTimeout = setTimeout(() => {
+            if (activeRef.current) {
+              connect();
+            }
+          }, backoff);
+          backoff = Math.min(backoff * 2, 30000);
+        };
+      } catch (err) {
+        console.error('EventSource creation failed:', err);
+      }
+    }
+
+    connect();
+
+    return () => {
+      activeRef.current = false;
+      active = false;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+    };
+  }, [user, token, refreshData]);
+
   const hasPermission = useCallback((feature) => {
     if (!user) return false;
 
@@ -347,8 +535,6 @@ export function StateProvider({ children }) {
     setProjects,
     payments,
     setPayments,
-    invoices,
-    setInvoices,
     tdsSections,
     setTdsSections,
     featurePermissions,
@@ -361,6 +547,16 @@ export function StateProvider({ children }) {
     call,
     callDirect,
     refreshData,
+    refreshVendors,
+    refreshPOs,
+    refreshPayments,
+    refreshKPIs,
+    loadMoreVendors,
+    loadMorePOs,
+    loadMorePayments,
+    hasMoreVendors,
+    hasMorePOs,
+    hasMorePayments,
     targetPo,
     setTargetPo,
   };

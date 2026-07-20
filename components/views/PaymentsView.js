@@ -16,18 +16,16 @@ import PaymentHistoryModal from './payments/PaymentHistoryModal';
 import MultiSelectActionBar from './payments/MultiSelectActionBar';
 import BulkApprovalReviewModal from './payments/BulkApprovalReviewModal';
 import BulkRejectModal from './payments/BulkRejectModal';
-import InvoiceUploadModal from './payments/InvoiceUploadModal';
-import InternalWhatsAppModal from '../ui/InternalWhatsAppModal';
 
 export default function PaymentsView() {
-  const { payments, setPayments, vendors, pos, user, call, refreshData, tdsSections } = useAppState();
+  const { payments, setPayments, vendors, pos, user, call, refreshData, tdsSections, hasMorePayments, loadMorePayments } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('active'); // active, pending
   
   // Payment Request Form state
   const [requestModalOpen, setRequestModalOpen] = useState(false);
-  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [editingPrId, setEditingPrId] = useState(null); // Edit mode state
+  const [editPrVersion, setEditPrVersion] = useState(null);
   const [vendorCode, setVendorCode] = useState('');
   const [poNo, setPoNo] = useState('');
   const [grossAmount, setGrossAmount] = useState(0);
@@ -52,7 +50,6 @@ export default function PaymentsView() {
   const [activeMultiSelectProjectIndex, setActiveMultiSelectProjectIndex] = useState(0);
   const [bulkApproveModalOpen, setBulkApproveModalOpen] = useState(false);
   const [bulkRejectModalOpen, setBulkRejectModalOpen] = useState(false);
-  const [internalWaModalOpen, setInternalWaModalOpen] = useState(false);
   const [bulkRejectComment, setBulkRejectComment] = useState('');
   const [bulkApprovalData, setBulkApprovalData] = useState([]); // Array of request details for review grid
 
@@ -145,6 +142,7 @@ export default function PaymentsView() {
 
   const handleEditPayment = (pr) => {
     setEditingPrId(pr.id);
+    setEditPrVersion(pr.version || null);
     
     // Find the vendor code for this vendor name
     const prVendor = vendors.find(v => v.name === pr.vendor_name || v.name === pr.vendor) || vendors[0];
@@ -377,7 +375,8 @@ export default function PaymentsView() {
         net_amount: netAmount,
         invoice_no: invoiceRef.trim(),
         invoiceRef,
-        remarks: remarks.trim()
+        remarks: remarks.trim(),
+        expectedVersion: editPrVersion
       };
       
       let res;
@@ -532,41 +531,21 @@ export default function PaymentsView() {
   };
 
   const handleSendPaymentAdvice = async (reqId, method) => {
-    if (method === 'whatsapp') {
-      try {
-        await call('whatsappPaymentAdvice', reqId);
-        toast.success(`Payment advice WhatsApp queued successfully!`);
-      } catch (err) {
-        toast.error('Failed to send WhatsApp: ' + (err.message || 'Unknown error'));
-      }
-    } else {
-      setAdviceTargetIds([reqId]);
-      // Bug 1: pre-fill from Vendor Master instead of always blanking
-      const vendorEmail = findVendorEmailForReqId(reqId);
-      setAdviceContact(vendorEmail);
-      setAdviceContactSource(vendorEmail ? 'vendor_master' : 'empty');
-      setAdviceModalOpen(true);
-    }
-  };
-
-  const handleSendMultiWhatsApp = () => {
-    setInternalWaModalOpen(true);
+    setAdviceTargetIds([reqId]);
+    // Bug 1: pre-fill from Vendor Master instead of always blanking
+    const vendorEmail = findVendorEmailForReqId(reqId);
+    setAdviceContact(vendorEmail);
+    setAdviceContactSource(vendorEmail ? 'vendor_master' : 'empty');
+    setAdviceModalOpen(true);
   };
 
   const executeSendAdvice = async (method) => {
-    if (!adviceContact) return toast('Please enter a contact (email or phone).');
+    if (!adviceContact) return toast('Please enter an email.');
     try {
-      if (method === 'email') {
-        for (const targetId of adviceTargetIds) {
-          await call('sendPaymentAdvice', targetId, adviceContact.trim());
-        }
-        toast.success(`Payment advice email sent to ${adviceContact.trim()}`);
-      } else if (method === 'whatsapp') {
-        for (const targetId of adviceTargetIds) {
-          await call('sendPaymentAdviceWhatsApp', targetId, adviceContact.trim());
-        }
-        toast.success(`Payment advice WhatsApp sent to ${adviceContact.trim()}`);
+      for (const targetId of adviceTargetIds) {
+        await call('sendPaymentAdvice', targetId, adviceContact.trim());
       }
+      toast.success(`Payment advice email sent to ${adviceContact.trim()}`);
       setAdviceModalOpen(false);
       if (adviceTargetIds.length > 1) {
         setSelectedPayments([]);
@@ -713,7 +692,6 @@ export default function PaymentsView() {
       <PaymentFilters
         canOnboard={canOnboard} 
         handleOpenRequestModal={handleOpenRequestModal}
-        handleOpenInvoiceModal={() => setInvoiceModalOpen(true)}
         activeTab={activeTab} setActiveTab={setActiveTab}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
       />
@@ -728,6 +706,8 @@ export default function PaymentsView() {
         onSelectAll={handleSelectAllPayments}
         canActOnReq={canActOnReq}
         onEditPayment={handleEditPayment}
+        hasMorePayments={hasMorePayments}
+        loadMorePayments={loadMorePayments}
       />
       
       <MultiSelectActionBar
@@ -746,7 +726,6 @@ export default function PaymentsView() {
         onApproveSelected={handleBulkApproveReview}
         onRejectSelected={() => setBulkRejectModalOpen(true)}
         onClearSelection={() => setSelectedPayments([])}
-        onSendToWhatsApp={handleSendMultiWhatsApp}
       />
 
       <BulkApprovalReviewModal
@@ -758,13 +737,6 @@ export default function PaymentsView() {
         submitting={submitting}
         canEditApprovalTds={canEditApprovalTds}
         tdsSections={tdsSections}
-      />
-
-      <InternalWhatsAppModal
-        isOpen={internalWaModalOpen}
-        onClose={() => setInternalWaModalOpen(false)}
-        selectedRecords={selectedRequestsData}
-        moduleName="Payment Requests"
       />
 
       <BulkRejectModal
@@ -828,18 +800,13 @@ export default function PaymentsView() {
         onCommentAdded={handlePaymentCommentAdded}
       />
 
-      <InvoiceUploadModal 
-        open={invoiceModalOpen} 
-        onClose={() => setInvoiceModalOpen(false)} 
-      />
-
       {/* Payment Advice Modal — Bug 1: pre-filled from Vendor Master */}
       <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">
         <div className="space-y-4">
           <div className="text-sm text-slate-400">
             {adviceContactSource === 'vendor_master'
               ? 'Email pre-filled from Vendor Master. Confirm or update before sending.'
-              : 'No email on file for this vendor. Enter an email address or WhatsApp number (with country code, e.g. 919876543210).'}
+              : 'No email on file for this vendor. Enter an email address.'}
           </div>
           <div className="space-y-1.5">
             <label className="text-xs text-slate-400 font-light">
@@ -850,7 +817,7 @@ export default function PaymentsView() {
             </label>
             <Input
               type="text"
-              placeholder="Email or Phone Number"
+              placeholder="Email Address"
               value={adviceContact}
               onChange={e => setAdviceContact(e.target.value)}
             />
@@ -858,9 +825,6 @@ export default function PaymentsView() {
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
             <Button variant="ghost" onClick={() => setAdviceModalOpen(false)}>
               Cancel
-            </Button>
-            <Button variant="primary" onClick={() => executeSendAdvice('whatsapp')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              Send via WhatsApp
             </Button>
             <Button variant="primary" onClick={() => executeSendAdvice('email')}>
               Send via Email
