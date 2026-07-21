@@ -18,13 +18,23 @@ export default function SettingsWorkflowEditorModal({
     name: '',
     description: '',
     is_active: 0,
-    module_type: '',
+    module_type: 'purchase_order',
     stages: []
   });
 
   useEffect(() => {
-    if (open && workflowId) {
-      loadWorkflow(workflowId);
+    if (open) {
+      if (workflowId) {
+        loadWorkflow(workflowId);
+      } else {
+        setWorkflow({
+          name: '',
+          description: '',
+          is_active: 0,
+          module_type: 'purchase_order',
+          stages: []
+        });
+      }
     }
   }, [open, workflowId, call]);
 
@@ -74,6 +84,22 @@ export default function SettingsWorkflowEditorModal({
     setWorkflow(prev => ({ ...prev, stages: updatedStages }));
   };
 
+  const moveStage = (index, direction) => {
+    const newStages = [...workflow.stages];
+    if (direction === 'up' && index > 0) {
+      const temp = newStages[index];
+      newStages[index] = newStages[index - 1];
+      newStages[index - 1] = temp;
+    } else if (direction === 'down' && index < newStages.length - 1) {
+      const temp = newStages[index];
+      newStages[index] = newStages[index + 1];
+      newStages[index + 1] = temp;
+    }
+    // Re-sequence stages
+    const updated = newStages.map((s, idx) => ({ ...s, sequence: idx + 1 }));
+    setWorkflow(prev => ({ ...prev, stages: updated }));
+  };
+
   const handleSave = async () => {
     if (!workflow.name.trim()) {
       toast.error('Workflow name is required.');
@@ -106,20 +132,29 @@ export default function SettingsWorkflowEditorModal({
         }))
       };
 
-      await call('updateApprovalWorkflow', workflowId, payload);
-      toast.success('Workflow updated successfully.');
+      if (workflowId) {
+        await call('updateApprovalWorkflow', workflowId, payload);
+        toast.success('Workflow updated successfully.');
+      } else {
+        await call('createApprovalWorkflow', {
+          ...payload,
+          module_type: workflow.module_type
+        });
+        toast.success('Workflow created successfully.');
+      }
+
       if (onSave) onSave();
       onClose();
     } catch (e) {
       console.error(e);
-      toast.error('Failed to update workflow: ' + (e.message || String(e)));
+      toast.error('Failed to save workflow: ' + (e.message || String(e)));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={`Edit Workflow`} size="lg">
+    <Dialog open={open} onClose={onClose} title={workflowId ? `Edit Workflow` : `Create Approval Workflow`} size="lg">
       {loading ? (
         <div className="p-12 text-center text-slate-500 text-sm flex items-center justify-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading workflow...
@@ -138,12 +173,22 @@ export default function SettingsWorkflowEditorModal({
                 />
               </div>
               <div className="flex-1 space-y-1">
-                <label className="text-xs text-slate-400 font-light">Module Type (Read-only)</label>
-                <Input
-                  value={workflow.module_type.replace('_', ' ')}
-                  disabled
-                  className="capitalize opacity-70"
-                />
+                <label className="text-xs text-slate-400 font-light">Module Type</label>
+                {workflowId ? (
+                  <Input
+                    value={workflow.module_type.replace('_', ' ')}
+                    disabled
+                    className="capitalize opacity-70"
+                  />
+                ) : (
+                  <Select
+                    value={workflow.module_type}
+                    onChange={(e) => handleFieldChange('module_type', e.target.value)}
+                  >
+                    <option value="purchase_order">Purchase Order</option>
+                    <option value="payment_request">Payment Request</option>
+                  </Select>
+                )}
               </div>
             </div>
             
@@ -189,18 +234,37 @@ export default function SettingsWorkflowEditorModal({
             ) : (
               workflow.stages.map((stage, idx) => (
                 <div key={idx} className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 relative group">
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => removeStage(idx)}
-                      className="text-slate-500 hover:text-red-400 p-1 rounded transition-colors"
-                      title="Remove Stage"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
                   
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center justify-between mb-3 bg-slate-950/20 p-2 rounded">
                     <Badge variant="outline" className="bg-slate-800/50">Stage {idx + 1}</Badge>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveStage(idx, 'up')}
+                        disabled={idx === 0}
+                        className="text-slate-400 hover:text-white p-1 disabled:opacity-30 disabled:hover:text-slate-400 text-xs font-mono"
+                        title="Move Up"
+                      >
+                        ▲ Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveStage(idx, 'down')}
+                        disabled={idx === workflow.stages.length - 1}
+                        className="text-slate-400 hover:text-white p-1 disabled:opacity-30 disabled:hover:text-slate-400 text-xs font-mono"
+                        title="Move Down"
+                      >
+                        ▼ Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeStage(idx)}
+                        className="text-slate-500 hover:text-red-400 p-1 rounded transition-colors ml-2"
+                        title="Remove Stage"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

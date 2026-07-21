@@ -2,20 +2,76 @@ import React from 'react';
 import { Dialog, Button, Input, Select, Textarea } from '../../ui/core';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
+import { useAppState } from '../../StateProvider';
 
 export default function PaymentFormModal({
   requestModalOpen, setRequestModalOpen, vendorCode, setVendorCode, vendors,
   poNo, handlePOChange, vendorPOs, grossAmount, handleGrossAmountChange,
   tdsAmount, setTdsAmount, netAmount, invoiceRef, setInvoiceRef, remarks, setRemarks,
   formError, submitting, handleSubmitRequest, projectSummary, progressWidths, getHealthTheme,
-  getVendorPOs, setPoNo, isEditMode
+  getVendorPOs, setPoNo, isEditMode, editingPrId
 }) {
   const selectedPO = vendorPOs?.find(p => p.po_no === poNo) || null;
+
+  const { activeLocks, user, call } = useAppState();
+  const lockKey = `payment:${editingPrId}`;
+  const currentLock = editingPrId ? activeLocks[lockKey] : null;
+  const isLockedByOthers = currentLock && currentLock.email !== user?.email;
+
+  React.useEffect(() => {
+    if (!requestModalOpen || !editingPrId) return;
+
+    let active = true;
+    let intervalId = null;
+
+    async function lockDocument() {
+      try {
+        const res = await call('acquireDocumentLock', 'payment', editingPrId);
+        if (res && res.ok) {
+          intervalId = setInterval(async () => {
+            if (!active) return;
+            try {
+              const refreshRes = await call('acquireDocumentLock', 'payment', editingPrId);
+              if (!refreshRes.ok) {
+                clearInterval(intervalId);
+              }
+            } catch (e) {
+              console.error('Lock refresh failed:', e);
+            }
+          }, 15000);
+        }
+      } catch (err) {
+        console.error('Failed to acquire document lock:', err);
+      }
+    }
+
+    lockDocument();
+
+    return () => {
+      active = false;
+      if (intervalId) clearInterval(intervalId);
+      call('releaseDocumentLock', 'payment', editingPrId).catch(() => {});
+    };
+  }, [requestModalOpen, editingPrId, call]);
   return (
     <>
       {/* Create / Edit Payment Request Dialog */}
       <Dialog open={requestModalOpen} onClose={() => setRequestModalOpen(false)} title={isEditMode ? "Edit Payment Request" : "New Payment Request"}>
         <form onSubmit={handleSubmitRequest} className="space-y-6">
+          {isLockedByOthers && (
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-sm font-medium">
+              <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="font-semibold">Collaborative Edit Lock</div>
+                <div className="text-xs font-light text-slate-400 mt-1">
+                  This Payment Request is currently being edited by <strong>{currentLock.name}</strong> ({currentLock.email}).
+                  Your inputs are set to read-only, and saving changes is disabled.
+                </div>
+              </div>
+            </div>
+          )}
+
+          <fieldset disabled={isLockedByOthers} className="space-y-6 border-0 p-0 m-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR *</label>
@@ -107,6 +163,8 @@ export default function PaymentFormModal({
             </div>
           </div>
 
+          </fieldset>
+
           {formError && (
             <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 flex-shrink-0" />
@@ -118,7 +176,7 @@ export default function PaymentFormModal({
             <Button type="button" variant="ghost" onClick={() => setRequestModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={submitting}>
+            <Button type="submit" variant="primary" disabled={submitting || isLockedByOthers}>
               {submitting ? (isEditMode ? 'Updating...' : 'Submitting...') : (isEditMode ? 'Update Request' : 'Submit Request')}
             </Button>
           </div>

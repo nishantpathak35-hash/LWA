@@ -56,6 +56,7 @@ export function StateProvider({ children }) {
   // Command-palette deep-link: when set, POsView highlights/scrolls to this PO
   const [targetPo, setTargetPo] = useState(null);
   const [hasMoreVendors, setHasMoreVendors] = useState(true);
+  const [activeLocks, setActiveLocks] = useState({});
   const [hasMorePOs, setHasMorePOs] = useState(true);
   const [hasMorePayments, setHasMorePayments] = useState(true);
 
@@ -138,6 +139,18 @@ export function StateProvider({ children }) {
     }
   }, [token, logout]);
 
+  const refreshActiveLocks = useCallback(async () => {
+    if (!token) return;
+    try {
+      const locks = await call('getActiveLocks');
+      if (locks) {
+        setActiveLocks(locks);
+      }
+    } catch (e) {
+      console.error('Active locks refresh failed:', e);
+    }
+  }, [token, call]);
+
   // Load all app data (boot bundle)
   const refreshData = useCallback(async () => {
     if (!token) return;
@@ -169,11 +182,13 @@ export function StateProvider({ children }) {
         if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
           setFeaturePermissions(bundle.featurePermissions);
         }
+        // Also refresh locks
+        await refreshActiveLocks();
       }
     } catch (e) {
       console.error('Data refresh failed:', e);
     }
-  }, [token, call]);
+  }, [token, call, refreshActiveLocks]);
 
   const refreshVendors = useCallback(async () => {
     if (!token) return;
@@ -313,6 +328,11 @@ export function StateProvider({ children }) {
           if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
             setFeaturePermissions(bundle.featurePermissions);
           }
+          // Also refresh locks on boot
+          const locks = await call('getActiveLocks');
+          if (locks && active) {
+            setActiveLocks(locks);
+          }
         } else {
           logout();
         }
@@ -431,6 +451,8 @@ export function StateProvider({ children }) {
               } else if (parsed.entity === 'payment') {
                 refreshPayments();
                 refreshKPIs();
+              } else if (parsed.entity.endsWith('_lock')) {
+                refreshActiveLocks();
               } else {
                 refreshData();
               }
@@ -560,6 +582,8 @@ export function StateProvider({ children }) {
     hasMorePayments,
     targetPo,
     setTargetPo,
+    activeLocks,
+    refreshActiveLocks,
   };
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>;

@@ -777,6 +777,7 @@ export default function PaymentsView() {
           getVendorPOs={getVendorPOs}
           setPoNo={setPoNo}
           isEditMode={!!editingPrId}
+          editingPrId={editingPrId}
         />
       )}
       

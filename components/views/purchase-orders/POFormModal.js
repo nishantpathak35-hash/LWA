@@ -4,6 +4,7 @@ import AttachmentsSection from '../../ui/AttachmentsSection';
 import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import { GST_RATES, UOM_OPTIONS } from './po-constants';
+import { useAppState } from '../../StateProvider';
 
 export default function POFormModal(props) {
   const {
@@ -23,6 +24,47 @@ export default function POFormModal(props) {
 
   const selectedProjectData = projects.find(p => p?.name === project);
 
+  const { activeLocks, user, call } = useAppState();
+  const lockKey = `po:${editingPoNo}`;
+  const currentLock = editingPoNo ? activeLocks[lockKey] : null;
+  const isLockedByOthers = currentLock && currentLock.email !== user?.email;
+
+  React.useEffect(() => {
+    if (!modalOpen || !editingPoNo) return;
+
+    let active = true;
+    let intervalId = null;
+
+    async function lockDocument() {
+      try {
+        const res = await call('acquireDocumentLock', 'po', editingPoNo);
+        if (res && res.ok) {
+          intervalId = setInterval(async () => {
+            if (!active) return;
+            try {
+              const refreshRes = await call('acquireDocumentLock', 'po', editingPoNo);
+              if (!refreshRes.ok) {
+                clearInterval(intervalId);
+              }
+            } catch (e) {
+              console.error('Lock refresh failed:', e);
+            }
+          }, 15000);
+        }
+      } catch (err) {
+        console.error('Failed to acquire document lock:', err);
+      }
+    }
+
+    lockDocument();
+
+    return () => {
+      active = false;
+      if (intervalId) clearInterval(intervalId);
+      call('releaseDocumentLock', 'po', editingPoNo).catch(() => {});
+    };
+  }, [modalOpen, editingPoNo, call]);
+
   return (
     <>
       {/* ── Create / Edit PO Dialog ────────────────────────────────────────── */}
@@ -30,6 +72,21 @@ export default function POFormModal(props) {
         maxWidth="max-w-[95vw]"
         title={editingPoNo ? `Edit Purchase Order — ${editingPoNo}` : 'Create Purchase Order'}>
         <form onSubmit={handleSavePO} className="space-y-6">
+
+          {isLockedByOthers && (
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-sm font-medium">
+              <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="font-semibold">Collaborative Edit Lock</div>
+                <div className="text-xs font-light text-slate-400 mt-1">
+                  This Purchase Order is currently being edited by <strong>{currentLock.name}</strong> ({currentLock.email}).
+                  Your inputs are set to read-only, and saving changes is disabled.
+                </div>
+              </div>
+            </div>
+          )}
+
+          <fieldset disabled={isLockedByOthers} className="space-y-6 border-0 p-0 m-0">
 
           {/* Status warning for approved PO edits */}
           {editingPO && String(editingPO.approval_status || editingPO.status || '').toLowerCase() === 'approved' && (
@@ -301,6 +358,8 @@ export default function POFormModal(props) {
             </div>
           )}
 
+          </fieldset>
+
           {formError && (
             <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 flex-shrink-0" /><span>{formError}</span>
@@ -309,7 +368,7 @@ export default function POFormModal(props) {
 
           <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={submitting}>
+            <Button type="submit" variant="primary" disabled={submitting || isLockedByOthers}>
               {submitting ? (editingPoNo ? 'Saving...' : 'Creating...') : (editingPoNo ? 'Save Changes' : 'Create PO')}
             </Button>
           </div>

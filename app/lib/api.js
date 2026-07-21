@@ -18,3 +18,5 @@ export { getNumberSeriesConfig, getAllNumberSeriesConfigs, updateNumberSeriesCon
 export { getTDSSections, getAllTDSSections, createTDSSection, updateTDSSection, deleteTDSSection, setDefaultTDS, toggleTDSStatus, getDefaultTDSConfig, setDefaultTDSConfig } from './api/tds.js';
 export { submitDPR, listDPRs, getDPR, updateDPR, deleteDPR, listTemplates, createTemplate, updateTemplate, deleteTemplate, getDPRSettings, saveDPRSettings } from './api/dpr.js';
 export { listSchedules, saveSchedule, getWPRAggregation, createWPRReport, listWPRReports, getWPRReport, deleteWPRReport } from './api/wpr.js';
+export { acquireDocumentLock, releaseDocumentLock, getActiveLocks } from './api/locks.js';
+
