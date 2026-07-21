@@ -52,11 +52,20 @@ export class PaymentRepository {
   }
 
   static async updateRequest(prId: string | number, updates: Partial<IPaymentRequest> & Record<string, any>, expectedVersion?: number): Promise<void> {
+    // P0-6: Column allowlist — prevents SQL injection if raw client payload is ever passed
+    const validColumns = new Set([
+      'po_no', 'vendor_name', 'project', 'category', 'amount_requested', 'approved_amount',
+      'stage', 'remittance', 'remarks', 'created_by', 'vendor_code',
+      'tds_amount', 'tds_percentage', 'tds_section',
+      'remittance_ref', 'remittance_date',
+      'proc_approval', 'finance_approval', 'director_approval'
+    ]);
+
     const fields: string[] = [];
     const values: any[] = [];
     
     for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined && key !== 'version') {
+      if (value !== undefined && key !== 'version' && validColumns.has(key)) {
         fields.push(`${key} = ?`);
         values.push(value);
       }

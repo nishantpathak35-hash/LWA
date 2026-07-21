@@ -86,7 +86,8 @@ export async function getAuditLogs(filters = {}, session) {
 
 export async function getPaymentReportRows(filters = {}, session) {
   requireAuth(session);
-  const all = await listPaymentRequests({}, session);
+  // P0-7: Reports must fetch ALL records — pass limit: 0 to disable the default 100-row cap
+  const all = await listPaymentRequests({ limit: 0 }, session);
   return all.filter(r => {
     const type = String(filters.type || 'All').toLowerCase();
     if (type === 'all' && r.status === 'pending') return false;

@@ -71,6 +71,8 @@ export function StateProvider({ children }) {
       setProjects([]);
       setPayments([]);
       setActiveView('dashboard');
+      setLoading(false);
+      setBooting(false);
       if (currentToken) {
         // Silent logout
         fetch('/api/rpc', {
@@ -329,10 +331,8 @@ export function StateProvider({ children }) {
           }
         }
       } finally {
-        if (active) {
-          setLoading(false);
-          setBooting(false);
-        }
+        setLoading(false);
+        setBooting(false);
       }
     }
 
@@ -362,12 +362,13 @@ export function StateProvider({ children }) {
   useEffect(() => {
     if (!user) return;
     
-    // Auto-refresh every 30 seconds — but only when the tab is visible (P2 fix)
+    // P2-2: Auto-refresh every 2 minutes as SSE fallback — SSE is the primary sync mechanism.
+    // Reduced from 30s to avoid doubling DB load since SSE already covers real-time changes.
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         refreshData();
       }
-    }, 30000);
+    }, 120000);
 
     // Refresh immediately when window gains focus or tab becomes visible
     const handleSync = () => {

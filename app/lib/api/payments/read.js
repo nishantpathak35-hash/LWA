@@ -18,9 +18,13 @@ function requireAuth(session) {
 
 export async function listPaymentRequests(filters = {}, session) {
   requireAuth(session);
-  const limit = filters?.limit ?? 100;
+  // P0-7: limit=0 sentinel means "no limit" (used by report functions).
+  // Default 100 is kept for paginated UI views.
+  const rawLimit = filters?.limit;
+  const noLimit = rawLimit === 0 || rawLimit === null;
+  const limit = noLimit ? null : (rawLimit ?? 100);
   const offset = filters?.offset ?? 0;
-  const query = `
+  let query = `
     SELECT
       pr.*,
       COALESCE(v.legal_name, po.vendor_name) as joined_vendor_name,
@@ -30,9 +34,13 @@ export async function listPaymentRequests(filters = {}, session) {
     LEFT JOIN purchase_orders po ON pr.po_no = po.po_no
     LEFT JOIN vendors v ON (v.vendor_code = pr.vendor_code OR v.legal_name = po.vendor_name)
     ORDER BY pr.created_at DESC, pr.pr_id DESC
-    LIMIT ? OFFSET ?
   `;
-  const rows = await queryAll(query, [limit, offset]);
+  const params = [];
+  if (limit !== null) {
+    query += `    LIMIT ? OFFSET ?\n`;
+    params.push(limit, offset);
+  }
+  const rows = await queryAll(query, params);
 
   return rows.map(r => {
     const stage = r.stage || 'Pending Procurement';

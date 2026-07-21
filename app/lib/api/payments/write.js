@@ -89,3 +89,65 @@ export async function addPaymentComment(prId, comment, session) {
 
   return { ok: true, prId, action: 'commented' };
 }
+
+/**
+ * P1-1: Delete a payment request at any stage.
+ * - Rejected / Pending: straightforward delete, no ledger impact
+ * - Approved / Ready to Remit: delete + release PO reserved amount
+ * - Remitted: delegates to existing deleteRemittedPayment logic (ledger reversal)
+ */
+export async function deletePaymentRequest(prId, reason, session) {
+  requireAuth(session);
+  const roles = session.roles || [];
+  const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || isSuperAdmin(session.email);
+  const isFinance = roles.includes('finance');
+  
+  if (!isDirOrAdmin && !isFinance) {
+    throw new Error('AUTH:Unauthorized - Only Director, Admin, or Finance can delete payment requests.');
+  }
+
+  if (!reason || String(reason).trim().length < 5) {
+    throw new Error('A detailed reason (at least 5 characters) is required for audit logging.');
+  }
+
+  const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [prId]);
+  if (!pr) {
+    throw new Error('Payment request not found.');
+  }
+
+  const stage = String(pr.stage || '').toLowerCase().trim();
+  const isRemitted = stage === 'remitted' || String(pr.remittance || '').toLowerCase().trim() === 'remitted';
+
+  if (isRemitted) {
+    // Delegate to existing remitted-payment delete logic (handles ledger reversal)
+    return deleteRemittedPayment(prId, reason, session);
+  }
+
+  const poNo = pr.po_no;
+  const vendor = pr.vendor_name;
+  const grossAmount = pr.approved_amount ?? pr.amount_requested;
+
+  // Log pre-deletion audit
+  await logAudit(
+    session.email,
+    'DELETE_PAYMENT_REQUEST',
+    `Deleted PR #${prId} (stage: ${pr.stage}) for PO: ${poNo}, Vendor: ${vendor}, Amount: ${grossAmount}. Reason: ${reason}`
+  );
+
+  // For Approved / Ready to Remit: clean up any system_payments entries
+  // that may have been created (ensures PO ledger stays consistent)
+  if (stage.includes('approved') || stage.includes('ready') || stage.includes('remit')) {
+    await queryRun(`DELETE FROM system_payments WHERE pr_key = ? OR pr_key = ?`, [String(prId), Number(prId)]);
+  }
+
+  // Delete the payment request
+  await queryRun(`DELETE FROM payment_requests WHERE pr_id = ?`, [prId]);
+
+  // Recalculate PO payment status if we had a PO link
+  if (poNo) {
+    await updatePOPaymentStatus(poNo);
+  }
+
+  await emitBroadcast('payment', 'deleted', prId);
+  return { ok: true, message: `Payment request #${prId} deleted successfully.` };
+}

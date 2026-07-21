@@ -77,7 +77,7 @@ export async function GET(request) {
 
         // Schedule next poll
         if (!closed) {
-          setTimeout(poll, 2000);
+          setTimeout(poll, 4000); // P2-1: Increased from 2s to 4s to reduce DB load
         }
       };
 

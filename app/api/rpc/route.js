@@ -81,6 +81,7 @@ const ALLOWED_METHODS = new Set([
   'getPOItems',
   'correctLegacyPOPaidAmount',
   'deleteRemittedPayment',
+  'deletePaymentRequest',
   'getFinancialDiagnostics',
   'getSystemPaymentsDetail',
   'deduplicateSystemPayments',

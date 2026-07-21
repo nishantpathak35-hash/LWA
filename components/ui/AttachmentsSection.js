@@ -83,7 +83,7 @@ export default function AttachmentsSection({ entityType, entityId }) {
   const getDownloadUrl = (id) => {
     // Assuming x-lwa-token is stored in localStorage or handled by fetch
     // But since this opens in a new tab, we pass it in query params
-    const token = localStorage.getItem('lwa_token');
+    const token = localStorage.getItem('lx_auth_token');
     return `/api/attachments/${id}?token=${encodeURIComponent(token)}`;
   };
 

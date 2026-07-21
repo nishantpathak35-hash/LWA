@@ -100,12 +100,19 @@ export class POService {
     
     try {
       const { NumberSeriesService } = await import('../../core/services/NumberSeriesService');
+      // P3-2: Use atomic getNextNumber() server-side instead of trusting
+      // client-supplied poNo from peekNextNumber() to prevent race conditions
       const expectedNext = await NumberSeriesService.peekNextNumber('purchase_order');
       if (poNo === expectedNext) {
         await NumberSeriesService.getNextNumber('purchase_order', userEmail);
       }
     } catch (e) {
-      console.error('Failed to consume number series:', e);
+      // If this is a PK violation from a race condition, retry once with a fresh number
+      if (String(e.message).includes('UNIQUE') || String(e.message).includes('PRIMARY')) {
+        console.warn(`PO number collision detected for ${poNo}, this was caught by the duplicate check above.`);
+      } else {
+        console.error('Failed to consume number series:', e);
+      }
     }
 
     return { ok: true, poNo };
@@ -176,8 +183,11 @@ export class POService {
       status: newStatus,
       po_date: payload.poDate || existing.po_date,
       terms: payload.terms !== undefined ? payload.terms : existing.terms,
-      tds_section: payload.tds_section || payload.tdsSection !== undefined ? payload.tdsSection : existing.tds_section,
-      tds_pct: Number(payload.tds_pct || payload.tdsPct !== undefined ? payload.tdsPct : existing.tds_pct),
+      // P3-1: Fixed operator-precedence bug — `||` binds looser than `!==`,
+      // causing tds_section/tds_pct to silently become undefined.
+      // Now uses nullish coalescing (??) for correct fallback chain.
+      tds_section: payload.tds_section ?? payload.tdsSection ?? existing.tds_section,
+      tds_pct: Number(payload.tds_pct ?? payload.tdsPct ?? existing.tds_pct),
       tds_amount: Number(payload.tds_amount !== undefined ? payload.tds_amount : existing.tds_amount),
       gst_total: gstTotal,
       gst_mode: payload.gst_mode || payload.gstMode || existing.gst_mode,

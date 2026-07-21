@@ -17,15 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import { requireAdminConsole, normalizeRoleName, getSetting, setSetting, logAudit } from './core.js';
 import { isSuperAdmin, SUPER_ADMIN_EMAIL } from '../config.js';
-
-
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing!");
-  }
-  return secret;
-}
+import { encryptToken, decryptToken } from './token.js';
 
 function invalidateProjectCache(project) {
   return project;
@@ -38,44 +30,43 @@ const settingsCache = new Map();
 // run the expensive v3 backfill before either sets the flag to true.
 let _settingsTablePromise = null;
 
-function encryptToken(data) {
-  const JWT_SECRET = getJwtSecret();
-  const iv = crypto.randomBytes(16);
-  const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + encrypted;
-}
-
-function decryptToken(token) {
-  const JWT_SECRET = getJwtSecret();
-  try {
-    const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
-    if (token && token.length >= 32) {
-      try {
-        const ivHex = token.slice(0, 32);
-        const ciphertext = token.slice(32);
-        const iv = Buffer.from(ivHex, 'hex');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return JSON.parse(decrypted);
-      } catch (err) {
-        // Fall back to legacy format
-      }
-    }
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.alloc(16, 0));
-    let decrypted = decipher.update(token, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return JSON.parse(decrypted);
-  } catch (e) {
-    throw new Error('Invalid token');
-  }
-}
+// P3-4: encryptToken/decryptToken now imported from ./token.js
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
+}
+
+// P0-3: Brute-force protection — per-email attempt tracking with exponential backoff
+const _loginAttempts = new Map();
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function checkBruteForce(email) {
+  const record = _loginAttempts.get(email);
+  if (!record) return;
+  const elapsed = Date.now() - record.lastAttempt;
+  if (elapsed > LOCKOUT_WINDOW_MS) {
+    _loginAttempts.delete(email);
+    return;
+  }
+  if (record.count >= MAX_ATTEMPTS) {
+    const waitSec = Math.min(60 * 15, Math.pow(2, record.count - MAX_ATTEMPTS) * 30);
+    const remaining = Math.ceil((waitSec * 1000 - elapsed) / 1000);
+    if (remaining > 0) {
+      throw new Error(`Too many failed login attempts. Please try again in ${remaining} seconds.`);
+    }
+  }
+}
+
+function recordFailedAttempt(email) {
+  const record = _loginAttempts.get(email) || { count: 0, lastAttempt: 0 };
+  record.count += 1;
+  record.lastAttempt = Date.now();
+  _loginAttempts.set(email, record);
+}
+
+function clearFailedAttempts(email) {
+  _loginAttempts.delete(email);
 }
 
 export async function loginUser(email, password, meta = {}) {
@@ -83,22 +74,26 @@ export async function loginUser(email, password, meta = {}) {
     throw new Error('Email and password are required');
   }
   const normEmail = String(email).trim().toLowerCase();
+
+  // P0-3: Check brute-force lockout before any DB work
+  checkBruteForce(normEmail);
+
   const user = await queryGet(`SELECT * FROM users WHERE LOWER(email) = ?`, [normEmail]);
   if (!user) {
+    recordFailedAttempt(normEmail);
     throw new Error('Invalid credentials');
   }
   if (!user.active) {
     throw new Error('Account is inactive');
   }
 
-  // Lazy initialize admin/invite password if password_hash is not yet set
+  // P0-1: Never auto-provision a password on login.
+  // If password_hash is null, the account hasn't been activated.
   if (!user.password_hash) {
     if (user.invite_token) {
       throw new Error('Please accept the invitation email to set your password before logging in');
     }
-    const hash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
-    await queryRun(`UPDATE users SET password_hash = ? WHERE LOWER(email) = ?`, [hash, normEmail]);
-    user.password_hash = hash;
+    throw new Error('Account not activated. Please contact your administrator to receive an invite or password reset.');
   }
 
   let isValid = false;
@@ -106,9 +101,11 @@ export async function loginUser(email, password, meta = {}) {
   if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$')) {
     isValid = bcrypt.compareSync(password, storedHash);
   } else {
+    // P0-2: Legacy SHA-256 migration only — plaintext fallback removed
     const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
-    if (storedHash === legacyHash || storedHash === password) {
+    if (storedHash === legacyHash) {
       isValid = true;
+      // Auto-upgrade to bcrypt on successful legacy login
       const newBcryptHash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
       await queryRun(`UPDATE users SET password_hash = ? WHERE LOWER(email) = ?`, [newBcryptHash, normEmail]);
       user.password_hash = newBcryptHash;
@@ -116,8 +113,12 @@ export async function loginUser(email, password, meta = {}) {
   }
 
   if (!isValid) {
+    recordFailedAttempt(normEmail);
     throw new Error('Invalid credentials');
   }
+
+  // P0-3: Clear failed attempts on successful login
+  clearFailedAttempts(normEmail);
 
   // Clear invite token upon successful login if still present
   if (user.invite_token) {
@@ -125,11 +126,8 @@ export async function loginUser(email, password, meta = {}) {
   }
 
   // Update last login timestamp and meta
+  // P2-6: ALTER TABLE statements removed — handled by ensureSettingsTable() migrations
   const loginTimestamp = new Date().toISOString();
-  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login TEXT`); } catch (e) { /* column already exists */ }
-  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_ip TEXT`); } catch (e) { /* column already exists */ }
-  try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_device TEXT`); } catch (e) { /* column already exists */ }
-  
   await queryRun(
     `UPDATE users SET last_login = ?, last_login_ip = ?, last_login_device = ? WHERE LOWER(email) = ?`, 
     [loginTimestamp, meta.ip || null, meta.ua || null, normEmail]
@@ -204,7 +202,8 @@ export async function getMySession(token) {
 export async function inviteUserAdmin(payload, session) {
   requireAdminConsole(session);
 
-  const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  // P0-4: Cryptographically secure invite token
+  const token = crypto.randomBytes(32).toString('hex');
   const normEmail = String(payload.email).trim().toLowerCase();
   const hash = payload.password ? bcrypt.hashSync(payload.password, bcrypt.genSaltSync(12)) : null;
 

@@ -91,50 +91,10 @@ export default function ReportsView() {
     }
   }, [call, reportType, startDate, endDate, vendorFilter, projectFilter]);
 
-  // Fetch report data when filter or type changes
+  // P3-3: Fetch report data when filter or type changes — delegates to loadReport()
   useEffect(() => {
-    let active = true;
-    async function fetchReport() {
-      setLoading(true);
-      try {
-        let result = null;
-        if (reportType === 'TDS_Register') {
-          result = await call('getTDSRegisterReport', startDate, endDate);
-        } else if (reportType === 'Vendor_TDS') {
-          result = await call('getVendorTDSReport', startDate, endDate);
-        } else if (reportType === 'Project_TDS') {
-          result = await call('getProjectTDSReport', startDate, endDate);
-        } else if (reportType === 'Approval_Audit') {
-          result = await call('getApprovalAuditReport', startDate, endDate);
-        } else if (reportType === 'Day_Wise') {
-          result = await call('getDayWiseApprovalReport', startDate, endDate);
-        } else if (['All', 'Approved', 'Rejected', 'Remit', 'Remitted'].includes(reportType)) {
-          result = await call('getPaymentReportRows', {
-            type: reportType,
-            vendor: vendorFilter,
-            project: projectFilter,
-            limit: 300
-          });
-        }
-        
-        if (active) {
-          setData(result);
-        }
-      } catch (e) {
-        console.error('Failed to load report data:', e);
-        if (active) {
-          setData(null);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    fetchReport();
-    return () => { active = false; };
-  }, [reportType, startDate, endDate, vendorFilter, projectFilter, call]);
+    loadReport();
+  }, [loadReport]);
 
   // Export to CSV helper
   const handleExport = () => {
@@ -268,17 +228,22 @@ export default function ReportsView() {
     }
   };
 
+  // P1-1: Generalized delete handler — routes to appropriate backend per stage
   const handleDeleteRemittedPayment = async (payment) => {
-    const reason = prompt(`WARNING: You are about to permanently delete remitted payment #${payment.id}.\nThis will also update the PO ledger.\n\nEnter reason for deletion:`);
+    const stage = String(payment.stage || '').toLowerCase().trim();
+    const isRemitted = stage === 'remitted' || String(payment.remittance || '').toLowerCase().trim() === 'remitted';
+    
+    const reason = prompt(`WARNING: You are about to permanently delete payment #${payment.id} (${payment.stage}).${isRemitted ? '\nThis will also update the PO ledger.' : ''}\n\nEnter reason for deletion:`);
     if (!reason) return;
     if (reason.trim().length < 5) {
       toast.error('A detailed reason (at least 5 characters) is required for audit logging.');
       return;
     }
     try {
-      await call('deleteRemittedPayment', payment.id, reason.trim());
-      toast.success('Remitted payment deleted successfully.');
-      // Bug 5: Refresh data in-place — no full page reload
+      // Use unified deletePaymentRequest for all stages — it delegates to
+      // deleteRemittedPayment internally for remitted payments
+      await call('deletePaymentRequest', payment.id, reason.trim());
+      toast.success('Payment deleted successfully.');
       await loadReport();
       await refreshData();
     } catch (err) {

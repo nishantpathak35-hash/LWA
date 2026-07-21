@@ -395,13 +395,13 @@ export default function ReportsTables({
                           {sendingAdviceId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
                         </Button>
                       )}
-                      {(isAdmin || isDirector || isFinance) && String(p.stage || '').toLowerCase() === 'remitted' && (
+                      {(isAdmin || isDirector || isFinance) && (
                         <Button
                           variant="ghost"
                           size="sm"
                           className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-7 text-[10px] px-2"
                           onClick={() => handleDeleteRemittedPayment(p)}
-                          title="Delete Remitted Payment"
+                          title="Delete Payment Request"
                         >
                           Delete
                         </Button>

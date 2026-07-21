@@ -33,10 +33,13 @@ export async function emitBroadcast(entity, action, entityId = null) {
  */
 export async function fetchBroadcastEvents(afterId = 0) {
   try {
-    // Clean up old events (older than 60s)
-    await queryRun(
-      `DELETE FROM broadcast_events WHERE created_at < datetime('now', '-60 seconds')`
-    );
+    // P2-1: Clean up old events probabilistically (1 in 20 polls) instead of every poll.
+    // This reduces DB write load from 2×N queries/sec to a fraction.
+    if (Math.random() < 0.05) {
+      await queryRun(
+        `DELETE FROM broadcast_events WHERE created_at < datetime('now', '-60 seconds')`
+      );
+    }
 
     const rows = await queryAll(
       `SELECT id, entity, action, entity_id FROM broadcast_events WHERE id > ? ORDER BY id ASC LIMIT 50`,
