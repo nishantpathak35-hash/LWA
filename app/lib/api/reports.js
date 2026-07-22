@@ -211,90 +211,6 @@ export async function getVendorTDSReport(startDate, endDate, session) {
   });
   return { vendors: Object.values(vendorMap) };
 }
-
-export async function getProjectTDSReport(startDate, endDate, session) {
-  requireAuth(session);
-  const report = await getTDSRegisterReport(startDate, endDate, session);
-  const projMap = {};
-  report.entries.forEach(e => {
-    const p = e.project_id;
-    if (!projMap[p]) {
-      projMap[p] = {
-        project_id: p,
-        total_gross: 0,
-        total_tds: 0,
-        total_paid: 0,
-        total_pending: 0,
-        entries: []
-      };
-    }
-    projMap[p].total_gross += e.gross_amount;
-    projMap[p].total_tds += e.tds_amount;
-    if (e.government_payment_status === 'paid') {
-      projMap[p].total_paid += e.tds_amount;
-  });
-
-  const summary = {};
-  entries.forEach(e => {
-    const sec = e.tds_section || 'Other';
-    if (!summary[sec]) {
-      summary[sec] = {
-        section: sec,
-        total_gross: 0,
-        total_tds: 0,
-        count: 0,
-        paid: 0,
-        pending: 0
-      };
-    }
-    summary[sec].total_gross += e.gross_amount;
-    summary[sec].total_tds += e.tds_amount;
-    summary[sec].count++;
-    if (e.government_payment_status === 'paid') {
-      summary[sec].paid += e.tds_amount;
-    } else {
-      summary[sec].pending += e.tds_amount;
-    }
-  });
-
-  return {
-    entries,
-    summary,
-    total_entries: entries.length,
-    total_tds_deducted: entries.reduce((sum, e) => sum + e.tds_amount, 0),
-    total_tds_paid: entries.filter(e => e.government_payment_status === 'paid').reduce((sum, e) => sum + e.tds_amount, 0),
-    total_tds_pending: entries.filter(e => e.government_payment_status !== 'paid').reduce((sum, e) => sum + e.tds_amount, 0)
-  };
-}
-
-export async function getVendorTDSReport(startDate, endDate, session) {
-  requireAuth(session);
-  const report = await getTDSRegisterReport(startDate, endDate, session);
-  const vendorMap = {};
-  report.entries.forEach(e => {
-    const v = e.vendor_id;
-    if (!vendorMap[v]) {
-      vendorMap[v] = {
-        vendor_id: v,
-        total_gross: 0,
-        total_tds: 0,
-        total_paid: 0,
-        total_pending: 0,
-        entries: []
-      };
-    }
-    vendorMap[v].total_gross += e.gross_amount;
-    vendorMap[v].total_tds += e.tds_amount;
-    if (e.government_payment_status === 'paid') {
-      vendorMap[v].total_paid += e.tds_amount;
-    } else {
-      vendorMap[v].total_pending += e.tds_amount;
-    }
-    vendorMap[v].entries.push(e);
-  });
-  return { vendors: Object.values(vendorMap) };
-}
-
 export async function getProjectTDSReport(startDate, endDate, session) {
   requireAuth(session);
   const report = await getTDSRegisterReport(startDate, endDate, session);
@@ -322,6 +238,7 @@ export async function getProjectTDSReport(startDate, endDate, session) {
   });
   return { projects: Object.values(projMap) };
 }
+
 
 export async function getApprovalAuditReport(startDate, endDate, session) {
   requireAuth(session);
