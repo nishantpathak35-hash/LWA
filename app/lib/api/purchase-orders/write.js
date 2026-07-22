@@ -91,6 +91,8 @@ export async function updatePOFull(poNo, payload, session) {
     }
   }
 
+  const milestonesJson = typeof payload.milestones === 'string' ? payload.milestones : JSON.stringify(payload.milestones || []);
+
   const expectedVersion = payload.expectedVersion;
   if (expectedVersion !== undefined && expectedVersion !== null) {
     const result = await queryRun(
@@ -98,7 +100,7 @@ export async function updatePOFull(poNo, payload, session) {
         po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
         approval_status = ?, status = ?,
         tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
-        expected_delivery_date = ?, notes = ?, category = ?,
+        expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
         version = COALESCE(version, 1) + 1
        WHERE po_no = ? AND COALESCE(version, 1) = ?`,
       [nextPoNo,
@@ -108,7 +110,7 @@ export async function updatePOFull(poNo, payload, session) {
        newStatus, newStatus,
        tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
        payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
-       payload.category || existing.category || 'Goods',
+       payload.category || existing.category || 'Goods', milestonesJson,
        originalPoNo, expectedVersion]
     );
     if (result?.rowsAffected === 0) {
@@ -120,7 +122,7 @@ export async function updatePOFull(poNo, payload, session) {
         po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
         approval_status = ?, status = ?,
         tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
-        expected_delivery_date = ?, notes = ?, category = ?,
+        expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
         version = COALESCE(version, 1) + 1
        WHERE po_no = ?`,
       [nextPoNo,
@@ -130,7 +132,7 @@ export async function updatePOFull(poNo, payload, session) {
        newStatus, newStatus,
        tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
        payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
-       payload.category || existing.category || 'Goods',
+       payload.category || existing.category || 'Goods', milestonesJson,
        originalPoNo]
     );
   }

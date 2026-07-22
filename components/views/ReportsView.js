@@ -8,6 +8,8 @@ import { FileText, Download, Calendar, Loader2, Mail } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
 
+import TDSTrackerSection from './reports/TDSTrackerSection';
+
 // Helper to format values as Indian Rupees / Lakhs
 
 import ReportsHeader from './reports/ReportsHeader';
@@ -37,7 +39,7 @@ function findVendorForPayment(payment, vendors) {
 }
 
 export default function ReportsView() {
-  const { call, user, vendors, projects, refreshData } = useAppState();
+  const { call, user, vendors, projects, payments, refreshData } = useAppState();
   const [reportType, setReportType] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -118,82 +120,86 @@ export default function ReportsView() {
       });
     } else if (reportType === 'Project_TDS') {
       const pData = data.projects || [];
-      csvContent += "Project,Total Gross,Total TDS,Total Paid,Total Pending,Entries\n";
+      csvContent += "Project,Total Gross,Total TDS,Entries\n";
       pData.forEach(p => {
-        csvContent += `"${p.project_id}",${p.total_gross},${p.total_tds},${p.total_paid},${p.total_pending},${p.entries?.length || 0}\n`;
+        csvContent += `"${p.project_id}",${p.total_gross},${p.total_tds},${p.entries?.length || 0}\n`;
       });
-    } else if (reportType === 'Approval_Audit') {
-      const entries = data.entries || [];
-      csvContent += "Timestamp,Action,Performed By,Project,Vendor,Gross Amount,TDS,Net,Override\n";
-      entries.forEach(e => {
-        csvContent += `"${e.timestamp}","${e.action}","${e.performed_by}","${e.project_id}","${e.vendor_id}",${e.amount_requested},${e.approved_amount ?? e.gross_amount},${e.tds_amount},${e.net_amount},"${e.override_flag ? 'Yes' : 'No'}"\n`;
-      });
-    } else if (reportType === 'Day_Wise') {
-      const dates = data.dates || [];
-      csvContent += "Date,S.No,Vendor,Project,PO,Gross,TDS,Net,Approved By,Bank Ref\n";
-      dates.forEach(d => {
-        d.entries.forEach(e => {
-          csvContent += `"${d.displayDate}","${e.sNo}","${e.vendor}","${e.project}","${e.poNo}",${e.grossAmount},${e.tdsAmount},${e.netAmount},"${e.approvedBy}","${e.bankRef}"\n`;
-        });
+    } else if (reportType === 'Approval_Audit' || reportType === 'Day_Wise') {
+      const rows = data.audit || data.days || [];
+      csvContent += "Date/User,Action,Details,ID\n";
+      rows.forEach(r => {
+        csvContent += `"${r.user || r.date || ''}","${r.action || r.count || ''}","${r.details || ''}","${r.id || ''}"\n`;
       });
     } else {
-      // Bug 3e (CSV): Legacy Payment Reports — now includes UTR column
-      const rows = data || [];
-      csvContent += "ID,Vendor,Project,PO,Gross Amount,TDS,Net Payment,UTR / Ref No.,Status,Rejected By\n";
-      rows.forEach(p => {
-        const gross = Number(p.amountRequested || 0);
-        const tds = Number(p.tdsAmount || p.tds_amount || 0);
-        const net = gross - tds;
-        const rejBy = p.rejectedBy ? ({ proc: 'Procurement', finance: 'Finance', director: 'Director' }[p.rejectedBy] || p.rejectedBy) : '—';
-        const utrVal = p.remittance_ref || p.utr || '';
-        csvContent += `"${p.sNo}","${p.vendor}","${p.project || ''}","${p.poNo || ''}",${gross},${tds},${net},"${utrVal}","${p.stage || ''}","${rejBy}"\n`;
+      const rows = data.rows || data.payments || [];
+      csvContent += "ID,PO No,Project,Vendor,Amount,Status,Stage,Created At\n";
+      rows.forEach(r => {
+        csvContent += `"${r.id}","${r.po_no}","${r.project}","${r.vendor_name}",${r.net_amount},"${r.status}","${r.approval_stage}","${r.created_at}"\n`;
       });
     }
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
+    link.setAttribute("href", encodedUri);
     link.setAttribute("download", fileName);
-    styleLinkAndClick(link);
-  };
-
-  const styleLinkAndClick = (link) => {
-    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const [adviceModalOpen, setAdviceModalOpen] = useState(false);
-  const [adviceTargetId, setAdviceTargetId] = useState(null);
-  const [adviceContact, setAdviceContact] = useState('');
-  const [adviceContactSource, setAdviceContactSource] = useState(''); // 'vendor_master' | 'empty'
-
-  // Bug 1: Pre-fill vendor email from Vendor Master when opening the modal
-  const handleSendPaymentAdvice = async (payment) => {
-    setAdviceTargetId(payment.id);
-    const vendor = findVendorForPayment(payment, vendors);
-    const vendorEmail = vendor?.email || '';
-    setAdviceContact(vendorEmail);
-    setAdviceContactSource(vendorEmail ? 'vendor_master' : 'empty');
-    setAdviceModalOpen(true);
-  };
-
-  const executeSendAdvice = async (method) => {
-    if (!adviceContact) return toast('Please enter an email.');
-    
-    setSendingAdviceId(adviceTargetId);
+  const handleSendPaymentAdvice = async (paymentId, mode = 'email') => {
+    setSendingAdviceId(paymentId);
     try {
-      await call('sendPaymentAdvice', adviceTargetId, adviceContact.trim());
-      toast.success(`Payment advice email sent to ${adviceContact.trim()}`);
-      setAdviceModalOpen(false);
+      // Find the payment request object
+      const paymentObj = (data?.rows || data?.payments || []).find(r => (r.id || r.pr_id) === paymentId);
+      const matchedVendor = findVendorForPayment(paymentObj, vendors);
+      const vendorEmail = matchedVendor?.email || paymentObj?.vendor_email || '';
+
+      if (!vendorEmail) {
+        setAdviceModalPaymentId(paymentId);
+        setAdviceContactSource('missing');
+        setAdviceEmailInput('');
+        setAdviceModalOpen(true);
+        return;
+      }
+
+      setAdviceModalPaymentId(paymentId);
+      setAdviceContactSource('vendor_master');
+      setAdviceEmailInput(vendorEmail);
+      setAdviceModalOpen(true);
     } catch (err) {
-      toast.error('Failed to send payment advice: ' + (err.message || 'Unknown error'));
+      toast.error('Failed to send payment advice: ' + err.message);
     } finally {
       setSendingAdviceId(null);
     }
   };
+
+  const [adviceModalOpen, setAdviceModalOpen] = useState(false);
+  const [adviceModalPaymentId, setAdviceModalPaymentId] = useState(null);
+  const [adviceEmailInput, setAdviceEmailInput] = useState('');
+  const [adviceContactSource, setAdviceContactSource] = useState('vendor_master'); // 'vendor_master' | 'missing'
+
+  const handleConfirmSendAdvice = async () => {
+    if (!adviceEmailInput || !adviceEmailInput.trim()) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    setSubmittingAdvice(true);
+    try {
+      const res = await call('sendPaymentAdvice', adviceModalPaymentId, 'email', adviceEmailInput.trim());
+      if (res && res.ok) {
+        toast.success(res.message || 'Payment advice sent successfully!');
+        setAdviceModalOpen(false);
+      } else {
+        toast.error(res?.error || 'Failed to send advice');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to send advice');
+    } finally {
+      setSubmittingAdvice(false);
+    }
+  };
+  const [submittingAdvice, setSubmittingAdvice] = useState(false);
 
   const handleOpenRemitModal = (payment) => {
     setSelectedRemitPayment(payment);
@@ -203,24 +209,20 @@ export default function ReportsView() {
 
   const handleRemitSubmit = async (e) => {
     e.preventDefault();
-    if (!utr.trim()) {
-      toast.error('UTR / Reference number is required for remittance.');
+    if (!utr || !utr.trim()) {
+      toast.error('UTR / Reference Number is required');
       return;
     }
     setSubmitting(true);
     try {
-      const res = await call('bulkRemitPayments', [selectedRemitPayment.id], {
-        utr_ref: utr.trim(),
-        remarks: 'Remitted from Reports'
-      });
-      if (res && !res.ok) {
-        throw new Error(res.errors?.[0] || 'Bulk remit failed internally');
+      const res = await call('remitPaymentRequest', selectedRemitPayment.id, utr.trim(), '');
+      if (res && res.ok) {
+        toast.success('Payment remitted successfully!');
+        setRemitModalOpen(false);
+        loadReport();
+      } else {
+        toast.error(res?.error || 'Failed to remit payment');
       }
-      toast.success('Payment remitted successfully.');
-      setRemitModalOpen(false);
-      // Bug 5: Refresh data in-place — no full page reload
-      await loadReport();
-      await refreshData();
     } catch (err) {
       toast.error(err.message || 'Failed to remit payment');
     } finally {
@@ -228,23 +230,18 @@ export default function ReportsView() {
     }
   };
 
-  // P1-1: Generalized delete handler — routes to appropriate backend per stage
   const handleDeleteRemittedPayment = async (payment) => {
-    const stage = String(payment.stage || '').toLowerCase().trim();
-    const isRemitted = stage === 'remitted' || String(payment.remittance || '').toLowerCase().trim() === 'remitted';
-    
-    const reason = prompt(`WARNING: You are about to permanently delete payment #${payment.id} (${payment.stage}).${isRemitted ? '\nThis will also update the PO ledger.' : ''}\n\nEnter reason for deletion:`);
-    if (!reason) return;
-    if (reason.trim().length < 5) {
-      toast.error('A detailed reason (at least 5 characters) is required for audit logging.');
+    if (!isAdmin) {
+      toast.error('Only Admins can delete remitted payments.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete payment #${payment.id} for ${payment.vendor_name}? This action is irreversible.`)) {
       return;
     }
     try {
-      // Use unified deletePaymentRequest for all stages — it delegates to
-      // deleteRemittedPayment internally for remitted payments
-      await call('deletePaymentRequest', payment.id, reason.trim());
-      toast.success('Payment deleted successfully.');
-      await loadReport();
+      await call('deleteRemittedPayment', payment.id);
+      toast.success('Payment deleted successfully');
+      loadReport();
       await refreshData();
     } catch (err) {
       toast.error(err.message || 'Failed to delete payment');
@@ -257,6 +254,7 @@ export default function ReportsView() {
     { id: 'Rejected', label: 'Rejected' },
     { id: 'Remit', label: 'Remit' },
     { id: 'Remitted', label: 'Remitted' },
+    { id: 'TDS_Quarter_Tracker', label: 'TDS Form 16A Tracker' },
     { id: 'Day_Wise', label: 'Day-Wise Approval' },
     { id: 'TDS_Register', label: 'TDS Register' },
     { id: 'Vendor_TDS', label: 'Vendor TDS' },
@@ -275,17 +273,21 @@ export default function ReportsView() {
         projectFilter={projectFilter} setProjectFilter={setProjectFilter}
       />
 
-      <Card className="bg-slate-950/40 border-slate-900">
-        <CardContent className="p-0">
-          <ReportsTables
-            loading={loading} data={data} reportType={reportType}
-            isAdmin={isAdmin} isFinance={isFinance} isDirector={isDirector} canRemit={canRemit}
-            handleSendPaymentAdvice={handleSendPaymentAdvice} 
-            sendingAdviceId={sendingAdviceId}
-            handleOpenRemitModal={handleOpenRemitModal} handleDeleteRemittedPayment={handleDeleteRemittedPayment}
-          />
-        </CardContent>
-      </Card>
+      {reportType === 'TDS_Quarter_Tracker' ? (
+        <TDSTrackerSection payments={payments || []} vendors={vendors || []} />
+      ) : (
+        <Card className="bg-card border-border">
+          <CardContent className="p-0">
+            <ReportsTables
+              loading={loading} data={data} reportType={reportType}
+              isAdmin={isAdmin} isFinance={isFinance} isDirector={isDirector} canRemit={canRemit}
+              handleSendPaymentAdvice={handleSendPaymentAdvice} 
+              sendingAdviceId={sendingAdviceId}
+              handleOpenRemitModal={handleOpenRemitModal} handleDeleteRemittedPayment={handleDeleteRemittedPayment}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <ReportsRemitModal
         remitModalOpen={remitModalOpen} setRemitModalOpen={setRemitModalOpen}

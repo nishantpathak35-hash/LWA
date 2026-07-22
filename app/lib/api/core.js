@@ -82,10 +82,10 @@ async function _runMigrations() {
     'terms', 'approval_status', 'submitted_by', 'submitted_at',
     'approved_by', 'approved_at', 'approval_remarks',
     'tds_section', 'tds_pct', 'tds_amount', 'gst_total', 'gst_mode',
-    'expected_delivery_date', 'notes', 'payment_status', 'category'
+    'expected_delivery_date', 'notes', 'payment_status', 'category', 'milestones'
   ];
   const poItemColumns = ['unit'];
-  const prColumns = ['remittance_ref', 'remittance_date', 'tds_amount', 'tds_percentage', 'tds_section', 'approved_amount'];
+  const prColumns = ['remittance_ref', 'remittance_date', 'tds_amount', 'tds_percentage', 'tds_section', 'approved_amount', 'milestone_name', 'form16a_status', 'form16a_ref', 'form16a_date'];
 
   await Promise.allSettled([
     ...poColumns.map(col => queryRun(`ALTER TABLE purchase_orders ADD COLUMN ${col} TEXT`)),
