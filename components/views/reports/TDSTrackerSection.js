@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Select } from '../../ui/core';
 import { FileText, Download, CheckCircle, Clock, AlertCircle, Search, Filter, ExternalLink, Plus, Landmark } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
+import { useAppState } from '../../StateProvider';
 import TDSChallan281Modal from './TDSChallan281Modal';
 import { getITDSectionCode, generate26QFileContent } from '../../../app/lib/tdsChallan281';
 
 export default function TDSTrackerSection({ payments = [], vendors = [] }) {
+  const { call } = useAppState();
   const [activeTab, setActiveTab] = useState('quarter_tracker'); // 'quarter_tracker' | 'challan_281'
   const [selectedFy, setSelectedFy] = useState('2026-27');
   const [selectedQuarter, setSelectedQuarter] = useState('Q1'); // Q1, Q2, Q3, Q4, All
@@ -14,27 +16,20 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
   
   // Storage for Form 16A status overrides & Monthly Challan 281 records
   const [form16aRecords, setForm16aRecords] = useState({});
-  const [challan281Records, setChallan281Records] = useState([
-    {
-      id: 'CH281-17374829381',
-      month: 'April 2026',
-      tan: 'DELM12345F',
-      minor_head: '200',
-      section_code: '194C',
-      itd_code: '94C',
-      base_tds: 48500,
-      interest: 0,
-      fee_234e: 0,
-      total_challan_amount: 48500,
-      bsr_code: '0210001',
-      challan_no: 'CH-08472',
-      challan_date: '2026-05-05',
-      bank_name: 'HDFC Bank',
-      cin: '021000120260505CH-08472',
-      status: 'Deposited',
-      remarks: 'Paid via Corporate Internet Banking'
+  const [challan281Records, setChallan281Records] = useState([]);
+
+  // Fetch real persisted Challans from Database
+  useEffect(() => {
+    async function loadChallans() {
+      try {
+        const res = await call('getTDSChallans281');
+        if (Array.isArray(res)) setChallan281Records(res);
+      } catch (err) {
+        console.error('Failed to fetch TDS Challans 281:', err);
+      }
     }
-  ]);
+    loadChallans();
+  }, [call]);
 
   const [challanModalOpen, setChallanModalOpen] = useState(false);
   const [selectedMonthData, setSelectedMonthData] = useState(null);
@@ -44,9 +39,14 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
     setChallanModalOpen(true);
   };
 
-  const handleSaveChallan = (newChallan) => {
+  const handleSaveChallan = async (newChallan) => {
     setChallan281Records(prev => [newChallan, ...prev]);
     setChallanModalOpen(false);
+    try {
+      await call('saveTDSChallan281', newChallan);
+    } catch (err) {
+      console.error('Failed to save TDS Challan 281 in DB:', err);
+    }
   };
 
   const handleExport26QFile = () => {
@@ -82,16 +82,22 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
         else if (month >= 10 && month <= 12) q = 'Q3';
         else q = 'Q4';
 
-        const vendor = vendors.find(v => 
-          v.name === p.vendor_name || v.code === p.vendor_code || v.vendorId === p.vendor_key
-        ) || {};
+        // Robust Vendor Matching
+        const vendor = vendors.find(v => {
+          if (!v) return false;
+          const vName = (v.name || v.legalName || '').toLowerCase().trim();
+          const pName = (p.vendor_name || p.vendor || '').toLowerCase().trim();
+          const vCode = (v.code || v.vendorId || v.vendor_key || '').toLowerCase().trim();
+          const pCode = (p.vendor_code || p.vendorCode || '').toLowerCase().trim();
+          return (vCode && pCode && vCode === pCode) || (vName && pName && vName === pName);
+        }) || {};
 
-        const pan = vendor.pan || p.vendor_pan || 'ABCDE1234F';
+        const pan = vendor.pan || p.vendor_pan || p.pan || 'PAN Not On File';
 
         records.push({
           id: p.id || p.pr_id,
           po_no: p.po_no,
-          vendor_name: p.vendor_name || 'Unknown Vendor',
+          vendor_name: p.vendor_name || vendor.name || 'Unknown Vendor',
           vendor_pan: pan,
           gstin: vendor.gstin || '—',
           gross_amount: Number(p.amount_requested || p.net_amount || 0) + tdsAmt,
@@ -100,7 +106,9 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
           tds_rate: p.tds_percentage || (tdsSec === '194C' ? 2 : 10),
           remittance_date: remDate,
           quarter: q,
-          status_key: `${p.id || p.pr_id}`
+          status_key: `${p.id || p.pr_id}`,
+          form16a_status: p.form16a_status || 'Pending Upload',
+          form16a_ref: p.form16a_ref || ''
         });
       }
     });
@@ -132,11 +140,16 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
     }, { gross: 0, tds: 0 });
   }, [filteredRecords]);
 
-  const handleUpdateForm16A = (id, status, refNo = '') => {
+  const handleUpdateForm16A = async (id, status, refNo = '') => {
     setForm16aRecords(prev => ({
       ...prev,
       [id]: { status, refNo, date: new Date().toISOString().substring(0, 10) }
     }));
+    try {
+      await call('updateForm16AStatus', id, status, refNo);
+    } catch (err) {
+      console.error('Failed to update Form 16A status in DB:', err);
+    }
   };
 
   const handleExportTDSCSV = () => {

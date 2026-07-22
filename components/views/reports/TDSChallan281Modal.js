@@ -7,16 +7,16 @@ import { getITDSectionCode, validateBSRCode, validateTAN, calculateChallanIntere
 export default function TDSChallan281Modal({
   modalOpen, setModalOpen, monthData, onSaveChallan, submitting
 }) {
-  const [tan, setTan] = useState('DELM12345F');
+  const [tan, setTan] = useState('');
   const [minorHead, setMinorHead] = useState('200'); // 200 (Company) or 400 (Regular)
   const [section, setSection] = useState('194C');
   const [baseTds, setBaseTds] = useState(0);
   const [interestAmt, setInterestAmt] = useState(0);
   const [fee234E, setFee234E] = useState(0);
-  const [bsrCode, setBsrCode] = useState('0210001');
+  const [bsrCode, setBsrCode] = useState('');
   const [challanNo, setChallanNo] = useState('');
   const [challanDate, setChallanDate] = useState(new Date().toISOString().substring(0, 10));
-  const [bankName, setBankName] = useState('HDFC Bank');
+  const [bankName, setBankName] = useState('');
   const [remarks, setRemarks] = useState('');
   const [errorMsg, setErrorMsg] = useState(null);
 

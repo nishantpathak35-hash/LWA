@@ -136,6 +136,30 @@ async function _runMigrations() {
     )
   `);
 
+  // TDS Challan 281 table
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS tds_challan_281 (
+      id TEXT PRIMARY KEY,
+      month TEXT NOT NULL,
+      tan TEXT NOT NULL,
+      minor_head TEXT DEFAULT '200',
+      section_code TEXT NOT NULL,
+      itd_code TEXT NOT NULL,
+      base_tds REAL NOT NULL,
+      interest REAL DEFAULT 0,
+      fee_234e REAL DEFAULT 0,
+      total_challan_amount REAL NOT NULL,
+      bsr_code TEXT,
+      challan_no TEXT,
+      challan_date TEXT,
+      bank_name TEXT,
+      cin TEXT,
+      status TEXT DEFAULT 'Deposited',
+      remarks TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // ══════════════════════════════════════════════════════════════════════════
   // ── ENTERPRISE CONFIGURATION ENGINE TABLES ──────────────────────────────
   // ══════════════════════════════════════════════════════════════════════════

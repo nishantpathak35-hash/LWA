@@ -232,6 +232,89 @@ export async function getProjectTDSReport(startDate, endDate, session) {
     projMap[p].total_tds += e.tds_amount;
     if (e.government_payment_status === 'paid') {
       projMap[p].total_paid += e.tds_amount;
+  });
+
+  const summary = {};
+  entries.forEach(e => {
+    const sec = e.tds_section || 'Other';
+    if (!summary[sec]) {
+      summary[sec] = {
+        section: sec,
+        total_gross: 0,
+        total_tds: 0,
+        count: 0,
+        paid: 0,
+        pending: 0
+      };
+    }
+    summary[sec].total_gross += e.gross_amount;
+    summary[sec].total_tds += e.tds_amount;
+    summary[sec].count++;
+    if (e.government_payment_status === 'paid') {
+      summary[sec].paid += e.tds_amount;
+    } else {
+      summary[sec].pending += e.tds_amount;
+    }
+  });
+
+  return {
+    entries,
+    summary,
+    total_entries: entries.length,
+    total_tds_deducted: entries.reduce((sum, e) => sum + e.tds_amount, 0),
+    total_tds_paid: entries.filter(e => e.government_payment_status === 'paid').reduce((sum, e) => sum + e.tds_amount, 0),
+    total_tds_pending: entries.filter(e => e.government_payment_status !== 'paid').reduce((sum, e) => sum + e.tds_amount, 0)
+  };
+}
+
+export async function getVendorTDSReport(startDate, endDate, session) {
+  requireAuth(session);
+  const report = await getTDSRegisterReport(startDate, endDate, session);
+  const vendorMap = {};
+  report.entries.forEach(e => {
+    const v = e.vendor_id;
+    if (!vendorMap[v]) {
+      vendorMap[v] = {
+        vendor_id: v,
+        total_gross: 0,
+        total_tds: 0,
+        total_paid: 0,
+        total_pending: 0,
+        entries: []
+      };
+    }
+    vendorMap[v].total_gross += e.gross_amount;
+    vendorMap[v].total_tds += e.tds_amount;
+    if (e.government_payment_status === 'paid') {
+      vendorMap[v].total_paid += e.tds_amount;
+    } else {
+      vendorMap[v].total_pending += e.tds_amount;
+    }
+    vendorMap[v].entries.push(e);
+  });
+  return { vendors: Object.values(vendorMap) };
+}
+
+export async function getProjectTDSReport(startDate, endDate, session) {
+  requireAuth(session);
+  const report = await getTDSRegisterReport(startDate, endDate, session);
+  const projMap = {};
+  report.entries.forEach(e => {
+    const p = e.project_id;
+    if (!projMap[p]) {
+      projMap[p] = {
+        project_id: p,
+        total_gross: 0,
+        total_tds: 0,
+        total_paid: 0,
+        total_pending: 0,
+        entries: []
+      };
+    }
+    projMap[p].total_gross += e.gross_amount;
+    projMap[p].total_tds += e.tds_amount;
+    if (e.government_payment_status === 'paid') {
+      projMap[p].total_paid += e.tds_amount;
     } else {
       projMap[p].total_pending += e.tds_amount;
     }
@@ -296,7 +379,7 @@ export async function getDayWiseApprovalReport(startDate, endDate, session) {
   const auditReport = await getApprovalAuditReport(startDate, endDate, session);
   const dayMap = {};
   
-  auditReport.entries.forEach(e => {
+  (auditReport.entries || []).forEach(e => {
     if (e.action !== 'approve') return;
     const dateStr = String(e.timestamp || '').split('T')[0];
     if (!dateStr) return;
@@ -340,4 +423,39 @@ export async function getDayWiseApprovalReport(startDate, endDate, session) {
 
   return { dates, summary };
 }
-
+
+export async function updateForm16AStatus(prId, status, refNo, session) {
+  requireAuth(session);
+  const now = new Date().toISOString();
+  await queryRun(
+    `UPDATE payment_requests SET form16a_status = ?, form16a_ref = ?, form16a_date = ? WHERE pr_id = ?`,
+    [status, refNo || '', now, prId]
+  );
+  return { ok: true };
+}
+
+export async function getTDSChallans281(session) {
+  requireAuth(session);
+  const rows = await queryAll(`SELECT * FROM tds_challan_281 ORDER BY created_at DESC`);
+  return rows || [];
+}
+
+export async function saveTDSChallan281(payload, session) {
+  requireAuth(session);
+  const id = payload.id || `CH281-${Date.now()}`;
+  await queryRun(
+    `INSERT OR REPLACE INTO tds_challan_281 (
+      id, month, tan, minor_head, section_code, itd_code, base_tds, interest, fee_234e,
+      total_challan_amount, bsr_code, challan_no, challan_date, bank_name, cin, status, remarks
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id, payload.month || '', payload.tan || '', payload.minor_head || '200',
+      payload.section_code || '194C', payload.itd_code || '94C',
+      Number(payload.base_tds || 0), Number(payload.interest || 0), Number(payload.fee_234e || 0),
+      Number(payload.total_challan_amount || 0), payload.bsr_code || '', payload.challan_no || '',
+      payload.challan_date || '', payload.bank_name || '', payload.cin || '',
+      payload.status || 'Deposited', payload.remarks || ''
+    ]
+  );
+  return { ok: true, id };
+}
