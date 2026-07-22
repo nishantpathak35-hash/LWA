@@ -15,6 +15,7 @@ import TDSTrackerSection from './reports/TDSTrackerSection';
 import ReportsHeader from './reports/ReportsHeader';
 import ReportsTables from './reports/ReportsTables';
 import ReportsRemitModal from './reports/ReportsRemitModal';
+import ReportsEditPaymentModal from './reports/ReportsEditPaymentModal';
 
 // Bug 1 helper: find a vendor from the Vendor Master that matches this payment
 function findVendorForPayment(payment, vendors) {
@@ -39,7 +40,7 @@ function findVendorForPayment(payment, vendors) {
 }
 
 export default function ReportsView() {
-  const { call, user, vendors, projects, payments, refreshData } = useAppState();
+  const { call, user, vendors, projects, payments, tdsSections, refreshData } = useAppState();
   const [reportType, setReportType] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -54,6 +55,34 @@ export default function ReportsView() {
   const [selectedRemitPayment, setSelectedRemitPayment] = useState(null);
   const [utr, setUtr] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+
+  const handleOpenEditModal = (payment) => {
+    setEditingPayment(payment);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEditedPayment = async (payload) => {
+    setSubmittingEdit(true);
+    try {
+      const res = await call('updatePaymentRequest', payload.id, payload);
+      if (res && (res.ok || res.status === 'OK')) {
+        toast.success(`Payment #${payload.id} updated successfully.`);
+        setEditModalOpen(false);
+        loadReport();
+        await refreshData();
+      } else {
+        toast.error(res?.error || 'Failed to update payment');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to update payment');
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
 
   const roles = user?.roles || [];
   const isAdmin = isSuperAdmin(user?.email) || roles.includes('admin');
@@ -284,6 +313,7 @@ export default function ReportsView() {
               handleSendPaymentAdvice={handleSendPaymentAdvice} 
               sendingAdviceId={sendingAdviceId}
               handleOpenRemitModal={handleOpenRemitModal} handleDeleteRemittedPayment={handleDeleteRemittedPayment}
+              handleOpenEditModal={handleOpenEditModal}
             />
           </CardContent>
         </Card>
@@ -293,6 +323,15 @@ export default function ReportsView() {
         remitModalOpen={remitModalOpen} setRemitModalOpen={setRemitModalOpen}
         selectedRemitPayment={selectedRemitPayment} handleRemitSubmit={handleRemitSubmit}
         utr={utr} setUtr={setUtr} submitting={submitting}
+      />
+
+      <ReportsEditPaymentModal
+        editModalOpen={editModalOpen}
+        setEditModalOpen={setEditModalOpen}
+        editingPayment={editingPayment}
+        tdsSections={tdsSections || []}
+        onSavePayment={handleSaveEditedPayment}
+        submitting={submittingEdit}
       />
 
       <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">

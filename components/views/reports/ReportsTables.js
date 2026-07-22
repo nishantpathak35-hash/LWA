@@ -5,7 +5,7 @@ import { fmtRupees, fmtLakhs, stageBadge, wfSteps } from './report-utils';
 
 export default function ReportsTables({
   loading, data, reportType, isAdmin, isFinance, isDirector, canRemit,
-  handleSendPaymentAdvice, sendingAdviceId, handleOpenRemitModal, handleDeleteRemittedPayment
+  handleSendPaymentAdvice, sendingAdviceId, handleOpenRemitModal, handleDeleteRemittedPayment, handleOpenEditModal
 }) {
     return (
     <>
@@ -373,6 +373,17 @@ export default function ReportsTables({
                   <TableCell className={p.rejectedBy ? 'text-red-400' : 'text-slate-550'}>{rejBy}</TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
+                      {(isAdmin || isDirector || isFinance) && handleOpenEditModal && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[10px] px-2 font-semibold text-amber-700 dark:text-gold border-amber-500/30 hover:bg-amber-500/10"
+                          onClick={() => handleOpenEditModal(p)}
+                          title="Edit Payment Request & TDS"
+                        >
+                          Edit & TDS
+                        </Button>
+                      )}
                       {canRemit && (String(p.stage || '').toLowerCase().trim() === 'approved' || String(p.stage || '').toLowerCase().trim().includes('remit')) && !String(p.stage || '').toLowerCase().trim().includes('remitted') && String(p.remittance || '').toLowerCase().trim() !== 'remitted' && (
                         <Button
                           variant="primary"

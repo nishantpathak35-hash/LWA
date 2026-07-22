@@ -65,28 +65,34 @@ export class PaymentService {
     const pr = await PaymentRepository.findRequestById(prId);
     if (!pr) throw new Error(`Payment request not found: ${prId}`);
     
-    // Check if editable
+    // Check if editable (allow adminOverride for admin/director edits at any stage)
     const editableStages = ['Pending Procurement', 'Pending Finance'];
-    if (!editableStages.includes(pr.stage)) {
+    if (!payload.adminOverride && !editableStages.includes(pr.stage)) {
       throw new Error(`Payment request cannot be edited in stage: ${pr.stage}`);
     }
 
-    const reqAmt = Number(payload.amountRequested || payload.gross_amount);
-    if (isNaN(reqAmt) || reqAmt <= 0) {
-      throw new Error("Amount Requested must be greater than zero");
-    }
+    const reqAmt = payload.amountRequested !== undefined ? Number(payload.amountRequested || payload.gross_amount || 0) : Number(pr.amount_requested || 0);
+    const approvedAmt = payload.approved_amount !== undefined ? Number(payload.approved_amount) : (payload.approvedAmount !== undefined ? Number(payload.approvedAmount) : Number(pr.approved_amount || reqAmt));
+    
+    const tdsSec = payload.tds_section !== undefined ? payload.tds_section : (payload.tdsSection !== undefined ? payload.tdsSection : (pr.tds_section || ''));
+    const tdsPct = payload.tds_percentage !== undefined ? Number(payload.tds_percentage) : (payload.tdsPct !== undefined ? Number(payload.tdsPct) : Number(pr.tds_percentage || 0));
+    const tdsAmt = payload.tds_amount !== undefined ? Number(payload.tds_amount) : (payload.tdsAmount !== undefined ? Number(payload.tdsAmount) : Number(pr.tds_amount || 0));
 
-    const oldAmt = pr.amount_requested;
-    const remarks = payload.remarks || pr.remarks;
+    const remarks = payload.remarks !== undefined ? payload.remarks : (pr.remarks || '');
 
-    await PaymentRepository.updateRequest(prId, {
-      amount_requested: reqAmt,
-      approved_amount: reqAmt, // reset approved amount
+    const updates: Record<string, any> = {
+      amount_requested: reqAmt > 0 ? reqAmt : pr.amount_requested,
+      approved_amount: approvedAmt,
+      tds_section: tdsSec,
+      tds_percentage: tdsPct,
+      tds_amount: tdsAmt,
       remarks: remarks
-    }, payload.expectedVersion);
+    };
 
-    const changeDesc = `Amount changed from ${oldAmt} to ${reqAmt}. Remarks updated.`;
-    await logAudit(userEmail, 'Update Payment Request', `Edited PR #${prId}. ${changeDesc}`, pr.stage);
+    await PaymentRepository.updateRequest(prId, updates, payload.expectedVersion);
+
+    const changeDesc = `Edited PR #${prId}. Req: ${reqAmt}, App: ${approvedAmt}, TDS: ${tdsSec} (${tdsAmt}).`;
+    await logAudit(userEmail, 'Update Payment Request', changeDesc, pr.stage);
 
     return { ok: true };
   }
