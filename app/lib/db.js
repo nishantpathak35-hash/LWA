@@ -48,6 +48,17 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
     )
   `).catch(err => console.error('Failed to create document_locks table:', err.message));
 
+  tursoClient.execute(`
+    CREATE TABLE IF NOT EXISTS document_presence (
+      entity TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      user_name TEXT NOT NULL,
+      last_active TEXT NOT NULL,
+      PRIMARY KEY (entity, entity_id, user_email)
+    )
+  `).catch(err => console.error('Failed to create document_presence table:', err.message));
+
   // --- Broadcast events table for SSE real-time sync ---
   tursoClient.execute(`
     CREATE TABLE IF NOT EXISTS broadcast_events (

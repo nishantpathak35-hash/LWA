@@ -276,7 +276,7 @@ export default function MainLayout() {
       {/* Main content */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* ── Header / Topbar ── */}
-        <header className="h-16 px-6 border-b border-border bg-card/45 backdrop-blur-md flex items-center justify-between flex-shrink-0 transition-colors duration-200">
+        <header className="h-14 px-6 border-b border-border bg-card shadow-2xs flex items-center justify-between flex-shrink-0 transition-colors duration-200">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -286,15 +286,15 @@ export default function MainLayout() {
             >
               <Menu className="w-5 h-5 text-muted-foreground" />
             </Button>
-            <h1 className="text-sm font-medium text-foreground font-serif tracking-wider">
+            <h1 className="text-base font-semibold text-foreground tracking-tight">
               {VIEW_LABELS[activeView] || activeView}
             </h1>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {/* Keyboard shortcut hint (shows sequence in progress) */}
             {keySequence.length > 0 && (
-              <span className="text-[10px] px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono animate-pulse mr-1">
+              <span className="text-[10px] px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-mono animate-pulse mr-1 font-semibold">
                 {keySequence.map(k => k.toUpperCase()).join(' → ')} …
               </span>
             )}
@@ -303,9 +303,9 @@ export default function MainLayout() {
             {/* Theme toggle */}
             <Button variant="ghost" size="icon" onClick={toggleTheme} title="Toggle theme">
               {theme === 'dark' ? (
-                <Sun className="w-4.5 h-4.5 text-muted-foreground hover:text-foreground" />
+                <Sun className="w-4 h-4 text-muted-foreground hover:text-foreground" />
               ) : (
-                <Moon className="w-4.5 h-4.5 text-muted-foreground hover:text-foreground" />
+                <Moon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
               )}
             </Button>
           </div>
@@ -313,14 +313,14 @@ export default function MainLayout() {
 
         {/* ── Session expiry warning banner ── */}
         {showSessionWarning && (
-          <div className="flex items-center gap-3 px-6 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-sm text-amber-300 flex-shrink-0">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <div className="flex items-center gap-3 px-6 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex-shrink-0 font-medium">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
             <span>
               Your session expires in <strong>{sessionHours}h</strong>. Save your work and log back in to continue.
             </span>
             <button
               onClick={() => setSessionWarningDismissed(true)}
-              className="ml-auto p-1 rounded text-amber-400/60 hover:text-amber-400 transition-colors"
+              className="ml-auto p-1 rounded text-amber-600/70 hover:text-amber-800 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -328,7 +328,7 @@ export default function MainLayout() {
         )}
 
         {/* ── Scrollable View Area ── */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-background/30 transition-colors duration-200">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-background transition-colors duration-200">
           <div className="max-w-7xl mx-auto space-y-6">
             {renderActiveView()}
           </div>

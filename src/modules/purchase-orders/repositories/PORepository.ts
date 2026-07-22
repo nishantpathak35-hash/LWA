@@ -6,7 +6,7 @@ export class PORepository {
    * Retrieves all purchase orders.
    */
   static async findAll(options?: { limit?: number; offset?: number }): Promise<IPO[]> {
-    const limit = options?.limit ?? 100;
+    const limit = options?.limit ?? 10000;
     const offset = options?.offset ?? 0;
     return queryAll(`
       SELECT p.*,

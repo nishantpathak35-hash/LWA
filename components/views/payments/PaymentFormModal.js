@@ -74,7 +74,7 @@ export default function PaymentFormModal({
           <fieldset disabled={isLockedByOthers} className="space-y-6 border-0 p-0 m-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR *</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">VENDOR *</label>
               <Select value={vendorCode} onChange={(e) => {
                 const newVendorCode = e.target.value;
                 setVendorCode(newVendorCode);
@@ -87,7 +87,7 @@ export default function PaymentFormModal({
               </Select>
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PURCHASE ORDER *</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">PURCHASE ORDER *</label>
               <Select value={poNo} onChange={(e) => handlePOChange(e.target.value)} disabled={isEditMode}>
                 <option value="">Select PO...</option>
                 {vendorPOs.map((p, idx) => (
@@ -98,26 +98,26 @@ export default function PaymentFormModal({
           </div>
 
           {selectedPO && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-900/40 border border-slate-900 rounded-xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/40 border border-border rounded-xl">
               <div>
-                <label className="text-[10px] font-semibold text-slate-400 tracking-wider block mb-1">PROJECT</label>
-                <div className="text-sm font-medium text-slate-200">{selectedPO.project || '—'}</div>
+                <label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase block mb-1">PROJECT</label>
+                <div className="text-sm font-bold text-foreground">{selectedPO.project || '—'}</div>
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-slate-400 tracking-wider block mb-1">PO TOTAL VALUE</label>
-                <div className="text-sm font-semibold text-gold">{formatCurrency(selectedPO.po_value || 0)}</div>
+                <label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase block mb-1">PO TOTAL VALUE</label>
+                <div className="text-sm font-bold text-amber-700 dark:text-gold">{formatCurrency(selectedPO.po_value || 0)}</div>
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-slate-400 tracking-wider block mb-1">AMOUNT ALREADY REMITTED</label>
-                <div className="text-sm font-semibold text-emerald-400">
+                <label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase block mb-1">AMOUNT ALREADY REMITTED</label>
+                <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
                   {formatCurrency(selectedPO.paid || 0)} ({selectedPO.po_value > 0 ? ((selectedPO.paid / selectedPO.po_value) * 100).toFixed(1) : 0}%)
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-slate-400 tracking-wider block mb-1">PO OUTSTANDING BALANCE</label>
-                <div className="text-sm font-semibold text-amber-500">
+                <label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase block mb-1">PO OUTSTANDING BALANCE</label>
+                <div className="text-sm font-bold text-amber-700 dark:text-amber-500">
                   {formatCurrency(Math.max(0, (selectedPO.po_value || 0) - (selectedPO.paid || 0)))}
-                  <span className="text-xs font-light text-slate-500 ml-2">(updates only after remittance)</span>
+                  <span className="text-xs font-normal text-muted-foreground ml-2">(updates only after remittance)</span>
                 </div>
               </div>
             </div>
@@ -125,7 +125,7 @@ export default function PaymentFormModal({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">AMOUNT REQUESTED (INR) *</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">AMOUNT REQUESTED (INR) *</label>
               <Input
                 type="number"
                 min="1"
@@ -135,8 +135,8 @@ export default function PaymentFormModal({
               />
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">NET AMOUNT PAYABLE</label>
-              <div className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-900 rounded-lg text-gold text-sm font-semibold">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">NET AMOUNT PAYABLE</label>
+              <div className="w-full px-3.5 py-2 bg-muted/60 border border-border rounded-lg text-amber-700 dark:text-gold text-base font-bold tabular-nums">
                 {formatCurrency(netAmount)}
               </div>
             </div>
@@ -144,7 +144,7 @@ export default function PaymentFormModal({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">INVOICE NO / FILE REF</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">INVOICE NO / FILE REF</label>
               <Input
                 type="text"
                 value={invoiceRef}
@@ -153,7 +153,7 @@ export default function PaymentFormModal({
               />
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">REMARKS</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">REMARKS</label>
               <Input
                 type="text"
                 value={remarks}
@@ -166,13 +166,13 @@ export default function PaymentFormModal({
           </fieldset>
 
           {formError && (
-            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-lg text-xs text-rose-700 dark:text-rose-400 flex items-center gap-2 font-medium">
               <ShieldAlert className="w-4 h-4 flex-shrink-0" />
               <span>{formError}</span>
             </div>
           )}
 
-          <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => setRequestModalOpen(false)}>
               Cancel
             </Button>

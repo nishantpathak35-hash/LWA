@@ -6,37 +6,37 @@ export default function PaymentsHeader({ canRequest, activeTab, setActiveTab, ha
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div>
-        <h2 className="text-2xl font-light text-slate-100 font-serif tracking-wide">Payments</h2>
-        <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider">
+        <h2 className="text-xl font-bold text-foreground tracking-tight">Payments</h2>
+        <p className="text-xs text-muted-foreground mt-0.5 font-medium">
           Manage payment requests, approvals, and remittances.
         </p>
       </div>
       <div className="flex flex-wrap gap-3">
-        <div className="flex bg-slate-900/50 p-1 rounded-lg border border-slate-800/50">
+        <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
           <button
             onClick={() => setActiveTab('active')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-              activeTab === 'active' ? 'bg-slate-800 text-slate-200 shadow-sm' : 'text-slate-400 hover:text-slate-300'
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'active' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Active & Paid
           </button>
           <button
             onClick={() => setActiveTab('pending')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'pending' ? 'bg-slate-800 text-slate-200 shadow-sm' : 'text-slate-400 hover:text-slate-300'
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === 'pending' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Requires Action
             {pendingCount > 0 && (
-              <span className="bg-red-500/20 text-red-400 text-[10px] px-1.5 py-0.5 rounded-full">
+              <span className="bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                 {pendingCount}
               </span>
             )}
           </button>
         </div>
         {canRequest && (
-          <Button onClick={() => handleOpenRequestModal()} className="gap-2 bg-gold hover:bg-gold/90 text-slate-900">
+          <Button variant="primary" size="sm" onClick={() => handleOpenRequestModal()} className="gap-2">
             <PlusCircle className="w-4 h-4" /> Request Payment
           </Button>
         )}

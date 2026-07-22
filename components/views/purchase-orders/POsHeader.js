@@ -6,17 +6,17 @@ export default function POsHeader({ canCreate, handleOpenCreateModal, filteredCo
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div>
-        <h2 className="text-2xl font-light text-slate-100 font-serif tracking-wide">Purchase Orders</h2>
-        <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider">
+        <h2 className="text-xl font-bold text-foreground tracking-tight">Purchase Orders</h2>
+        <p className="text-xs text-muted-foreground mt-0.5 font-medium">
           {filteredCount} {filteredCount === 1 ? 'Record' : 'Records'} Found
         </p>
       </div>
       <div className="flex gap-3">
-        <Button variant="outline" onClick={handleExportPOs} className="gap-2">
+        <Button variant="default" size="sm" onClick={handleExportPOs} className="gap-2">
           <Download className="w-4 h-4" /> Export
         </Button>
         {canCreate && (
-          <Button onClick={() => handleOpenCreateModal()} className="gap-2 bg-gold hover:bg-gold/90 text-slate-900">
+          <Button variant="primary" size="sm" onClick={() => handleOpenCreateModal()} className="gap-2">
             <PlusCircle className="w-4 h-4" /> New PO
           </Button>
         )}

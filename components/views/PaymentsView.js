@@ -121,8 +121,11 @@ export default function PaymentsView() {
   const canOnboard = isProcurement || isAdmin;
 
   const getVendorPOs = (vCode) => {
+    if (!vCode) return [];
     return pos.filter(po => {
-      return po.vendor_key === vCode && isPOEligibleForPayment(po);
+      const pKey = po.vendor_key || po.vendorCode || po.vendor_code;
+      const matchesVendor = pKey === vCode || po.vendor_name === vCode || po.vendor === vCode;
+      return matchesVendor && isPOEligibleForPayment(po);
     });
   };
 

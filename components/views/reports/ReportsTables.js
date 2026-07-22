@@ -44,7 +44,7 @@ export default function ReportsTables({
                 <TableHead>Vendor</TableHead>
                 <TableHead className="text-right">Req. Amount</TableHead>
                 <TableHead className="text-right">App. Amount</TableHead>
-                <TableHead className="text-right font-semibold text-violet-400">TDS Amount</TableHead>
+                <TableHead className="text-right font-semibold text-violet-600 dark:text-violet-400">TDS Amount</TableHead>
                 <TableHead className="text-right">TDS %</TableHead>
                 <TableHead>TDS Section</TableHead>
                 <TableHead>Govt Status</TableHead>
@@ -55,31 +55,31 @@ export default function ReportsTables({
               {entries.length > 0 ? (
                 entries.map((e, idx) => (
                   <TableRow key={e.id || idx}>
-                    <TableCell className="font-semibold text-gold">{e.id}</TableCell>
-                    <TableCell className="text-xs text-slate-400">
+                    <TableCell className="font-bold text-amber-700 dark:text-gold">#{e.id}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-medium">
                       {e.transaction_date ? new Date(e.transaction_date).toLocaleDateString('en-IN') : '—'}
                     </TableCell>
-                    <TableCell>{e.project_id}</TableCell>
-                    <TableCell className="font-mono text-xs">{e.po_id}</TableCell>
-                    <TableCell>{e.vendor_id}</TableCell>
-                    <TableCell className="text-right text-slate-400 line-through">{fmtLakhs(e.amount_requested)}</TableCell>
-                    <TableCell className="text-right text-emerald-400">{fmtLakhs(e.approved_amount ?? e.gross_amount)}</TableCell>
-                    <TableCell className="text-right text-violet-400 font-medium">{fmtLakhs(e.tds_amount)}</TableCell>
-                    <TableCell className="text-right">{Number(e.tds_percentage || 0).toFixed(1)}%</TableCell>
+                    <TableCell className="font-medium text-foreground">{e.project_id}</TableCell>
+                    <TableCell className="font-mono text-xs font-semibold text-amber-700 dark:text-amber-300">{e.po_id}</TableCell>
+                    <TableCell className="font-bold text-foreground">{e.vendor_id}</TableCell>
+                    <TableCell className="text-right text-muted-foreground line-through tabular-nums">{fmtLakhs(e.amount_requested)}</TableCell>
+                    <TableCell className="text-right text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">{fmtLakhs(e.approved_amount ?? e.gross_amount)}</TableCell>
+                    <TableCell className="text-right text-violet-700 dark:text-violet-400 font-bold tabular-nums">{fmtLakhs(e.tds_amount)}</TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">{Number(e.tds_percentage || 0).toFixed(1)}%</TableCell>
                     <TableCell><Badge variant="default">{e.tds_section}</Badge></TableCell>
                     <TableCell>
                       <Badge variant={e.government_payment_status === 'paid' ? 'success' : 'warning'}>
                         {e.government_payment_status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500">
+                    <TableCell className="text-xs text-muted-foreground font-medium">
                       {e.deducted_at ? new Date(e.deducted_at).toLocaleDateString() : '—'}
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                <TableCell colSpan={12} className="text-center py-10 text-slate-500">
+                <TableCell colSpan={12} className="text-center py-10 text-muted-foreground font-medium">
                     No TDS deductions found.
                   </TableCell>
                 </TableRow>
@@ -88,20 +88,20 @@ export default function ReportsTables({
           </Table>
 
           {summaryKeys.length > 0 && (
-            <Card className="bg-slate-950/40 border-slate-900">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-gold font-medium">TDS Summary by Section</CardTitle>
+                <CardTitle className="text-amber-700 dark:text-gold font-bold">TDS Summary by Section</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {summaryKeys.map(sec => {
                   const s = summary[sec];
                   return (
-                    <div key={sec} className="p-4 rounded-lg bg-slate-900/30 border border-slate-900 space-y-2">
-                      <div className="font-bold text-slate-200">{s.section}</div>
-                      <div className="text-xs text-slate-400">Count: <span className="text-slate-200">{s.count}</span></div>
-                      <div className="text-xs text-slate-400">Total TDS: <span className="text-violet-400 font-medium">{fmtLakhs(s.total_tds)}</span></div>
-                      <div className="text-xs text-slate-400">Paid: <span className="text-emerald-400">{fmtLakhs(s.paid)}</span></div>
-                      <div className="text-xs text-slate-400">Pending: <span className="text-amber-400">{fmtLakhs(s.pending)}</span></div>
+                    <div key={sec} className="p-4 rounded-xl bg-muted/40 border border-border space-y-2">
+                      <div className="font-bold text-foreground text-sm">{s.section}</div>
+                      <div className="text-xs text-muted-foreground">Count: <span className="font-bold text-foreground">{s.count}</span></div>
+                      <div className="text-xs text-muted-foreground">Total TDS: <span className="text-violet-700 dark:text-violet-400 font-bold">{fmtLakhs(s.total_tds)}</span></div>
+                      <div className="text-xs text-muted-foreground">Paid: <span className="text-emerald-700 dark:text-emerald-400 font-bold">{fmtLakhs(s.paid)}</span></div>
+                      <div className="text-xs text-muted-foreground">Pending: <span className="text-amber-700 dark:text-amber-400 font-bold">{fmtLakhs(s.pending)}</span></div>
                     </div>
                   );
                 })}

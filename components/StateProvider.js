@@ -57,6 +57,7 @@ export function StateProvider({ children }) {
   const [targetPo, setTargetPo] = useState(null);
   const [hasMoreVendors, setHasMoreVendors] = useState(true);
   const [activeLocks, setActiveLocks] = useState({});
+  const [activePresence, setActivePresence] = useState({});
   const [hasMorePOs, setHasMorePOs] = useState(true);
   const [hasMorePayments, setHasMorePayments] = useState(true);
 
@@ -151,6 +152,18 @@ export function StateProvider({ children }) {
     }
   }, [token, call]);
 
+  const refreshActivePresence = useCallback(async () => {
+    if (!token) return;
+    try {
+      const presence = await call('getActivePresence');
+      if (presence) {
+        setActivePresence(presence);
+      }
+    } catch (e) {
+      console.error('Active presence refresh failed:', e);
+    }
+  }, [token, call]);
+
   // Load all app data (boot bundle)
   const refreshData = useCallback(async () => {
     if (!token) return;
@@ -182,13 +195,14 @@ export function StateProvider({ children }) {
         if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
           setFeaturePermissions(bundle.featurePermissions);
         }
-        // Also refresh locks
+        // Also refresh locks and presence
         await refreshActiveLocks();
+        await refreshActivePresence();
       }
     } catch (e) {
       console.error('Data refresh failed:', e);
     }
-  }, [token, call, refreshActiveLocks]);
+  }, [token, call, refreshActiveLocks, refreshActivePresence]);
 
   const refreshVendors = useCallback(async () => {
     if (!token) return;
@@ -328,10 +342,16 @@ export function StateProvider({ children }) {
           if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
             setFeaturePermissions(bundle.featurePermissions);
           }
-          // Also refresh locks on boot
-          const locks = await call('getActiveLocks');
+          // Also refresh locks and presence on boot
+          const [locks, presence] = await Promise.all([
+            call('getActiveLocks'),
+            call('getActivePresence')
+          ]);
           if (locks && active) {
             setActiveLocks(locks);
+          }
+          if (presence && active) {
+            setActivePresence(presence);
           }
         } else {
           logout();
@@ -453,6 +473,8 @@ export function StateProvider({ children }) {
                 refreshKPIs();
               } else if (parsed.entity.endsWith('_lock')) {
                 refreshActiveLocks();
+              } else if (parsed.entity.endsWith('_presence')) {
+                refreshActivePresence();
               } else {
                 refreshData();
               }
@@ -493,7 +515,7 @@ export function StateProvider({ children }) {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (debounceTimeout) clearTimeout(debounceTimeout);
     };
-  }, [user, token, refreshData]);
+  }, [user, token, refreshData, refreshActivePresence]);
 
   const hasPermission = useCallback((feature) => {
     if (!user) return false;
@@ -584,6 +606,8 @@ export function StateProvider({ children }) {
     setTargetPo,
     activeLocks,
     refreshActiveLocks,
+    activePresence,
+    refreshActivePresence,
   };
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>;

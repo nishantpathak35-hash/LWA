@@ -4,37 +4,43 @@
 
 @layer base {
   :root {
-    /* Light Mode — soft off-white background and subtle grey card surfaces */
-    --background: 220 12% 97.5%;      /* #F8F9FA — soft off-white background */
-    --foreground: 220 20% 12%;        /* #1E293B — deep charcoal text */
+    /* Light Mode — Zoho Books / Enterprise ERP design system */
+    --background: 210 40% 98%;          /* #F8FAFC — crisp, clean light slate canvas */
+    --foreground: 222 47% 11%;          /* #0F172A — deep navy charcoal primary text */
 
-    --muted: 220 10% 95%;             /* #F1F5F9 — soft light grey for muted areas */
-    --muted-foreground: 220 8% 46%;   /* #475569 — softer secondary text */
+    --muted: 210 40% 96.1%;             /* #F1F5F9 — subtle light gray for muted surfaces */
+    --muted-foreground: 215 16% 40%;    /* #475569 — slate-600 secondary text (WCAG AA) */
 
-    --popover: 0 0% 100%;             /* #FFFFFF — clean white popovers */
-    --popover-foreground: 220 20% 12%;
+    --popover: 0 0% 100%;               /* #FFFFFF — clean white popovers */
+    --popover-foreground: 222 47% 11%;
 
-    --card: 220 10% 96%;              /* #F1F3F5 — subtle grey card surface */
-    --card-foreground: 220 20% 12%;
+    --card: 0 0% 100%;                  /* #FFFFFF — pure white card surface with shadow */
+    --card-foreground: 222 47% 11%;
 
-    --border: 220 10% 90.5%;          /* #E2E8F0 — softer borders */
-    --input: 0 0% 100%;               /* #FFFFFF — clean white inputs */
+    --border: 214 32% 91%;              /* #E2E8F0 — crisp border */
+    --input: 0 0% 100%;                 /* #FFFFFF — clean white inputs */
 
-    --primary: 38 42% 35%;            /* richer premium gold primary */
+    --primary: 38 70% 36%;              /* #9E6B15 — rich enterprise gold/bronze */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 10% 95%;
-    --secondary-foreground: 220 20% 12%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
 
-    --accent: 220 10% 93.5%;          /* subtle accent */
-    --accent-foreground: 220 20% 12%;
+    --accent: 210 40% 95%;              /* soft subtle accent */
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 72% 50%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --ring: 38 42% 35%;
+    --ring: 38 70% 36%;
 
     --radius: 0.5rem;
+
+    /* Enterprise Table Tokens (Light) */
+    --table-header-bg: 210 40% 96.1%;
+    --table-header-text: 215 20% 32%;
+    --table-hover: 210 40% 96.5%;
+    --table-selected: 45 100% 96%;
   }
 
   .dark {
@@ -66,6 +72,12 @@
     --destructive-foreground: 210 40% 98%;
 
     --ring: 36 39% 64%;
+
+    /* Enterprise Table Tokens (Dark) */
+    --table-header-bg: 223 47% 9%;
+    --table-header-text: 215.4 16.3% 65%;
+    --table-hover: 223 47% 10%;
+    --table-selected: 38 42% 14%;
   }
 }
 
@@ -85,13 +97,13 @@
   height: 6px;
 }
 .overflow-x-auto::-webkit-scrollbar {
-  height: 10px;
+  height: 8px;
 }
 .overflow-x-auto::-webkit-scrollbar-thumb {
-  border-radius: 5px;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--border));
@@ -108,87 +120,25 @@
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* --- PREMIUM UTILITIES & MICRO-ANIMATIONS --- */
 .glass-card {
-  @apply bg-card/70 backdrop-blur-md border border-border/50 shadow-sm transition-all duration-300;
+  @apply bg-card border border-border shadow-xs rounded-xl transition-all duration-200;
 }
 .glass-card:hover {
-  @apply bg-card/85 border-border shadow-md;
+  @apply shadow-sm border-slate-300 dark:border-slate-700;
 }
 .glass-panel {
-  @apply bg-background/80 backdrop-blur-xl border-b border-border/50;
+  @apply bg-card/90 backdrop-blur-md border-b border-border;
 }
 .premium-btn {
-  @apply transition-all duration-300 hover:shadow-[0_0_15px_rgba(197,168,128,0.3)] hover:-translate-y-[1px];
+  @apply transition-all duration-200 hover:-translate-y-[1px];
 }
 
 /* Native dropdown option contrast fixes */
 select option {
   background-color: hsl(var(--card));
   color: hsl(var(--foreground));
-}
-
-/* Beautiful Scrollbars */
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.5);
-}
-
-/* --- LIGHT MODE TAILWIND SLATE CLASS OVERRIDES --- */
-html:not(.dark) {
-  /* Text color overrides */
-  .text-slate-50,
-  .text-slate-100,
-  .text-slate-200,
-  .text-slate-100\/90,
-  .text-slate-200\/90 {
-    color: hsl(var(--foreground)) !important;
-  }
-  
-  .text-slate-300,
-  .text-slate-400,
-  .text-slate-500,
-  .text-slate-300\/80,
-  .text-slate-400\/80,
-  .text-slate-500\/80 {
-    color: hsl(var(--muted-foreground)) !important;
-  }
-
-  /* Background color overrides */
-  .bg-slate-800,
-  .bg-slate-900,
-  .bg-slate-950 {
-    background-color: hsl(var(--card)) !important;
-  }
-  
-  /* Background opacity variants */
-  .bg-slate-800\/10, .bg-slate-900\/10, .bg-slate-950\/10 { background-color: hsl(var(--muted) / 0.1) !important; }
-  .bg-slate-800\/20, .bg-slate-900\/20, .bg-slate-950\/20 { background-color: hsl(var(--muted) / 0.2) !important; }
-  .bg-slate-800\/30, .bg-slate-900\/30, .bg-slate-950\/30 { background-color: hsl(var(--muted) / 0.3) !important; }
-  .bg-slate-800\/40, .bg-slate-900\/40, .bg-slate-950\/40 { background-color: hsl(var(--muted) / 0.4) !important; }
-  .bg-slate-800\/50, .bg-slate-900\/50, .bg-slate-950\/50 { background-color: hsl(var(--muted) / 0.5) !important; }
-  .bg-slate-800\/60, .bg-slate-900\/60, .bg-slate-950\/60 { background-color: hsl(var(--muted) / 0.6) !important; }
-  .bg-slate-800\/80, .bg-slate-900\/80, .bg-slate-950\/80 { background-color: hsl(var(--muted) / 0.8) !important; }
-
-  /* Border color overrides */
-  .border-slate-700,
-  .border-slate-800,
-  .border-slate-900 {
-    border-color: hsl(var(--border)) !important;
-  }
-  
-  /* Border opacity variants */
-  .border-slate-700\/10, .border-slate-800\/10, .border-slate-900\/10 { border-color: hsl(var(--border) / 0.1) !important; }
-  .border-slate-700\/20, .border-slate-800\/20, .border-slate-900\/20 { border-color: hsl(var(--border) / 0.2) !important; }
-  .border-slate-700\/30, .border-slate-800\/30, .border-slate-900\/30 { border-color: hsl(var(--border) / 0.3) !important; }
-  .border-slate-700\/40, .border-slate-800\/40, .border-slate-900\/40 { border-color: hsl(var(--border) / 0.4) !important; }
-  .border-slate-700\/50, .border-slate-800\/50, .border-slate-900\/50 { border-color: hsl(var(--border) / 0.5) !important; }
-  .border-slate-700\/60, .border-slate-800\/60, .border-slate-900\/60 { border-color: hsl(var(--border) / 0.6) !important; }
-  .border-slate-700\/80, .border-slate-800\/80, .border-slate-900\/80 { border-color: hsl(var(--border) / 0.8) !important; }
 }

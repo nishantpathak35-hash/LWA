@@ -11,11 +11,11 @@ export default function ReportsHeader({
       {/* Title block */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-light text-slate-100 flex items-center gap-2.5 font-serif">
-            <FileText className="w-5 h-5 text-gold" />
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5 tracking-tight">
+            <FileText className="w-5 h-5 text-amber-600 dark:text-gold" />
             Financial Reports & Analytics
           </h2>
-          <p className="text-xs font-light text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-0.5 font-medium">
             Real-time tax registers, day-wise payment audit ledgers and status registers.
           </p>
         </div>
@@ -25,10 +25,10 @@ export default function ReportsHeader({
       </div>
 
       {/* Filter and Tab Options */}
-      <Card className="bg-slate-950/40 border-slate-900">
+      <Card>
         <CardContent className="space-y-5">
           {/* Quick Tabs */}
-          <div className="flex flex-wrap gap-1.5 border-b border-slate-900 pb-4">
+          <div className="flex flex-wrap gap-1.5 border-b border-border pb-4">
             {rTypes.map(t => (
               <Button
                 key={t.id}
@@ -44,8 +44,8 @@ export default function ReportsHeader({
           {/* Contextual Filter Inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-light flex items-center gap-1.5">
-                <Calendar className="w-3 h-3 text-gold" /> Start Date
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-gold" /> Start Date
               </label>
               <Input
                 type="date"
@@ -54,8 +54,8 @@ export default function ReportsHeader({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-light flex items-center gap-1.5">
-                <Calendar className="w-3 h-3 text-gold" /> End Date
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-gold" /> End Date
               </label>
               <Input
                 type="date"
@@ -68,7 +68,7 @@ export default function ReportsHeader({
             {['All', 'Approved', 'Rejected', 'Remit', 'Remitted'].includes(reportType) && (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-light">Vendor Search</label>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Vendor Search</label>
                   <Input
                     placeholder="Search vendor..."
                     value={vendorFilter}
@@ -76,7 +76,7 @@ export default function ReportsHeader({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-light">Project Search</label>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Project Search</label>
                   <Input
                     placeholder="Search project..."
                     value={projectFilter}
