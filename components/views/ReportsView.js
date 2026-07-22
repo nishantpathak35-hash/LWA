@@ -297,31 +297,31 @@ export default function ReportsView() {
 
       <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">
         <div className="space-y-4">
-          <div className="text-sm text-slate-400">
+          <div className="text-sm font-medium text-muted-foreground">
             {adviceContactSource === 'vendor_master'
               ? 'Email pre-filled from Vendor Master. Confirm or update before sending.'
-              : 'No email on file for this vendor. Enter an email address.'}
+              : 'No email on file for this vendor. Enter an email address below.'}
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-slate-400 font-light">
-              Contact Detail
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1">
+              Vendor Email Address
               {adviceContactSource === 'vendor_master' && (
-                <span className="ml-2 text-emerald-400 text-[10px] font-medium">● From Vendor Master</span>
+                <span className="ml-2 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold">● From Vendor Master</span>
               )}
             </label>
             <Input
-              type="text"
-              placeholder="Email address"
-              value={adviceContact}
-              onChange={e => setAdviceContact(e.target.value)}
+              type="email"
+              placeholder="vendor@example.com"
+              value={adviceEmailInput}
+              onChange={e => setAdviceEmailInput(e.target.value)}
             />
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="ghost" onClick={() => setAdviceModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={() => executeSendAdvice('email')} disabled={sendingAdviceId !== null}>
-              {sendingAdviceId === adviceTargetId ? 'Sending...' : 'Send via Email'}
+            <Button variant="primary" onClick={handleConfirmSendAdvice} disabled={submittingAdvice}>
+              {submittingAdvice ? 'Sending...' : 'Send via Email'}
             </Button>
           </div>
         </div>
