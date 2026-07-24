@@ -522,15 +522,49 @@ export default function PaymentsView() {
   
   // Bug 1 helper (PaymentsView parity): find vendor email for a given payment request ID
   const findVendorEmailForReqId = (reqId) => {
-    const payment = payments.find(p => String(p.id) === String(reqId) || String(p.pr_id) === String(reqId));
+    const rawId = typeof reqId === 'object' && reqId !== null ? (reqId.id || reqId.pr_id || reqId.prId) : reqId;
+    const cleanId = String(rawId || '').replace(/^(TDS|PR)-/i, '').trim();
+
+    const payment = (typeof reqId === 'object' && reqId !== null)
+      ? reqId
+      : payments.find(p => {
+          const pId = String(p.id || p.pr_id || p.prId || '').replace(/^(TDS|PR)-/i, '').trim();
+          return pId === cleanId;
+        });
+
     if (!payment) return '';
-    const vendor = vendors.find(v => {
-      if (payment.vendor_code && ((v.code && v.code === payment.vendor_code) || (v.vendorId && v.vendorId === payment.vendor_code))) return true;
-      const vName = payment.vendor_name || payment.vendor;
-      if (vName && ((v.name && v.name.toLowerCase() === vName.toLowerCase()) || (v.legalName && v.legalName.toLowerCase() === vName.toLowerCase()))) return true;
+
+    const pCode = payment.vendor_code || payment.vendor_id || payment.vendor_key || payment.vendorId;
+    const pName = payment.vendor_name || payment.vendor;
+    const normCode = pCode ? String(pCode).trim().toLowerCase() : '';
+    const normName = pName ? String(pName).trim().toLowerCase() : '';
+
+    const candidates = vendors.filter(v => {
+      const vCode = String(v.code || v.vendorId || v.vendor_code || '').trim().toLowerCase();
+      const vName = String(v.name || v.legalName || v.legal_name || '').trim().toLowerCase();
+      const vTrade = String(v.tradeName || v.trade_name || '').trim().toLowerCase();
+
+      if (normCode && vCode === normCode) return true;
+      if (normName && (vName === normName || vTrade === normName || (vName && normName.includes(vName)) || (vName && vName.includes(normName)))) return true;
       return false;
     });
-    return vendor?.email || '';
+
+    if (candidates.length === 0) {
+      return (payment.vendor_email || payment.email || '').trim();
+    }
+
+    const matched = candidates.find(v => (v.email || v.email_id || v.primary_contact_email || v.accounts_contact_email || v.contact_email || '').trim()) || candidates[0];
+
+    return (
+      matched?.email ||
+      matched?.email_id ||
+      matched?.primary_contact_email ||
+      matched?.accounts_contact_email ||
+      matched?.contact_email ||
+      payment?.vendor_email ||
+      payment?.email ||
+      ''
+    ).trim();
   };
 
   const handleSendPaymentAdvice = async (reqId, method) => {
