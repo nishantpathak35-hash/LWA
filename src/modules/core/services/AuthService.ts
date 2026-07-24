@@ -6,7 +6,8 @@ export class AuthService {
    * Check if the given email is the Super Admin.
    */
   static isSuperAdmin(email: string): boolean {
-    return String(email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+    const norm = String(email || '').trim().toLowerCase();
+    return norm === 'nishant@luxeworxatelier.com' || norm === 'nishantpathak35@gmail.com' || norm === SUPER_ADMIN_EMAIL;
   }
 
   /**

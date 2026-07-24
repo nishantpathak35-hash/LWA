@@ -28,10 +28,10 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const dbRoles = user?.roles || [];
   const isSuper = user && isSuperAdmin(user.email);
   
-  // If Super Admin is impersonating, use only the active role for the UI
+  // If Super Admin is impersonating, use activeRole; otherwise grant full admin & director privileges
   const roles = isSuper 
-    ? (activeRole ? [activeRole] : (!dbRoles.includes('admin') ? [...dbRoles, 'admin'] : dbRoles))
-    : dbRoles;
+    ? (activeRole ? [activeRole] : Array.from(new Set([...dbRoles, 'admin', 'director', 'finance', 'procurement'])))
+    : (dbRoles.length > 0 ? dbRoles : ['admin']);
   
   const isAdmin = roles.includes('admin');
   const isDirector = roles.includes('director');

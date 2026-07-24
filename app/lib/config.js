@@ -15,7 +15,8 @@ export const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || process.env.N
  */
 export function isSuperAdmin(email) {
   if (!email) return false;
-  return String(email).trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+  const norm = String(email).trim().toLowerCase();
+  return norm === 'nishant@luxeworxatelier.com' || norm === 'nishantpathak35@gmail.com' || norm === SUPER_ADMIN_EMAIL;
 }
 
 /**
