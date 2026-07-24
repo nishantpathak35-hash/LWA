@@ -199,6 +199,16 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
   };
 }
 
+export async function remitPaymentRequest(prId, utrRef = '', remarks = '', session) {
+  requireAuth(session);
+  const result = await bulkRemitPayments([prId], { utr_ref: utrRef, remarks }, session);
+  if (!result.ok && result.errors && result.errors.length > 0) {
+    throw new Error(result.errors.join('; '));
+  }
+  return { ok: true, message: 'Payment remitted successfully' };
+}
+
+
 
 export async function transitionPaymentWorkflow(payload, session) {
   requireAuth(session);

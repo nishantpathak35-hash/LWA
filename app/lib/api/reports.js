@@ -15,7 +15,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
-import { getPRStatus } from './core.js';
+import { getPRStatus, ensureSettingsTable } from './core.js';
 import { listPaymentRequests } from './payments.js';
 
 function requireAuth(session) {
@@ -353,12 +353,19 @@ export async function updateForm16AStatus(prId, status, refNo, session) {
 
 export async function getTDSChallans281(session) {
   requireAuth(session);
-  const rows = await queryAll(`SELECT * FROM tds_challan_281 ORDER BY created_at DESC`);
-  return rows || [];
+  try {
+    await ensureSettingsTable();
+    const rows = await queryAll(`SELECT * FROM tds_challan_281 ORDER BY created_at DESC`);
+    return rows || [];
+  } catch (err) {
+    console.error('getTDSChallans281 error, returning empty list:', err.message);
+    return [];
+  }
 }
 
 export async function saveTDSChallan281(payload, session) {
   requireAuth(session);
+  await ensureSettingsTable();
   const id = payload.id || `CH281-${Date.now()}`;
   await queryRun(
     `INSERT OR REPLACE INTO tds_challan_281 (

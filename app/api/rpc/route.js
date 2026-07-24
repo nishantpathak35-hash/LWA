@@ -61,6 +61,7 @@ const ALLOWED_METHODS = new Set([
   'bulkApprovePayments',
   'bulkRejectPayments',
   'bulkRemitPayments',
+  'remitPaymentRequest',
   'approvePaymentWithChain',
   'updatePaymentRequest',
   'getDefaultCCRecipients',
