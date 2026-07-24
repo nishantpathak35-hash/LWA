@@ -291,10 +291,13 @@ export default function ReportsView() {
         return;
       }
 
-      setAdviceModalPaymentId(paymentId);
-      setAdviceContactSource('vendor_master');
-      setAdviceEmailInput(vendorEmail);
-      setAdviceModalOpen(true);
+      // Vendor email exists in Vendor Master / Payment DB: send directly!
+      const res = await call('sendPaymentAdvice', paymentId, vendorEmail);
+      if (res && res.ok) {
+        toast.success(res.message || `Payment advice email sent to ${vendorEmail}`);
+      } else {
+        toast.error(res?.error || 'Failed to send payment advice');
+      }
     } catch (err) {
       toast.error('Failed to send payment advice: ' + err.message);
     } finally {

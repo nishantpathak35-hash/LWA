@@ -569,10 +569,23 @@ export default function PaymentsView() {
 
   const handleSendPaymentAdvice = async (reqId, method) => {
     setAdviceTargetIds([reqId]);
-    // Bug 1: pre-fill from Vendor Master instead of always blanking
     const vendorEmail = findVendorEmailForReqId(reqId);
-    setAdviceContact(vendorEmail);
-    setAdviceContactSource(vendorEmail ? 'vendor_master' : 'empty');
+    if (vendorEmail) {
+      try {
+        const res = await call('sendPaymentAdvice', reqId, vendorEmail);
+        if (res && res.ok) {
+          toast.success(res.message || `Payment advice email sent to ${vendorEmail}`);
+        } else {
+          toast.error(res?.error || 'Failed to send payment advice');
+        }
+      } catch (err) {
+        toast.error('Failed to send payment advice: ' + (err.message || 'Unknown error'));
+      }
+      return;
+    }
+
+    setAdviceContact('');
+    setAdviceContactSource('empty');
     setAdviceModalOpen(true);
   };
 
