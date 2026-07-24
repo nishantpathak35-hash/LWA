@@ -267,13 +267,20 @@ export async function reconcileRemittedPaymentsToPOLedger(session, targetPoNo = 
   for (const po of pos) {
     const poNo = po.po_no;
     
-    // Single leg: system_payments.amount is always the net paid amount
-    const sysSumRow = await queryGet(
-      `SELECT COALESCE(SUM(COALESCE(amount, 0)), 0) AS total
-       FROM system_payments WHERE po_no = ?`,
+    // Gross PO paid amount = Gross approved amount of remitted PRs (including TDS) + Manual Payments
+    const prSumRow = await queryGet(
+      `SELECT COALESCE(SUM(COALESCE(pr.approved_amount, pr.amount_requested, 0)), 0) AS total
+       FROM payment_requests pr
+       WHERE pr.po_no = ? AND (LOWER(pr.stage) = 'remitted' OR LOWER(pr.remittance) = 'remitted')`,
       [poNo]
     );
-    const totalPaid = Number(sysSumRow?.total) || 0;
+    const manualSumRow = await queryGet(
+      `SELECT COALESCE(SUM(COALESCE(sp.amount, 0)), 0) AS total
+       FROM system_payments sp
+       WHERE sp.po_no = ? AND (sp.pr_key IS NULL OR sp.pr_key LIKE 'MANUAL-%')`,
+      [poNo]
+    );
+    const totalPaid = (Number(prSumRow?.total) || 0) + (Number(manualSumRow?.total) || 0);
     const poVal = Number(po.revised_po_value || po.po_value || 0);
     const finalPayable = Math.max(0, poVal - totalPaid);
 

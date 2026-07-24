@@ -8,11 +8,11 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
   return (
     <Dialog open={viewModalOpen} onClose={() => setViewModalOpen(false)} title={viewVendor?.name || 'Vendor Details'}>
       <div className="space-y-6">
-        <div className="p-4 bg-slate-900/40 border border-slate-900 rounded-xl grid grid-cols-2 gap-4 text-sm font-light">
-          <p className="text-slate-400 col-span-2">Legal Name: <strong className="text-slate-200">{viewVendor?.legalName || viewVendor?.name || '—'}</strong></p>
-          <p className="text-slate-400">Vendor Code: <strong className="text-slate-200">{viewVendor?.code || '—'}</strong></p>
-          <p className="text-slate-400">GSTIN: <strong className="text-slate-200">{viewVendor?.gstin || '—'}</strong></p>
-          <p className="text-slate-400">Status: <strong className="text-slate-200">{viewVendor?.status || 'Active'}</strong></p>
+        <div className="p-4 bg-muted/40 border border-border rounded-xl grid grid-cols-2 gap-4 text-sm font-light">
+          <p className="text-slate-600 dark:text-slate-400 font-medium col-span-2">Legal Name: <strong className="text-slate-900 dark:text-slate-100 font-bold">{viewVendor?.legalName || viewVendor?.name || '—'}</strong></p>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">Vendor Code: <strong className="text-slate-900 dark:text-slate-100 font-bold">{viewVendor?.code || '—'}</strong></p>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">GSTIN: <strong className="text-slate-900 dark:text-slate-100 font-bold">{viewVendor?.gstin || '—'}</strong></p>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">Status: <strong className="text-slate-900 dark:text-slate-100 font-bold">{viewVendor?.status || 'Active'}</strong></p>
         </div>
 
         <div className="space-y-3">

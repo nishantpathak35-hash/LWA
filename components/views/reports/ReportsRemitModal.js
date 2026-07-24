@@ -9,10 +9,10 @@ export default function ReportsRemitModal({
     <>
       <Dialog open={remitModalOpen} onClose={() => setRemitModalOpen(false)} title={`Remit Payment #${selectedRemitPayment?.id}`}>
         <form onSubmit={handleRemitSubmit} className="space-y-4">
-          <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl space-y-4">
-            <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">Remittance Details</span>
+          <div className="p-4 bg-muted/40 border border-border rounded-xl space-y-4">
+            <span className="text-[10px] font-bold text-amber-700 dark:text-gold tracking-wider uppercase block">Remittance Details</span>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">UTR / REF TRANSACTION NUMBER</label>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 tracking-wider block mb-1.5">UTR / REF TRANSACTION NUMBER</label>
               <Input
                 type="text"
                 required
@@ -22,18 +22,18 @@ export default function ReportsRemitModal({
                 className="font-mono text-sm"
               />
             </div>
-            <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-900/60">
+            <div className="flex justify-between items-center text-xs text-slate-700 dark:text-slate-400 font-medium pt-2 border-t border-border">
               <span>Vendor:</span>
-              <span className="text-slate-200">{selectedRemitPayment?.vendor}</span>
+              <span className="font-bold text-slate-900 dark:text-slate-100">{selectedRemitPayment?.vendor}</span>
             </div>
-            <div className="flex justify-between items-center text-xs text-slate-400">
+            <div className="flex justify-between items-center text-xs text-slate-700 dark:text-slate-400 font-medium">
               <span>Net Amount:</span>
-              <span className="text-emerald-400 font-semibold">
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                 {fmtRupees(Number(selectedRemitPayment?.amountRequested || 0) - Number(selectedRemitPayment?.tdsAmount || selectedRemitPayment?.tds_amount || 0))}
               </span>
             </div>
           </div>
-          <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => setRemitModalOpen(false)}>
               Cancel
             </Button>

@@ -47,7 +47,7 @@ async function getSystemPaymentTotal(poNo) {
   const row = await queryGet(
     `SELECT COALESCE(SUM(
        CASE
-         WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.approved_amount, pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.approved_amount, pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+         WHEN pr.pr_id IS NOT NULL THEN COALESCE(pr.approved_amount, pr.amount_requested, 0)
          ELSE COALESCE(sp.amount, 0)
        END
      ), 0) AS total
@@ -188,7 +188,7 @@ export async function calculateProjectPaymentSummaryForRequest(requestId) {
     queryGet(
       `SELECT COALESCE(SUM(
          CASE
-           WHEN pr.pr_id IS NOT NULL THEN CASE WHEN COALESCE(pr.approved_amount, pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) < 0 THEN 0 ELSE COALESCE(pr.approved_amount, pr.amount_requested, 0) - COALESCE(pr.tds_amount, 0) END
+           WHEN pr.pr_id IS NOT NULL THEN COALESCE(pr.approved_amount, pr.amount_requested, 0)
            ELSE COALESCE(sp.amount, 0)
          END
        ), 0) AS total

@@ -49,11 +49,11 @@ export default function BulkApprovalReviewModal({
               {selectedRequestsDetails.map((req) => (
                 <tr key={req.id} className="hover:bg-slate-900/40 transition-colors">
                   <td className="px-4 py-3 align-top">
-                    <div className="font-semibold text-slate-200">#{req.id} &middot; {req.vendor_name}</div>
-                    <div className="text-[10px] text-slate-500 mt-1 font-mono">{req.po_no}</div>
-                    <div className="text-[10px] text-slate-500">{req.project}</div>
+                    <div className="font-bold text-slate-900 dark:text-slate-100">#{req.id} &middot; {req.vendor_name}</div>
+                    <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 font-mono">{req.po_no}</div>
+                    <div className="text-[10px] text-slate-600 dark:text-slate-400">{req.project}</div>
                   </td>
-                  <td className="px-4 py-3 align-top font-medium text-slate-300 pt-4">
+                  <td className="px-4 py-3 align-top font-medium text-slate-800 dark:text-slate-200 pt-4">
                     {formatCurrency(req.grossAmount)}
                   </td>
                   <td className="px-4 py-3 align-top">

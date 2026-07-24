@@ -119,19 +119,25 @@ export async function getPOPayments(poNo, session) {
       recorded_by: p.recorded_by || '',
       created_at: p.created_at
     })),
-    ...remitted.map(p => ({
-      id: `PR-${p.pr_id}`,
-      payment_date: p.remittance_date || p.created_at?.split('T')[0] || '',
-      amount: Math.max(0, Number((p.approved_amount ?? p.amount_requested) || 0) - Number(p.tds_amount || 0)),
-      payment_mode: 'Bank Transfer (Remittance)',
-      utr_ref: p.remittance_ref || '',
-      bank_name: '',
-      reference_no: '',
-      remarks: p.remarks || '',
-      payment_type: 'remittance',
-      recorded_by: '',
-      created_at: p.created_at
-    }))
+    ...remitted.map(p => {
+      const gross = Number((p.approved_amount ?? p.amount_requested) || 0);
+      const tds = Number(p.tds_amount || 0);
+      return {
+        id: `PR-${p.pr_id}`,
+        payment_date: p.remittance_date || p.created_at?.split('T')[0] || '',
+        amount: gross,
+        net_amount: Math.max(0, gross - tds),
+        tds_amount: tds,
+        payment_mode: 'Bank Transfer (Remittance)',
+        utr_ref: p.remittance_ref || '',
+        bank_name: '',
+        reference_no: '',
+        remarks: p.remarks || '',
+        payment_type: 'remittance',
+        recorded_by: '',
+        created_at: p.created_at
+      };
+    })
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   let totalPaid = payments.reduce((s, p) => s + p.amount, 0);

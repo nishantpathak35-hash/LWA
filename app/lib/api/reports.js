@@ -90,7 +90,6 @@ export async function getPaymentReportRows(filters = {}, session) {
   const all = await listPaymentRequests({ limit: 0 }, session);
   return all.filter(r => {
     const type = String(filters.type || 'All').toLowerCase();
-    if (type === 'all' && r.status === 'pending') return false;
     if (filters.type && filters.type !== 'All') {
       if (type === 'approved' && r.status !== 'approved') return false;
       if (type === 'rejected' && r.status !== 'rejected') return false;

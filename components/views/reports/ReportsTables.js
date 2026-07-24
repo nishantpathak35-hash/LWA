@@ -130,7 +130,7 @@ export default function ReportsTables({
             {vData.length > 0 ? (
               vData.map((v, idx) => (
                 <TableRow key={v.vendor_id || idx}>
-                  <TableCell className="font-semibold text-slate-200">{v.vendor_id}</TableCell>
+                  <TableCell className="font-bold text-slate-900 dark:text-slate-100">{v.vendor_id}</TableCell>
                   <TableCell className="text-right">{fmtLakhs(v.total_gross)}</TableCell>
                   <TableCell className="text-right text-violet-400 font-medium">{fmtLakhs(v.total_tds)}</TableCell>
                   <TableCell className="text-right text-emerald-400 font-medium">{fmtLakhs(v.total_paid)}</TableCell>
@@ -168,7 +168,7 @@ export default function ReportsTables({
             {pData.length > 0 ? (
               pData.map((p, idx) => (
                 <TableRow key={p.project_id || idx}>
-                  <TableCell className="font-semibold text-slate-200">{p.project_id}</TableCell>
+                  <TableCell className="font-bold text-slate-900 dark:text-slate-100">{p.project_id}</TableCell>
                   <TableCell className="text-right">{fmtLakhs(p.total_gross)}</TableCell>
                   <TableCell className="text-right text-violet-400 font-medium">{fmtLakhs(p.total_tds)}</TableCell>
                   <TableCell className="text-right text-emerald-400 font-medium">{fmtLakhs(p.total_paid)}</TableCell>
@@ -253,34 +253,34 @@ export default function ReportsTables({
           <Card className="bg-slate-950/40 border-slate-900">
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Total Approved</div>
-                <div className="text-2xl font-semibold text-slate-200">{summary.total_count}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">Total Approved</div>
+                <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{summary.total_count}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Total Gross</div>
-                <div className="text-2xl font-semibold text-slate-200">{fmtRupees(summary.total_gross)}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">Total Gross</div>
+                <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmtRupees(summary.total_gross)}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Total TDS</div>
-                <div className="text-2xl font-semibold text-violet-400">{fmtRupees(summary.total_tds)}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">Total TDS</div>
+                <div className="text-2xl font-semibold text-violet-600 dark:text-violet-400">{fmtRupees(summary.total_tds)}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-xs text-slate-400">Total Net Payable</div>
-                <div className="text-2xl font-semibold text-emerald-400">{fmtRupees(summary.total_net)}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">Total Net Payable</div>
+                <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">{fmtRupees(summary.total_net)}</div>
               </div>
             </CardContent>
           </Card>
 
           {dates.length > 0 ? (
             dates.map((day, idx) => (
-              <div key={idx} className="space-y-0 rounded-lg overflow-hidden border border-slate-900 bg-slate-950/40">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center p-4 bg-slate-900/40 border-b border-slate-900 gap-2">
-                  <div className="font-semibold text-gold text-sm">{day.displayDate}</div>
+              <div key={idx} className="space-y-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-card">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center p-4 bg-muted/40 border-b border-border gap-2">
+                  <div className="font-bold text-amber-700 dark:text-gold text-sm">{day.displayDate}</div>
                   <div className="flex gap-4 text-xs">
-                    <span className="text-slate-400">{day.count} entries</span>
-                    <span className="text-slate-350">Gross: {fmtRupees(day.gross)}</span>
-                    <span className="text-violet-400">TDS: {fmtRupees(day.tds)}</span>
-                    <span className="text-emerald-400">Net: {fmtRupees(day.net)}</span>
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">{day.count} entries</span>
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">Gross: {fmtRupees(day.gross)}</span>
+                    <span className="text-violet-600 dark:text-violet-400 font-medium">TDS: {fmtRupees(day.tds)}</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Net: {fmtRupees(day.net)}</span>
                   </div>
                 </div>
                 <Table>
@@ -291,8 +291,8 @@ export default function ReportsTables({
                       <TableHead>Project</TableHead>
                       <TableHead>PO</TableHead>
                       <TableHead className="text-right">Gross</TableHead>
-                      <TableHead className="text-right text-violet-400">TDS</TableHead>
-                      <TableHead className="text-right text-emerald-400">Net</TableHead>
+                      <TableHead className="text-right text-violet-600 dark:text-violet-400">TDS</TableHead>
+                      <TableHead className="text-right text-emerald-600 dark:text-emerald-400">Net</TableHead>
                       <TableHead>Approved By</TableHead>
                       <TableHead>Bank Ref</TableHead>
                     </TableRow>
@@ -300,15 +300,15 @@ export default function ReportsTables({
                   <TableBody>
                     {day.entries.map((e, eIdx) => (
                       <TableRow key={e.sNo || eIdx}>
-                        <TableCell className="font-semibold text-gold text-xs">{e.sNo}</TableCell>
-                        <TableCell>{e.vendor}</TableCell>
-                        <TableCell className="text-slate-400">{e.project}</TableCell>
-                        <TableCell className="font-mono text-xs">{e.poNo}</TableCell>
+                        <TableCell className="font-bold text-amber-700 dark:text-gold text-xs">{e.sNo}</TableCell>
+                        <TableCell className="font-bold text-slate-900 dark:text-slate-100">{e.vendor}</TableCell>
+                        <TableCell className="text-slate-700 dark:text-slate-300">{e.project}</TableCell>
+                        <TableCell className="font-mono text-xs text-slate-800 dark:text-slate-300">{e.poNo}</TableCell>
                         <TableCell className="text-right">{fmtRupees(e.grossAmount)}</TableCell>
-                        <TableCell className="text-right text-violet-400">{fmtRupees(e.tdsAmount)}</TableCell>
-                        <TableCell className="text-right text-emerald-400 font-semibold">{fmtRupees(e.netAmount)}</TableCell>
-                        <TableCell className="text-xs">{e.approvedBy}</TableCell>
-                        <TableCell className="font-mono text-xs text-slate-400">{e.bankRef}</TableCell>
+                        <TableCell className="text-right text-violet-600 dark:text-violet-400">{fmtRupees(e.tdsAmount)}</TableCell>
+                        <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-bold">{fmtRupees(e.netAmount)}</TableCell>
+                        <TableCell className="text-xs font-medium">{e.approvedBy}</TableCell>
+                        <TableCell className="font-mono text-xs text-slate-700 dark:text-slate-400">{e.bankRef}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -357,20 +357,20 @@ export default function ReportsTables({
 
               return (
                 <TableRow key={p.rowNumber || idx}>
-                  <TableCell className="font-semibold text-gold">{p.sNo}</TableCell>
-                  <TableCell className="text-xs text-slate-400">
+                  <TableCell className="font-bold text-amber-700 dark:text-gold">{p.sNo}</TableCell>
+                  <TableCell className="text-xs text-slate-700 dark:text-slate-400 font-medium">
                     {p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}
                   </TableCell>
-                  <TableCell className="font-semibold text-slate-200">{p.vendor}</TableCell>
-                  <TableCell>{p.project || '—'}</TableCell>
-                  <TableCell className="font-mono text-xs">{p.poNo || '—'}</TableCell>
-                  <TableCell className="text-right">{fmtRupees(gross)}</TableCell>
-                  <TableCell className="text-right text-violet-400">{fmtRupees(tds)}</TableCell>
-                  <TableCell className="text-right text-emerald-400 font-semibold">{fmtRupees(net)}</TableCell>
-                  <TableCell className="font-mono text-xs text-amber-300">{p.remittance_ref || p.utr || '—'}</TableCell>
+                  <TableCell className="font-bold text-slate-900 dark:text-slate-100">{p.vendor}</TableCell>
+                  <TableCell className="font-medium text-slate-800 dark:text-slate-200">{p.project || '—'}</TableCell>
+                  <TableCell className="font-mono text-xs text-slate-800 dark:text-slate-300">{p.poNo || '—'}</TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">{fmtRupees(gross)}</TableCell>
+                  <TableCell className="text-right text-violet-600 dark:text-violet-400 font-medium tabular-nums">{fmtRupees(tds)}</TableCell>
+                  <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-bold tabular-nums">{fmtRupees(net)}</TableCell>
+                  <TableCell className="font-mono text-xs text-amber-700 dark:text-amber-300 font-medium">{p.remittance_ref || p.utr || '—'}</TableCell>
                   <TableCell>{stageBadge(p.stage)}</TableCell>
                   <TableCell>{wfSteps(p)}</TableCell>
-                  <TableCell className={p.rejectedBy ? 'text-red-400' : 'text-slate-550'}>{rejBy}</TableCell>
+                  <TableCell className={p.rejectedBy ? 'text-red-600 dark:text-red-400 font-medium' : 'text-slate-500 dark:text-slate-400'}>{rejBy}</TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       {(isAdmin || isDirector || isFinance) && handleOpenEditModal && (

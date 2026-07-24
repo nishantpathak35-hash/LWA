@@ -329,24 +329,17 @@ export async function deduplicateSystemPayments(session) {
   const dupes = await queryAll(
     `SELECT po_no, pr_key, COUNT(*) as cnt, MIN(id) as keep_id
      FROM system_payments
+     WHERE pr_key IS NOT NULL AND pr_key NOT LIKE 'MANUAL-%'
      GROUP BY po_no, pr_key
      HAVING COUNT(*) > 1`
   );
   let deletedCount = 0;
   for (const d of dupes) {
-    if (d.pr_key === null) {
-      const res = await queryRun(
-        `DELETE FROM system_payments WHERE po_no = ? AND pr_key IS NULL AND id != ?`,
-        [d.po_no, d.keep_id]
-      );
-      deletedCount += (d.cnt - 1);
-    } else {
-      const res = await queryRun(
-        `DELETE FROM system_payments WHERE po_no = ? AND pr_key = ? AND id != ?`,
-        [d.po_no, d.pr_key, d.keep_id]
-      );
-      deletedCount += (d.cnt - 1);
-    }
+    const res = await queryRun(
+      `DELETE FROM system_payments WHERE po_no = ? AND pr_key = ? AND id != ?`,
+      [d.po_no, d.pr_key, d.keep_id]
+    );
+    deletedCount += (d.cnt - 1);
   }
   const affectedPOs = [...new Set(dupes.map(d => d.po_no))];
   for (const poNo of affectedPOs) {
