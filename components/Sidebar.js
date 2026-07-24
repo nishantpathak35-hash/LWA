@@ -76,12 +76,12 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   };
 
   const filteredMenuItems = menuItems.filter(item => {
-    if (isAdmin || isDirector) {
+    if (isAdmin || isDirector || isSuper || !user) {
       if (item.roles) return item.roles.some(r => roles.includes(r));
       return true;
     }
-    if (item.roles && !item.roles.some(r => roles.includes(r))) return false;
-    if (item.feature && !hasPermission(item.feature)) return false;
+    if (item.roles && item.roles.length > 0 && !item.roles.some(r => roles.includes(r))) return false;
+    if (item.feature && hasPermission && !hasPermission(item.feature)) return false;
     return true;
   });
 
@@ -113,34 +113,26 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     }
   ];
 
-  const allowMultipleExpanded = false;
-  const [expandedGroups, setExpandedGroups] = useState({});
+  const allowMultipleExpanded = true;
+  const [expandedGroups, setExpandedGroups] = useState({
+    procurement: true,
+    finance: true,
+    site_ops: true,
+    admin: true
+  });
 
-  // Auto-expand group of the active route
+  // Ensure active route's group remains expanded
   useEffect(() => {
     const activeGroup = GROUPS.find(g => 
       g.items.some(itemId => filteredMenuItems.some(i => i.id === itemId && i.id === activeView))
     );
     if (activeGroup) {
-      setExpandedGroups(prev => {
-        if (allowMultipleExpanded) {
-          return { ...prev, [activeGroup.id]: true };
-        } else {
-          return { [activeGroup.id]: true };
-        }
-      });
+      setExpandedGroups(prev => ({ ...prev, [activeGroup.id]: true }));
     }
   }, [activeView]);
 
   const toggleGroup = (groupId) => {
-    setExpandedGroups(prev => {
-      const isExpanded = !!prev[groupId];
-      if (allowMultipleExpanded) {
-        return { ...prev, [groupId]: !isExpanded };
-      } else {
-        return { [groupId]: !isExpanded };
-      }
-    });
+    setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
   const getGroupBadgeCount = (group) => {
