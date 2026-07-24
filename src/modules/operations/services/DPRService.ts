@@ -1,5 +1,6 @@
 import { DPRRepository, IDPR, IDPRTemplate } from '../repositories/DPRRepository';
 import { SettingsRepository } from '../../core/repositories/SettingsRepository';
+import { AuthService } from '../../core/services/AuthService';
 
 export class DPRService {
   /**
@@ -105,7 +106,7 @@ export class DPRService {
     // Auto-stamp approver/checker if status changes
     if (updates.approval_status === 'Approved' && !updates.approved_by) {
       // Authorization Check
-      const isApprover = user?.role === 'admin' || user?.role === 'approver' || user?.is_admin;
+      const isApprover = DPRService.checkApprover(user);
       if (!isApprover) {
         throw new Error("You do not have permission to approve this report.");
       }
@@ -117,12 +118,20 @@ export class DPRService {
     await DPRRepository.updateReport(id, updates);
   }
 
+  static checkApprover(user: any): boolean {
+    if (!user) return false;
+    if (AuthService.isSuperAdmin(user.email)) return true;
+    if (user.is_admin) return true;
+    const roles = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
+    return roles.some((r: string) => ['admin', 'director', 'approver', 'manager', 'finance'].includes(String(r).toLowerCase()));
+  }
+
   /**
    * Delete DPR
    */
   static async deleteDPR(id: string, user?: any): Promise<void> {
     // Authorization Check
-    const isApprover = user?.role === 'admin' || user?.role === 'approver' || user?.is_admin;
+    const isApprover = DPRService.checkApprover(user);
     if (!isApprover) {
       throw new Error("Only an approver or admin can delete reports.");
     }
@@ -148,7 +157,7 @@ export class DPRService {
 
   static async updateTemplate(id: string, updates: any, user: any): Promise<void> {
     // Auth check
-    const isAdmin = user?.role === 'admin' || user?.is_admin || user?.role === 'approver';
+    const isAdmin = DPRService.checkApprover(user);
     if (!isAdmin) throw new Error("Unauthorized to modify templates.");
 
     if (updates.data && typeof updates.data === 'object') {
@@ -159,7 +168,7 @@ export class DPRService {
 
   static async deleteTemplate(id: string, user: any): Promise<void> {
     // Auth check
-    const isAdmin = user?.role === 'admin' || user?.is_admin || user?.role === 'approver';
+    const isAdmin = DPRService.checkApprover(user);
     if (!isAdmin) throw new Error("Unauthorized to delete templates.");
 
     await DPRRepository.deleteTemplate(id);

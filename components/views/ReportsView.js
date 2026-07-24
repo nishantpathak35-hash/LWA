@@ -260,15 +260,17 @@ export default function ReportsView() {
   };
 
   const handleDeleteRemittedPayment = async (payment) => {
-    if (!isAdmin) {
-      toast.error('Only Admins can delete remitted payments.');
+    if (!isAdmin && !isDirector && !isFinance) {
+      toast.error('Only Admin, Director, or Finance users can delete payment requests.');
       return;
     }
     if (!confirm(`Are you sure you want to delete payment #${payment.id} for ${payment.vendor_name}? This action is irreversible.`)) {
       return;
     }
+    const reason = prompt('Please enter a reason for deleting this payment request (at least 5 characters):', 'Deleted via Reports UI');
+    if (reason === null) return;
     try {
-      await call('deleteRemittedPayment', payment.id);
+      await call('deleteRemittedPayment', payment.id, reason || 'Deleted via Reports UI');
       toast.success('Payment deleted successfully');
       loadReport();
       await refreshData();

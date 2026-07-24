@@ -29,6 +29,10 @@ export async function updatePaymentRequest(prId, payload, session) {
 
 
 export async function deleteRemittedPayment(prId, reason, session) {
+  if (!session && typeof reason === 'object' && reason !== null) {
+    session = reason;
+    reason = 'Deleted via UI';
+  }
   requireAuth(session);
   const roles = session.roles || [];
   const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || isSuperAdmin(session.email);
@@ -97,6 +101,10 @@ export async function addPaymentComment(prId, comment, session) {
  * - Remitted: delegates to existing deleteRemittedPayment logic (ledger reversal)
  */
 export async function deletePaymentRequest(prId, reason, session) {
+  if (!session && typeof reason === 'object' && reason !== null) {
+    session = reason;
+    reason = 'Deleted via UI';
+  }
   requireAuth(session);
   const roles = session.roles || [];
   const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || isSuperAdmin(session.email);

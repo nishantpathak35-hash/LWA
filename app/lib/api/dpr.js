@@ -17,7 +17,8 @@ export async function updateDPR(id, updates, session) {
 }
 
 export async function deleteDPR(id, session) {
-  return await DPRService.deleteDPR(id, session);
+  const targetId = typeof id === 'object' && id !== null ? (id.id || id.dprId) : id;
+  return await DPRService.deleteDPR(targetId, session);
 }
 
 export async function listTemplates(session) {

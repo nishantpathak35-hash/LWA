@@ -8,7 +8,8 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(dpr);
 
-  const isApprover = user?.role === 'admin' || user?.role === 'approver' || user?.is_admin;
+  const userRoles = Array.isArray(user?.roles) ? user.roles : (user?.role ? [user.role] : []);
+  const isApprover = user?.is_admin || userRoles.some(r => ['admin', 'director', 'approver', 'manager', 'finance'].includes(String(r).toLowerCase()));
 
   const handleUpdateStatus = async (status) => {
     if (!confirm(`Are you sure you want to change the status of this report to ${status}?`)) return;

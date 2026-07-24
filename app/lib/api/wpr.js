@@ -32,6 +32,6 @@ export async function getWPRReport(payload, session) {
 }
 
 export async function deleteWPRReport(payload, session) {
-  const { id } = payload;
+  const id = typeof payload === 'object' && payload !== null ? payload.id : payload;
   return await WPRService.deleteWPRReport(id, session);
 }

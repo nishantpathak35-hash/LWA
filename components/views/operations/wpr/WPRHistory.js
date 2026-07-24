@@ -13,7 +13,8 @@ export default function WPRHistory({ onNavigate, onView }) {
   const [page, setPage] = useState(0);
   const limit = 10;
 
-  const isApprover = user?.role === 'admin' || user?.role === 'approver' || user?.is_admin;
+  const userRoles = Array.isArray(user?.roles) ? user.roles : (user?.role ? [user.role] : []);
+  const isApprover = user?.is_admin || userRoles.some(r => ['admin', 'director', 'approver', 'manager', 'finance'].includes(String(r).toLowerCase()));
 
   useEffect(() => {
     fetchHistory();

@@ -14,6 +14,25 @@ function readStoredToken() {
   }
 }
 
+function isUnauthenticatedError(msg) {
+  if (!msg || typeof msg !== 'string') return false;
+  if (msg.includes('AUTH:Unauthorized -') || msg.includes('AUTH:Forbidden') || msg.includes('AUTH:Only users')) {
+    return false;
+  }
+  return (
+    msg.includes('AUTH:Not signed in') ||
+    msg.includes('AUTH:Token expired') ||
+    msg.includes('AUTH:User not found') ||
+    msg.includes('AUTH:User inactive') ||
+    msg.includes('AUTH:Invalid or expired token') ||
+    msg.includes('AUTH:No token provided') ||
+    msg.includes('AUTH:Unauthenticated') ||
+    msg.includes('session expired') ||
+    msg.includes('invalid session') ||
+    msg === 'AUTH:Unauthorized'
+  );
+}
+
 export function StateProvider({ children }) {
   const [token, setToken] = useState('');
   const [user, setUser] = useState(null);
@@ -103,7 +122,7 @@ export function StateProvider({ children }) {
       return data;
     } catch (e) {
       const msg = e.message || String(e);
-      if (msg.includes('AUTH:') || msg.includes('Not signed in') || msg.includes('session expired') || msg.includes('invalid session')) {
+      if (isUnauthenticatedError(msg)) {
         logout();
       }
       throw e;
@@ -133,7 +152,7 @@ export function StateProvider({ children }) {
       return data;
     } catch (e) {
       const msg = e.message || String(e);
-      if (msg.includes('AUTH:') || msg.includes('Not signed in') || msg.includes('session expired') || msg.includes('invalid session')) {
+      if (isUnauthenticatedError(msg)) {
         logout();
       }
       throw e;
@@ -360,7 +379,7 @@ export function StateProvider({ children }) {
         if (active) {
           // Only logout on actual auth failures — not on network/DB errors
           const msg = e.message || String(e);
-          const isAuthError = msg.includes('AUTH:') || msg.includes('Not signed in') || msg.includes('session expired') || msg.includes('invalid session');
+          const isAuthError = isUnauthenticatedError(msg);
           if (isAuthError) {
             logout();
           } else {

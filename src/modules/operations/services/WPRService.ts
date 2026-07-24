@@ -1,5 +1,6 @@
 import { WPRRepository, IWPRReport, IWPRSchedule } from '../repositories/WPRRepository';
 import { DPRRepository } from '../repositories/DPRRepository';
+import { AuthService } from '../../core/services/AuthService';
 
 export class WPRService {
   // --- Schedules ---
@@ -136,7 +137,8 @@ export class WPRService {
 
   static async deleteWPRReport(id: string | number, user: any): Promise<void> {
     // Auth Check
-    const isApprover = user?.role === 'admin' || user?.role === 'approver' || user?.is_admin;
+    const roles = Array.isArray(user?.roles) ? user.roles : (user?.role ? [user.role] : []);
+    const isApprover = AuthService.isSuperAdmin(user?.email) || user?.is_admin || roles.some((r: string) => ['admin', 'director', 'approver', 'manager', 'finance'].includes(String(r).toLowerCase()));
     if (!isApprover) {
       throw new Error("Only an approver or admin can delete WPR reports.");
     }
