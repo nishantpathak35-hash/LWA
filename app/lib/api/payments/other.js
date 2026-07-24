@@ -29,22 +29,42 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
     emailOverride = null;
   }
   requireAuth(session);
-  // P1 fix: query directly by pr_id; fall back to positional index only for legacy callers
-  let pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [rowNumberOrId]);
-  if (!pr) {
-    // Legacy fallback: rowNumberOrId is a 1-based row index
-    const rows = await queryAll(`SELECT * FROM payment_requests ORDER BY pr_id ASC`);
-    pr = rows[Number(rowNumberOrId) - 1];
+
+  let targetId = typeof rowNumberOrId === 'object' && rowNumberOrId !== null
+    ? (rowNumberOrId.payment_request_id || rowNumberOrId.pr_id || rowNumberOrId.prId || rowNumberOrId.id)
+    : rowNumberOrId;
+
+  if (typeof targetId === 'string') {
+    targetId = targetId.replace(/^(TDS|PR)-/i, '').trim();
   }
-  if (!pr) throw new Error('Payment request not found');
+
+  let pr = await queryGet(
+    `SELECT * FROM payment_requests WHERE pr_id = ? OR CAST(pr_id AS TEXT) = ?`,
+    [targetId, String(targetId)]
+  );
+
+  if (!pr && !isNaN(Number(targetId))) {
+    pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [Number(targetId)]);
+  }
+
+  if (!pr) {
+    // Legacy fallback: targetId is a 1-based row index
+    const rows = await queryAll(`SELECT * FROM payment_requests ORDER BY pr_id ASC`);
+    const idx = Number(targetId) - 1;
+    if (idx >= 0 && idx < rows.length) {
+      pr = rows[idx];
+    }
+  }
+
+  if (!pr) throw new Error(`Payment request not found (ID: ${rowNumberOrId})`);
 
   // CRITICAL: Block Payment Advice for Rejected payouts
   const stage = String(pr.stage || '').toLowerCase();
   if (stage === 'rejected') {
     throw new Error('Payment Advice cannot be generated for rejected payment requests.');
   }
-  // Only allow for remitted (paid) payments
-  const isRemitted = stage.trim() === 'remitted' || String(pr.remittance || '').toLowerCase().trim() === 'remitted';
+  // Allow for remitted / paid payments
+  const isRemitted = stage.includes('remitted') || String(pr.remittance || '').toLowerCase().includes('remitted') || String(pr.government_payment_status || '').toLowerCase() === 'paid';
   if (!isRemitted) {
     throw new Error('Payment Advice can only be sent for successfully remitted payments.');
   }

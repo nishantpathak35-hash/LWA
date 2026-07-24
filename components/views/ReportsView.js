@@ -262,16 +262,21 @@ export default function ReportsView() {
   };
 
   const handleSendPaymentAdvice = async (paymentParam, mode = 'email') => {
-    const paymentId = typeof paymentParam === 'object' && paymentParam !== null
-      ? (paymentParam.id || paymentParam.pr_id || paymentParam.prId)
+    const rawId = typeof paymentParam === 'object' && paymentParam !== null
+      ? (paymentParam.payment_request_id || paymentParam.pr_id || paymentParam.prId || paymentParam.id)
       : paymentParam;
+
+    const paymentId = typeof rawId === 'string' ? rawId.replace(/^(TDS|PR)-/i, '').trim() : rawId;
 
     setSendingAdviceId(paymentId);
     try {
       const list = Array.isArray(data) ? data : (data?.rows || data?.payments || data?.entries || []);
       const paymentObj = (typeof paymentParam === 'object' && paymentParam !== null)
         ? paymentParam
-        : list.find(r => String(r.id || r.pr_id || r.prId) === String(paymentId));
+        : list.find(r => {
+            const rId = String(r.payment_request_id || r.pr_id || r.prId || r.id || '').replace(/^(TDS|PR)-/i, '').trim();
+            return rId === String(paymentId);
+          });
 
       const matchedVendor = findVendorForPayment(paymentObj, vendors);
       const vendorEmail = (
