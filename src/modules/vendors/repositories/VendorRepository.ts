@@ -3,7 +3,7 @@ import { IVendor } from '../types/Vendor';
 
 export class VendorRepository {
   static async findAll(options?: { limit?: number; offset?: number }): Promise<IVendor[]> {
-    const limit = options?.limit ?? 100;
+    const limit = options?.limit === 0 ? 10000 : (options?.limit ?? 1000);
     const offset = options?.offset ?? 0;
     return queryAll(`SELECT * FROM vendors LIMIT ? OFFSET ?`, [limit, offset]);
   }

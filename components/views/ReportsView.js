@@ -19,33 +19,26 @@ import ReportsEditPaymentModal from './reports/ReportsEditPaymentModal';
 
 function findVendorForPayment(payment, vendors) {
   if (!payment || !vendors || vendors.length === 0) return null;
-  
-  // 1. Try match by vendor_code / vendor_id / vendorId
+
   const pCode = payment.vendor_code || payment.vendor_id || payment.vendor_key || payment.vendorId;
-  if (pCode) {
-    const v = vendors.find(v =>
-      (v.code && String(v.code).toLowerCase() === String(pCode).toLowerCase()) ||
-      (v.vendorId && String(v.vendorId).toLowerCase() === String(pCode).toLowerCase()) ||
-      (v.id && String(v.id).toLowerCase() === String(pCode).toLowerCase())
-    );
-    if (v) return v;
-  }
-  
-  // 2. Try match by vendor name
-  const vendorName = payment.vendor_name || payment.vendor;
-  if (vendorName) {
-    const norm = String(vendorName).trim().toLowerCase();
-    return vendors.find(v =>
-      (v.name && String(v.name).trim().toLowerCase() === norm) ||
-      (v.legalName && String(v.legalName).trim().toLowerCase() === norm) ||
-      (v.legal_name && String(v.legal_name).trim().toLowerCase() === norm) ||
-      (v.tradeName && String(v.tradeName).trim().toLowerCase() === norm) ||
-      (v.trade_name && String(v.trade_name).trim().toLowerCase() === norm) ||
-      (v.name && String(v.name).trim().toLowerCase().includes(norm)) ||
-      (v.name && norm.includes(String(v.name).trim().toLowerCase()))
-    ) || null;
-  }
-  return null;
+  const pName = payment.vendor_name || payment.vendor;
+  const normCode = pCode ? String(pCode).trim().toLowerCase() : '';
+  const normName = pName ? String(pName).trim().toLowerCase() : '';
+
+  const candidates = vendors.filter(v => {
+    const vCode = String(v.code || v.vendorId || v.vendor_code || '').trim().toLowerCase();
+    const vName = String(v.name || v.legalName || v.legal_name || '').trim().toLowerCase();
+    const vTrade = String(v.tradeName || v.trade_name || '').trim().toLowerCase();
+
+    if (normCode && vCode === normCode) return true;
+    if (normName && (vName === normName || vTrade === normName || (vName && normName.includes(vName)) || (vName && vName.includes(normName)))) return true;
+    return false;
+  });
+
+  if (candidates.length === 0) return null;
+
+  const withEmail = candidates.find(v => (v.email || v.email_id || v.primary_contact_email || v.accounts_contact_email || '').trim());
+  return withEmail || candidates[0];
 }
 
 export default function ReportsView() {

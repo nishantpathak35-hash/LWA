@@ -70,8 +70,18 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
   }
 
   // Get vendor email from vendors table
-  const vendor = await queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [pr.vendor_name, pr.vendor_code]);
-  const toEmail = emailOverride || vendor?.email || pr.vendor_email;
+  const vCode = String(pr.vendor_code || pr.vendor_id || '').trim();
+  const vName = String(pr.vendor_name || pr.vendor || '').trim();
+
+  let vendor = await queryGet(
+    `SELECT * FROM vendors WHERE 
+      (vendor_code = ? AND vendor_code != '') OR 
+      (LOWER(TRIM(legal_name)) = LOWER(TRIM(?)) AND legal_name != '') OR 
+      (LOWER(TRIM(trade_name)) = LOWER(TRIM(?)) AND trade_name != '')
+      LIMIT 1`,
+    [vCode, vName, vName]
+  );
+  const toEmail = emailOverride || (vendor?.email || vendor?.contact_email || vendor?.primary_contact_email || pr.vendor_email || '').trim();
   if (!toEmail) throw new Error('No email address found for vendor: ' + (pr.vendor_name || ''));
 
   const baseAmt = Number((pr.approved_amount ?? pr.amount_requested) || 0);

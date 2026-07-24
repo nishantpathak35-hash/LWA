@@ -158,57 +158,49 @@ export async function getMasterData(session) {
   
   // Extract unique projects and vendors from POs
   const projectSet = new Set();
+  const masterVendors = vendors.map(v => ({ 
+    recordId: v.id,
+    code: v.vendor_code || '',
+    vendorId: v.vendor_code || '', 
+    name: v.legal_name || v.name || v.vendor_code, 
+    legalName: v.legal_name || v.name || v.vendor_code, 
+    tradeName: v.trade_name || '',
+    status: v.status || 'Active',
+    gstin: v.gstin || '',
+    address: v.address || '',
+    email: (v.email || v.contact_email || v.primary_contact_email || '').trim()
+  }));
+
   const poVendorMap = {};
   
+  // Real vendors take top precedence
+  masterVendors.forEach(v => {
+    if (v.code) poVendorMap[v.code.toLowerCase().trim()] = v;
+    if (v.name) poVendorMap[v.name.toLowerCase().trim()] = v;
+  });
+
+  // Only add PO vendors if not already present from Vendor Master
   pos.forEach(p => { 
     if (p.project) projectSet.add(p.project); 
-    if (p.vendor_name && p.vendor_name !== 'Unknown' && !poVendorMap[p.vendor_name]) {
-      poVendorMap[p.vendor_name] = {
+    const vName = p.vendor_name ? p.vendor_name.toLowerCase().trim() : '';
+    const vCode = p.vendor_key ? p.vendor_key.toLowerCase().trim() : '';
+    
+    if (vName && vName !== 'unknown' && !poVendorMap[vName] && (!vCode || !poVendorMap[vCode])) {
+      const newV = {
         code: p.vendor_key || '',
         vendorId: p.vendor_key || '',
         name: p.vendor_name,
         legalName: p.vendor_name,
-        status: 'Active'
+        status: 'Active',
+        email: ''
       };
+      if (vName) poVendorMap[vName] = newV;
+      if (vCode) poVendorMap[vCode] = newV;
     }
   });
 
-  // Build project list: collect names from POs + project_financials,
-  // and merge site_address / project_ref / client from project_financials
-  // so that POFormModal can show project site info and the PO PDF can use it.
-  const pfMap = {}; // keyed by project name
-  try {
-    const pfRows = await queryAll(`SELECT * FROM project_financials`);
-    pfRows.forEach(r => {
-      if (r.project) {
-        projectSet.add(r.project);
-        pfMap[r.project] = {
-          site_address: r.site_address || '',
-          project_ref: r.project_ref || '',
-          client: r.client || ''
-        };
-      }
-    });
-  } catch (e) { /* table might not exist yet */ }
-
-  const masterVendors = vendors.map(v => ({ 
-    recordId: v.id,
-    code: v.vendor_code,
-    vendorId: v.vendor_code, 
-    name: v.legal_name || v.name || v.vendor_code, 
-    legalName: v.legal_name || v.name || v.vendor_code, 
-    status: v.status,
-    gstin: v.gstin || '',
-    address: v.address || '',
-    email: v.email || v.contact_email || ''
-  }));
-  
-  masterVendors.forEach(v => {
-    if (v.name) poVendorMap[v.name] = v;
-  });
-
   return {
-    vendors: Object.values(poVendorMap),
+    vendors: Array.from(new Set(Object.values(poVendorMap))),
     pos: pos.map(p => ({
       po_no: p.po_no,
       vendor_name: p.vendor_name,
