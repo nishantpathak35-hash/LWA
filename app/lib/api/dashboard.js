@@ -199,6 +199,22 @@ export async function getMasterData(session) {
     }
   });
 
+  // Build project list & pfMap from project_financials
+  const pfMap = {};
+  try {
+    const pfRows = await queryAll(`SELECT * FROM project_financials`);
+    pfRows.forEach(r => {
+      if (r.project) {
+        projectSet.add(r.project);
+        pfMap[r.project] = {
+          site_address: r.site_address || '',
+          project_ref: r.project_ref || '',
+          client: r.client || ''
+        };
+      }
+    });
+  } catch (e) { /* table might not exist yet */ }
+
   return {
     vendors: Array.from(new Set(Object.values(poVendorMap))),
     pos: pos.map(p => ({
