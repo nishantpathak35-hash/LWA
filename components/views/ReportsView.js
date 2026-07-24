@@ -86,10 +86,11 @@ export default function ReportsView() {
     }
   };
 
-  const roles = user?.roles || [];
-  const isAdmin = isSuperAdmin(user?.email) || roles.includes('admin');
-  const isFinance = roles.includes('finance');
-  const isDirector = roles.includes('director');
+  const isSuper = isSuperAdmin(user?.email);
+  const roles = isSuper ? Array.from(new Set([...(user?.roles || []), 'admin', 'director', 'finance', 'procurement'])) : (user?.roles || []);
+  const isAdmin = isSuper || roles.includes('admin');
+  const isFinance = isSuper || roles.includes('finance');
+  const isDirector = isSuper || roles.includes('director');
   const canRemit = isAdmin || isFinance || isDirector;
 
   // Bug 5: Extract loadReport into a stable useCallback so handlers can call it

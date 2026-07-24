@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { toast } from '../ui/Toast';
 import { useAppState } from '../StateProvider';
+import { isSuperAdmin } from '../../app/lib/config';
 
 import VendorsHeader from './vendors/VendorsHeader';
 import VendorOnboardModal from './vendors/VendorOnboardModal';
@@ -59,9 +59,10 @@ export default function VendorsView() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [preferredWhatsappContact, setPreferredWhatsappContact] = useState('Primary');
 
-  const roles = user?.roles || [];
-  const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
-  const isAdmin = roles.includes('admin');
+  const isSuper = isSuperAdmin(user?.email);
+  const roles = isSuper ? Array.from(new Set([...(user?.roles || []), 'admin', 'director', 'finance', 'procurement'])) : (user?.roles || []);
+  const isProcurement = isSuper || roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
+  const isAdmin = isSuper || roles.includes('admin');
   const canOnboard = isProcurement || isAdmin;
 
   const filteredVendors = vendors.filter(v => {

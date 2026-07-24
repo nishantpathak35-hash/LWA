@@ -10,6 +10,7 @@ import {
 } from '../ui/core';
 import AttachmentsSection from '../ui/AttachmentsSection';
 import { formatCurrency, formatDate } from '../../app/lib/utils';
+import { isSuperAdmin } from '../../app/lib/config';
 import {
   PlusCircle, Search, Receipt, Send, ShieldAlert, Plus, Trash2, Edit2,
   Eye, CheckCircle, XCircle, Clock, History, Wallet, ChevronDown, ChevronUp,
@@ -127,12 +128,13 @@ export default function POsView() {
   const [mpSubmitting, setMpSubmitting] = useState(false);
 
   // ── User Roles ──
-  const roles        = user?.roles || [];
-  const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
-  const isAdmin      = roles.includes('admin');
-  const isDirector   = roles.includes('director');
-  const isFinance    = roles.includes('finance');
-  const isAccountant = roles.includes('accountant');
+  const isSuper       = isSuperAdmin(user?.email);
+  const roles        = isSuper ? Array.from(new Set([...(user?.roles || []), 'admin', 'director', 'finance', 'procurement', 'proc', 'accountant', 'maker'])) : (user?.roles || []);
+  const isProcurement = isSuper || roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
+  const isAdmin      = isSuper || roles.includes('admin');
+  const isDirector   = isSuper || roles.includes('director');
+  const isFinance    = isSuper || roles.includes('finance');
+  const isAccountant = isSuper || roles.includes('accountant');
   const canCreate    = isProcurement || isAdmin || isDirector;
   const canApprove   = isDirector || isAdmin || isFinance;
   const canManualPay = isAccountant || isAdmin; // Manual Payment: Accountant role only (+ Admin)

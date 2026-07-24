@@ -6,6 +6,7 @@ import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Select, Dialog } from '../ui/core';
 import { formatCurrency, formatDate } from '../../app/lib/utils';
 import { isPOEligibleForPayment } from '../../app/lib/poEligibility';
+import { isSuperAdmin } from '../../app/lib/config';
 import { PlusCircle, Search, CreditCard, ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail, AlertTriangle } from 'lucide-react';
 
 import PaymentFilters from './payments/PaymentFilters';
@@ -113,11 +114,12 @@ export default function PaymentsView() {
   const [historyTrail, setHistoryTrail] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const roles = user?.roles || [];
-  const isDirector = roles.includes('director');
-  const isFinance = roles.includes('finance');
-  const isProcurement = roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
-  const isAdmin = roles.includes('admin');
+  const isSuper = isSuperAdmin(user?.email);
+  const roles = isSuper ? Array.from(new Set([...(user?.roles || []), 'admin', 'director', 'finance', 'procurement', 'proc', 'accountant', 'maker'])) : (user?.roles || []);
+  const isDirector = isSuper || roles.includes('director');
+  const isFinance = isSuper || roles.includes('finance');
+  const isProcurement = isSuper || roles.some(role => ['proc', 'procurement', 'maker'].includes(role));
+  const isAdmin = isSuper || roles.includes('admin');
   const canOnboard = isProcurement || isAdmin;
 
   const getVendorPOs = (vCode) => {
