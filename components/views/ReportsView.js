@@ -110,7 +110,9 @@ export default function ReportsView() {
           type: reportType,
           vendor: vendorFilter,
           project: projectFilter,
-          limit: 300
+          startDate,
+          endDate,
+          limit: 0
         });
       }
       setData(result);
@@ -134,46 +136,120 @@ export default function ReportsView() {
     let csvContent = "";
     let fileName = `${reportType}_Report.csv`;
 
+    const helperCsvCell = (val) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
     if (reportType === 'TDS_Register') {
       const entries = data.entries || [];
       csvContent += "ID,Date,Project,PO,Vendor,Gross Amount,TDS Amount,TDS %,TDS Section,Govt Status,Deducted At\n";
       entries.forEach(e => {
         const dateStr = e.transaction_date ? new Date(e.transaction_date).toLocaleDateString('en-IN') : '';
-        csvContent += `"${e.id}","${dateStr}","${e.project_id}","${e.po_id}","${e.vendor_id}",${e.amount_requested},${e.approved_amount ?? e.gross_amount},${e.tds_amount},${e.tds_percentage},"${e.tds_section}","${e.government_payment_status}","${e.deducted_at || ''}"\n`;
+        csvContent += [
+          helperCsvCell(e.id),
+          helperCsvCell(dateStr),
+          helperCsvCell(e.project_id),
+          helperCsvCell(e.po_id),
+          helperCsvCell(e.vendor_id),
+          e.gross_amount ?? e.amount_requested ?? 0,
+          e.tds_amount ?? 0,
+          e.tds_percentage ?? 0,
+          helperCsvCell(e.tds_section),
+          helperCsvCell(e.government_payment_status),
+          helperCsvCell(e.deducted_at || '')
+        ].join(',') + '\n';
       });
     } else if (reportType === 'Vendor_TDS') {
       const vData = data.vendors || [];
       csvContent += "Vendor,Total Gross,Total TDS,Total Paid,Total Pending,Entries\n";
       vData.forEach(v => {
-        csvContent += `"${v.vendor_id}",${v.total_gross},${v.total_tds},${v.total_paid},${v.total_pending},${v.entries?.length || 0}\n`;
+        csvContent += [
+          helperCsvCell(v.vendor_id),
+          v.total_gross || 0,
+          v.total_tds || 0,
+          v.total_paid || 0,
+          v.total_pending || 0,
+          v.entries?.length || 0
+        ].join(',') + '\n';
       });
     } else if (reportType === 'Project_TDS') {
       const pData = data.projects || [];
       csvContent += "Project,Total Gross,Total TDS,Entries\n";
       pData.forEach(p => {
-        csvContent += `"${p.project_id}",${p.total_gross},${p.total_tds},${p.entries?.length || 0}\n`;
+        csvContent += [
+          helperCsvCell(p.project_id),
+          p.total_gross || 0,
+          p.total_tds || 0,
+          p.entries?.length || 0
+        ].join(',') + '\n';
       });
-    } else if (reportType === 'Approval_Audit' || reportType === 'Day_Wise') {
-      const rows = data.audit || data.days || [];
-      csvContent += "Date/User,Action,Details,ID\n";
+    } else if (reportType === 'Approval_Audit') {
+      const rows = data.entries || data.audit || [];
+      csvContent += "Timestamp,Action,Performed By,Project,Vendor,Gross Amount,TDS Amount,Net Amount\n";
       rows.forEach(r => {
-        csvContent += `"${r.user || r.date || ''}","${r.action || r.count || ''}","${r.details || ''}","${r.id || ''}"\n`;
+        csvContent += [
+          helperCsvCell(r.timestamp || ''),
+          helperCsvCell(r.action || ''),
+          helperCsvCell(r.performed_by || ''),
+          helperCsvCell(r.project_id || ''),
+          helperCsvCell(r.vendor_id || ''),
+          r.gross_amount || 0,
+          r.tds_amount || 0,
+          r.net_amount || 0
+        ].join(',') + '\n';
+      });
+    } else if (reportType === 'Day_Wise') {
+      const rows = data.days || [];
+      csvContent += "Date,Approved Count,Total Gross,Total TDS,Total Net\n";
+      rows.forEach(r => {
+        csvContent += [
+          helperCsvCell(r.date || ''),
+          r.count || 0,
+          r.total_gross || 0,
+          r.total_tds || 0,
+          r.total_net || 0
+        ].join(',') + '\n';
       });
     } else {
-      const rows = data.rows || data.payments || [];
-      csvContent += "ID,PO No,Project,Vendor,Amount,Status,Stage,Created At\n";
+      const rows = Array.isArray(data) ? data : (data.rows || data.payments || []);
+      csvContent += "PR ID,PO No,Project,Vendor,Gross Amount,TDS Amount,Net Amount,Status,Stage,Created At\n";
       rows.forEach(r => {
-        csvContent += `"${r.id}","${r.po_no}","${r.project}","${r.vendor_name}",${r.net_amount},"${r.status}","${r.approval_stage}","${r.created_at}"\n`;
+        const id = r.pr_id || r.id || '';
+        const poNo = r.po_no || '';
+        const project = r.project || '';
+        const vendor = r.vendor_name || r.vendor || '';
+        const gross = r.amount_requested || r.gross_amount || 0;
+        const tds = r.tds_amount || 0;
+        const net = r.net_amount || (gross - tds);
+        const status = r.status || '';
+        const stage = r.stage || r.approval_stage || '';
+        const createdAt = r.created_at || '';
+        csvContent += [
+          helperCsvCell(id),
+          helperCsvCell(poNo),
+          helperCsvCell(project),
+          helperCsvCell(vendor),
+          gross,
+          tds,
+          net,
+          helperCsvCell(status),
+          helperCsvCell(stage),
+          helperCsvCell(createdAt)
+        ].join(',') + '\n';
       });
     }
 
-    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleSendPaymentAdvice = async (paymentId, mode = 'email') => {

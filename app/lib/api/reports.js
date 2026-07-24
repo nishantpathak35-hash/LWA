@@ -94,7 +94,7 @@ export async function getPaymentReportRows(filters = {}, session) {
       if (type === 'approved' && r.status !== 'approved') return false;
       if (type === 'rejected' && r.status !== 'rejected') return false;
       if (type === 'remit') {
-        const isReadyToRemit = String(r.stage).toLowerCase() === 'ready to remit';
+        const isReadyToRemit = String(r.stage || '').toLowerCase() === 'ready to remit';
         if (!isReadyToRemit) return false;
       }
       if (type === 'remitted') {
@@ -102,8 +102,19 @@ export async function getPaymentReportRows(filters = {}, session) {
         if (!isRemitted) return false;
       }
     }
-    if (filters.vendor && !String(r.vendor || '').toLowerCase().includes(filters.vendor.toLowerCase().trim())) return false;
+    if (filters.vendor && !String(r.vendor || r.vendor_name || '').toLowerCase().includes(filters.vendor.toLowerCase().trim())) return false;
     if (filters.project && !String(r.project || '').toLowerCase().includes(filters.project.toLowerCase().trim())) return false;
+
+    if (filters.startDate) {
+      const createdAt = String(r.created_at || r.date || r.submitted_at || '');
+      if (createdAt && createdAt < filters.startDate) return false;
+    }
+    if (filters.endDate) {
+      const createdAt = String(r.created_at || r.date || r.submitted_at || '');
+      const endDateInclusive = filters.endDate.includes('T') ? filters.endDate : filters.endDate + 'T23:59:59.999Z';
+      if (createdAt && createdAt > endDateInclusive) return false;
+    }
+
     return true;
   });
 }
