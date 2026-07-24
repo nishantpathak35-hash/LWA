@@ -76,10 +76,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   };
 
   const filteredMenuItems = menuItems.filter(item => {
-    if (isAdmin || isDirector || isSuper || !user) {
-      if (item.roles) return item.roles.some(r => roles.includes(r));
-      return true;
-    }
+    // Super Admin, Admin, and Director always have access to all menu items
+    if (isSuper || isAdmin || isDirector || !user) return true;
     if (item.roles && item.roles.length > 0 && !item.roles.some(r => roles.includes(r))) return false;
     if (item.feature && hasPermission && !hasPermission(item.feature)) return false;
     return true;
