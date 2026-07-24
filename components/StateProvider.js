@@ -16,7 +16,7 @@ function readStoredToken() {
 
 function isUnauthenticatedError(msg) {
   if (!msg || typeof msg !== 'string') return false;
-  if (msg.includes('AUTH:Unauthorized -') || msg.includes('AUTH:Forbidden') || msg.includes('AUTH:Only users')) {
+  if (msg.includes('AUTH:Unauthorized') || msg.includes('AUTH:Forbidden') || msg.includes('AUTH:Only users') || msg.includes('Unauthorized')) {
     return false;
   }
   return (
@@ -28,8 +28,7 @@ function isUnauthenticatedError(msg) {
     msg.includes('AUTH:No token provided') ||
     msg.includes('AUTH:Unauthenticated') ||
     msg.includes('session expired') ||
-    msg.includes('invalid session') ||
-    msg === 'AUTH:Unauthorized'
+    msg.includes('invalid session')
   );
 }
 

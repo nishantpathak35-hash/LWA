@@ -20,6 +20,14 @@ function requireAuth(session) {
 
 
 export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
+  if (typeof emailOverride === 'string' && (emailOverride.toLowerCase() === 'email' || emailOverride.toLowerCase() === 'whatsapp') && typeof session === 'string') {
+    const actualEmail = session;
+    session = arguments[3];
+    emailOverride = actualEmail;
+  } else if (!session && typeof emailOverride === 'object' && emailOverride !== null) {
+    session = emailOverride;
+    emailOverride = null;
+  }
   requireAuth(session);
   // P1 fix: query directly by pr_id; fall back to positional index only for legacy callers
   let pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [rowNumberOrId]);

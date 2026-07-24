@@ -17,23 +17,32 @@ import ReportsTables from './reports/ReportsTables';
 import ReportsRemitModal from './reports/ReportsRemitModal';
 import ReportsEditPaymentModal from './reports/ReportsEditPaymentModal';
 
-// Bug 1 helper: find a vendor from the Vendor Master that matches this payment
 function findVendorForPayment(payment, vendors) {
   if (!payment || !vendors || vendors.length === 0) return null;
-  // First try by vendor_code
-  if (payment.vendor_code) {
+  
+  // 1. Try match by vendor_code / vendor_id / vendorId
+  const pCode = payment.vendor_code || payment.vendor_id || payment.vendor_key || payment.vendorId;
+  if (pCode) {
     const v = vendors.find(v =>
-      (v.code && v.code === payment.vendor_code) ||
-      (v.vendorId && v.vendorId === payment.vendor_code)
+      (v.code && String(v.code).toLowerCase() === String(pCode).toLowerCase()) ||
+      (v.vendorId && String(v.vendorId).toLowerCase() === String(pCode).toLowerCase()) ||
+      (v.id && String(v.id).toLowerCase() === String(pCode).toLowerCase())
     );
     if (v) return v;
   }
-  // Fallback: match by name
-  const vendorName = payment.vendor || payment.vendor_name;
+  
+  // 2. Try match by vendor name
+  const vendorName = payment.vendor_name || payment.vendor;
   if (vendorName) {
+    const norm = String(vendorName).trim().toLowerCase();
     return vendors.find(v =>
-      (v.name && v.name.toLowerCase() === vendorName.toLowerCase()) ||
-      (v.legalName && v.legalName.toLowerCase() === vendorName.toLowerCase())
+      (v.name && String(v.name).trim().toLowerCase() === norm) ||
+      (v.legalName && String(v.legalName).trim().toLowerCase() === norm) ||
+      (v.legal_name && String(v.legal_name).trim().toLowerCase() === norm) ||
+      (v.tradeName && String(v.tradeName).trim().toLowerCase() === norm) ||
+      (v.trade_name && String(v.trade_name).trim().toLowerCase() === norm) ||
+      (v.name && String(v.name).trim().toLowerCase().includes(norm)) ||
+      (v.name && norm.includes(String(v.name).trim().toLowerCase()))
     ) || null;
   }
   return null;
@@ -252,13 +261,29 @@ export default function ReportsView() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSendPaymentAdvice = async (paymentId, mode = 'email') => {
+  const handleSendPaymentAdvice = async (paymentParam, mode = 'email') => {
+    const paymentId = typeof paymentParam === 'object' && paymentParam !== null
+      ? (paymentParam.id || paymentParam.pr_id || paymentParam.prId)
+      : paymentParam;
+
     setSendingAdviceId(paymentId);
     try {
-      // Find the payment request object
-      const paymentObj = (data?.rows || data?.payments || []).find(r => (r.id || r.pr_id) === paymentId);
+      const list = Array.isArray(data) ? data : (data?.rows || data?.payments || data?.entries || []);
+      const paymentObj = (typeof paymentParam === 'object' && paymentParam !== null)
+        ? paymentParam
+        : list.find(r => String(r.id || r.pr_id || r.prId) === String(paymentId));
+
       const matchedVendor = findVendorForPayment(paymentObj, vendors);
-      const vendorEmail = matchedVendor?.email || paymentObj?.vendor_email || '';
+      const vendorEmail = (
+        matchedVendor?.email ||
+        matchedVendor?.email_id ||
+        matchedVendor?.primary_contact_email ||
+        matchedVendor?.accounts_contact_email ||
+        matchedVendor?.contact_email ||
+        paymentObj?.vendor_email ||
+        paymentObj?.email ||
+        ''
+      ).trim();
 
       if (!vendorEmail) {
         setAdviceModalPaymentId(paymentId);
@@ -291,7 +316,7 @@ export default function ReportsView() {
     }
     setSubmittingAdvice(true);
     try {
-      const res = await call('sendPaymentAdvice', adviceModalPaymentId, 'email', adviceEmailInput.trim());
+      const res = await call('sendPaymentAdvice', adviceModalPaymentId, adviceEmailInput.trim());
       if (res && res.ok) {
         toast.success(res.message || 'Payment advice sent successfully!');
         setAdviceModalOpen(false);

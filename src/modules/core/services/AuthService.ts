@@ -15,7 +15,7 @@ export class AuthService {
    */
   static requireAuth(session: any): void {
     if (!session || !session.email) {
-      throw new Error('AUTH:Unauthorized');
+      throw new Error('AUTH:Unauthenticated');
     }
   }
 
@@ -23,10 +23,11 @@ export class AuthService {
    * Verifies if the session has admin/director privileges.
    */
   static requireAdminConsole(session: any): void {
+    AuthService.requireAuth(session);
     if (AuthService.isSuperAdmin(session?.email)) return;
     const roles = session?.roles || [];
-    if (!session || (!roles.includes('admin') && !roles.includes('director'))) {
-      throw new Error('AUTH:Unauthorized');
+    if (!roles.includes('admin') && !roles.includes('director')) {
+      throw new Error('AUTH:Unauthorized - Admin/Director required');
     }
   }
 
