@@ -42,9 +42,12 @@ export default async function POPdfPage({ params }) {
     }
     
     if (!rawLogo) {
+      const cleanLogoPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_CLEAN.png');
       const goldLogoPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png');
       const scratchLogoPath = path.join(process.cwd(), 'scratch', 'logo_uri.txt');
-      if (fs.existsSync(goldLogoPath)) {
+      if (fs.existsSync(cleanLogoPath)) {
+        rawLogo = `data:image/png;base64,${fs.readFileSync(cleanLogoPath).toString('base64')}`;
+      } else if (fs.existsSync(goldLogoPath)) {
         rawLogo = `data:image/png;base64,${fs.readFileSync(goldLogoPath).toString('base64')}`;
       } else if (fs.existsSync(scratchLogoPath)) {
         rawLogo = fs.readFileSync(scratchLogoPath, 'utf8').trim();

@@ -22,11 +22,18 @@ export async function GET(request) {
     // Fallback to legacy file if database logo is not set
     if (!logoUri) {
       try {
-        if (fs.existsSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'))) {
-          logoUri = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8').trim();
-        } else if (fs.existsSync(path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png'))) {
-          const imgBuffer = fs.readFileSync(path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png'));
+        const cleanPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_CLEAN.png');
+        const goldPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png');
+        const scratchPath = path.join(process.cwd(), 'scratch', 'logo_uri.txt');
+
+        if (fs.existsSync(cleanPath)) {
+          const imgBuffer = fs.readFileSync(cleanPath);
           logoUri = `data:image/png;base64,${imgBuffer.toString('base64')}`;
+        } else if (fs.existsSync(goldPath)) {
+          const imgBuffer = fs.readFileSync(goldPath);
+          logoUri = `data:image/png;base64,${imgBuffer.toString('base64')}`;
+        } else if (fs.existsSync(scratchPath)) {
+          logoUri = fs.readFileSync(scratchPath, 'utf8').trim();
         }
       } catch (e) {
         // Ignored, we'll return 404 below
