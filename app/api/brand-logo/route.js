@@ -37,18 +37,32 @@ export async function GET(request) {
       return new Response('Logo asset not found', { status: 404 });
     }
 
-    if (logoUri.startsWith('http') || logoUri.startsWith('/')) {
-      return NextResponse.redirect(new URL(logoUri, 'http://localhost')); // Wait, redirecting requires an absolute URL if it's relative.
+    if (logoUri.startsWith('http')) {
+      return NextResponse.redirect(logoUri);
     }
 
+    if (logoUri.startsWith('/')) {
+      const publicFilePath = path.join(process.cwd(), 'public', logoUri);
+      if (fs.existsSync(publicFilePath)) {
+        const fileBuffer = fs.readFileSync(publicFilePath);
+        const ext = path.extname(logoUri).toLowerCase().replace('.', '') || 'png';
+        const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'svg' ? 'image/svg+xml' : 'image/png';
+        return new Response(fileBuffer, {
+          status: 200,
+          headers: { 'Content-Type': mime, 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+        });
+      }
+      return NextResponse.redirect(new URL(logoUri, request.url));
+    }
+
+    let base64Data = logoUri;
+    let mimeType = 'image/png';
     const match = logoUri.match(/^data:(image\/[^;]+);base64,(.+)$/);
-
-    if (!match) {
-      // If it's another kind of data URI or invalid, just return 400
-      return new Response('Logo format not supported', { status: 400 });
+    if (match) {
+      mimeType = match[1];
+      base64Data = match[2];
     }
 
-    const [, mimeType, base64Data] = match;
     const buffer = Buffer.from(base64Data, 'base64');
 
     return new Response(buffer, {

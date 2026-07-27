@@ -1,6 +1,4 @@
 import { queryGet, queryAll } from '../../../app/lib/db.js';
-import { formatCurrency } from '../../../app/lib/utils.js';
-import Image from 'next/image';
 import fs from 'fs';
 import path from 'path';
 
@@ -15,13 +13,13 @@ export default async function POPdfPage({ params }) {
   
   try {
     const companyNameRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_name'`);
-    if (companyNameRow) companyName = companyNameRow.value;
+    if (companyNameRow && companyNameRow.value) companyName = companyNameRow.value;
     
     const companyAddressRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_address'`);
-    if (companyAddressRow) companyAddress = companyAddressRow.value;
+    if (companyAddressRow && companyAddressRow.value) companyAddress = companyAddressRow.value;
     
     const companyGstinRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_gstin'`);
-    if (companyGstinRow) companyGstin = companyGstinRow.value;
+    if (companyGstinRow && companyGstinRow.value) companyGstin = companyGstinRow.value;
   } catch (e) {
     console.error("Failed to query app_settings:", e.message);
   }
@@ -34,23 +32,30 @@ export default async function POPdfPage({ params }) {
   };
   const companyPan = getPanFromGstin(companyGstin);
 
+  // Fetch Logo
   let logoUri = '';
   try {
     let rawLogo = '';
     const logoRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'company_logo'`);
     if (logoRow && logoRow.value) {
       rawLogo = logoRow.value.trim();
-    } else if (fs.existsSync(path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png'))) {
-      rawLogo = `data:image/png;base64,${fs.readFileSync(path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png')).toString('base64')}`;
-    } else if (fs.existsSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'))) {
-      rawLogo = fs.readFileSync(path.join(process.cwd(), 'scratch', 'logo_uri.txt'), 'utf8').trim();
     }
     
+    if (!rawLogo) {
+      const goldLogoPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png');
+      const scratchLogoPath = path.join(process.cwd(), 'scratch', 'logo_uri.txt');
+      if (fs.existsSync(goldLogoPath)) {
+        rawLogo = `data:image/png;base64,${fs.readFileSync(goldLogoPath).toString('base64')}`;
+      } else if (fs.existsSync(scratchLogoPath)) {
+        rawLogo = fs.readFileSync(scratchLogoPath, 'utf8').trim();
+      }
+    }
+
     if (rawLogo) {
-      if (rawLogo.startsWith('http') || rawLogo.startsWith('/')) {
-        logoUri = rawLogo; // Direct URL
+      if (rawLogo.startsWith('data:') || rawLogo.startsWith('http') || rawLogo.startsWith('/')) {
+        logoUri = rawLogo;
       } else {
-        logoUri = `/api/brand-logo?v=${Date.now()}`; // Base64 served via API
+        logoUri = `data:image/png;base64,${rawLogo}`;
       }
     }
   } catch (e) {
@@ -144,25 +149,24 @@ export default async function POPdfPage({ params }) {
 
   // Compute values
   const subtotal = items.reduce((sum, item) => sum + (Number(item.qty) * Number(item.rate) || 0), 0);
-  // Get tax details from items or calculate based on PO value
-  const gstPct = po.tax_pct || 18;
+  const gstPct = po.tax_pct !== undefined && po.tax_pct !== null ? Number(po.tax_pct) : 18;
   const gstAmount = Math.round(subtotal * (gstPct / 100));
-  const tdsPct = po.tds_pct || 2;
+  const tdsPct = po.tds_pct !== undefined && po.tds_pct !== null ? Number(po.tds_pct) : 0;
   const tdsAmount = Math.round(subtotal * (tdsPct / 100));
   const grandTotal = subtotal + gstAmount - tdsAmount;
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-serif p-8 max-w-4xl mx-auto shadow-sm relative">
+    <div className="min-h-screen bg-gray-100 p-4 md:p-6 print:p-0 print:bg-white text-gray-900 font-serif">
       {/* Action bar (non-printable) */}
-      <div className="no-print mb-8 p-4 bg-gray-100 rounded-lg flex justify-between items-center font-sans text-sm">
+      <div className="no-print mb-4 p-4 bg-white shadow-md rounded-lg flex justify-between items-center font-sans text-sm max-w-4xl mx-auto border border-gray-200">
         <div>
-          <span className="font-semibold">Purchase Order Print Preview</span>
-          <p className="text-xs text-gray-500 mt-0.5">Use the print dialog to save as a PDF file.</p>
+          <span className="font-semibold text-gray-800">Purchase Order Print Preview</span>
+          <p className="text-xs text-gray-500 mt-0.5">Use the print button or browser dialog (Ctrl+P) to print or save as PDF.</p>
         </div>
         <div className="flex gap-3">
           <button
             id="po-close-btn"
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-350 rounded-lg font-medium transition-colors cursor-pointer"
+            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors cursor-pointer"
           >
             Close
           </button>
@@ -176,70 +180,70 @@ export default async function POPdfPage({ params }) {
       </div>
 
       {/* Printable PO Sheet */}
-      <div className="border border-gray-300 p-8 md:p-10 space-y-8 relative z-10 bg-white/80">
+      <div className="printable-sheet bg-white border border-gray-300 p-6 md:p-8 max-w-4xl mx-auto shadow-sm relative text-gray-900">
         {po.status === 'Draft' && (
           <div className="absolute inset-0 z-50 flex items-center justify-center opacity-10 pointer-events-none overflow-hidden" style={{ transform: 'rotate(-45deg)' }}>
-            <span className="text-[140px] font-black text-gray-500 whitespace-nowrap">DRAFT ORDER</span>
+            <span className="text-[120px] font-black text-gray-500 whitespace-nowrap">DRAFT ORDER</span>
           </div>
         )}
         
         {/* Header Block */}
-        {logoUri && (
-          <div style={{ width: '220px', height: '60px', overflow: 'hidden', position: 'relative', marginBottom: '16px' }}>
-            <img src={logoUri} alt="Company Logo" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-58%, -50%)', height: '350px' }} className="max-w-none" />
-          </div>
-        )}
-        <div className="flex justify-between items-start border-b border-gray-350 pb-6 gap-6">
+        <div className="flex justify-between items-start border-b border-gray-300 pb-3 mb-4 gap-4">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold tracking-wide text-gray-800 font-sans uppercase break-words leading-tight">
+            {logoUri && (
+              <div className="h-12 mb-2 flex items-center">
+                <img src={logoUri} alt="Company Logo" className="h-12 max-w-[240px] object-contain" />
+              </div>
+            )}
+            <h1 className="text-base font-bold tracking-wide text-gray-900 font-sans uppercase break-words leading-tight">
               {companyName}
             </h1>
-            <div className="mt-3 text-xs font-sans text-gray-600 space-y-1 leading-relaxed whitespace-pre-line">
+            <div className="mt-1 text-[11px] font-sans text-gray-600 space-y-0.5 leading-snug whitespace-pre-line">
               {companyAddress}
-              <div className="pt-2 space-y-0.5">
+              <div className="pt-1 flex gap-4 text-[11px]">
                 <p><span className="font-semibold text-gray-800">GSTIN:</span> {companyGstin}</p>
                 <p><span className="font-semibold text-gray-800">PAN:</span> {companyPan}</p>
               </div>
             </div>
           </div>
           <div className="text-right flex-shrink-0">
-            <h2 className="text-xl font-semibold tracking-wider text-amber-700 uppercase">Purchase Order</h2>
-            <div className="mt-4 text-xs font-sans text-gray-600 space-y-1.5">
-              <p><span className="text-gray-400">PO NO:</span> <strong className="text-gray-800 text-sm">{po.po_no}</strong></p>
-              <p><span className="text-gray-400">DATE:</span> <strong className="text-gray-800">{formatDate(po.po_date)}</strong></p>
-              <p><span className="text-gray-400">STATUS:</span> <span className="uppercase text-amber-700 font-semibold">{po.status || 'Active'}</span></p>
+            <h2 className="text-lg font-bold tracking-wider text-amber-700 uppercase">Purchase Order</h2>
+            <div className="mt-2 text-xs font-sans text-gray-600 space-y-1">
+              <p><span className="text-gray-500">PO NO:</span> <strong className="text-gray-800 text-sm font-semibold">{po.po_no}</strong></p>
+              <p><span className="text-gray-500">DATE:</span> <strong className="text-gray-800">{formatDate(po.po_date)}</strong></p>
+              <p><span className="text-gray-500">STATUS:</span> <span className="uppercase text-amber-700 font-semibold">{po.status || 'Active'}</span></p>
             </div>
           </div>
         </div>
 
         {/* Parties Address block */}
-        <div className="grid grid-cols-2 gap-8">
-          <div className="border border-gray-200 p-4 rounded-lg bg-gray-50/50">
-            <h3 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-2">Vendor / Supplier</h3>
-            <div className="text-sm font-sans space-y-1">
-              <p className="font-semibold text-gray-800 text-base font-serif">{po.vendor_name}</p>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="border border-gray-300 p-3 rounded-md bg-gray-50/50">
+            <h3 className="text-[11px] font-sans font-bold text-gray-600 uppercase tracking-wider mb-1">Vendor / Supplier</h3>
+            <div className="text-xs font-sans space-y-0.5">
+              <p className="font-bold text-gray-900 text-sm font-serif">{po.vendor_name}</p>
               {vendor?.vendor_code && <p><span className="text-gray-500">Code:</span> {vendor.vendor_code}</p>}
               {vendor?.gstin && <p><span className="text-gray-500">GSTIN:</span> {vendor.gstin}</p>}
               {vendor?.pan && <p><span className="text-gray-500">PAN:</span> {vendor.pan}</p>}
-              {vendor?.address && <p className="text-xs text-gray-600 mt-2 whitespace-pre-line leading-relaxed">{vendor.address}</p>}
+              {vendor?.address && <p className="text-[11px] text-gray-600 mt-1 whitespace-pre-line leading-tight">{vendor.address}</p>}
             </div>
           </div>
           
-          <div className="border border-gray-200 p-4 rounded-lg bg-gray-50/50">
-            <h3 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-2">Shipping & Project Info</h3>
-            <div className="text-sm font-sans space-y-1">
-              <p className="font-semibold text-gray-800 text-base font-serif">{po.project || companyName}</p>
+          <div className="border border-gray-300 p-3 rounded-md bg-gray-50/50">
+            <h3 className="text-[11px] font-sans font-bold text-gray-600 uppercase tracking-wider mb-1">Shipping & Project Info</h3>
+            <div className="text-xs font-sans space-y-0.5">
+              <p className="font-bold text-gray-900 text-sm font-serif">{po.project || companyName}</p>
               
-              <div className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 mt-2">
+              <div className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-0.5 mt-1 text-[11px]">
                 <span className="text-gray-500">Project Ref:</span>
-                <span className="font-medium text-gray-700">{projectMaster?.project_ref || '—'}</span>
+                <span className="font-medium text-gray-800">{projectMaster?.project_ref || '—'}</span>
                 
                 <span className="text-gray-500">Client:</span>
-                <span className="font-medium text-gray-700">{projectMaster?.client || '—'}</span>
+                <span className="font-medium text-gray-800">{projectMaster?.client || '—'}</span>
                 
-                <span className="text-gray-500 mt-1">Site Address:</span>
-                <span className="text-xs text-gray-600 whitespace-pre-line leading-relaxed mt-1">
-                  {projectMaster?.site_address || `Site Delivery\nC/O Project: ${po.project || ''}`}
+                <span className="text-gray-500">Site Address:</span>
+                <span className="text-gray-600 whitespace-pre-line leading-tight">
+                  {projectMaster?.site_address || `Site Delivery, C/O Project: ${po.project || ''}`}
                 </span>
               </div>
             </div>
@@ -247,34 +251,34 @@ export default async function POPdfPage({ params }) {
         </div>
 
         {/* Line Items Table */}
-        <div className="overflow-x-auto">
+        <div className="mb-4">
           <table className="w-full border-collapse border border-gray-300 text-xs font-sans">
             <thead>
-              <tr className="bg-gray-100 text-gray-700 border-b border-gray-300">
-                <th className="border border-gray-300 p-2 text-center w-8">#</th>
-                <th className="border border-gray-300 p-2 text-left">Description</th>
-                <th className="border border-gray-300 p-2 text-center w-20">HSN/SAC</th>
-                <th className="border border-gray-300 p-2 text-center w-12">Qty</th>
-                <th className="border border-gray-300 p-2 text-center w-16">Unit</th>
-                <th className="border border-gray-300 p-2 text-right w-24">Rate (INR)</th>
-                <th className="border border-gray-300 p-2 text-right w-28">Amount</th>
+              <tr className="bg-gray-100 text-gray-800 border-b border-gray-300 font-bold">
+                <th className="border border-gray-300 px-2 py-1.5 text-center w-8">#</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-left">Description</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-center w-20">HSN/SAC</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-center w-12">Qty</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-center w-14">Unit</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-right w-24">Rate (INR)</th>
+                <th className="border border-gray-300 px-2 py-1.5 text-right w-28">Amount</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="border border-gray-300 p-4 text-center text-gray-400 italic">No line items specified</td>
+                  <td colSpan="7" className="border border-gray-300 p-3 text-center text-gray-400 italic">No line items specified</td>
                 </tr>
               ) : (
                 items.map((it, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50/50">
-                    <td className="border border-gray-300 p-2 text-center">{idx + 1}</td>
-                    <td className="border border-gray-300 p-2 font-serif text-[13px]">{it.description}</td>
-                    <td className="border border-gray-300 p-2 text-center">{it.hsn_sac || '—'}</td>
-                    <td className="border border-gray-300 p-2 text-center">{it.qty}</td>
-                    <td className="border border-gray-300 p-2 text-center">{it.unit || 'Nos'}</td>
-                    <td className="border border-gray-300 p-2 text-right">{Number(it.rate).toLocaleString('en-IN')}</td>
-                    <td className="border border-gray-300 p-2 text-right font-medium">
+                  <tr key={idx} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <td className="border border-gray-300 px-2 py-1.5 text-center align-top">{idx + 1}</td>
+                    <td className="border border-gray-300 px-2 py-1.5 font-serif text-[12px] align-top whitespace-pre-wrap leading-snug">{it.description}</td>
+                    <td className="border border-gray-300 px-2 py-1.5 text-center align-top">{it.hsn_sac || '—'}</td>
+                    <td className="border border-gray-300 px-2 py-1.5 text-center align-top">{it.qty}</td>
+                    <td className="border border-gray-300 px-2 py-1.5 text-center align-top">{it.unit || 'Nos'}</td>
+                    <td className="border border-gray-300 px-2 py-1.5 text-right align-top">{Number(it.rate).toLocaleString('en-IN')}</td>
+                    <td className="border border-gray-300 px-2 py-1.5 text-right align-top font-medium">
                       ₹{((Number(it.qty) || 0) * (Number(it.rate) || 0)).toLocaleString('en-IN')}
                     </td>
                   </tr>
@@ -284,85 +288,86 @@ export default async function POPdfPage({ params }) {
           </table>
         </div>
 
-        {/* Summary & Sign Block */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start pt-4">
-          <div className="space-y-4">
-            <div className="p-3 bg-amber-50/40 border-l-4 border-amber-500 text-xs font-sans text-gray-700 rounded-r-lg">
-              <strong className="text-gray-800">Total in Words:</strong>
-              <p className="mt-1 font-serif text-[13px] italic font-semibold text-amber-900">
+        {/* Summary & Financial Totals */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mb-4" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          <div className="space-y-2">
+            <div className="p-2.5 bg-amber-50/50 border-l-4 border-amber-600 text-xs font-sans text-gray-700 rounded-r-md">
+              <strong className="text-gray-800 text-[11px] uppercase tracking-wide">Total in Words:</strong>
+              <p className="mt-0.5 font-serif text-[12px] italic font-semibold text-amber-900 leading-snug">
                 {amountToWords(po.po_value || grandTotal)}
               </p>
             </div>
             
             {po.remarks && (
-              <div className="p-3 bg-gray-50 border border-gray-200 text-xs font-sans text-gray-700 rounded-lg">
-                <strong>Remarks / Notes:</strong>
-                <p className="mt-1 text-gray-600 leading-relaxed whitespace-pre-line">{po.remarks}</p>
+              <div className="p-2 bg-gray-50 border border-gray-200 text-[11px] font-sans text-gray-700 rounded-md">
+                <strong className="text-gray-800">Remarks / Notes:</strong>
+                <p className="mt-0.5 text-gray-600 leading-tight whitespace-pre-line">{po.remarks}</p>
               </div>
             )}
           </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 font-sans text-xs space-y-2">
-            <div className="flex justify-between pb-1.5 border-b border-gray-200">
-              <span className="text-gray-500">Subtotal (Taxable):</span>
-              <span className="font-medium text-gray-800">₹{subtotal.toLocaleString('en-IN')}</span>
+          <div className="bg-gray-50 border border-gray-300 rounded-md p-2.5 font-sans text-xs space-y-1">
+            <div className="flex justify-between pb-1 border-b border-gray-200">
+              <span className="text-gray-600">Subtotal (Taxable):</span>
+              <span className="font-semibold text-gray-900">₹{subtotal.toLocaleString('en-IN')}</span>
             </div>
-            <div className="flex justify-between pb-1.5 border-b border-gray-200">
-              <span className="text-gray-500">GST (+{gstPct}%):</span>
-              <span className="font-medium text-gray-800">₹{gstAmount.toLocaleString('en-IN')}</span>
+            <div className="flex justify-between pb-1 border-b border-gray-200">
+              <span className="text-gray-600">GST (+{gstPct}%):</span>
+              <span className="font-semibold text-gray-900">₹{gstAmount.toLocaleString('en-IN')}</span>
             </div>
-            <div className="flex justify-between pb-1.5 border-b border-gray-200">
-              <span className="text-gray-500">TDS Deduction (-{tdsPct}%):</span>
-              <span className="font-medium text-red-600">-₹{tdsAmount.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="flex justify-between pt-1.5 text-sm font-bold text-gray-900">
+            {tdsAmount > 0 && (
+              <div className="flex justify-between pb-1 border-b border-gray-200">
+                <span className="text-gray-600">TDS Deduction (-{tdsPct}%):</span>
+                <span className="font-semibold text-red-600">-₹{tdsAmount.toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            <div className="flex justify-between pt-1 text-sm font-bold text-gray-900">
               <span>Grand Total:</span>
               <span className="text-amber-800 font-serif text-base">₹{Number(po.po_value || grandTotal).toLocaleString('en-IN')}</span>
             </div>
           </div>
         </div>
 
-        {/* Terms & Signatures wrapper for proper page breaking */}
-        <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-          {/* Terms & Conditions */}
-          <div className="pt-8 mt-8 border-t border-gray-300">
-            <h3 className="text-xs font-sans font-bold text-gray-500 uppercase tracking-wider mb-3">Terms &amp; Conditions</h3>
+        {/* Terms & Conditions and Signatures Block */}
+        <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }} className="pt-2 border-t border-gray-300">
+          <div className="mb-4">
+            <h3 className="text-[11px] font-sans font-bold text-gray-700 uppercase tracking-wider mb-1.5">Terms &amp; Conditions</h3>
             {po.terms ? (
-              <div className="text-[10px] text-gray-600 font-sans whitespace-pre-wrap leading-relaxed">
+              <div className="text-[9.5px] text-gray-700 font-sans leading-tight whitespace-pre-wrap columns-1 md:columns-2 gap-4">
                 {po.terms}
               </div>
             ) : (
-              <ol className="list-decimal list-inside text-[10px] text-gray-500 font-sans space-y-1 leading-relaxed">
+              <ol className="list-decimal list-inside text-[9.5px] text-gray-600 font-sans space-y-0.5 leading-tight columns-1 md:columns-2 gap-4">
                 <li>Material must match specifications exactly; any deviations require written approval prior to dispatch.</li>
                 <li>Delivery to be completed on or before the Expected Delivery Date. Delays may attract penalty.</li>
                 <li>Invoice must reference this Purchase Order number and should be sent to billing.</li>
                 <li>Payment will be processed strictly as per the Payment Terms agreed in the Vendor master contract.</li>
-                <li>All disputes are subject to Mumbai jurisdiction.</li>
+                <li>All disputes are subject to Gurugram jurisdiction.</li>
               </ol>
             )}
           </div>
 
           {/* Signatures block */}
-          <div className="grid grid-cols-2 gap-8 pt-6">
+          <div className="grid grid-cols-2 gap-8 pt-2">
             <div className="text-center font-sans flex flex-col items-center justify-end">
-              <div className="h-32 mb-2 pointer-events-none flex items-end justify-center">
+              <div className="h-16 mb-1 flex items-end justify-center">
                 {/* Empty space for vendor signature */}
               </div>
-              <div className="w-48 border-t border-gray-400 mx-auto pt-2">
-                <p className="text-xs font-bold text-gray-700">Vendor Acceptance</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">Signature &amp; Company Seal</p>
+              <div className="w-48 border-t border-gray-400 mx-auto pt-1">
+                <p className="text-[11px] font-bold text-gray-800">Vendor Acceptance</p>
+                <p className="text-[9px] text-gray-500">Signature &amp; Company Seal</p>
               </div>
             </div>
             
             <div className="text-center font-sans flex flex-col items-center justify-end">
-              <div className="h-32 mb-2 pointer-events-none flex items-end justify-center">
+              <div className="h-16 mb-1 flex items-end justify-center">
                 {(po.status === 'Approved' && signatureUri) && (
-                  <Image src={signatureUri} alt="Signature & Stamp" width={128} height={128} unoptimized className="w-32 h-auto object-contain opacity-90" />
+                  <img src={signatureUri} alt="Signature & Stamp" className="h-14 w-auto object-contain opacity-95" />
                 )}
               </div>
-              <div className="w-48 border-t border-gray-400 mx-auto pt-2">
-                <p className="text-xs font-bold text-gray-700">Authorised Signatory</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">For {companyName}</p>
+              <div className="w-48 border-t border-gray-400 mx-auto pt-1">
+                <p className="text-[11px] font-bold text-gray-800">Authorised Signatory</p>
+                <p className="text-[9px] text-gray-500">For {companyName}</p>
               </div>
             </div>
           </div>
@@ -373,24 +378,32 @@ export default async function POPdfPage({ params }) {
       {/* Printing style overrides */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          .no-print {
-            display: none !important;
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm;
           }
           body {
             background-color: white !important;
             color: black !important;
             padding: 0 !important;
+            margin: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
-          .min-h-screen {
-            min-height: auto !important;
-            box-shadow: none !important;
-            padding: 0 !important;
+          .no-print {
+            display: none !important;
           }
-          .border {
+          .printable-sheet {
             border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            max-width: none !important;
           }
-          .bg-gray-50\\/50 {
-            background-color: transparent !important;
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}} />
