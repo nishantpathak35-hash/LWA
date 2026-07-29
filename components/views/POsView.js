@@ -325,68 +325,23 @@ export default function POsView() {
     let email = '';
     if (masterEmail) {
       if (!window.confirm(`Email PO ${poNumber} to vendor master email (${masterEmail}) with the latest PDF attached?\n\n(Default CCs will also be included)`)) return;
-      email = ''; // Leave blank so backend uses master email
+      email = masterEmail;
     } else {
       email = window.prompt(`Vendor master email not found. Please enter vendor email address for PO ${poNumber}:`, '');
       if (!email) return;
       if (!window.confirm(`Email PO ${poNumber} to ${email} with the latest PDF attached?\n\n(Default CCs will also be included)`)) return;
     }
 
-    toast(`Generating PDF and emailing PO...`);
+    toast(`Sending PO ${poNumber} via email...`);
     
-    // Completely decouple the heavy PDF generation from the click event handler
-    // This fixes the "Event handlers blocked UI updates" INP issue in Vercel Toolbar
     setTimeout(async () => {
       try {
-        let pdfAttachment = null;
-        try {
-          const iframe = document.createElement('iframe');
-          iframe.style.position = 'fixed';
-          iframe.style.top = '-9999px';
-          iframe.style.width = '1200px';
-          iframe.style.height = '1600px';
-          document.body.appendChild(iframe);
-          iframe.src = `/po/${encodeURIComponent(poNumber)}`;
-          
-          await new Promise(resolve => {
-            iframe.onload = resolve;
-          });
-          
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
-          const html2pdf = (await import('html2pdf.js')).default;
-          const iframeDoc = iframe.contentWindow.document;
-          const targetElement = iframeDoc.querySelector('.max-w-4xl') || iframeDoc.body;
-          
-          const actionBar = targetElement.querySelector('.no-print');
-          if (actionBar) actionBar.style.display = 'none';
-
-          const pdfBase64 = await html2pdf().set({
-            margin: [10, 10, 10, 10],
-            filename: `${poNumber.replace(/\//g, '_')}.pdf`,
-            image: { type: 'jpeg', quality: 0.85 },
-            html2canvas: { scale: 3, useCORS: true, logging: false },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-          }).from(targetElement).output('datauristring');
-          
-          document.body.removeChild(iframe);
-
-          if (pdfBase64 && pdfBase64.length > 500) {
-            pdfAttachment = {
-              filename: `${poNumber.replace(/\//g, '_')}.pdf`,
-              content: pdfBase64.split(',')[1]
-            };
-          }
-        } catch (pdfErr) {
-          console.warn("Client HTML2PDF rendering failed or produced blank result, using server-side generator fallback:", pdfErr);
-        }
-
-        await call('sendPOToVendor', poNumber, email, pdfAttachment);
-        toast.success(`PO ${poNumber} emailed successfully.`);
+        const res = await call('sendPOToVendor', poNumber, email, null);
+        toast.success(`PO ${poNumber} emailed successfully to ${res?.email || email}.`);
       } catch (e) {
         toast.error('Failed to send PO via email: ' + (e.message || 'Unknown error'));
       }
-    }, 500);
+    }, 100);
   };
 
   // ─── Save PO ──────────────────────────────────────────────────────────────
