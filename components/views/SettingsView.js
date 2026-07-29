@@ -640,7 +640,7 @@ export default function SettingsView() {
       </div>
 
       {/* Top Category Selector Bar */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {categoryGroups.map(cat => {
           const CatIcon = cat.icon;
           const isCatActive = activeCategory.id === cat.id;
@@ -650,21 +650,40 @@ export default function SettingsView() {
               type="button"
               onClick={() => setActiveTab(cat.tabs[0].id)}
               className={cn(
-                "p-4 rounded-xl text-left border transition-all flex flex-col justify-between gap-2 group cursor-pointer shadow-2xs",
+                "p-4 rounded-xl text-left transition-all duration-200 flex flex-col justify-between gap-3 group cursor-pointer border",
                 isCatActive
-                  ? "bg-amber-500/10 dark:bg-slate-900/90 border-amber-500/50 dark:border-gold/50 shadow-md ring-1 ring-amber-500/30 dark:ring-gold/30"
-                  : "bg-card border-border hover:bg-muted/50"
+                  ? "bg-amber-500/10 dark:bg-gradient-to-br dark:from-amber-950/40 dark:to-slate-900/90 border-amber-600/60 dark:border-gold/60 shadow-md ring-1 ring-amber-500/30 dark:ring-gold/40 text-slate-950 dark:text-slate-100"
+                  : "bg-white dark:bg-slate-900/40 border-slate-200 dark:border-slate-800/80 hover:bg-amber-50/50 dark:hover:bg-slate-900/80 hover:border-slate-300 dark:hover:border-slate-700"
               )}
             >
               <div className="flex items-center justify-between">
-                <CatIcon className={cn("w-5 h-5 transition-colors", isCatActive ? "text-amber-600 dark:text-gold" : "text-muted-foreground group-hover:text-foreground")} />
-                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{cat.tabs.length} module{cat.tabs.length > 1 ? 's' : ''}</span>
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                  isCatActive
+                    ? "bg-amber-600 dark:bg-gold text-white dark:text-slate-950 shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 group-hover:text-amber-700 dark:group-hover:text-gold"
+                )}>
+                  <CatIcon className="w-4 h-4" />
+                </div>
+                <span className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                  isCatActive
+                    ? "bg-amber-500/15 dark:bg-gold/15 text-amber-900 dark:text-gold border-amber-500/30 dark:border-gold/30"
+                    : "bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/60"
+                )}>
+                  {cat.tabs.length} module{cat.tabs.length > 1 ? 's' : ''}
+                </span>
               </div>
               <div>
-                <div className={cn("text-xs font-bold transition-colors", isCatActive ? "text-amber-950 dark:text-slate-100" : "text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-slate-100")}>
+                <div className={cn(
+                  "text-xs font-bold tracking-tight transition-colors",
+                  isCatActive
+                    ? "text-amber-950 dark:text-slate-100 font-extrabold"
+                    : "text-slate-900 dark:text-slate-200 group-hover:text-amber-900 dark:group-hover:text-slate-100"
+                )}>
                   {cat.title}
                 </div>
-                <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5">{cat.description}</div>
+                <div className="text-[11px] text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5">{cat.description}</div>
               </div>
             </button>
           );
@@ -672,7 +691,7 @@ export default function SettingsView() {
       </div>
 
       {/* Sub-Tab Navigation Bar */}
-      <div className="flex gap-2 border-b border-border pb-3 overflow-x-auto">
+      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800/80 pb-3 overflow-x-auto">
         {activeCategory.tabs.map(tab => {
           const TabIcon = tab.icon;
           const isTabActive = activeTab === tab.id;
@@ -685,14 +704,14 @@ export default function SettingsView() {
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap border cursor-pointer",
+                "px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all duration-150 whitespace-nowrap border cursor-pointer select-none",
                 isTabActive
-                  ? "bg-amber-600 text-white dark:bg-gold/20 dark:text-gold border-amber-600 dark:border-gold/40 shadow-xs font-bold"
+                  ? "bg-amber-600 text-white dark:bg-gold dark:text-slate-950 border-amber-600 dark:border-gold shadow-sm shadow-amber-600/20 dark:shadow-gold/20"
                   : isSpecialDanger
-                  ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-slate-950/40 dark:text-red-400 dark:border-slate-800 hover:bg-rose-100"
+                  ? "bg-white text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800/60 hover:bg-rose-50 dark:hover:bg-rose-900/40"
                   : isSpecialWarning
-                  ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-slate-950/40 dark:text-amber-400 dark:border-slate-800 hover:bg-amber-100"
-                  : "bg-card text-slate-700 border-border hover:bg-muted dark:bg-slate-950/40 dark:text-slate-300 dark:border-slate-800/80 dark:hover:text-slate-100"
+                  ? "bg-white text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/60 hover:bg-amber-50 dark:hover:bg-amber-900/40"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-amber-50/60 hover:text-amber-900 hover:border-amber-300 dark:bg-slate-900/60 dark:text-slate-300 dark:border-slate-800 dark:hover:text-gold dark:hover:border-gold/40"
               )}
             >
               <TabIcon className="w-3.5 h-3.5" />
