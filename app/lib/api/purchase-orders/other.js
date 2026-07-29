@@ -90,10 +90,19 @@ export async function sendPOToVendor(poNo, emailOverride, pdfAttachment, session
 
   const items = await queryAll('SELECT * FROM po_items WHERE po_no = ?', [poNo]);
 
+  let projectMaster = null;
+  if (po.project) {
+    try {
+      projectMaster = await queryGet('SELECT * FROM project_financials WHERE project = ?', [po.project]);
+    } catch (e) {
+      console.error("Failed to fetch project master for PO PDF:", e.message);
+    }
+  }
+
   // Always generate fresh official PO PDF from current DB data
   let officialPdf = null;
   try {
-    officialPdf = generatePOPdf(po, items);
+    officialPdf = generatePOPdf(po, items, vendor, projectMaster);
   } catch (e) {
     console.error("Failed to generate server PDF:", e.message);
     if (pdfAttachment && pdfAttachment.filename && pdfAttachment.content) {
