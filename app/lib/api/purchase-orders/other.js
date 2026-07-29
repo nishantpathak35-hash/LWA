@@ -99,14 +99,15 @@ export async function sendPOToVendor(poNo, emailOverride, pdfAttachment, session
     }
   }
 
-  // Always generate fresh official PO PDF from current DB data
+  // Use client-generated HTML-to-PDF attachment if provided, otherwise generate server PDF
   let officialPdf = null;
-  try {
-    officialPdf = generatePOPdf(po, items, vendor, projectMaster);
-  } catch (e) {
-    console.error("Failed to generate server PDF:", e.message);
-    if (pdfAttachment && pdfAttachment.filename && pdfAttachment.content) {
-      officialPdf = pdfAttachment;
+  if (pdfAttachment && pdfAttachment.filename && pdfAttachment.content && typeof pdfAttachment.content === 'string' && pdfAttachment.content.length > 500) {
+    officialPdf = pdfAttachment;
+  } else {
+    try {
+      officialPdf = generatePOPdf(po, items, vendor, projectMaster);
+    } catch (e) {
+      console.error("Failed to generate server PDF:", e.message);
     }
   }
 

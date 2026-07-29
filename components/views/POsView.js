@@ -314,7 +314,51 @@ export default function POsView() {
     setTdsPct(tdsSections?.find(s => s.section_code === code)?.rate || 0);
   };
 
-  // ─── Send Email ───────────────────────────────────────────────────────────
+  // Helper to render exact HTML PO sheet to PDF using html2pdf.js
+  const generatePOPdfFromHtml = async (poNumber) => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const html2pdf = (await import('html2pdf.js')).default;
+      const res = await fetch(`/po/${encodeURIComponent(poNumber)}`);
+      if (!res.ok) return null;
+      const htmlText = await res.text();
+      const parser = new DOMParser();
+      const parsedDoc = parser.parseFromString(htmlText, 'text/html');
+      const sheetEl = parsedDoc.querySelector('.printable-sheet');
+      if (!sheetEl) return null;
+
+      const wrapper = document.createElement('div');
+      wrapper.style.position = 'absolute';
+      wrapper.style.left = '-9999px';
+      wrapper.style.top = '-9999px';
+      wrapper.style.width = '800px';
+      wrapper.style.background = '#ffffff';
+      wrapper.style.color = '#000000';
+      wrapper.appendChild(sheetEl.cloneNode(true));
+      document.body.appendChild(wrapper);
+
+      const opt = {
+        margin: [6, 8, 6, 8],
+        filename: `${poNumber.replace(/\//g, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      const pdfDataUri = await html2pdf().from(wrapper).set(opt).outputPdf('datauristring');
+      document.body.removeChild(wrapper);
+
+      if (pdfDataUri && pdfDataUri.includes('base64,')) {
+        return {
+          filename: `${poNumber.replace(/\//g, '_')}.pdf`,
+          content: pdfDataUri.split('base64,')[1]
+        };
+      }
+    } catch (err) {
+      console.error('Client html2pdf generation failed:', err);
+    }
+    return null;
+  };
 
   const handleSendPOEmail = (poNumber) => {
     const poObj = pos.find(p => p.po_no === poNumber);
@@ -332,11 +376,12 @@ export default function POsView() {
       if (!window.confirm(`Email PO ${poNumber} to ${email} with the latest PDF attached?\n\n(Default CCs will also be included)`)) return;
     }
 
-    toast(`Sending PO ${poNumber} via email...`);
+    toast(`Rendering PO ${poNumber} HTML to PDF & sending email...`);
     
     setTimeout(async () => {
       try {
-        const res = await call('sendPOToVendor', poNumber, email, null);
+        const clientPdfAttachment = await generatePOPdfFromHtml(poNumber);
+        const res = await call('sendPOToVendor', poNumber, email, clientPdfAttachment);
         toast.success(`PO ${poNumber} emailed successfully to ${res?.email || email}.`);
       } catch (e) {
         toast.error('Failed to send PO via email: ' + (e.message || 'Unknown error'));
