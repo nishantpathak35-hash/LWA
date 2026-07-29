@@ -24,8 +24,15 @@ export function CommandPalette() {
         setOpen(false);
       }
     };
+    const handleOpenCustomEvent = () => setOpen(true);
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('lx:open-command-palette', handleOpenCustomEvent);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('lx:open-command-palette', handleOpenCustomEvent);
+    };
   }, []);
 
   useEffect(() => {

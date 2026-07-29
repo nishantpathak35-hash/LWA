@@ -1,33 +1,46 @@
 import React from 'react';
-import { Dialog, Button, Textarea, Input } from '../../ui/core';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { Dialog, Button, Input } from '../../ui/core';
+import { CheckCircle, XCircle, FileCheck, AlertOctagon } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 
 export default function POApprovalModal({
   approvalModalOpen, setApprovalModalOpen, approvalTarget, approvalAction,
   approvalRemarks, setApprovalRemarks, approvingPO, handleConfirmApproval
 }) {
+  const isApprove = approvalAction === 'approve';
+
   return (
     <>
       {/* ── Approval Dialog ────────────────────────────────────────────────── */}
       <Dialog open={approvalModalOpen} onClose={() => setApprovalModalOpen(false)}
-        title={approvalAction === 'approve' ? 'Approve Purchase Order' : 'Reject Purchase Order'}>
+        title={isApprove ? 'Approve Purchase Order' : 'Reject Purchase Order'}>
         <form onSubmit={handleConfirmApproval} className="space-y-5">
-          <div className="p-4 bg-muted/40 border border-border rounded-xl space-y-2 text-sm font-light">
-            <p className="text-slate-600 dark:text-slate-400 font-medium">PO Number: <strong className="text-slate-900 dark:text-slate-100 font-bold">{approvalTarget?.po_no}</strong></p>
-            <p className="text-slate-600 dark:text-slate-400 font-medium">Vendor: <strong className="text-slate-900 dark:text-slate-100 font-bold">{approvalTarget?.vendor_name}</strong></p>
-            <p className="text-slate-600 dark:text-slate-400 font-medium">PO Value: <strong className="text-amber-700 dark:text-gold font-bold">{formatCurrency(Number(approvalTarget?.po_value || 0))}</strong></p>
+          <div className="p-4 bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl space-y-2 text-xs font-medium shadow-2xs">
+            <div className="flex justify-between items-center pb-2 border-b border-amber-200/40 dark:border-slate-800">
+              <span className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">PO Reference</span>
+              <span className="font-mono text-xs font-bold text-amber-700 dark:text-gold">{approvalTarget?.po_no}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Vendor:</span>
+              <span className="text-slate-900 dark:text-slate-100 font-bold">{approvalTarget?.vendor_name}</span>
+            </div>
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-muted-foreground font-bold">Total PO Net Value:</span>
+              <span className="text-amber-800 dark:text-gold font-bold text-sm font-mono">{formatCurrency(Number(approvalTarget?.po_value || 0))}</span>
+            </div>
           </div>
+
           <div>
-            <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 tracking-wider block mb-1.5">REMARKS</label>
+            <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">APPROVAL / REJECTION REMARKS</label>
             <Input type="text" value={approvalRemarks} onChange={e => setApprovalRemarks(e.target.value)}
-              placeholder={approvalAction === 'reject' ? 'Reason for rejection (required)' : 'Approval notes (optional)'}
-              required={approvalAction === 'reject'} />
+              placeholder={!isApprove ? 'Reason for rejection (required)' : 'Approval notes or feedback (optional)'}
+              required={!isApprove} className="bg-background text-foreground text-xs" />
           </div>
-          <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setApprovalModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant={approvalAction === 'approve' ? 'primary' : 'destructive'} disabled={approvingPO}>
-              {approvingPO ? 'Processing...' : approvalAction === 'approve' ? '✓ Approve PO' : '✗ Reject PO'}
+
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={() => setApprovalModalOpen(false)} className="text-xs">Cancel</Button>
+            <Button type="submit" variant={isApprove ? 'primary' : 'destructive'} disabled={approvingPO} className="text-xs font-bold">
+              {approvingPO ? 'Processing...' : isApprove ? '✓ Approve PO' : '✗ Reject PO'}
             </Button>
           </div>
         </form>

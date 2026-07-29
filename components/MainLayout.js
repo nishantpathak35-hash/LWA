@@ -350,6 +350,7 @@ export default function MainLayout() {
           </div>
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

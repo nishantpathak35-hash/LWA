@@ -25,35 +25,35 @@ export default function BulkApprovalReviewModal({
       maxWidth="max-w-7xl"
     >
       <div className="space-y-6">
-        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500/90 rounded-lg p-4 flex gap-3 text-sm">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400 rounded-xl p-4 flex gap-3 text-xs font-medium shadow-2xs">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
           <p>
             You are about to approve <strong>{selectedRequestsDetails.length}</strong> payment requests. 
             Please review the Approved Amounts and TDS calculations below. You can adjust them inline before confirming.
           </p>
         </div>
 
-        <div className="overflow-x-auto border border-slate-900 rounded-lg max-h-[60vh] custom-scrollbar">
+        <div className="overflow-x-auto border border-border rounded-xl max-h-[60vh] custom-scrollbar shadow-2xs">
           <table className="min-w-full text-xs text-left">
-            <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-slate-800">
+            <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10 border-b border-border">
               <tr>
-                <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">Request</th>
-                <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider">Requested</th>
-                <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider w-32">Approved Amt</th>
-                <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider w-36">TDS Sec</th>
-                <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider w-28">TDS Amt</th>
-                <th className="px-4 py-3 font-semibold text-slate-400 uppercase tracking-wider text-right">Net Payable</th>
+                <th className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px]">Request</th>
+                <th className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px]">Requested</th>
+                <th className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px] w-32">Approved Amt</th>
+                <th className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px] w-36">TDS Sec</th>
+                <th className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px] w-28">TDS Amt</th>
+                <th className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px] text-right">Net Payable</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-900/60 bg-slate-900/20">
+            <tbody className="divide-y divide-border bg-card">
               {selectedRequestsDetails.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-900/40 transition-colors">
+                <tr key={req.id} className="hover:bg-muted/40 transition-colors">
                   <td className="px-4 py-3 align-top">
                     <div className="font-bold text-slate-900 dark:text-slate-100">#{req.id} &middot; {req.vendor_name}</div>
                     <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 font-mono">{req.po_no}</div>
                     <div className="text-[10px] text-slate-600 dark:text-slate-400">{req.project}</div>
                   </td>
-                  <td className="px-4 py-3 align-top font-medium text-slate-800 dark:text-slate-200 pt-4">
+                  <td className="px-4 py-3 align-top font-bold text-slate-800 dark:text-slate-200 pt-4 font-mono">
                     {formatCurrency(req.grossAmount)}
                   </td>
                   <td className="px-4 py-3 align-top">
@@ -64,7 +64,7 @@ export default function BulkApprovalReviewModal({
                       value={req.approvedAmount}
                       onChange={(e) => onUpdateApprovalData(req.id, 'approvedAmount', Number(e.target.value))}
                       disabled={!canEditApprovalTds}
-                      className="h-8 text-xs w-full"
+                      className="h-8 text-xs w-full bg-background text-foreground font-mono"
                     />
                   </td>
                   <td className="px-4 py-3 align-top">
@@ -72,7 +72,7 @@ export default function BulkApprovalReviewModal({
                       value={req.tdsSec} 
                       onChange={(e) => onUpdateApprovalData(req.id, 'tdsSec', e.target.value)} 
                       disabled={!canEditApprovalTds}
-                      className="h-8 text-xs w-full"
+                      className="h-8 text-xs w-full bg-background text-foreground font-semibold"
                     >
                       <option value="">None (0%)</option>
                       {tdsSections?.map(sec => (
@@ -90,29 +90,29 @@ export default function BulkApprovalReviewModal({
                       value={req.tdsAmt}
                       onChange={(e) => onUpdateApprovalData(req.id, 'tdsAmt', Number(e.target.value))}
                       disabled={!canEditApprovalTds}
-                      className="h-8 text-xs w-full"
+                      className="h-8 text-xs w-full bg-background text-foreground font-mono"
                     />
                   </td>
-                  <td className="px-4 py-3 align-top text-right font-bold text-gold pt-4">
+                  <td className="px-4 py-3 align-top text-right font-bold text-amber-700 dark:text-gold pt-4 font-mono">
                     {formatCurrency(req.netPayable)}
                   </td>
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-slate-950/80 sticky bottom-0 z-10 border-t border-slate-800 font-bold text-slate-200">
+            <tfoot className="bg-slate-50 dark:bg-slate-900 sticky bottom-0 z-10 border-t border-border font-bold text-slate-900 dark:text-slate-100">
               <tr>
-                <td colSpan={2} className="px-4 py-3 text-right text-slate-400">GRAND TOTALS:</td>
-                <td className="px-4 py-3">{formatCurrency(totalApproved)}</td>
+                <td colSpan={2} className="px-4 py-3 text-right text-slate-600 dark:text-slate-400 uppercase text-[10px]">GRAND TOTALS:</td>
+                <td className="px-4 py-3 font-mono">{formatCurrency(totalApproved)}</td>
                 <td className="px-4 py-3"></td>
-                <td className="px-4 py-3 text-violet-400">{formatCurrency(totalTds)}</td>
-                <td className="px-4 py-3 text-right text-gold">{formatCurrency(totalNet)}</td>
+                <td className="px-4 py-3 font-mono text-purple-700 dark:text-purple-400">{formatCurrency(totalTds)}</td>
+                <td className="px-4 py-3 text-right text-amber-700 dark:text-gold font-mono">{formatCurrency(totalNet)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
+        <div className="flex justify-end gap-3 border-t border-border pt-4">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting} className="text-xs">
             Cancel
           </Button>
           <Button 
@@ -120,7 +120,7 @@ export default function BulkApprovalReviewModal({
             variant="primary" 
             onClick={onConfirmApprove} 
             disabled={submitting}
-            className="bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white"
+            className="bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white font-bold text-xs"
           >
             {submitting ? 'Processing...' : (
               <><CheckCircle className="w-4 h-4 mr-2" /> Confirm & Approve {selectedRequestsDetails.length} Payments</>
