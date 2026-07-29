@@ -103,10 +103,15 @@ export default function VendorsView() {
 
   const handleOpenViewModal = async (v) => {
     setViewVendor(v); setViewVendorPOs([]); setViewModalOpen(true);
+    const vendorCode = v.code || v.vendorId || v.vendor_code;
     try {
-      const allPOs = await call('getPOsByVendor', v.code);
+      const details = await call('getVendorByName', vendorCode);
+      if (details) {
+        setViewVendor(prev => ({ ...prev, ...details }));
+      }
+      const allPOs = await call('getPOsByVendor', vendorCode);
       setViewVendorPOs(allPOs || []);
-    } catch (e) { console.error('Failed to load POs for vendor:', e); }
+    } catch (e) { console.error('Failed to load details for vendor:', e); }
   };
 
   const handleOpenEditModal = async (v) => {

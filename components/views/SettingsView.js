@@ -4,7 +4,7 @@ import { toast } from '../ui/Toast';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Dialog } from '../ui/core';
-import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loader2, ClipboardList, ChevronLeft, ChevronRight, Search, ArrowUpDown } from 'lucide-react';
+import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loader2, ClipboardList, ChevronLeft, ChevronRight, Search, ArrowUpDown, Building2, Mail, CircleDollarSign, Wrench, RefreshCw, Sliders, Layers, Database } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
 import SettingsCompanyTab from './settings/SettingsCompanyTab';
@@ -573,102 +573,133 @@ export default function SettingsView() {
   const roleKeys = ['proc', 'finance', 'accountant', 'director'];
   const roleLabels = { 'proc': 'Procurement', 'finance': 'Finance', 'accountant': 'Accountant', 'director': 'Director' };
 
+  const categoryGroups = [
+    {
+      id: 'access',
+      title: 'Access & Security',
+      description: 'Users, roles, permissions & workflows',
+      icon: Shield,
+      tabs: [
+        { id: 'users', label: 'Users & Access', icon: Users },
+        { id: 'permissions', label: 'Feature Permissions', icon: Shield },
+        { id: 'workflow', label: 'Approval Workflows', icon: Sliders }
+      ]
+    },
+    {
+      id: 'org',
+      title: 'Organization & Setup',
+      description: 'Company info, email CC & number series',
+      icon: Building2,
+      tabs: [
+        { id: 'company', label: 'Company Settings', icon: Building2 },
+        { id: 'email_config', label: 'Email Configuration', icon: Mail },
+        { id: 'number_series', label: 'Number Series', icon: Key }
+      ]
+    },
+    {
+      id: 'finance',
+      title: 'Finance & Tax',
+      description: 'TDS sections & withholding tax',
+      icon: CircleDollarSign,
+      tabs: [
+        { id: 'tds', label: 'TDS Configuration', icon: CircleDollarSign }
+      ]
+    },
+    {
+      id: 'maintenance',
+      title: 'Maintenance & Logs',
+      description: 'System utilities, audit trail & tools',
+      icon: Wrench,
+      tabs: [
+        { id: 'system', label: 'System Utilities', icon: Settings },
+        { id: 'audit', label: 'Audit Log', icon: ClipboardList },
+        { id: 'legacy_correction', label: 'Legacy Correction', icon: Shield },
+        { id: 'project_merger', label: 'Project Merger', icon: Plus }
+      ]
+    }
+  ];
+
+  const activeCategory = categoryGroups.find(c => c.tabs.some(t => t.id === activeTab)) || categoryGroups[0];
+
   return (
     <div className="space-y-6 animate-fade-in glass-card p-6 md:p-8 rounded-2xl mx-auto w-full max-w-7xl">
-      {/* Title */}
-      <div>
-        <h2 className="text-3xl font-light text-foreground flex items-center gap-3 font-serif mb-2">
-          <Settings className="w-6 h-6 text-primary" />
-          System Settings
-        </h2>
-        <p className="text-sm font-light text-muted-foreground mt-1 tracking-wide">
-          Manage system configurations, user invitations, roles, and feature permissions.
-        </p>
+      {/* Title Header */}
+      <div className="flex flex-wrap justify-between items-start gap-4 pb-2 border-b border-slate-800">
+        <div>
+          <h2 className="text-3xl font-light text-foreground flex items-center gap-3 font-serif mb-1">
+            <Settings className="w-7 h-7 text-gold" />
+            System Settings
+          </h2>
+          <p className="text-xs font-light text-muted-foreground tracking-wide">
+            Centralized control center for system configurations, access management, roles, and enterprise policies.
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={handleReloadAll} className="text-xs text-slate-400 hover:text-slate-200">
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reload All Data
+        </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-3 border-b border-border/50 pb-4 overflow-x-auto">
-        <Button
-          onClick={() => setActiveTab('users')}
-          size="default"
-          variant={activeTab === 'users' ? 'primary' : 'ghost'}
-          className={activeTab === 'users' ? 'shadow-lg shadow-gold/20' : ''}
-        >
-          <Users className="w-4 h-4" /> Users & Access
-        </Button>
-        <Button
-          onClick={() => setActiveTab('permissions')}
-          size="default"
-          variant={activeTab === 'permissions' ? 'primary' : 'ghost'}
-          className={activeTab === 'permissions' ? 'shadow-lg shadow-gold/20' : ''}
-        >
-          <Shield className="w-4 h-4" /> Feature Permissions
-        </Button>
-        <Button
-          onClick={() => setActiveTab('system')}
-          size="sm"
-          variant={activeTab === 'system' ? 'primary' : 'ghost'}
-        >
-          ⚙ System Utilities
-        </Button>
-        <Button
-          onClick={() => setActiveTab('company')}
-          size="sm"
-          variant={activeTab === 'company' ? 'primary' : 'ghost'}
-        >
-          🏢 Company Settings
-        </Button>
-        <Button
-          onClick={() => setActiveTab('audit')}
-          size="sm"
-          variant={activeTab === 'audit' ? 'primary' : 'ghost'}
-        >
-          <ClipboardList className="w-4 h-4" /> Audit Log
-        </Button>
-        <Button
-          onClick={() => setActiveTab('email_config')}
-          size="sm"
-          variant={activeTab === 'email_config' ? 'primary' : 'ghost'}
-        >
-          📧 Email Configuration
-        </Button>
-        <Button
-          onClick={() => setActiveTab('tds')}
-          size="sm"
-          variant={activeTab === 'tds' ? 'primary' : 'ghost'}
-        >
-          💰 TDS Config
-        </Button>
-        <Button
-          onClick={() => setActiveTab('number_series')}
-          size="sm"
-          variant={activeTab === 'number_series' ? 'primary' : 'ghost'}
-        >
-          🔢 Number Series
-        </Button>
-        <Button
-          onClick={() => setActiveTab('workflow')}
-          size="sm"
-          variant={activeTab === 'workflow' ? 'primary' : 'ghost'}
-        >
-          🔄 Workflows
-        </Button>
-        <Button
-          onClick={() => setActiveTab('legacy_correction')}
-          size="sm"
-          variant={activeTab === 'legacy_correction' ? 'primary' : 'ghost'}
-          className="text-amber-500 hover:text-amber-400"
-        >
-          ⚠ Legacy Correction
-        </Button>
-        <Button
-          onClick={() => setActiveTab('project_merger')}
-          size="sm"
-          variant={activeTab === 'project_merger' ? 'primary' : 'ghost'}
-          className="text-red-400 hover:text-red-300"
-        >
-          <Plus className="w-4 h-4 mr-1" /> Project Merger
-        </Button>
+      {/* Top Category Selector Bar */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {categoryGroups.map(cat => {
+          const CatIcon = cat.icon;
+          const isCatActive = activeCategory.id === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveTab(cat.tabs[0].id)}
+              className={cn(
+                "p-4 rounded-xl text-left border transition-all flex flex-col justify-between gap-2 group cursor-pointer",
+                isCatActive
+                  ? "bg-slate-900/90 border-gold/50 shadow-lg shadow-gold/10 ring-1 ring-gold/30"
+                  : "bg-slate-950/40 border-slate-800/80 hover:bg-slate-900/40 hover:border-slate-700"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <CatIcon className={cn("w-5 h-5 transition-colors", isCatActive ? "text-gold" : "text-slate-500 group-hover:text-slate-300")} />
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{cat.tabs.length} module{cat.tabs.length > 1 ? 's' : ''}</span>
+              </div>
+              <div>
+                <div className={cn("text-xs font-bold transition-colors", isCatActive ? "text-slate-100" : "text-slate-300 group-hover:text-slate-100")}>
+                  {cat.title}
+                </div>
+                <div className="text-[10px] text-slate-500 font-light truncate mt-0.5">{cat.description}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Sub-Tab Navigation Bar */}
+      <div className="flex gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
+        {activeCategory.tabs.map(tab => {
+          const TabIcon = tab.icon;
+          const isTabActive = activeTab === tab.id;
+          const isSpecialWarning = tab.id === 'legacy_correction';
+          const isSpecialDanger = tab.id === 'project_merger';
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap border cursor-pointer",
+                isTabActive
+                  ? "bg-gold/15 text-gold border-gold/40 shadow-sm"
+                  : isSpecialDanger
+                  ? "bg-slate-950/40 text-red-400 border-slate-800 hover:bg-red-500/10 hover:border-red-500/30"
+                  : isSpecialWarning
+                  ? "bg-slate-950/40 text-amber-400 border-slate-800 hover:bg-amber-500/10 hover:border-amber-500/30"
+                  : "bg-slate-950/40 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:bg-slate-900/60"
+              )}
+            >
+              <TabIcon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Users Tab */}
