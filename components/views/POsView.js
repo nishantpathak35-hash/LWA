@@ -314,7 +314,7 @@ export default function POsView() {
     setTdsPct(tdsSections?.find(s => s.section_code === code)?.rate || 0);
   };
 
-  // Helper to render exact HTML PO sheet to PDF using html2pdf.js
+  // Helper to render exact HTML PO sheet to PDF using iframe + html2pdf.js
   const generatePOPdfFromHtml = async (poNumber) => {
     try {
       if (typeof window === 'undefined') return null;
@@ -322,31 +322,47 @@ export default function POsView() {
       const res = await fetch(`/po/${encodeURIComponent(poNumber)}`);
       if (!res.ok) return null;
       const htmlText = await res.text();
-      const parser = new DOMParser();
-      const parsedDoc = parser.parseFromString(htmlText, 'text/html');
-      const sheetEl = parsedDoc.querySelector('.printable-sheet');
-      if (!sheetEl) return null;
 
-      const wrapper = document.createElement('div');
-      wrapper.style.position = 'absolute';
-      wrapper.style.left = '-9999px';
-      wrapper.style.top = '-9999px';
-      wrapper.style.width = '800px';
-      wrapper.style.background = '#ffffff';
-      wrapper.style.color = '#000000';
-      wrapper.appendChild(sheetEl.cloneNode(true));
-      document.body.appendChild(wrapper);
+      // Create a hidden iframe to render the full HTML page with CSS and images
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '-9999px';
+      iframe.style.width = '1024px';
+      iframe.style.height = '1400px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(htmlText);
+      iframeDoc.close();
+
+      // Wait for iframe styles and images to settle completely
+      await new Promise(r => setTimeout(r, 600));
+      const imgs = Array.from(iframeDoc.querySelectorAll('img'));
+      await Promise.all(
+        imgs.map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+        })
+      );
+
+      const sheetEl = iframeDoc.querySelector('.printable-sheet') || iframeDoc.body;
 
       const opt = {
         margin: [6, 8, 6, 8],
         filename: `${poNumber.replace(/\//g, '_')}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: { scale: 2, useCORS: true, logging: false, allowTaint: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      const pdfDataUri = await html2pdf().from(wrapper).set(opt).outputPdf('datauristring');
-      document.body.removeChild(wrapper);
+      const pdfDataUri = await html2pdf().from(sheetEl).set(opt).outputPdf('datauristring');
+      document.body.removeChild(iframe);
 
       if (pdfDataUri && pdfDataUri.includes('base64,')) {
         return {
