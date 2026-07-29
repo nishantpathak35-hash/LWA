@@ -78,14 +78,12 @@ export async function getDashboardKPIs(session) {
   const [poResult, prResult, outflowRow, pendingRow] = await Promise.all([
     queryAll(`SELECT po_no, po_value FROM purchase_orders`),
     queryAll(`SELECT pr_id, amount_requested, approved_amount, tds_amount, stage, remittance FROM payment_requests`),
-    // Authoritative total outflow — same logic as calculateProjectOutflowSnapshots:
-    // system_payments linked to a PR → use net PR amount (after TDS); else use raw sp.amount
+    // Authoritative total outflow:
+    // system_payments linked to a PR → use Gross Approved PR amount (Vendor Paid + TDS); else use raw sp.amount (manual payments)
     queryGet(
       `SELECT COALESCE(SUM(
          CASE
-           WHEN pr.pr_id IS NOT NULL
-             THEN CASE WHEN COALESCE(pr.approved_amount, pr.amount_requested,0) - COALESCE(pr.tds_amount,0) < 0 THEN 0
-                       ELSE COALESCE(pr.approved_amount, pr.amount_requested,0) - COALESCE(pr.tds_amount,0) END
+           WHEN pr.pr_id IS NOT NULL THEN COALESCE(pr.approved_amount, pr.amount_requested, 0)
            ELSE COALESCE(sp.amount, 0)
          END
        ), 0) AS total

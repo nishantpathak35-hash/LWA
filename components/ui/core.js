@@ -160,6 +160,87 @@ export function TableCell({ className, ...props }) {
   return <td className={cn("px-4 py-3.5 text-foreground font-medium align-middle text-sm", className)} {...props} />;
 }
 
+// --- METRIC CARD ---
+export function MetricCard({ label, value, sub, trend, trendUp, icon: Icon, color = "blue", className }) {
+  const iconColors = {
+    blue: "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/40",
+    green: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/40",
+    amber: "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/40",
+    red: "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/50 dark:border-rose-800/40",
+    purple: "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200/50 dark:border-purple-800/40",
+    gold: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/50 dark:border-amber-800/40",
+  };
+
+  return (
+    <div className={cn("bg-card border border-border rounded-xl p-4 flex flex-col justify-between shadow-2xs hover:shadow-xs transition-all duration-200", className)}>
+      <div className="flex items-start justify-between">
+        {Icon && (
+          <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center transition-colors", iconColors[color] || iconColors.blue)}>
+            <Icon className="w-4 h-4" />
+          </div>
+        )}
+        {trend && (
+          <span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border", trendUp ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60" : "text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60")}>
+            {trendUp ? "↑" : "↓"} {trend}
+          </span>
+        )}
+      </div>
+      <div className="mt-3">
+        <div className="text-2xl font-bold tracking-tight text-foreground font-mono">{value}</div>
+        <div className="text-xs font-medium text-muted-foreground mt-1">{label}</div>
+        {sub && <div className="text-[11px] text-muted-foreground/75 mt-0.5">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+// --- STATUS PILL ---
+export function StatusPill({ status, className }) {
+  if (!status) return null;
+  const s = String(status).toLowerCase();
+
+  const styles = {
+    active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60",
+    completed: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60",
+    "on-hold": "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60",
+    pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60",
+    approved: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60",
+    rejected: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60",
+    draft: "bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800",
+    paid: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60",
+    overdue: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60",
+    suspended: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60",
+    inactive: "bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800",
+  };
+
+  const labels = {
+    "on-hold": "On Hold",
+  };
+
+  const formattedLabel = labels[s] || s.charAt(0).toUpperCase() + s.slice(1);
+
+  return (
+    <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border tracking-tight transition-colors duration-150 select-none", styles[s] || "bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800", className)}>
+      {formattedLabel}
+    </span>
+  );
+}
+
+// --- PRIORITY PILL ---
+export function PriorityPill({ priority, className }) {
+  if (!priority) return null;
+  const p = String(priority).toLowerCase();
+  const colors = { high: "text-rose-600 dark:text-rose-400", medium: "text-amber-600 dark:text-amber-400", low: "text-slate-500 dark:text-slate-400" };
+  const dots = { high: "bg-rose-500", medium: "bg-amber-400", low: "bg-slate-400" };
+
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium capitalize select-none", colors[p] || "text-slate-500", className)}>
+      <span className={cn("w-1.5 h-1.5 rounded-full", dots[p] || "bg-slate-400")} />
+      {priority}
+    </span>
+  );
+}
+
 // --- DIALOG / MODAL ---
 export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' }) {
   React.useEffect(() => {
@@ -212,4 +293,5 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' 
     document.body
   );
 }
+
 

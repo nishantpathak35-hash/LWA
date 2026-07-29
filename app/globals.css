@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* Light Mode — Zoho Books / Enterprise ERP design system */
+    /* Light Mode — Zoho Books / Stripe / Enterprise ERP design system */
     --background: 210 40% 98%;          /* #F8FAFC — crisp, clean light slate canvas */
     --foreground: 222 47% 11%;          /* #0F172A — deep navy charcoal primary text */
 
@@ -20,7 +20,7 @@
     --border: 214 32% 91%;              /* #E2E8F0 — crisp border */
     --input: 0 0% 100%;                 /* #FFFFFF — clean white inputs */
 
-    --primary: 38 70% 36%;              /* #9E6B15 — rich enterprise gold/bronze */
+    --primary: 217 91% 60%;             /* #2563EB — rich enterprise blue / gold accent */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
@@ -32,7 +32,7 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --ring: 38 70% 36%;
+    --ring: 217 91% 60%;
 
     --radius: 0.5rem;
 
@@ -40,7 +40,7 @@
     --table-header-bg: 210 40% 96.1%;
     --table-header-text: 215 20% 32%;
     --table-hover: 210 40% 96.5%;
-    --table-selected: 45 100% 96%;
+    --table-selected: 214 100% 97%;
   }
 
   .dark {
@@ -142,3 +142,4 @@ select option {
   background-color: hsl(var(--card));
   color: hsl(var(--foreground));
 }
+

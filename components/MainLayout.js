@@ -14,7 +14,7 @@ import SiteDPRView from './views/operations/dpr/SiteDPRView';
 import SiteWPRView from './views/operations/wpr/SiteWPRView';
 import ErrorBoundary from './ErrorBoundary';
 import { NotificationsPanel } from './ui/NotificationsPanel';
-import { Menu, Sun, Moon, AlertTriangle, X } from 'lucide-react';
+import { Menu, Sun, Moon, AlertTriangle, X, Search } from 'lucide-react';
 import { Button } from './ui/core';
 import { CommandPalette } from './ui/CommandPalette';
 
@@ -276,7 +276,7 @@ export default function MainLayout() {
       {/* Main content */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* ── Header / Topbar ── */}
-        <header className="h-14 px-6 border-b border-border bg-card shadow-2xs flex items-center justify-between flex-shrink-0 transition-colors duration-200">
+        <header className="h-14 px-6 border-b border-border bg-card/80 backdrop-blur-md shadow-2xs flex items-center justify-between flex-shrink-0 transition-colors duration-200 sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -286,12 +286,28 @@ export default function MainLayout() {
             >
               <Menu className="w-5 h-5 text-muted-foreground" />
             </Button>
-            <h1 className="text-base font-semibold text-foreground tracking-tight">
-              {VIEW_LABELS[activeView] || activeView}
-            </h1>
+            
+            {/* Breadcrumb Navigation */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground font-medium hidden sm:inline">Luxeworx ERP</span>
+              <span className="text-muted-foreground/50 hidden sm:inline">/</span>
+              <h1 className="text-sm font-semibold text-foreground tracking-tight">
+                {VIEW_LABELS[activeView] || activeView}
+              </h1>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            {/* Search Trigger Button */}
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('lx:open-command-palette'))}
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 hover:bg-muted border border-border text-xs text-muted-foreground transition-all"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Search...</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono shadow-2xs text-muted-foreground">⌘K</kbd>
+            </button>
+
             {/* Keyboard shortcut hint (shows sequence in progress) */}
             {keySequence.length > 0 && (
               <span className="text-[10px] px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-mono animate-pulse mr-1 font-semibold">

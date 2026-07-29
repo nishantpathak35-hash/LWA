@@ -125,10 +125,17 @@ export class PaymentService {
       tds_section: tdsSec
     });
 
+    const reqAmt = Number(pr.amount_requested || 0);
+    const diffAmt = reqAmt - approvedAmount;
+    const approvalTimestamp = new Date().toISOString();
+    const reasonText = tdsConfig.comments || tdsConfig.remarks || tdsConfig.reason || '';
+
+    const auditDetailText = `Approved payment ID ${prId} (transitioned ${oldStage} → ${newStage}). Requested Amount: ₹${reqAmt.toLocaleString('en-IN')}, Approved Amount: ₹${approvedAmount.toLocaleString('en-IN')}, Difference: ₹${diffAmt.toLocaleString('en-IN')}, Approver: ${userEmail}, Timestamp: ${approvalTimestamp}${reasonText ? `, Reason: ${reasonText}` : ''}`;
+
     await logAudit(
       userEmail,
       'Approve Payment',
-      `Approved payment ID ${prId} (stage transitioned from ${oldStage} to ${newStage}). Requested: ${pr.amount_requested||0}, Approved: ${approvedAmount}, TDS: ${tdsAmount} (${tdsSec})`,
+      auditDetailText,
       oldStage
     );
 
@@ -138,7 +145,7 @@ export class PaymentService {
       oldStage, 
       'Approved', 
       userEmail, 
-      `Requested: ${pr.amount_requested||0}, Approved: ${approvedAmount}, TDS: ${tdsAmount} (${tdsSec})`
+      auditDetailText
     );
 
     return { ok: true };

@@ -138,6 +138,35 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
       // Silently ignore — column already exists
     });
   }
+
+  // --- Auto-reconcile historical PO payment calculations (Gross Approved Amount = Net + TDS) ---
+  tursoClient.execute(`
+    UPDATE purchase_orders
+    SET legacy_paid = (
+      COALESCE((
+        SELECT SUM(COALESCE(pr.approved_amount, pr.amount_requested, 0))
+        FROM payment_requests pr
+        WHERE pr.po_no = purchase_orders.po_no
+          AND (LOWER(pr.stage) = 'remitted' OR LOWER(pr.remittance) = 'remitted')
+      ), 0) +
+      COALESCE((
+        SELECT SUM(COALESCE(sp.amount, 0))
+        FROM system_payments sp
+        WHERE sp.po_no = purchase_orders.po_no
+          AND (sp.pr_key IS NULL OR sp.pr_key LIKE 'MANUAL-%')
+      ), 0)
+    )
+  `).then(() => {
+    return tursoClient.execute(`
+      UPDATE purchase_orders
+      SET final_payable = CASE WHEN COALESCE(revised_po_value, po_value, 0) - COALESCE(legacy_paid, 0) < 0 THEN 0 ELSE COALESCE(revised_po_value, po_value, 0) - COALESCE(legacy_paid, 0) END,
+          payment_status = CASE
+            WHEN COALESCE(legacy_paid, 0) >= COALESCE(revised_po_value, po_value, 0) AND COALESCE(revised_po_value, po_value, 0) > 0 THEN 'Fully Paid'
+            WHEN COALESCE(legacy_paid, 0) > 0 THEN 'Partially Paid'
+            ELSE 'Unpaid'
+          END
+    `);
+  }).catch(err => console.error('PO ledger auto-reconciliation warning:', err.message));
 }
 
 async function executeWithRetry(action, retries = 3, delay = 300) {

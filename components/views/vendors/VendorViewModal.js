@@ -48,7 +48,7 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
         </div>
 
         <div className="pt-4 border-t border-slate-900/60">
-          <AttachmentsSection entityType="vendor" entityId={viewVendor?.code} />
+          <AttachmentsSection entityType="vendor" entityId={viewVendor?.code || viewVendor?.id} />
         </div>
 
         <div className="pt-4 border-t border-slate-900/60 flex justify-end">
