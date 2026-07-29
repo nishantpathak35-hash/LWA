@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export function generatePOPdf(po, items, companyName = 'LUXEWORX ATELIER INTERIOR PRIVATE LIMITED', companyAddress = '8th Floor, Magnum Towers-1\nGolf Course Ext Rd\nGurugram Haryana 122001') {

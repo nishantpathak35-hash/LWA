@@ -2,6 +2,7 @@
 // Auto-extracted from api.js
 import { queryAll, queryGet, queryRun } from '../../db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from '../../email.js';
+import { generatePOPdf } from '../../poPdfGenerator.js';
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from '../../poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from '../../paymentCalculations.js';
 import { VendorService } from '../../../../src/modules/vendors/services/VendorService';
@@ -95,8 +96,17 @@ export async function sendPOToVendor(poNo, emailOverride, pdfAttachment, session
     content: a.file_data
   }));
 
-  if (pdfAttachment && pdfAttachment.filename && pdfAttachment.content) {
-    attachments.push(pdfAttachment);
+  let poPdf = pdfAttachment;
+  if (!poPdf || !poPdf.content || (typeof poPdf.content === 'string' && poPdf.content.length < 500)) {
+    try {
+      poPdf = generatePOPdf(po, items);
+    } catch (e) {
+      console.error("Failed to generate server PDF fallback:", e.message);
+    }
+  }
+
+  if (poPdf && poPdf.filename && poPdf.content) {
+    attachments.push(poPdf);
   }
 
   const cc = await getDefaultCCRecipients(session);

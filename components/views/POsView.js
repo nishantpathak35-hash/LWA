@@ -338,47 +338,48 @@ export default function POsView() {
     // This fixes the "Event handlers blocked UI updates" INP issue in Vercel Toolbar
     setTimeout(async () => {
       try {
-        const fullDetails = await call('getPOFullDetails', poNumber);
-        if (!fullDetails) throw new Error("Could not fetch PO details for PDF generation");
+        let pdfAttachment = null;
+        try {
+          const iframe = document.createElement('iframe');
+          iframe.style.position = 'fixed';
+          iframe.style.top = '-9999px';
+          iframe.style.width = '1200px';
+          iframe.style.height = '1600px';
+          document.body.appendChild(iframe);
+          iframe.src = `/po/${encodeURIComponent(poNumber)}`;
+          
+          await new Promise(resolve => {
+            iframe.onload = resolve;
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
+          const html2pdf = (await import('html2pdf.js')).default;
+          const iframeDoc = iframe.contentWindow.document;
+          const targetElement = iframeDoc.querySelector('.max-w-4xl') || iframeDoc.body;
+          
+          const actionBar = targetElement.querySelector('.no-print');
+          if (actionBar) actionBar.style.display = 'none';
 
-        // Load the actual PO page in a hidden iframe to capture its exact layout
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'fixed';
-        iframe.style.top = '-9999px';
-        iframe.style.width = '1200px';
-        iframe.style.height = '1600px';
-        document.body.appendChild(iframe);
-        iframe.src = `/po/${encodeURIComponent(poNumber)}`;
-        
-        await new Promise(resolve => {
-          iframe.onload = resolve;
-        });
-        
-        // Allow extra time for fonts and images to render in iframe
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        const html2pdf = (await import('html2pdf.js')).default;
-        const iframeDoc = iframe.contentWindow.document;
-        const targetElement = iframeDoc.querySelector('.max-w-4xl') || iframeDoc.body;
-        
-        // Hide the print action bar so it doesn't appear in the PDF
-        const actionBar = targetElement.querySelector('.no-print');
-        if (actionBar) actionBar.style.display = 'none';
+          const pdfBase64 = await html2pdf().set({
+            margin: [10, 10, 10, 10],
+            filename: `${poNumber.replace(/\//g, '_')}.pdf`,
+            image: { type: 'jpeg', quality: 0.85 },
+            html2canvas: { scale: 3, useCORS: true, logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          }).from(targetElement).output('datauristring');
+          
+          document.body.removeChild(iframe);
 
-        const pdfBase64 = await html2pdf().set({
-          margin: [10, 10, 10, 10],
-          filename: `${poNumber.replace(/\//g, '_')}.pdf`,
-          image: { type: 'jpeg', quality: 0.85 },
-          html2canvas: { scale: 3, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).from(targetElement).output('datauristring');
-        
-        document.body.removeChild(iframe);
-
-        const pdfAttachment = {
-          filename: `${poNumber.replace(/\//g, '_')}.pdf`,
-          content: pdfBase64.split(',')[1]
-        };
+          if (pdfBase64 && pdfBase64.length > 500) {
+            pdfAttachment = {
+              filename: `${poNumber.replace(/\//g, '_')}.pdf`,
+              content: pdfBase64.split(',')[1]
+            };
+          }
+        } catch (pdfErr) {
+          console.warn("Client HTML2PDF rendering failed or produced blank result, using server-side generator fallback:", pdfErr);
+        }
 
         await call('sendPOToVendor', poNumber, email, pdfAttachment);
         toast.success(`PO ${poNumber} emailed successfully.`);
