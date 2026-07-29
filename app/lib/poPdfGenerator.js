@@ -118,7 +118,7 @@ export function generatePOPdf(po, items, companyName = 'LUXEWORX ATELIER INTERIO
     styles: { fontSize: 10, cellPadding: 2, textColor: darkColor },
     columnStyles: { 0: { fontStyle: 'bold', halign: 'right' }, 1: { halign: 'right', fontStyle: 'bold' } },
     body: [
-      ['Grand Total:', `Rs. ${formatMoney(po.po_value)}`],
+      ['Grand Total:', `Rs. ${formatMoney(po.revised_po_value || po.po_value)}`],
     ],
   });
 

@@ -89,24 +89,32 @@ export async function sendPOToVendor(poNo, emailOverride, pdfAttachment, session
   if (!toEmail) throw new Error('No email address provided for vendor');
 
   const items = await queryAll('SELECT * FROM po_items WHERE po_no = ?', [poNo]);
-  
-  const dbAttachments = await queryAll("SELECT file_name, file_data FROM attachments WHERE entity_type = 'po' AND entity_id = ?", [poNo]);
-  const attachments = dbAttachments.map(a => ({
-    filename: a.file_name,
-    content: a.file_data
-  }));
 
-  let poPdf = pdfAttachment;
-  if (!poPdf || !poPdf.content || (typeof poPdf.content === 'string' && poPdf.content.length < 500)) {
-    try {
-      poPdf = generatePOPdf(po, items);
-    } catch (e) {
-      console.error("Failed to generate server PDF fallback:", e.message);
+  // Always generate fresh official PO PDF from current DB data
+  let officialPdf = null;
+  try {
+    officialPdf = generatePOPdf(po, items);
+  } catch (e) {
+    console.error("Failed to generate server PDF:", e.message);
+    if (pdfAttachment && pdfAttachment.filename && pdfAttachment.content) {
+      officialPdf = pdfAttachment;
     }
   }
 
-  if (poPdf && poPdf.filename && poPdf.content) {
-    attachments.push(poPdf);
+  const attachments = [];
+  if (officialPdf && officialPdf.filename && officialPdf.content) {
+    attachments.push(officialPdf);
+  }
+
+  // Append any extra DB attachments after the primary PO PDF
+  const dbAttachments = await queryAll("SELECT file_name, file_data FROM attachments WHERE entity_type = 'po' AND entity_id = ?", [poNo]);
+  for (const a of dbAttachments) {
+    if (!officialPdf || a.file_name !== officialPdf.filename) {
+      attachments.push({
+        filename: a.file_name,
+        content: a.file_data
+      });
+    }
   }
 
   const cc = await getDefaultCCRecipients(session);
@@ -119,7 +127,7 @@ export async function sendPOToVendor(poNo, emailOverride, pdfAttachment, session
     project: po.project,
     poDate: po.po_date,
     items: items.map(it => ({ desc: it.description, qty: it.qty, unit: it.unit || 'Nos', rate: it.rate, amount: it.amount })),
-    grandTotal: po.po_value,
+    grandTotal: po.revised_po_value || po.po_value,
     terms: po.terms || '',
     attachments
   });
