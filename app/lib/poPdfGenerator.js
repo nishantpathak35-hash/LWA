@@ -165,15 +165,15 @@ export function generatePOPdf(
     body: tableRows,
     theme: 'grid',
     headStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: 'bold', fontSize: 8 },
-    styles: { fontSize: 8, cellPadding: 2.5, textColor: darkColor, lineColor: [226, 232, 240] },
+    margin: { left: 14, right: 14 },
     columnStyles: {
       0: { cellWidth: 8, halign: 'center' },
-      1: { cellWidth: 70 },
-      2: { cellWidth: 20, halign: 'center' },
+      1: { cellWidth: 68 },
+      2: { cellWidth: 18, halign: 'center' },
       3: { cellWidth: 12, halign: 'center' },
       4: { cellWidth: 14, halign: 'center' },
-      5: { cellWidth: 26, halign: 'right' },
-      6: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
+      5: { cellWidth: 28, halign: 'right' },
+      6: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
     },
   });
 

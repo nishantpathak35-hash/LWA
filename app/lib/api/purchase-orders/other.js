@@ -111,21 +111,12 @@ export async function sendPOToVendor(poNo, emailOverride, pdfAttachment, session
     }
   }
 
-  const attachments = [];
-  if (officialPdf && officialPdf.filename && officialPdf.content) {
-    attachments.push(officialPdf);
+  if (!officialPdf || !officialPdf.filename || !officialPdf.content) {
+    throw new Error('Failed to generate official Purchase Order PDF attachment.');
   }
 
-  // Append any extra DB attachments after the primary PO PDF
-  const dbAttachments = await queryAll("SELECT file_name, file_data FROM attachments WHERE entity_type = 'po' AND entity_id = ?", [poNo]);
-  for (const a of dbAttachments) {
-    if (!officialPdf || a.file_name !== officialPdf.filename) {
-      attachments.push({
-        filename: a.file_name,
-        content: a.file_data
-      });
-    }
-  }
+  // Vendor email MUST contain ONLY the official Purchase Order PDF document
+  const attachments = [officialPdf];
 
   const cc = await getDefaultCCRecipients(session);
 
