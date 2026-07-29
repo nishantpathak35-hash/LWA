@@ -893,74 +893,79 @@ export default function SettingsView() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-slate-400 font-light">Access Roles</label>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Access Roles</label>
               <div className="grid grid-cols-3 gap-3">
                 {roleKeys.map(r => (
-                  <label key={r} className="flex items-center gap-2 p-3 rounded-lg border border-slate-900 bg-slate-950/40 cursor-pointer">
+                  <label key={r} className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/40 cursor-pointer transition-colors select-none">
                     <input
                       type="checkbox"
-                      className="w-4 h-4"
+                      className="w-4 h-4 rounded border-input accent-amber-600 dark:accent-amber-400"
                       checked={newUserRoles[r]}
                       onChange={e => setNewUserRoles({ ...newUserRoles, [r]: e.target.checked })}
                     />
-                    <span className="text-sm font-semibold text-slate-200 capitalize">{r}</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 capitalize">{r}</span>
                   </label>
                 ))}
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-light">Temporary Password</label>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Temporary Password</label>
               <Input
                 type="text"
                 required
                 value={newUserPassword}
                 onChange={e => setNewUserPassword(e.target.value)}
+                className="bg-background text-foreground text-xs"
               />
             </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-light">Employee ID</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Employee ID</label>
                 <Input
                   type="text"
                   placeholder="EMP-001"
                   value={newEmployeeId}
                   onChange={e => setNewEmployeeId(e.target.value)}
+                  className="bg-background text-foreground text-xs"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-light">Department</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
                 <Input
                   type="text"
                   placeholder="e.g. Finance"
                   value={newDepartment}
                   onChange={e => setNewDepartment(e.target.value)}
+                  className="bg-background text-foreground text-xs"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-light">Mobile Number</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Mobile Number</label>
                 <Input
                   type="text"
                   placeholder="e.g. +919876543210"
                   value={newMobileNumber}
                   onChange={e => setNewMobileNumber(e.target.value)}
+                  className="bg-background text-foreground text-xs"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-light">WhatsApp Number</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">WhatsApp Number</label>
                 <Input
                   type="text"
                   placeholder="e.g. +919876543210"
                   value={newWhatsApp}
                   onChange={e => setNewWhatsApp(e.target.value)}
+                  className="bg-background text-foreground text-xs"
                 />
               </div>
-            <div className="text-xs text-slate-500 pt-1">
+            <div className="text-xs text-muted-foreground pt-1">
               Share the email + temp password with the user. They should change it on first login.
             </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
-              <Button type="button" variant="ghost" onClick={() => setInviteModalOpen(false)}>
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button type="button" variant="ghost" onClick={() => setInviteModalOpen(false)} className="text-xs">
                 Cancel
               </Button>
-              <Button type="submit" variant="primary">
+              <Button type="submit" variant="primary" className="text-xs font-bold">
                 Create User
               </Button>
             </div>
@@ -971,65 +976,69 @@ export default function SettingsView() {
       {/* Edit Access Modal */}
       <Dialog open={accessModalOpen} onClose={() => setAccessModalOpen(false)} title="Edit Access Roles">
         <div className="space-y-4">
-          <div className="text-xs text-slate-400">
-            User: <span className="text-slate-200 font-semibold">{targetEmail}</span>
+          <div className="text-xs text-muted-foreground">
+            User: <span className="text-slate-900 dark:text-slate-100 font-bold">{targetEmail}</span>
           </div>
           <div className="grid grid-cols-1 gap-3">
             {roleKeys.map(r => (
-              <label key={r} className="flex items-center gap-3 p-3 rounded-lg border border-slate-900 bg-slate-950/40 cursor-pointer">
+              <label key={r} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/40 cursor-pointer transition-colors select-none">
                 <input
                   type="checkbox"
-                  className="w-4.5 h-4.5"
+                  className="w-4 h-4 rounded border-input accent-amber-600 dark:accent-amber-400"
                   checked={editAccessRoles[r]}
                   onChange={e => setEditAccessRoles({ ...editAccessRoles, [r]: e.target.checked })}
                 />
-                <span className="text-sm font-semibold text-slate-200 capitalize">{r}</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 capitalize">{r}</span>
               </label>
             ))}
           </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-900">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-light">Employee ID</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Employee ID</label>
                 <Input
                   type="text"
                   placeholder="EMP-001"
                   value={editEmployeeId}
                   onChange={e => setEditEmployeeId(e.target.value)}
+                  className="bg-background text-foreground text-xs"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-light">Department</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
                 <Input
                   type="text"
                   placeholder="e.g. Finance"
                   value={editDepartment}
                   onChange={e => setEditDepartment(e.target.value)}
+                  className="bg-background text-foreground text-xs"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-light">Mobile Number</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Mobile Number</label>
                 <Input
                   type="text"
                   placeholder="e.g. +919876543210"
                   value={editMobileNumber}
                   onChange={e => setEditMobileNumber(e.target.value)}
+                  className="bg-background text-foreground text-xs"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-light">WhatsApp Number</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">WhatsApp Number</label>
                 <Input
                   type="text"
                   placeholder="e.g. +919876543210"
                   value={editWhatsApp}
                   onChange={e => setEditWhatsApp(e.target.value)}
+                  className="bg-background text-foreground text-xs"
                 />
               </div>
             </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-900">
-            <Button variant="ghost" onClick={() => setAccessModalOpen(false)}>
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="ghost" onClick={() => setAccessModalOpen(false)} className="text-xs">
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSaveAccess}>
+            <Button variant="primary" onClick={handleSaveAccess} className="text-xs font-bold">
               Save Changes
             </Button>
           </div>

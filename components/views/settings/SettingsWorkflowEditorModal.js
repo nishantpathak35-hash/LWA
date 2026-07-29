@@ -207,42 +207,42 @@ export default function SettingsWorkflowEditorModal({
                 id="is_active"
                 checked={!!workflow.is_active}
                 onChange={(e) => handleFieldChange('is_active', e.target.checked ? 1 : 0)}
-                className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-gold focus:ring-gold focus:ring-offset-slate-950"
+                className="w-4 h-4 rounded border-input bg-background accent-amber-600 dark:accent-amber-400 focus:ring-gold"
               />
-              <label htmlFor="is_active" className="text-sm text-slate-300 select-none">
+              <label htmlFor="is_active" className="text-xs text-slate-800 dark:text-slate-200 font-bold select-none cursor-pointer">
                 Active Workflow
               </label>
-              <span className="text-xs text-slate-500 ml-2">(Only one active workflow per module)</span>
+              <span className="text-xs text-muted-foreground ml-2">(Only one active workflow per module)</span>
             </div>
           </div>
 
-          <div className="flex justify-between items-end mb-4 pt-4 border-t border-slate-800">
+          <div className="flex justify-between items-end mb-4 pt-4 border-t border-border">
             <div>
-              <h3 className="text-sm font-medium text-slate-200">Approval Stages</h3>
-              <p className="text-xs text-slate-500">Stages are executed sequentially.</p>
+              <h3 className="text-xs font-bold text-amber-800 dark:text-gold uppercase tracking-wider">Approval Stages</h3>
+              <p className="text-xs text-muted-foreground">Stages are executed sequentially.</p>
             </div>
-            <Button variant="outline" size="sm" onClick={addStage} className="gap-2">
+            <Button variant="outline" size="sm" onClick={addStage} className="gap-2 text-xs">
               <Plus className="w-3.5 h-3.5" /> Add Stage
             </Button>
           </div>
 
           <div className="space-y-4 mb-6">
             {workflow.stages.length === 0 ? (
-              <div className="text-center py-6 border border-dashed border-slate-800 rounded-lg text-slate-500 text-sm">
+              <div className="text-center py-6 border border-dashed border-border rounded-xl text-muted-foreground text-xs font-medium">
                 No stages configured.
               </div>
             ) : (
               workflow.stages.map((stage, idx) => (
-                <div key={idx} className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 relative group">
+                <div key={idx} className="bg-card border border-border rounded-xl p-4 relative group shadow-2xs">
                   
-                  <div className="flex items-center justify-between mb-3 bg-slate-950/20 p-2 rounded">
-                    <Badge variant="outline" className="bg-slate-800/50">Stage {idx + 1}</Badge>
+                  <div className="flex items-center justify-between mb-3 bg-muted/40 p-2 rounded-lg border border-border">
+                    <Badge variant="outline" className="font-bold">Stage {idx + 1}</Badge>
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => moveStage(idx, 'up')}
                         disabled={idx === 0}
-                        className="text-slate-400 hover:text-white p-1 disabled:opacity-30 disabled:hover:text-slate-400 text-xs font-mono"
+                        className="text-slate-600 dark:text-slate-400 hover:text-foreground p-1 disabled:opacity-30 text-xs font-mono font-bold cursor-pointer"
                         title="Move Up"
                       >
                         ▲ Up
@@ -251,7 +251,7 @@ export default function SettingsWorkflowEditorModal({
                         type="button"
                         onClick={() => moveStage(idx, 'down')}
                         disabled={idx === workflow.stages.length - 1}
-                        className="text-slate-400 hover:text-white p-1 disabled:opacity-30 disabled:hover:text-slate-400 text-xs font-mono"
+                        className="text-slate-600 dark:text-slate-400 hover:text-foreground p-1 disabled:opacity-30 text-xs font-mono font-bold cursor-pointer"
                         title="Move Down"
                       >
                         ▼ Down
@@ -317,9 +317,9 @@ export default function SettingsWorkflowEditorModal({
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 mt-auto border-t border-slate-800 bg-slate-950 sticky bottom-0">
-            <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
-            <Button variant="primary" onClick={handleSave} disabled={submitting}>
+          <div className="flex justify-end gap-3 pt-4 mt-auto border-t border-border bg-card sticky bottom-0">
+            <Button variant="ghost" onClick={onClose} disabled={submitting} className="text-xs">Cancel</Button>
+            <Button variant="primary" onClick={handleSave} disabled={submitting} className="text-xs font-bold">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
             </Button>
           </div>
