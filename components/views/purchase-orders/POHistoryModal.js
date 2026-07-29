@@ -63,8 +63,8 @@ export default function POHistoryModal({
             </div>
             
             {/* Comment Box */}
-            <div className="mt-auto pt-4 border-t border-slate-800 bg-slate-950/50 -mx-6 -mb-6 px-6 pb-6">
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">ADD COMMENT</label>
+            <div className="mt-auto pt-4 border-t border-border bg-muted/30 -mx-6 -mb-6 px-6 pb-6">
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">ADD COMMENT</label>
               <div className="flex gap-2">
                 <Input
                   type="text"

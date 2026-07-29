@@ -74,11 +74,11 @@ export default function POFormModal(props) {
         <form onSubmit={handleSavePO} className="space-y-6">
 
           {isLockedByOthers && (
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-sm font-medium">
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 text-rose-700 dark:text-rose-400 text-xs font-medium">
               <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <div>
-                <div className="font-semibold">Collaborative Edit Lock</div>
-                <div className="text-xs font-light text-slate-400 mt-1">
+                <div className="font-bold">Collaborative Edit Lock</div>
+                <div className="text-xs text-rose-600 dark:text-rose-300 mt-1">
                   This Purchase Order is currently being edited by <strong>{currentLock.name}</strong> ({currentLock.email}).
                   Your inputs are set to read-only, and saving changes is disabled.
                 </div>
@@ -90,7 +90,7 @@ export default function POFormModal(props) {
 
           {/* Status warning for approved PO edits */}
           {editingPO && String(editingPO.approval_status || editingPO.status || '').toLowerCase() === 'approved' && (
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 text-amber-800 dark:text-amber-400 text-xs">
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>This PO is <strong>Approved</strong>. Editing financial fields (value, vendor, line items) will reset it to <strong>Draft</strong> and require re-approval.</span>
             </div>
@@ -99,31 +99,31 @@ export default function POFormModal(props) {
           {/* Header row — all 5 fields in one line on wide screens */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PO NUMBER *</label>
-              <Input type="text" required value={poNo} onChange={e => setPoNo(e.target.value)} />
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">PO NUMBER *</label>
+              <Input type="text" required value={poNo} onChange={e => setPoNo(e.target.value)} className="bg-background text-foreground text-xs font-mono" />
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PROJECT *</label>
-              <Select value={project} onChange={e => setProject(e.target.value)} required>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">PROJECT *</label>
+              <Select value={project} onChange={e => setProject(e.target.value)} required className="bg-background text-foreground text-xs font-semibold">
                 <option value="">-- Select Project --</option>
                 {projects.map((p, i) => <option key={i} value={p?.name}>{p?.name}</option>)}
               </Select>
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">VENDOR *</label>
-              <Select value={vendorCode} onChange={e => setVendorCode(e.target.value)}>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">VENDOR *</label>
+              <Select value={vendorCode} onChange={e => setVendorCode(e.target.value)} className="bg-background text-foreground text-xs font-semibold">
                 {vendors.map((v, i) => <option key={getVendorSelectValue(v, i)} value={getVendorSelectValue(v, i)}>{v?.name} ({v?.code || 'No Code'})</option>)}
               </Select>
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">CATEGORY</label>
-              <Select value={category} onChange={e => setCategory(e.target.value)}>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">CATEGORY</label>
+              <Select value={category} onChange={e => setCategory(e.target.value)} className="bg-background text-foreground text-xs font-semibold">
                 {['Goods','Services','Consulting','IT','Marketing','Admin','Capex','Opex'].map(c => <option key={c}>{c}</option>)}
               </Select>
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">GST TYPE</label>
-              <Select value={gstMode} onChange={e => setGstMode(e.target.value)}>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">GST TYPE</label>
+              <Select value={gstMode} onChange={e => setGstMode(e.target.value)} className="bg-background text-foreground text-xs font-semibold">
                 <option value="inter">Inter-State (IGST)</option>
                 <option value="intra">Intra-State (CGST+SGST)</option>
               </Select>
@@ -132,40 +132,40 @@ export default function POFormModal(props) {
 
           {/* Project Details Info Box */}
           {selectedProjectData && (
-            <div className="bg-slate-900/30 border border-slate-900 rounded-lg p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-2xs">
               <div>
-                <span className="text-[10px] font-medium text-slate-500 tracking-wider uppercase block mb-1">Project Ref</span>
-                <span className="text-sm text-slate-300">{selectedProjectData.project_ref || '—'}</span>
+                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider block mb-1">Project Ref</span>
+                <span className="text-xs text-slate-900 dark:text-slate-200 font-mono font-bold">{selectedProjectData.project_ref || '—'}</span>
               </div>
               <div>
-                <span className="text-[10px] font-medium text-slate-500 tracking-wider uppercase block mb-1">Client</span>
-                <span className="text-sm text-slate-300">{selectedProjectData.client || '—'}</span>
+                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider block mb-1">Client</span>
+                <span className="text-xs text-slate-900 dark:text-slate-200 font-bold">{selectedProjectData.client || '—'}</span>
               </div>
               <div>
-                <span className="text-[10px] font-medium text-slate-500 tracking-wider uppercase block mb-1">Site Address</span>
-                <span className="text-sm text-slate-300 whitespace-pre-line leading-relaxed block max-h-24 overflow-y-auto">{selectedProjectData.site_address || '—'}</span>
+                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider block mb-1">Site Address</span>
+                <span className="text-xs text-slate-800 dark:text-slate-300 whitespace-pre-line leading-relaxed block max-h-24 overflow-y-auto font-medium">{selectedProjectData.site_address || '—'}</span>
               </div>
             </div>
           )}
 
-
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TERMS & CONDITIONS</label>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">TERMS & CONDITIONS</label>
               <Textarea
                 value={terms}
                 onChange={e => setTerms(e.target.value)}
                 placeholder="e.g. 50% advance, balance on delivery"
+                className="bg-background text-foreground text-xs"
                 style={{ minHeight: '100px', height: '100px', resize: 'vertical' }}
               />
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">NOTES / REMARKS</label>
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">NOTES / REMARKS</label>
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Internal notes or special instructions"
+                className="bg-background text-foreground text-xs"
                 style={{ minHeight: '100px', height: '100px', resize: 'vertical' }}
               />
             </div>
@@ -174,48 +174,48 @@ export default function POFormModal(props) {
           {/* Line Items */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-medium text-slate-400 tracking-wider uppercase">Line Items</span>
-              <Button type="button" variant="ghost" size="sm" onClick={handleAddItemLine} className="h-7 text-xs text-gold">
-                <Plus className="w-3.5 h-3.5" /> Add Line
+              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Line Items</span>
+              <Button type="button" variant="ghost" size="sm" onClick={handleAddItemLine} className="h-7 text-xs text-amber-700 dark:text-gold font-bold">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Line
               </Button>
             </div>
 
             {/* Column headers */}
             <div className="hidden md:grid grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 px-3">
               {['Description *','HSN/SAC','Qty','UOM','Rate (₹)','GST %','Amount',''].map((h,i) => (
-                <span key={i} className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">{h}</span>
+                <span key={i} className="text-[9px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{h}</span>
               ))}
             </div>
 
             {items.map((item, idx) => {
               const { total } = calcItem(item);
               return (
-                <div key={idx} style={{ minHeight: '56px' }} className="grid grid-cols-1 md:grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 items-center p-2 rounded-lg bg-slate-950/20 border border-slate-900/60">
+                <div key={idx} style={{ minHeight: '56px' }} className="grid grid-cols-1 md:grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 items-center p-2.5 rounded-xl bg-card border border-border shadow-2xs">
                   <Input
                     required
                     type="text"
                     value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
                     placeholder="Item description"
-                    className="h-10 text-xs"
+                    className="h-10 text-xs bg-background text-foreground"
                   />
                   <Input type="text" value={item.hsnSac}
                     onChange={e => handleItemChange(idx, 'hsnSac', e.target.value)}
-                    placeholder="Code" className="h-10 text-xs" />
+                    placeholder="Code" className="h-10 text-xs font-mono bg-background text-foreground" />
                   <Input type="number" required min="0.001" step="0.001" value={item.quantity}
-                    onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="h-10 text-xs" />
+                    onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="h-10 text-xs font-mono bg-background text-foreground" />
                   <Input type="text" list={`uom-options-${idx}`} value={item.unit || 'Nos'} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
-                    className="h-10 text-xs" />
+                    className="h-10 text-xs bg-background text-foreground" />
                   <datalist id={`uom-options-${idx}`}>
                     {UOM_OPTIONS.map(u => <option key={u.value} value={u.label} />)}
                   </datalist>
                   <Input type="number" required min="0" step="0.01" value={item.rate}
-                    onChange={e => handleItemChange(idx, 'rate', e.target.value)} className="h-10 text-xs" />
+                    onChange={e => handleItemChange(idx, 'rate', e.target.value)} className="h-10 text-xs font-mono bg-background text-foreground" />
                   <Select value={item.gstPct} onChange={e => handleItemChange(idx, 'gstPct', Number(e.target.value))}
-                    className="h-10 text-xs">
+                    className="h-10 text-xs bg-background text-foreground font-semibold">
                     {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
                   </Select>
-                  <div className="h-10 flex items-center px-2 text-xs font-semibold text-gold">
+                  <div className="h-10 flex items-center px-2 text-xs font-bold text-amber-700 dark:text-gold font-mono">
                     {formatCurrency(total)}
                   </div>
                   {items.length > 1
@@ -230,63 +230,63 @@ export default function POFormModal(props) {
           </div>
 
           {/* TDS */}
-          <div className="p-4 bg-slate-900/20 border border-slate-900/60 rounded-xl space-y-3">
-            <span className="text-[10px] font-semibold text-gold tracking-wider uppercase block">TDS Deduction</span>
+          <div className="p-4 bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl space-y-3 shadow-2xs">
+            <span className="text-[10px] font-bold text-amber-800 dark:text-gold tracking-wider uppercase block">TDS Deduction</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS SECTION</label>
-                <Select value={tdsSection} onChange={e => handleTdsSectionChange(e.target.value)}>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">TDS SECTION</label>
+                <Select value={tdsSection} onChange={e => handleTdsSectionChange(e.target.value)} className="bg-background text-foreground text-xs font-semibold">
                   <option value="">None</option>
                   {tdsSections?.map(s => <option key={s.section_code} value={s.section_code}>{s.section_code} ({s.rate}%)</option>)}
                 </Select>
               </div>
               <div>
-                <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">TDS RATE (%)</label>
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">TDS RATE (%)</label>
                 <Input type="number" min="0" max="100" step="0.1" value={tdsPct}
-                  onChange={e => setTdsPct(Number(e.target.value))} className="h-9 text-xs" />
+                  onChange={e => setTdsPct(Number(e.target.value))} className="h-9 text-xs font-mono bg-background text-foreground" />
               </div>
             </div>
           </div>
 
           {/* Summary */}
-          <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl">
-            <span className="text-[10px] font-semibold text-slate-400 tracking-wider uppercase block mb-3">Order Summary</span>
-            <div className="space-y-2 text-sm font-light">
-              <div className="flex justify-between border-b border-slate-900/60 pb-2">
-                <span className="text-slate-400">Subtotal:</span>
-                <span>{formatCurrency(summaryTotals.subtotal)}</span>
+          <div className="p-4 bg-card border border-border rounded-xl shadow-2xs">
+            <span className="text-[10px] font-bold text-amber-800 dark:text-gold tracking-wider uppercase block mb-3">Order Summary</span>
+            <div className="space-y-2 text-xs font-medium">
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-600 dark:text-slate-400">Subtotal:</span>
+                <span className="font-mono text-slate-900 dark:text-slate-100 font-bold">{formatCurrency(summaryTotals.subtotal)}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-900/60 pb-2">
-                <span className="text-slate-400">GST ({gstMode === 'intra' ? 'CGST+SGST' : 'IGST'}):</span>
-                <span>+{formatCurrency(summaryTotals.gstTotal)}</span>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-600 dark:text-slate-400">GST ({gstMode === 'intra' ? 'CGST+SGST' : 'IGST'}):</span>
+                <span className="font-mono text-slate-900 dark:text-slate-100 font-bold">+{formatCurrency(summaryTotals.gstTotal)}</span>
               </div>
               {tdsAmount > 0 && (
-                <div className="flex justify-between border-b border-slate-900/60 pb-2 text-red-400">
+                <div className="flex justify-between border-b border-border pb-2 text-rose-600 dark:text-rose-400">
                   <span>TDS ({tdsSection} @ {tdsPct}%):</span>
-                  <span>−{formatCurrency(tdsAmount)}</span>
+                  <span className="font-mono font-bold">−{formatCurrency(tdsAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between pt-1 text-base font-semibold">
-                <span className="text-slate-200">Net PO Value:</span>
-                <span className="text-gold">{formatCurrency(netPayable)}</span>
+              <div className="flex justify-between pt-1 text-sm font-bold">
+                <span className="text-slate-900 dark:text-slate-100">Net PO Value:</span>
+                <span className="text-amber-700 dark:text-gold font-mono text-base">{formatCurrency(netPayable)}</span>
               </div>
             </div>
           </div>
 
           {/* ── Payment Summary (Edit Mode only) ──────────────────────────── */}
           {editingPoNo && paymentData && (
-            <div className="border border-slate-900 rounded-xl overflow-hidden">
+            <div className="border border-border rounded-xl shadow-2xs overflow-hidden">
               <button type="button"
                 onClick={() => setShowPayments(p => !p)}
-                className="w-full flex items-center justify-between p-4 bg-slate-900/20 hover:bg-slate-900/40 transition-colors text-left">
+                className="w-full flex items-center justify-between p-4 bg-muted/40 hover:bg-muted/60 transition-colors text-left">
                 <div className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-gold" />
-                  <span className="text-sm font-medium text-slate-200">Payment Summary</span>
+                  <Wallet className="w-4 h-4 text-amber-600 dark:text-gold" />
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Payment Summary</span>
                   {paymentData.summary && (
                     <span className="ml-2">{getPaymentStatusBadge(paymentData.summary.payment_status)}</span>
                   )}
                 </div>
-                {showPayments ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                {showPayments ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </button>
 
               {showPayments && (
@@ -295,53 +295,51 @@ export default function POFormModal(props) {
                   {paymentData.summary && (
                     <div className="grid grid-cols-3 gap-3">
                       {[
-                        { label: 'PO Value', value: paymentData.summary.po_value, color: 'text-slate-200' },
-                        { label: 'Total Paid', value: paymentData.summary.total_paid, color: 'text-emerald-400' },
-                        { label: 'Outstanding', value: paymentData.summary.outstanding, color: 'text-amber-400' },
+                        { label: 'PO Value', value: paymentData.summary.po_value, color: 'text-slate-900 dark:text-slate-100 font-bold' },
+                        { label: 'Total Paid', value: paymentData.summary.total_paid, color: 'text-emerald-700 dark:text-emerald-400 font-bold' },
+                        { label: 'Outstanding', value: paymentData.summary.outstanding, color: 'text-amber-700 dark:text-amber-400 font-bold' },
                       ].map(kpi => (
-                        <div key={kpi.label} className="p-3 bg-slate-900/30 rounded-lg border border-slate-900/60 text-center">
-                          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{kpi.label}</div>
-                          <div className={`text-sm font-semibold ${kpi.color}`}>{formatCurrency(kpi.value)}</div>
+                        <div key={kpi.label} className="p-3 bg-card rounded-xl border border-border text-center shadow-2xs">
+                          <div className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">{kpi.label}</div>
+                          <div className={`text-xs font-mono ${kpi.color}`}>{formatCurrency(kpi.value)}</div>
                         </div>
                       ))}
                     </div>
                   )}
 
-
-
                   {/* Payment history table */}
                   {loadingPayments ? (
-                    <div className="text-center text-slate-500 text-sm py-4">Loading...</div>
+                    <div className="text-center text-muted-foreground text-xs py-4 font-medium">Loading payments...</div>
                   ) : paymentData.payments?.length > 0 ? (
-                    <div className="overflow-x-auto rounded-lg border border-slate-900/60">
+                    <div className="overflow-x-auto rounded-xl border border-border">
                       <table className="w-full text-xs text-left">
-                        <thead className="bg-slate-900/40 text-slate-500 uppercase tracking-wider">
+                        <thead className="bg-muted/40 text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                           <tr>
                             {['Date','Amount','Mode','UTR / Ref','Type','By'].map(h => (
-                              <th key={h} className="px-3 py-2 font-semibold">{h}</th>
+                              <th key={h} className="px-3 py-2 font-bold text-[10px]">{h}</th>
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-900/60">
+                        <tbody className="divide-y divide-border">
                           {paymentData.payments?.map((p, i) => (
-                            <tr key={i} className="hover:bg-slate-900/20">
-                              <td className="px-3 py-2">{p.payment_date}</td>
-                              <td className="px-3 py-2 font-semibold text-emerald-400">{formatCurrency(p.amount)}</td>
-                              <td className="px-3 py-2">{p.payment_mode}</td>
-                              <td className="px-3 py-2 font-mono text-slate-400">{p.utr_ref || p.reference_no || '—'}</td>
+                            <tr key={i} className="hover:bg-muted/40 transition-colors">
+                              <td className="px-3 py-2 font-mono">{p.payment_date}</td>
+                              <td className="px-3 py-2 font-mono font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(p.amount)}</td>
+                              <td className="px-3 py-2 font-medium">{p.payment_mode}</td>
+                              <td className="px-3 py-2 font-mono text-slate-700 dark:text-slate-300">{p.utr_ref || p.reference_no || '—'}</td>
                               <td className="px-3 py-2">
-                                <Badge variant={p.payment_type === 'manual' ? 'info' : 'success'}>
+                                <Badge variant={p.payment_type === 'manual' ? 'info' : 'success'} className="font-bold">
                                   {p.payment_type === 'manual' ? 'Manual' : 'Remittance'}
                                 </Badge>
                               </td>
-                              <td className="px-3 py-2 text-slate-500">{p.recorded_by || '—'}</td>
+                              <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{p.recorded_by || '—'}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <div className="text-center text-slate-500 text-sm py-4">No payments recorded yet.</div>
+                    <div className="text-center text-muted-foreground text-xs py-4 font-medium">No payments recorded yet.</div>
                   )}
                 </div>
               )}
@@ -349,11 +347,11 @@ export default function POFormModal(props) {
           )}
 
           {poNo ? (
-            <div className="pt-4 border-t border-slate-900/60 mt-4">
+            <div className="pt-4 border-t border-border mt-4">
               <AttachmentsSection entityType="po" entityId={poNo} />
             </div>
           ) : (
-            <div className="pt-4 border-t border-slate-900/60 mt-4 p-4 text-center border border-slate-800 border-dashed rounded-lg text-xs text-slate-500 font-light">
+            <div className="pt-4 border-t border-border mt-4 p-4 text-center border border-border border-dashed rounded-xl text-xs text-muted-foreground font-medium">
               Save Purchase Order first to enable attachments.
             </div>
           )}
@@ -361,20 +359,19 @@ export default function POFormModal(props) {
           </fieldset>
 
           {formError && (
-            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs text-rose-700 dark:text-rose-400 flex items-center gap-2 font-medium">
               <ShieldAlert className="w-4 h-4 flex-shrink-0" /><span>{formError}</span>
             </div>
           )}
 
-          <div className="pt-4 border-t border-slate-900/60 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={submitting || isLockedByOthers}>
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={() => setModalOpen(false)} className="text-xs">Cancel</Button>
+            <Button type="submit" variant="primary" disabled={submitting || isLockedByOthers} className="text-xs font-bold">
               {submitting ? (editingPoNo ? 'Saving...' : 'Creating...') : (editingPoNo ? 'Save Changes' : 'Create PO')}
             </Button>
           </div>
         </form>
       </Dialog>
-
     </>
   );
 }
