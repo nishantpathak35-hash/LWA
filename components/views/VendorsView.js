@@ -103,9 +103,12 @@ export default function VendorsView() {
 
   const handleOpenViewModal = async (v) => {
     setViewVendor(v); setViewVendorPOs([]); setViewModalOpen(true);
-    const vendorCode = v.code || v.vendorId || v.vendor_code;
+    const vendorCode = v.code || v.vendorId || v.vendor_code || v.legalName || v.legal_name || v.tradeName || v.trade_name || v.name;
     try {
-      const details = await call('getVendorByName', vendorCode);
+      let details = await call('getVendorByName', vendorCode);
+      if (!details && (v.legalName || v.legal_name || v.name)) {
+        details = await call('getVendorByName', v.legalName || v.legal_name || v.name);
+      }
       if (details) {
         setViewVendor(prev => ({ ...prev, ...details }));
       }

@@ -93,12 +93,17 @@ export async function updateVendor(payload, session) {
 
 export async function getVendorByName(name, session) {
   requireAuth(session);
-  const row = await queryGet('SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?', [name, name]);
+  const row = await queryGet('SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ? OR trade_name = ?', [name, name, name]);
   if (!row) return null;
   return {
+    ...row,
+    code: row.vendor_code || '',
     vendorId: row.vendor_code || '',
+    vendor_code: row.vendor_code || '',
     legalName: row.legal_name || '',
+    legal_name: row.legal_name || '',
     tradeName: row.trade_name || '',
+    trade_name: row.trade_name || '',
     gstin: row.gstin || '',
     pan: row.pan || '',
     status: row.status || 'Active',
@@ -110,16 +115,27 @@ export async function getVendorByName(name, session) {
     bankName: '',
     bankBranch: '',
     accountNo: row.bank_account || '',
+    account_no: row.bank_account || '',
+    bank_account: row.bank_account || '',
     ifsc: row.ifsc || '',
     primaryContactName: row.primary_contact_name || '',
+    primary_contact_name: row.primary_contact_name || '',
     primaryContactNo: row.primary_contact_no || '',
+    primary_contact_no: row.primary_contact_no || '',
     accountsContactName: row.accounts_contact_name || '',
+    accounts_contact_name: row.accounts_contact_name || '',
     accountsContactNo: row.accounts_contact_no || '',
+    accounts_contact_no: row.accounts_contact_no || '',
     purchaseContactName: row.purchase_contact_name || '',
+    purchase_contact_name: row.purchase_contact_name || '',
     purchaseContactNo: row.purchase_contact_no || '',
+    purchase_contact_no: row.purchase_contact_no || '',
     whatsappNumber: row.whatsapp_number || '',
+    whatsapp_number: row.whatsapp_number || '',
     mobileNumber: row.mobile_number || '',
+    mobile_number: row.mobile_number || '',
     preferredWhatsappContact: row.preferred_whatsapp_contact || 'Primary',
+    preferred_whatsapp_contact: row.preferred_whatsapp_contact || 'Primary',
     version: row.version || 1
   };
 }

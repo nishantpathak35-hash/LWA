@@ -13,7 +13,7 @@ export class VendorRepository {
   }
 
   static async findByNameOrCode(identifier: string): Promise<IVendor | null> {
-    return queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ?`, [identifier, identifier]);
+    return queryGet(`SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ? OR trade_name = ?`, [identifier, identifier, identifier]);
   }
 
   static async create(vendor: Omit<IVendor, 'id' | 'created_at'>): Promise<void> {

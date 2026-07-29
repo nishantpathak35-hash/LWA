@@ -14,8 +14,8 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
   const email = viewVendor?.email || viewVendor?.contact_email || viewVendor?.primary_contact_email || '—';
   const status = viewVendor?.status || 'Active';
   const address = viewVendor?.address || '—';
-  const accountNo = viewVendor?.accountNo || viewVendor?.account_no || '—';
-  const ifsc = viewVendor?.ifsc || '—';
+  const accountNo = viewVendor?.accountNo || viewVendor?.account_no || viewVendor?.bank_account || viewVendor?.bankAccount || '—';
+  const ifsc = viewVendor?.ifsc || viewVendor?.ifsc_code || viewVendor?.ifscCode || '—';
 
   const primaryContactName = viewVendor?.primaryContactName || viewVendor?.primary_contact_name || '—';
   const primaryContactNo = viewVendor?.primaryContactNo || viewVendor?.primary_contact_no || '—';
@@ -24,7 +24,7 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
   const purchaseContactName = viewVendor?.purchaseContactName || viewVendor?.purchase_contact_name || '—';
   const purchaseContactNo = viewVendor?.purchaseContactNo || viewVendor?.purchase_contact_no || '—';
   const whatsappNumber = viewVendor?.whatsappNumber || viewVendor?.whatsapp_number || '—';
-  const mobileNumber = viewVendor?.mobileNumber || viewVendor?.mobile_number || '—';
+  const mobileNumber = viewVendor?.mobileNumber || viewVendor?.mobile_number || viewVendor?.mobile || '—';
   const preferredWhatsappContact = viewVendor?.preferredWhatsappContact || viewVendor?.preferred_whatsapp_contact || 'Primary';
 
   return (
