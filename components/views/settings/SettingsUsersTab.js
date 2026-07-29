@@ -20,15 +20,15 @@ export default function SettingsUsersTab({
 }) {
   const getRoleBadge = (role) => {
     const r = String(role).toLowerCase();
-    let variantClass = "bg-slate-800 text-slate-300 border-slate-700";
-    if (r === 'director') variantClass = "bg-amber-500/15 text-amber-400 border-amber-500/30";
-    else if (r === 'admin') variantClass = "bg-rose-500/15 text-rose-400 border-rose-500/30";
-    else if (r === 'finance') variantClass = "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
-    else if (r === 'procurement' || r === 'proc') variantClass = "bg-blue-500/15 text-blue-400 border-blue-500/30";
-    else if (r === 'accountant') variantClass = "bg-purple-500/15 text-purple-400 border-purple-500/30";
+    let variantClass = "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+    if (r === 'director') variantClass = "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40";
+    else if (r === 'admin') variantClass = "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40";
+    else if (r === 'finance') variantClass = "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40";
+    else if (r === 'procurement' || r === 'proc') variantClass = "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40";
+    else if (r === 'accountant') variantClass = "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/40";
 
     return (
-      <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${variantClass}`}>
+      <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${variantClass}`}>
         {role}
       </span>
     );
@@ -46,19 +46,19 @@ export default function SettingsUsersTab({
 
   return (
     <div className="space-y-6">
-      <Card className="bg-slate-950/40 border-slate-800">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 border-b border-slate-800/80">
+      <Card className="bg-card border-border shadow-xs rounded-xl">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border-b border-border bg-muted/20">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <Input
               placeholder="Search users by name or email..."
               value={usersSearch}
               onChange={e => setUsersSearch(e.target.value)}
-              className="pl-9 bg-slate-900/50 text-xs"
+              className="pl-9 bg-background text-foreground border-input text-xs"
             />
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={handleExportUsers} className="text-xs text-slate-300 hover:text-slate-100">
+            <Button size="sm" variant="ghost" onClick={handleExportUsers} className="text-xs text-foreground hover:bg-muted">
               <Download className="w-3.5 h-3.5" /> Export CSV
             </Button>
             <Button
@@ -76,7 +76,7 @@ export default function SettingsUsersTab({
                 setInviteResult(null);
                 setInviteModalOpen(true);
               }}
-              className="text-xs"
+              className="text-xs font-semibold"
             >
               <Plus className="w-3.5 h-3.5" /> Invite User
             </Button>
@@ -85,18 +85,18 @@ export default function SettingsUsersTab({
         <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-gold" />
+              <Loader2 className="w-8 h-8 animate-spin text-amber-600 dark:text-gold" />
             </div>
           ) : (
             <Table id="tblUsers">
               <TableHeader>
-                <TableRow className="border-b border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-500 text-[10px] uppercase">User Details</TableHead>
-                  <TableHead className="text-slate-500 text-[10px] uppercase">WhatsApp</TableHead>
-                  <TableHead className="text-slate-500 text-[10px] uppercase">Access Roles</TableHead>
-                  <TableHead className="text-slate-500 text-[10px] uppercase">Status</TableHead>
-                  <TableHead className="text-slate-500 text-[10px] uppercase">Last Active</TableHead>
-                  <TableHead className="text-slate-500 text-[10px] uppercase text-right">Actions</TableHead>
+                <TableRow className="border-b border-border bg-muted/40 hover:bg-transparent">
+                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">User Details</TableHead>
+                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">WhatsApp</TableHead>
+                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Access Roles</TableHead>
+                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Status</TableHead>
+                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Last Active</TableHead>
+                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -114,29 +114,29 @@ export default function SettingsUsersTab({
                     const initials = getInitials(u.name, u.email);
 
                     return (
-                      <TableRow key={u.email || idx} className="border-b border-slate-800/80 hover:bg-slate-900/40">
-                        <TableCell className="py-3">
+                      <TableRow key={u.email || idx} className="border-b border-border/70 hover:bg-muted/40 transition-colors">
+                        <TableCell className="py-3.5">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-gold flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 dark:bg-slate-800 dark:text-gold border border-amber-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
                               {initials}
                             </div>
                             <div className="space-y-0.5">
-                              <div className="font-semibold text-xs text-slate-200">{u.name || '—'}</div>
-                              <div className="text-[11px] text-slate-400 font-mono">{u.email}</div>
+                              <div className="font-bold text-xs text-slate-900 dark:text-slate-100">{u.name || '—'}</div>
+                              <div className="text-[11px] text-slate-600 dark:text-slate-400 font-mono">{u.email}</div>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="py-3 text-xs text-slate-300 font-mono">{u.whatsapp_number || '—'}</TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-3.5 text-xs text-slate-800 dark:text-slate-200 font-mono">{u.whatsapp_number || '—'}</TableCell>
+                        <TableCell className="py-3.5">
                           <div className="flex gap-1 flex-wrap">
                             {rs.map(r => getRoleBadge(r))}
                           </div>
                         </TableCell>
-                        <TableCell className="py-3">{statusBadge}</TableCell>
-                        <TableCell className="py-3 text-xs text-slate-500">
+                        <TableCell className="py-3.5">{statusBadge}</TableCell>
+                        <TableCell className="py-3.5 text-xs">
                           {u.lastLogin ? (
                             <div className="space-y-0.5">
-                              <div className="text-slate-300 font-medium text-[11px]">{new Date(u.lastLogin).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</div>
+                              <div className="text-slate-800 dark:text-slate-200 font-semibold text-[11px]">{new Date(u.lastLogin).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</div>
                               {(u.lastLoginIp || u.lastLoginDevice) && (
                                 <div className="text-[10px] text-slate-500 font-mono tracking-tight leading-tight">
                                   {u.lastLoginIp && <div>IP: {u.lastLoginIp}</div>}
@@ -144,14 +144,14 @@ export default function SettingsUsersTab({
                               )}
                             </div>
                           ) : (
-                            <span className="italic text-[11px]">Never</span>
+                            <span className="italic text-[11px] text-slate-500">Never</span>
                           )}
                         </TableCell>
-                        <TableCell className="py-3 text-right whitespace-nowrap space-x-1">
+                        <TableCell className="py-3.5 text-right whitespace-nowrap space-x-1">
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-2"
+                            className="h-7 text-xs text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-2 font-medium"
                             title="Edit Access Roles"
                             onClick={() => {
                               setTargetEmail(u.email);
@@ -173,7 +173,7 @@ export default function SettingsUsersTab({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 text-xs text-gold hover:text-amber-300 hover:bg-gold/10 px-2"
+                            className="h-7 text-xs text-amber-700 dark:text-gold hover:bg-amber-50 dark:hover:bg-gold/10 px-2 font-medium"
                             title="Reset Password"
                             onClick={() => {
                               setTargetEmail(u.email);
@@ -186,7 +186,7 @@ export default function SettingsUsersTab({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className={cn("h-7 text-xs px-2", isUserActive ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10")}
+                            className={cn("h-7 text-xs px-2 font-medium", isUserActive ? "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" : "text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10")}
                             title={isUserActive ? "Deactivate User" : "Activate User"}
                             onClick={() => handleToggleUserActive(u.email, isUserActive)}
                           >
@@ -196,7 +196,7 @@ export default function SettingsUsersTab({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2"
+                            className="h-7 text-xs text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 px-2 font-medium"
                             title="Delete User"
                             onClick={() => handleDeleteUser(u.email)}
                           >
@@ -220,22 +220,22 @@ export default function SettingsUsersTab({
       </Card>
 
       {/* Add custom role card */}
-      <Card className="bg-slate-950/40 border-slate-800">
-        <CardHeader className="p-5 border-b border-slate-800/80">
-          <CardTitle className="text-sm font-semibold text-gold tracking-wide uppercase">Add Custom Access Role</CardTitle>
+      <Card className="bg-card border-border shadow-xs rounded-xl">
+        <CardHeader className="p-5 border-b border-border bg-muted/20">
+          <CardTitle className="text-xs font-bold text-amber-700 dark:text-gold tracking-wider uppercase">Add Custom Access Role</CardTitle>
         </CardHeader>
         <CardContent className="p-5">
           <div className="flex gap-3 items-end max-w-md">
             <div className="flex-1 space-y-1.5">
-              <label className="text-xs text-slate-400 font-medium">New Role Name</label>
+              <label className="text-xs text-slate-700 dark:text-slate-300 font-semibold">New Role Name</label>
               <Input
                 placeholder="e.g. auditor, manager"
                 value={newRoleName}
                 onChange={e => setNewRoleName(e.target.value)}
-                className="bg-slate-900/50 text-xs"
+                className="bg-background text-foreground border-input text-xs"
               />
             </div>
-            <Button onClick={handleAddCustomRole} variant="primary" className="text-xs">
+            <Button onClick={handleAddCustomRole} variant="primary" className="text-xs font-semibold">
               Add Role
             </Button>
           </div>

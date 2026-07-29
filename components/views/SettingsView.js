@@ -624,17 +624,17 @@ export default function SettingsView() {
   return (
     <div className="space-y-6 animate-fade-in glass-card p-6 md:p-8 rounded-2xl mx-auto w-full max-w-7xl">
       {/* Title Header */}
-      <div className="flex flex-wrap justify-between items-start gap-4 pb-2 border-b border-slate-800">
+      <div className="flex flex-wrap justify-between items-start gap-4 pb-2 border-b border-border">
         <div>
           <h2 className="text-3xl font-light text-foreground flex items-center gap-3 font-serif mb-1">
-            <Settings className="w-7 h-7 text-gold" />
+            <Settings className="w-7 h-7 text-amber-600 dark:text-gold" />
             System Settings
           </h2>
           <p className="text-xs font-light text-muted-foreground tracking-wide">
             Centralized control center for system configurations, access management, roles, and enterprise policies.
           </p>
         </div>
-        <Button size="sm" variant="ghost" onClick={handleReloadAll} className="text-xs text-slate-400 hover:text-slate-200">
+        <Button size="sm" variant="ghost" onClick={handleReloadAll} className="text-xs text-foreground hover:bg-muted">
           <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reload All Data
         </Button>
       </div>
@@ -650,21 +650,21 @@ export default function SettingsView() {
               type="button"
               onClick={() => setActiveTab(cat.tabs[0].id)}
               className={cn(
-                "p-4 rounded-xl text-left border transition-all flex flex-col justify-between gap-2 group cursor-pointer",
+                "p-4 rounded-xl text-left border transition-all flex flex-col justify-between gap-2 group cursor-pointer shadow-2xs",
                 isCatActive
-                  ? "bg-slate-900/90 border-gold/50 shadow-lg shadow-gold/10 ring-1 ring-gold/30"
-                  : "bg-slate-950/40 border-slate-800/80 hover:bg-slate-900/40 hover:border-slate-700"
+                  ? "bg-amber-500/10 dark:bg-slate-900/90 border-amber-500/50 dark:border-gold/50 shadow-md ring-1 ring-amber-500/30 dark:ring-gold/30"
+                  : "bg-card border-border hover:bg-muted/50"
               )}
             >
               <div className="flex items-center justify-between">
-                <CatIcon className={cn("w-5 h-5 transition-colors", isCatActive ? "text-gold" : "text-slate-500 group-hover:text-slate-300")} />
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{cat.tabs.length} module{cat.tabs.length > 1 ? 's' : ''}</span>
+                <CatIcon className={cn("w-5 h-5 transition-colors", isCatActive ? "text-amber-600 dark:text-gold" : "text-muted-foreground group-hover:text-foreground")} />
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{cat.tabs.length} module{cat.tabs.length > 1 ? 's' : ''}</span>
               </div>
               <div>
-                <div className={cn("text-xs font-bold transition-colors", isCatActive ? "text-slate-100" : "text-slate-300 group-hover:text-slate-100")}>
+                <div className={cn("text-xs font-bold transition-colors", isCatActive ? "text-amber-950 dark:text-slate-100" : "text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-slate-100")}>
                   {cat.title}
                 </div>
-                <div className="text-[10px] text-slate-500 font-light truncate mt-0.5">{cat.description}</div>
+                <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5">{cat.description}</div>
               </div>
             </button>
           );
@@ -672,7 +672,7 @@ export default function SettingsView() {
       </div>
 
       {/* Sub-Tab Navigation Bar */}
-      <div className="flex gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
+      <div className="flex gap-2 border-b border-border pb-3 overflow-x-auto">
         {activeCategory.tabs.map(tab => {
           const TabIcon = tab.icon;
           const isTabActive = activeTab === tab.id;
@@ -687,12 +687,12 @@ export default function SettingsView() {
               className={cn(
                 "px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all whitespace-nowrap border cursor-pointer",
                 isTabActive
-                  ? "bg-gold/15 text-gold border-gold/40 shadow-sm"
+                  ? "bg-amber-600 text-white dark:bg-gold/20 dark:text-gold border-amber-600 dark:border-gold/40 shadow-xs font-bold"
                   : isSpecialDanger
-                  ? "bg-slate-950/40 text-red-400 border-slate-800 hover:bg-red-500/10 hover:border-red-500/30"
+                  ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-slate-950/40 dark:text-red-400 dark:border-slate-800 hover:bg-rose-100"
                   : isSpecialWarning
-                  ? "bg-slate-950/40 text-amber-400 border-slate-800 hover:bg-amber-500/10 hover:border-amber-500/30"
-                  : "bg-slate-950/40 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:bg-slate-900/60"
+                  ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-slate-950/40 dark:text-amber-400 dark:border-slate-800 hover:bg-amber-100"
+                  : "bg-card text-slate-700 border-border hover:bg-muted dark:bg-slate-950/40 dark:text-slate-300 dark:border-slate-800/80 dark:hover:text-slate-100"
               )}
             >
               <TabIcon className="w-3.5 h-3.5" />
