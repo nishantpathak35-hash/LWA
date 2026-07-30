@@ -739,27 +739,13 @@ export default function PaymentsView() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in font-sans pb-32 relative">
+    <div className="space-y-6 animate-fade-in font-sans pb-32 relative">
 
       <PaymentFilters
         canOnboard={canOnboard} 
         handleOpenRequestModal={handleOpenRequestModal}
         activeTab={activeTab} setActiveTab={setActiveTab}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-      />
-      
-      <PaymentListTable
-        displayedRequests={filteredRequests} handleViewHistory={handleViewHistory}
-        handleOpenWorkflowModal={handleOpenWorkflowModal} user={user}
-        isAdmin={isAdmin} isFinance={isFinance} isDirector={isDirector}
-        pos={pos} getWorkflowActionButton={getWorkflowActionButton} handleSendPaymentAdvice={handleSendPaymentAdvice}
-        selectedPayments={selectedPayments}
-        onSelectPayment={handleSelectPayment}
-        onSelectAll={handleSelectAllPayments}
-        canActOnReq={canActOnReq}
-        onEditPayment={handleEditPayment}
-        hasMorePayments={hasMorePayments}
-        loadMorePayments={loadMorePayments}
       />
       
       <MultiSelectActionBar
@@ -778,6 +764,20 @@ export default function PaymentsView() {
         onApproveSelected={handleBulkApproveReview}
         onRejectSelected={() => setBulkRejectModalOpen(true)}
         onClearSelection={() => setSelectedPayments([])}
+      />
+
+      <PaymentListTable
+        displayedRequests={filteredRequests} handleViewHistory={handleViewHistory}
+        handleOpenWorkflowModal={handleOpenWorkflowModal} user={user}
+        isAdmin={isAdmin} isFinance={isFinance} isDirector={isDirector}
+        pos={pos} getWorkflowActionButton={getWorkflowActionButton} handleSendPaymentAdvice={handleSendPaymentAdvice}
+        selectedPayments={selectedPayments}
+        onSelectPayment={handleSelectPayment}
+        onSelectAll={handleSelectAllPayments}
+        canActOnReq={canActOnReq}
+        onEditPayment={handleEditPayment}
+        hasMorePayments={hasMorePayments}
+        loadMorePayments={loadMorePayments}
       />
 
       <BulkApprovalReviewModal

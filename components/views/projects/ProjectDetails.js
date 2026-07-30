@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Dialog, Button, Input } from '../../ui/core';
 import { formatCurrency } from '../../../app/lib/utils';
-import { Folder, TrendingUp, DollarSign, Wallet } from 'lucide-react';
+import { Folder, TrendingUp, IndianRupee, Wallet } from 'lucide-react';
 import { useAppState } from '../../StateProvider';
 
 export default function ProjectDetails({ selectedProject, projectPOs, onUpdateProject }) {
@@ -95,7 +95,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
         <Card className="border-slate-900 bg-slate-950/40">
           <CardContent className="p-5 flex items-center gap-4">
             <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <DollarSign className="w-4 h-4" />
+              <IndianRupee className="w-4 h-4" />
             </div>
             <div>
               <p className="text-[10px] text-slate-500 uppercase tracking-wider">Paid Outflow</p>

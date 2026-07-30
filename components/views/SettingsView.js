@@ -4,7 +4,7 @@ import { toast } from '../ui/Toast';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Dialog } from '../ui/core';
-import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loader2, ClipboardList, ChevronLeft, ChevronRight, Search, ArrowUpDown, Building2, Mail, CircleDollarSign, Wrench, RefreshCw, Sliders, Layers, Database } from 'lucide-react';
+import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loader2, ClipboardList, ChevronLeft, ChevronRight, Search, ArrowUpDown, Building2, Mail, IndianRupee, Wrench, RefreshCw, Sliders, Layers, Database } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
 import SettingsCompanyTab from './settings/SettingsCompanyTab';
@@ -600,9 +600,9 @@ export default function SettingsView() {
       id: 'finance',
       title: 'Finance & Tax',
       description: 'TDS sections & withholding tax',
-      icon: CircleDollarSign,
+      icon: IndianRupee,
       tabs: [
-        { id: 'tds', label: 'TDS Configuration', icon: CircleDollarSign }
+        { id: 'tds', label: 'TDS Configuration', icon: IndianRupee }
       ]
     },
     {

@@ -8,7 +8,7 @@ export function Card({ className, ...props }) {
   return (
     <div
       className={cn(
-        "bg-card border border-border shadow-xs rounded-xl overflow-hidden transition-all duration-200",
+        "bg-card border border-border shadow-xs rounded-xl overflow-hidden transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-800/90",
         className
       )}
       {...props}
@@ -51,7 +51,7 @@ export function Badge({ className, variant = 'default', ...props }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border tracking-wide transition-colors duration-150 select-none",
+        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border tracking-wide transition-all duration-200 hover:scale-[1.04] select-none cursor-default",
         variants[variant] || variants.default,
         className
       )}
@@ -62,14 +62,14 @@ export function Badge({ className, variant = 'default', ...props }) {
 
 // --- BUTTON ---
 export function Button({ className, variant = 'default', size = 'default', ...props }) {
-  const base = "inline-flex items-center justify-center rounded-lg font-medium text-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-amber-500/30 dark:focus:ring-gold/30 disabled:opacity-50 disabled:cursor-not-allowed select-none gap-2";
+  const base = "inline-flex items-center justify-center rounded-lg font-medium text-sm transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-amber-500/30 dark:focus:ring-gold/30 disabled:opacity-50 disabled:cursor-not-allowed select-none gap-2 cursor-pointer";
   
   const variants = {
-    default: "bg-card hover:bg-muted border border-border text-foreground shadow-2xs active:scale-[0.98]",
-    primary: "bg-amber-700 hover:bg-amber-800 dark:bg-gold dark:hover:bg-gold/90 text-white dark:text-slate-950 font-semibold shadow-xs hover:shadow active:scale-[0.98] border border-amber-800/20 dark:border-transparent",
-    destructive: "bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 active:scale-[0.98] font-medium",
-    ghost: "hover:bg-muted text-muted-foreground hover:text-foreground active:scale-[0.98]",
-    link: "underline-offset-4 hover:underline text-primary p-0",
+    default: "bg-card hover:bg-muted border border-border text-foreground shadow-2xs hover:scale-[1.02] active:scale-[0.97]",
+    primary: "bg-amber-700 hover:bg-amber-800 dark:bg-gold dark:hover:bg-gold/90 text-white dark:text-slate-950 font-semibold shadow-xs hover:shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.97] border border-amber-800/20 dark:border-transparent",
+    destructive: "bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:scale-[1.02] active:scale-[0.97] font-medium",
+    ghost: "hover:bg-muted text-muted-foreground hover:text-foreground hover:scale-[1.02] active:scale-[0.97]",
+    link: "underline-offset-4 hover:underline text-primary p-0 hover:scale-105 active:scale-95",
   };
 
   const sizes = {
@@ -92,7 +92,7 @@ export function Input({ className, ...props }) {
   return (
     <input
       className={cn(
-        "w-full px-3.5 py-2 bg-card border border-slate-300 dark:border-slate-800 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none focus:border-amber-600 dark:focus:border-gold focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-gold/20 transition-all duration-150 shadow-2xs",
+        "w-full px-3.5 py-2 bg-card border border-slate-300 dark:border-slate-800 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none focus:border-amber-600 dark:focus:border-gold focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-gold/20 focus:scale-[1.002] transition-all duration-200 shadow-2xs",
         className
       )}
       {...props}
@@ -105,7 +105,7 @@ export function Textarea({ className, style, ...props }) {
   return (
     <textarea
       className={cn(
-        "w-full px-3.5 py-2 bg-card border border-slate-300 dark:border-slate-800 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none focus:border-amber-600 dark:focus:border-gold focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-gold/20 transition-all duration-150 shadow-2xs resize-y",
+        "w-full px-3.5 py-2 bg-card border border-slate-300 dark:border-slate-800 rounded-lg text-foreground placeholder:text-muted-foreground/60 text-sm focus:outline-none focus:border-amber-600 dark:focus:border-gold focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-gold/20 focus:scale-[1.002] transition-all duration-200 shadow-2xs resize-y",
         className
       )}
       style={{ minHeight: '90px', ...style }}
@@ -119,7 +119,7 @@ export function Select({ className, children, ...props }) {
   return (
     <select
       className={cn(
-        "w-full px-3.5 py-2 bg-card border border-slate-300 dark:border-slate-800 rounded-lg text-foreground text-sm focus:outline-none focus:border-amber-600 dark:focus:border-gold focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-gold/20 transition-all duration-150 cursor-pointer shadow-2xs",
+        "w-full px-3.5 py-2 bg-card border border-slate-300 dark:border-slate-800 rounded-lg text-foreground text-sm focus:outline-none focus:border-amber-600 dark:focus:border-gold focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-gold/20 focus:scale-[1.002] transition-all duration-200 cursor-pointer shadow-2xs",
         className
       )}
       {...props}
@@ -149,7 +149,7 @@ export function TableBody({ className, ...props }) {
 }
 
 export function TableRow({ className, ...props }) {
-  return <tr className={cn("hover:bg-[hsl(var(--table-hover))] transition-colors duration-150 group", className)} {...props} />;
+  return <tr className={cn("hover:bg-[hsl(var(--table-hover))] transition-all duration-150 group", className)} {...props} />;
 }
 
 export function TableHead({ className, ...props }) {
@@ -172,15 +172,15 @@ export function MetricCard({ label, value, sub, trend, trendUp, icon: Icon, colo
   };
 
   return (
-    <div className={cn("bg-card border border-border rounded-xl p-4 flex flex-col justify-between shadow-2xs hover:shadow-xs transition-all duration-200", className)}>
+    <div className={cn("bg-card border border-border rounded-xl p-4 flex flex-col justify-between shadow-2xs hover:shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 hover:-translate-y-0.5", className)}>
       <div className="flex items-start justify-between">
         {Icon && (
-          <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center transition-colors", iconColors[color] || iconColors.blue)}>
+          <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center transition-transform hover:scale-110", iconColors[color] || iconColors.blue)}>
             <Icon className="w-4 h-4" />
           </div>
         )}
         {trend && (
-          <span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border", trendUp ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60" : "text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60")}>
+          <span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-all hover:scale-105", trendUp ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60" : "text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60")}>
             {trendUp ? "↑" : "↓"} {trend}
           </span>
         )}
@@ -220,7 +220,7 @@ export function StatusPill({ status, className }) {
   const formattedLabel = labels[s] || s.charAt(0).toUpperCase() + s.slice(1);
 
   return (
-    <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border tracking-tight transition-colors duration-150 select-none", styles[s] || "bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800", className)}>
+    <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border tracking-tight transition-all duration-200 hover:scale-105 select-none cursor-default", styles[s] || "bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800", className)}>
       {formattedLabel}
     </span>
   );
@@ -234,7 +234,7 @@ export function PriorityPill({ priority, className }) {
   const dots = { high: "bg-rose-500", medium: "bg-amber-400", low: "bg-slate-400" };
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium capitalize select-none", colors[p] || "text-slate-500", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium capitalize select-none transition-transform hover:scale-105", colors[p] || "text-slate-500", className)}>
       <span className={cn("w-1.5 h-1.5 rounded-full", dots[p] || "bg-slate-400")} />
       {priority}
     </span>
@@ -261,16 +261,16 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' 
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 animate-in fade-in duration-200">
       {/* Overlay */}
       <div 
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity" 
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity" 
         onClick={onClose}
       />
       
       {/* Content wrapper */}
       <div 
-        className={cn("relative w-full bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-10 animate-fade-in flex flex-col transition-colors duration-200 text-foreground", maxWidth)}
+        className={cn("relative w-full bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 flex flex-col transition-colors duration-200 text-foreground", maxWidth)}
         style={{ maxHeight: '92vh' }}
       >
         {/* Header */}
@@ -278,7 +278,7 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' 
           <h3 className="text-lg font-semibold tracking-tight text-foreground">{title}</h3>
           <button 
             onClick={onClose} 
-            className="text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-all"
+            className="text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
