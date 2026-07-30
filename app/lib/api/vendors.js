@@ -91,6 +91,18 @@ export async function updateVendor(payload, session) {
   return result;
 }
 
+export async function checkVendorDuplicate(payload, session) {
+  requireAuth(session);
+  return VendorService.checkVendorDuplicate(payload);
+}
+
+export async function deleteVendor(vendorId, session) {
+  requireAuth(session);
+  const result = await VendorService.deleteVendor(vendorId, session?.email || SYSTEM_FALLBACK_EMAIL);
+  await emitBroadcast('vendor', 'deleted', vendorId);
+  return result;
+}
+
 export async function getVendorByName(name, session) {
   requireAuth(session);
   const row = await queryGet('SELECT * FROM vendors WHERE legal_name = ? OR vendor_code = ? OR trade_name = ?', [name, name, name]);

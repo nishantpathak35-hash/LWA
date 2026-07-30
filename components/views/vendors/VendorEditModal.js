@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { Dialog, Button, Input, Select } from '../../ui/core';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Trash2, AlertTriangle } from 'lucide-react';
 import AttachmentsSection from '../../ui/AttachmentsSection';
 
 export default function VendorEditModal({
@@ -15,8 +15,19 @@ export default function VendorEditModal({
   editAccountsContactName, setEditAccountsContactName, editAccountsContactNo, setEditAccountsContactNo,
   editPurchaseContactName, setEditPurchaseContactName, editPurchaseContactNo, setEditPurchaseContactNo,
   editWhatsappNumber, setEditWhatsappNumber, editMobileNumber, setEditMobileNumber,
-  editPreferredWhatsappContact, setEditPreferredWhatsappContact
+  editPreferredWhatsappContact, setEditPreferredWhatsappContact,
+  canDelete, handleDeleteVendor
 }) {
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+
+  const onConfirmDelete = async () => {
+    setDeleting(true);
+    await handleDeleteVendor();
+    setDeleting(false);
+    setConfirmDelete(false);
+  };
+
   return (
     <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Vendor Master Record">
       <form onSubmit={handleEditSubmit} className="space-y-5">
@@ -130,6 +141,22 @@ export default function VendorEditModal({
           </div>
         </div>
 
+        {confirmDelete && (
+          <div className="p-3 bg-red-950/40 border border-red-800/60 rounded-lg text-xs text-red-300 space-y-2">
+            <div className="flex items-center gap-2 font-bold text-red-200">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <span>Are you sure you want to delete vendor "{editLegalName || editTradeName}"?</span>
+            </div>
+            <p className="text-[11px] text-red-300/90">This operation cannot be undone. Vendors linked to existing Purchase Orders or Payment Requests cannot be deleted.</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete(false)} className="text-xs text-slate-300">Cancel</Button>
+              <Button type="button" variant="danger" size="sm" disabled={deleting} onClick={onConfirmDelete} className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white">
+                {deleting ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {formError && (
           <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-lg text-xs text-rose-700 dark:text-rose-400 flex items-center gap-2 font-medium">
             <ShieldAlert className="w-4 h-4 flex-shrink-0" />
@@ -137,11 +164,21 @@ export default function VendorEditModal({
           </div>
         )}
 
-        <div className="pt-4 border-t border-border flex justify-end gap-3">
-          <Button type="button" variant="ghost" onClick={() => setEditModalOpen(false)} className="text-xs">Cancel</Button>
-          <Button type="submit" variant="primary" disabled={submitting} className="text-xs font-bold">
-            {submitting ? 'Saving...' : 'Save Changes'}
-          </Button>
+        <div className="pt-4 border-t border-border flex justify-between items-center gap-3">
+          <div>
+            {canDelete && !confirmDelete && (
+              <Button type="button" variant="ghost" onClick={() => setConfirmDelete(true)} className="text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 flex items-center gap-1.5 font-semibold">
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Vendor</span>
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="ghost" onClick={() => setEditModalOpen(false)} className="text-xs">Cancel</Button>
+            <Button type="submit" variant="primary" disabled={submitting} className="text-xs font-bold">
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
         </div>
       </form>
     </Dialog>

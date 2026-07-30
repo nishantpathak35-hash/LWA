@@ -153,7 +153,9 @@ const ALLOWED_METHODS = new Set([
   'getUserNotifications',
   'getUnreadCount',
   'markNotificationRead',
-  'markAllNotificationsRead'
+  'markAllNotificationsRead',
+  'deleteVendor',
+  'checkVendorDuplicate'
 ]);
 
 export async function POST(request) {

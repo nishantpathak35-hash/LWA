@@ -23,11 +23,40 @@ export class VendorService {
   }
 
   /**
-   * Add a new vendor with validation and audit logging.
+   * Check for duplicate vendor by legal name, trade name, gstin, or pan.
+   */
+  static async checkVendorDuplicate(payload: { legalName?: string; tradeName?: string; gstin?: string; pan?: string; excludeVendorCode?: string }): Promise<{ isDuplicate: boolean; duplicate?: IVendor; message?: string }> {
+    const dup = await VendorRepository.findDuplicate(payload.legalName, payload.tradeName, payload.gstin, payload.pan, payload.excludeVendorCode);
+    if (!dup) return { isDuplicate: false };
+
+    let field = 'legal name';
+    if (payload.gstin && dup.gstin && dup.gstin.toLowerCase().trim() === payload.gstin.toLowerCase().trim()) {
+      field = 'GSTIN';
+    } else if (payload.pan && dup.pan && dup.pan.toLowerCase().trim() === payload.pan.toLowerCase().trim()) {
+      field = 'PAN';
+    } else if (payload.tradeName && dup.trade_name && dup.trade_name.toLowerCase().trim() === payload.tradeName.toLowerCase().trim()) {
+      field = 'trade name';
+    }
+
+    return {
+      isDuplicate: true,
+      duplicate: dup,
+      message: `A vendor with matching ${field} already exists: "${dup.legal_name}" (${dup.vendor_code}).`
+    };
+  }
+
+  /**
+   * Add a new vendor with duplicate validation and audit logging.
    */
   static async addVendor(payload: IVendorInput, userEmail: string): Promise<{ ok: boolean, code: string }> {
     if (!payload.legalName) throw new Error("Legal Name is required");
     
+    // Check duplicates
+    const dupCheck = await VendorService.checkVendorDuplicate(payload);
+    if (dupCheck.isDuplicate) {
+      throw new Error(`DUPLICATE_VENDOR: ${dupCheck.message}`);
+    }
+
     const code = `VEN-${Date.now()}`;
     const newVendor: Omit<IVendor, 'id' | 'created_at'> = {
       legal_name: payload.legalName,
@@ -59,7 +88,7 @@ export class VendorService {
   }
 
   /**
-   * Update an existing vendor with validation and audit logging.
+   * Update an existing vendor with duplicate validation and audit logging.
    */
   static async updateVendor(payload: IVendorInput & { expectedVersion?: number }, userEmail: string): Promise<{ ok: boolean, vendorId: string }> {
     const vendorId = payload.vendorId || payload.vendorCode;
@@ -67,6 +96,12 @@ export class VendorService {
     
     // Ensure vendor exists
     const existing = await VendorRepository.findByNameOrCode(vendorId);
+
+    // Check duplicates excluding self
+    const dupCheck = await VendorService.checkVendorDuplicate({ ...payload, excludeVendorCode: vendorId });
+    if (dupCheck.isDuplicate) {
+      throw new Error(`DUPLICATE_VENDOR: ${dupCheck.message}`);
+    }
     
     const updateData: Partial<IVendor> = {
       legal_name: payload.legalName,
@@ -105,5 +140,30 @@ export class VendorService {
     await logAudit(userEmail, 'Vendor Updated', vendorId, 'Vendors');
     
     return { ok: true, vendorId };
+  }
+
+  /**
+   * Delete a vendor if no POs or Payment Requests are linked.
+   */
+  static async deleteVendor(vendorId: string, userEmail: string): Promise<{ ok: boolean }> {
+    if (!vendorId) throw new Error("Vendor ID is required for deletion");
+
+    const existing = await VendorRepository.findByNameOrCode(vendorId);
+    if (!existing) {
+      throw new Error("Vendor not found");
+    }
+
+    const { poCount, prCount } = await VendorRepository.getLinkedRecordsCount(vendorId, existing.legal_name || existing.trade_name);
+    if (poCount > 0 || prCount > 0) {
+      const details = [];
+      if (poCount > 0) details.push(`${poCount} Purchase Order(s)`);
+      if (prCount > 0) details.push(`${prCount} Payment Request(s)`);
+      throw new Error(`CANNOT_DELETE: Vendor "${existing.legal_name || vendorId}" cannot be deleted because it is linked to ${details.join(' and ')}.`);
+    }
+
+    await VendorRepository.delete(vendorId);
+    await logAudit(userEmail, 'Vendor Deleted', `${vendorId} (${existing.legal_name || ''})`, 'Vendors');
+
+    return { ok: true };
   }
 }

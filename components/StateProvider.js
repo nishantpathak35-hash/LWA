@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { isSuperAdmin } from '../app/lib/config';
+import { useNotifications } from './hooks/useNotifications';
 
 const StateContext = createContext(null);
 
@@ -157,6 +158,8 @@ export function StateProvider({ children }) {
       throw e;
     }
   }, [token, logout]);
+
+  const notificationState = useNotifications({ call, user, enabled: !!token });
 
   const refreshActiveLocks = useCallback(async () => {
     if (!token) return;
@@ -626,6 +629,7 @@ export function StateProvider({ children }) {
     refreshActiveLocks,
     activePresence,
     refreshActivePresence,
+    notificationState,
   };
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>;

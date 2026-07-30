@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { Dialog, Button, Input, Select } from '../../ui/core';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, AlertTriangle } from 'lucide-react';
 
 export default function VendorOnboardModal({ 
   modalOpen, setModalOpen, name, setName, legalName, setLegalName, vendorCode, setVendorCode, 
@@ -10,7 +10,7 @@ export default function VendorOnboardModal({
   accountsContactName, setAccountsContactName, accountsContactNo, setAccountsContactNo,
   purchaseContactName, setPurchaseContactName, purchaseContactNo, setPurchaseContactNo,
   whatsappNumber, setWhatsappNumber, mobileNumber, setMobileNumber,
-  preferredWhatsappContact, setPreferredWhatsappContact
+  preferredWhatsappContact, setPreferredWhatsappContact, duplicateWarning
 }) {
   return (
     <Dialog open={modalOpen} onClose={() => setModalOpen(false)} title="Onboard New Vendor">
@@ -88,6 +88,16 @@ export default function VendorOnboardModal({
             </div>
           </div>
         </div>
+
+        {duplicateWarning && (
+          <div className="p-3 bg-amber-950/40 border border-amber-500/50 rounded-lg text-xs text-amber-300 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold">Duplicate Warning</div>
+              <div>{duplicateWarning}</div>
+            </div>
+          </div>
+        )}
 
         {formError && (
           <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-400 flex items-center gap-2">

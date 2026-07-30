@@ -17,22 +17,32 @@ export function useNotifications({ call, user, enabled = true }) {
   const audioRef = useRef(null);
   const hasInteractedRef = useRef(false);
 
-  // Initialize audio element
+  // Unlock Web Audio API on first user gesture
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       audioRef.current = new Audio(NOTIFICATION_SOUND_DATA);
-      audioRef.current.volume = 0.3;
-    } catch (e) {
-      // Audio not available
-    }
-    // Track user interaction for audio autoplay
-    const handler = () => { hasInteractedRef.current = true; };
-    document.addEventListener('click', handler, { once: true });
-    document.addEventListener('keydown', handler, { once: true });
+      audioRef.current.volume = 0.5;
+    } catch (e) {}
+
+    const unlockAudio = () => {
+      hasInteractedRef.current = true;
+      if (audioRef.current) {
+        audioRef.current.play().then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }).catch(() => {});
+      }
+    };
+
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('keydown', unlockAudio, { once: true });
+
     return () => {
-      document.removeEventListener('click', handler);
-      document.removeEventListener('keydown', handler);
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
     };
   }, []);
 
@@ -54,42 +64,65 @@ export function useNotifications({ call, user, enabled = true }) {
     }
   }, []);
 
-  // Play notification sound
+  // Play notification sound chime (Audio element + Web Audio API synth fallback)
   const playSound = useCallback(() => {
-    if (!audioRef.current || !hasInteractedRef.current) return;
     try {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        const p = audioRef.current.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {
+            playSynthChime();
+          });
+        }
+      } else {
+        playSynthChime();
+      }
     } catch (e) {
-      // Ignore audio errors
+      playSynthChime();
     }
   }, []);
+
+  // Web Audio synth chime helper for mobile/desktop browsers
+  const playSynthChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+    } catch (e) {}
+  };
 
   // Show browser push notification
   const showBrowserNotification = useCallback((title, body, icon) => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
-    // Only push when tab is not visible
-    if (document.visibilityState === 'visible') return;
     try {
       const n = new Notification(title, {
         body,
         icon: icon || '/branding/logo-icon.png',
         badge: '/branding/logo-icon.png',
-        tag: 'lwa-notification',
+        tag: 'lwa-notification-' + Date.now(),
         renotify: true,
         requireInteraction: false,
         silent: false
       });
-      // Auto-close after 5s
-      setTimeout(() => n.close(), 5000);
-      // Focus window on click
+      setTimeout(() => { try { n.close(); } catch(e){} }, 6000);
       n.onclick = () => {
-        window.focus();
-        n.close();
+        try { window.focus(); n.close(); } catch(e){}
       };
     } catch (e) {
-      // Notification API not available
+      // Mobile service worker fallback or Notification constructor restriction
     }
   }, []);
 

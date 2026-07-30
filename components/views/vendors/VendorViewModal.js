@@ -3,9 +3,12 @@ import React from 'react';
 import { Dialog, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
 import AttachmentsSection from '../../ui/AttachmentsSection';
 import { formatCurrency } from '../../../app/lib/utils';
-import { Building2, CreditCard, Mail, Phone, MapPin, User, MessageSquare, FileText, ShieldCheck } from 'lucide-react';
+import { Building2, CreditCard, Mail, Phone, MapPin, User, MessageSquare, FileText, ShieldCheck, Trash2, AlertTriangle } from 'lucide-react';
 
-export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewVendor, viewVendorPOs }) {
+export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewVendor, viewVendorPOs, canDelete, handleDeleteVendor }) {
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState(null);
   const vendorCode = viewVendor?.code || viewVendor?.vendorId || viewVendor?.vendor_code || '—';
   const legalName = viewVendor?.legalName || viewVendor?.legal_name || viewVendor?.name || '—';
   const tradeName = viewVendor?.tradeName || viewVendor?.trade_name || viewVendor?.name || '—';
@@ -173,8 +176,50 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
           <AttachmentsSection entityType="vendor" entityId={vendorCode || viewVendor?.id} />
         </div>
 
+        {confirmDelete && (
+          <div className="p-3 bg-red-950/40 border border-red-800/60 rounded-lg text-xs text-red-300 space-y-2">
+            <div className="flex items-center gap-2 font-bold text-red-200">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <span>Are you sure you want to delete vendor "{tradeName || legalName}"?</span>
+            </div>
+            <p className="text-[11px] text-red-300/90">This operation cannot be undone. Vendors linked to existing Purchase Orders or Payment Requests cannot be deleted.</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setConfirmDelete(false); setDeleteError(null); }} className="text-xs text-slate-300">Cancel</Button>
+              <Button type="button" variant="danger" size="sm" disabled={deleting} onClick={async () => {
+                setDeleting(true); setDeleteError(null);
+                try {
+                  await handleDeleteVendor(vendorCode || viewVendor?.id);
+                  setViewModalOpen(false);
+                } catch (err) {
+                  setDeleteError(err.message || 'Failed to delete vendor.');
+                } finally {
+                  setDeleting(false);
+                  setConfirmDelete(false);
+                }
+              }} className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white">
+                {deleting ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {deleteError && (
+          <div className="p-3 bg-rose-950/30 border border-rose-900/50 rounded-lg text-xs text-rose-400 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>{deleteError}</span>
+          </div>
+        )}
+
         {/* Action Button */}
-        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+          <div>
+            {canDelete && !confirmDelete && (
+              <Button variant="ghost" onClick={() => setConfirmDelete(true)} className="text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 flex items-center gap-1.5 font-semibold">
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Vendor</span>
+              </Button>
+            )}
+          </div>
           <Button variant="ghost" onClick={() => setViewModalOpen(false)} className="text-xs">Close</Button>
         </div>
 

@@ -84,4 +84,66 @@ export class VendorRepository {
       throw new Error('CONFLICT: This vendor was modified by another user since you last loaded it. Please reload and try again.');
     }
   }
+
+  static async findDuplicate(legalName?: string, tradeName?: string, gstin?: string, pan?: string, excludeVendorCode?: string): Promise<IVendor | null> {
+    const cleanLegal = (legalName || '').trim().toLowerCase();
+    const cleanTrade = (tradeName || '').trim().toLowerCase();
+    const cleanGstin = (gstin || '').trim().toLowerCase();
+    const cleanPan = (pan || '').trim().toLowerCase();
+
+    if (!cleanLegal && !cleanTrade && !cleanGstin && !cleanPan) return null;
+
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (cleanLegal) {
+      conditions.push(`LOWER(TRIM(legal_name)) = ?`);
+      params.push(cleanLegal);
+    }
+    if (cleanTrade) {
+      conditions.push(`LOWER(TRIM(trade_name)) = ?`);
+      params.push(cleanTrade);
+    }
+    if (cleanGstin) {
+      conditions.push(`LOWER(TRIM(gstin)) = ?`);
+      params.push(cleanGstin);
+    }
+    if (cleanPan) {
+      conditions.push(`LOWER(TRIM(pan)) = ?`);
+      params.push(cleanPan);
+    }
+
+    let sql = `SELECT * FROM vendors WHERE (${conditions.join(' OR ')})`;
+    if (excludeVendorCode) {
+      sql += ` AND LOWER(TRIM(vendor_code)) != ? AND id != ?`;
+      params.push(excludeVendorCode.trim().toLowerCase(), Number(excludeVendorCode) || -1);
+    }
+    sql += ` LIMIT 1`;
+
+    return queryGet(sql, params);
+  }
+
+  static async getLinkedRecordsCount(vendorCode: string, legalName?: string): Promise<{ poCount: number, prCount: number }> {
+    const code = (vendorCode || '').trim();
+    const name = (legalName || '').trim();
+
+    const poRow = await queryGet(
+      `SELECT COUNT(*) as cnt FROM purchase_orders WHERE LOWER(TRIM(vendor_key)) = ? OR (LOWER(TRIM(vendor_name)) = ? AND ? != '')`,
+      [code.toLowerCase(), name.toLowerCase(), name]
+    );
+
+    const prRow = await queryGet(
+      `SELECT COUNT(*) as cnt FROM payment_requests WHERE LOWER(TRIM(vendor_name)) = ? OR LOWER(TRIM(vendor_name)) = ?`,
+      [code.toLowerCase(), name.toLowerCase()]
+    );
+
+    return {
+      poCount: Number(poRow?.cnt) || 0,
+      prCount: Number(prRow?.cnt) || 0
+    };
+  }
+
+  static async delete(vendorCode: string): Promise<void> {
+    await queryRun(`DELETE FROM vendors WHERE vendor_code = ? OR id = ?`, [vendorCode, Number(vendorCode) || -1]);
+  }
 }

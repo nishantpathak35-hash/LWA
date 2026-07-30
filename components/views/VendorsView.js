@@ -174,6 +174,15 @@ export default function VendorsView() {
     }
   };
 
+  const handleDeleteVendor = async (targetCode) => {
+    const code = targetCode || editVendorId || viewVendor?.code || viewVendor?.vendorId || viewVendor?.vendor_code;
+    if (!code) throw new Error('Vendor ID is missing.');
+    await call('deleteVendor', code);
+    await refreshData();
+    setEditModalOpen(false);
+    setViewModalOpen(false);
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       <VendorsHeader
@@ -201,6 +210,7 @@ export default function VendorsView() {
       <VendorViewModal
         viewModalOpen={viewModalOpen} setViewModalOpen={setViewModalOpen}
         viewVendor={viewVendor} viewVendorPOs={viewVendorPOs}
+        canDelete={canOnboard || isAdmin} handleDeleteVendor={handleDeleteVendor}
       />
       <VendorEditModal
         editModalOpen={editModalOpen} setEditModalOpen={setEditModalOpen}
@@ -220,6 +230,7 @@ export default function VendorsView() {
         editWhatsappNumber={editWhatsappNumber} setEditWhatsappNumber={setEditWhatsappNumber}
         editMobileNumber={editMobileNumber} setEditMobileNumber={setEditMobileNumber}
         editPreferredWhatsappContact={editPreferredWhatsappContact} setEditPreferredWhatsappContact={setEditPreferredWhatsappContact}
+        canDelete={canOnboard || isAdmin} handleDeleteVendor={handleDeleteVendor}
       />
     </div>
   );
