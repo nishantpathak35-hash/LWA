@@ -3,6 +3,7 @@ import { queryAll, queryGet, queryRun } from '../../db.js';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { logAudit } from '../core.js';
 import { emitBroadcast } from '../../broadcast.js';
+import { createNotification } from '../notifications.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -35,6 +36,19 @@ export async function submitPOForApproval(poNo, session) {
   await logAudit(session?.email || 'system', 'PO Submitted', 'PO#' + poNo + ' submitted for approval', 'Procurement');
 
   await emitBroadcast('po', 'updated', poNo);
+
+  // Notify approvers that a PO needs review
+  await createNotification({
+    recipientRole: 'director',
+    type: 'approval_needed',
+    title: `PO #${poNo} Submitted for Approval`,
+    body: `${session?.name || session?.email?.split('@')[0] || 'Team'} submitted PO worth ₹${Number(po.revised_po_value || po.po_value || 0).toLocaleString('en-IN')}`,
+    recordType: 'Purchase Order',
+    recordId: String(poNo),
+    actorName: session?.name || session?.email?.split('@')[0] || '',
+    actorEmail: session?.email || ''
+  });
+
   return { ok: true, poNo, status: initialStage };
 }
 
@@ -72,6 +86,20 @@ export async function approvePO(poNo, action, remarks, session) {
   await logAudit(session?.email || 'system', 'PO ' + action, 'PO#' + poNo + ' ' + action + ' by ' + (session?.email || 'unknown'), 'Procurement');
 
   await emitBroadcast('po', 'updated', poNo);
+
+  // Notify procurement about PO approval/rejection
+  const actorName = session?.name || session?.email?.split('@')[0] || 'Approver';
+  await createNotification({
+    recipientRole: 'procurement',
+    type: action === 'reject' ? 'rejected' : 'approved',
+    title: `PO #${poNo} ${action === 'reject' ? 'Rejected' : 'Approved'}`,
+    body: `${actorName} ${action === 'reject' ? 'rejected' : 'approved'} PO #${poNo}${remarks ? ': "' + remarks.substring(0, 60) + '"' : ''}`,
+    recordType: 'Purchase Order',
+    recordId: String(poNo),
+    actorName,
+    actorEmail: session?.email || ''
+  });
+
   return { ok: true, poNo, status: newStatus };
 }
 

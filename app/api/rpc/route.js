@@ -149,7 +149,11 @@ const ALLOWED_METHODS = new Set([
   'createWPRReport',
   'listWPRReports',
   'getWPRReport',
-  'deleteWPRReport'
+  'deleteWPRReport',
+  'getUserNotifications',
+  'getUnreadCount',
+  'markNotificationRead',
+  'markAllNotificationsRead'
 ]);
 
 export async function POST(request) {
@@ -219,7 +223,10 @@ export async function POST(request) {
 
     // Invoke the requested method with resolved session
     const result = await api[method](...args, session);
-    return NextResponse.json(result === undefined ? { success: true } : result);
+    const payload = result === undefined ? { success: true } : result;
+    // Safety net: convert any BigInt values to Number before JSON serialization
+    const safePayload = JSON.parse(JSON.stringify(payload, (_, v) => typeof v === 'bigint' ? Number(v) : v));
+    return NextResponse.json(safePayload);
 
   } catch (error) {
     console.error('RPC Error:', error);

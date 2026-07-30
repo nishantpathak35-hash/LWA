@@ -5,7 +5,7 @@ export class VendorRepository {
   static async findAll(options?: { limit?: number; offset?: number }): Promise<IVendor[]> {
     const limit = options?.limit === 0 ? 100000 : (options?.limit ?? 50);
     const offset = options?.offset ?? 0;
-    return queryAll(`SELECT * FROM vendors LIMIT ? OFFSET ?`, [limit, offset]);
+    return queryAll(`SELECT * FROM vendors ORDER BY id DESC LIMIT ? OFFSET ?`, [limit, offset]);
   }
 
   static async countAll(): Promise<number> {

@@ -21,5 +21,6 @@ export { listSchedules, saveSchedule, getWPRAggregation, createWPRReport, listWP
 export { acquireDocumentLock, releaseDocumentLock, getActiveLocks } from './api/locks.js';
 export { registerPresence, deregisterPresence, getActivePresence } from './api/presence.js';
 export { addComment, getComments, requestPaymentClarification, answerPaymentClarification, getActivityStream, createTask, getUserTasks, updateTaskStatus } from './api/collaboration.js';
+export { getUserNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead } from './api/notifications.js';
 
 

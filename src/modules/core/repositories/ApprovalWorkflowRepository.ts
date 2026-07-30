@@ -23,7 +23,7 @@ export class ApprovalWorkflowRepository {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [workflow.name, workflow.module_type, workflow.description || '', workflow.is_active ?? 1, workflow.created_by || 'system', new Date().toISOString(), new Date().toISOString()]
     );
-    return result?.lastInsertRowid || 0;
+    return Number(result?.lastInsertRowid) || 0;
   }
 
   static async update(id: number, updates: any): Promise<void> {
@@ -74,7 +74,7 @@ export class ApprovalWorkflowRepository {
        stage.min_approval_count || 1, stage.approval_type || 'any_one', stage.comments_mandatory ? 1 : 0,
        stage.auto_approval ? 1 : 0, stage.escalation_ready ? 1 : 0, stage.skip_conditions || '']
     );
-    return result?.lastInsertRowid || 0;
+    return Number(result?.lastInsertRowid) || 0;
   }
 
   static async updateStage(stageId: number, updates: any): Promise<void> {

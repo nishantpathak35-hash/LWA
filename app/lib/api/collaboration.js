@@ -1,4 +1,5 @@
 import { queryAll, queryGet, queryRun } from '../db.js';
+import { createNotification } from './notifications.js';
 
 let _collaborationTablePromise = null;
 
@@ -87,14 +88,24 @@ export async function addComment(user, recordType, recordId, content, mentions =
 
   await logActivity(user, 'commented on', recordType, recordId, content.substring(0, 80));
   
-  // If mentions exist, auto-create task alerts
+  // If mentions exist, auto-create task alerts + notifications
   if (Array.isArray(mentions) && mentions.length > 0) {
     for (const mention of mentions) {
       await createTask(user, mention, `Mentioned you in ${recordType} #${recordId}: "${content.substring(0, 50)}..."`, recordType, recordId);
+      await createNotification({
+        recipientRole: mention,
+        type: 'mentioned',
+        title: `${uName} mentioned @${mention}`,
+        body: `In ${recordType} #${recordId}: "${content.substring(0, 80)}"`,
+        recordType,
+        recordId: String(recordId),
+        actorName: uName,
+        actorEmail: uEmail
+      });
     }
   }
 
-  return { ok: true, id: res.lastInsertRowid };
+  return { ok: true, id: Number(res.lastInsertRowid) };
 }
 
 export async function getComments(recordType, recordId) {
@@ -124,6 +135,18 @@ export async function requestPaymentClarification(user, paymentId, queryText) {
   await logActivity(user, 'requested clarification for', 'Payment Request', paymentId, queryText);
   await addComment(user, 'Payment Request', paymentId, `❓ Query Hold Requested: "${queryText}"`);
 
+  // Notify procurement / creator that a query hold was placed
+  await createNotification({
+    recipientRole: 'procurement',
+    type: 'query_hold',
+    title: `Query Hold on PR #${paymentId}`,
+    body: `${uName} requested clarification: "${queryText.substring(0, 80)}"`,
+    recordType: 'Payment Request',
+    recordId: String(paymentId),
+    actorName: uName,
+    actorEmail: uEmail
+  });
+
   return { ok: true, message: 'Clarification requested and payment placed on hold.' };
 }
 
@@ -140,6 +163,18 @@ export async function answerPaymentClarification(user, paymentId, responseText) 
 
   await logActivity(user, 'answered clarification for', 'Payment Request', paymentId, responseText);
   await addComment(user, 'Payment Request', paymentId, `✅ Clarification Answered: "${responseText}"`);
+
+  // Notify finance/director that clarification was answered
+  await createNotification({
+    recipientRole: 'finance',
+    type: 'query_answered',
+    title: `Clarification Answered for PR #${paymentId}`,
+    body: `${uName} responded: "${responseText.substring(0, 80)}"`,
+    recordType: 'Payment Request',
+    recordId: String(paymentId),
+    actorName: uName,
+    actorEmail: uEmail
+  });
 
   return { ok: true, message: 'Clarification response submitted.' };
 }

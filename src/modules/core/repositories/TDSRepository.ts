@@ -28,7 +28,7 @@ export class TDSRepository {
        section.surcharge || 0, section.cess || 0, section.effective_from || '', section.effective_to || '',
        section.is_active ?? 1, section.is_default ?? 0, section.sort_order || 999]
     );
-    return result?.lastInsertRowid || 0;
+    return Number(result?.lastInsertRowid) || 0;
   }
 
   static async update(id: number, updates: any): Promise<void> {
