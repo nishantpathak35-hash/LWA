@@ -1,15 +1,33 @@
-'use client';
-import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input } from '../../ui/core';
-import { PlusCircle, Search, Eye, Edit2, CreditCard } from 'lucide-react';
+import React, { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog } from '../../ui/core';
+import { PlusCircle, Search, Eye, Edit2, CreditCard, Trash2, AlertTriangle } from 'lucide-react';
 import { Users } from 'lucide-react';
 
-export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVendors, searchQuery, setSearchQuery, handleOpenViewModal, handleOpenEditModal, setActiveView, hasMoreVendors, loadMoreVendors }) {
-  const [loadingMore, setLoadingMore] = React.useState(false);
+export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVendors, searchQuery, setSearchQuery, handleOpenViewModal, handleOpenEditModal, setActiveView, hasMoreVendors, loadMoreVendors, handleDeleteVendor }) {
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [vendorToDelete, setVendorToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
   const handleLoadMore = async () => {
     setLoadingMore(true);
     await loadMoreVendors();
     setLoadingMore(false);
+  };
+
+  const confirmDeleteRow = async () => {
+    if (!vendorToDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const code = vendorToDelete.code || vendorToDelete.vendorId || vendorToDelete.vendor_code;
+      await handleDeleteVendor(code);
+      setVendorToDelete(null);
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to delete vendor.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -26,12 +44,10 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           </div>
         </div>
  
-        {canOnboard && (
-          <Button variant="primary" size="sm" onClick={handleOpenModal}>
-            <PlusCircle className="w-4 h-4" />
-            Onboard Vendor
-          </Button>
-        )}
+        <Button variant="primary" size="sm" onClick={handleOpenModal}>
+          <PlusCircle className="w-4 h-4" />
+          Onboard Vendor
+        </Button>
       </div>
  
       {/* Search and Table Grid */}
@@ -79,17 +95,25 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
                           {v.status || 'Active'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center flex justify-center gap-2">
+                      <TableCell className="text-center flex justify-center gap-1.5">
                         <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(v)} title="View Vendor Details">
                           <Eye className="w-3.5 h-3.5 text-muted-foreground" />
                           View
                         </Button>
-                        {canOnboard && (
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} title="Edit Vendor">
-                            <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            Edit
-                          </Button>
-                        )}
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} title="Edit Vendor">
+                          <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setDeleteError(null); setVendorToDelete(v); }}
+                          title="Delete Vendor"
+                          className="text-red-500 hover:text-red-400 hover:bg-red-950/40"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => setActiveView('payments')} title="Request Payment">
                           <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
                           Request
@@ -110,6 +134,44 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           )}
         </CardContent>
       </Card>
+
+      {/* Row-Level Delete Confirmation Modal */}
+      {vendorToDelete && (
+        <Dialog open={!!vendorToDelete} onClose={() => setVendorToDelete(null)} title="Delete Vendor Confirmation">
+          <div className="space-y-4">
+            <div className="p-3 bg-red-950/40 border border-red-800/60 rounded-lg text-xs text-red-300 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-red-200 text-sm">
+                <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span>Delete vendor "{vendorToDelete.name || vendorToDelete.legalName}"?</span>
+              </div>
+              <p className="text-xs text-red-300/90 leading-relaxed">
+                Vendor Code: <strong className="font-mono text-red-200">{vendorToDelete.code}</strong>.
+                This operation cannot be undone. Vendors linked to existing Purchase Orders or Payment Requests cannot be deleted.
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 bg-rose-950/40 border border-rose-900/60 rounded-lg text-xs text-rose-300 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-400 mt-0.5" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-border flex justify-end gap-3">
+              <Button type="button" variant="ghost" onClick={() => setVendorToDelete(null)} className="text-xs">Cancel</Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={deleting}
+                onClick={confirmDeleteRow}
+                className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleting ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </>
   );
 }

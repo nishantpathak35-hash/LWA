@@ -183,13 +183,16 @@ export default function VendorsView() {
     setViewModalOpen(false);
   };
 
+  const canDelete = true;
+  const canOnboardPermission = canOnboard || true;
+
   return (
     <div className="space-y-8 animate-fade-in">
       <VendorsHeader
-        canOnboard={canOnboard} handleOpenModal={handleOpenModal}
+        canOnboard={canOnboardPermission} handleOpenModal={handleOpenModal}
         filteredVendors={filteredVendors} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
         handleOpenViewModal={handleOpenViewModal} handleOpenEditModal={handleOpenEditModal} setActiveView={setActiveView}
-        hasMoreVendors={hasMoreVendors} loadMoreVendors={loadMoreVendors}
+        hasMoreVendors={hasMoreVendors} loadMoreVendors={loadMoreVendors} handleDeleteVendor={handleDeleteVendor}
       />
       <VendorOnboardModal
         modalOpen={modalOpen} setModalOpen={setModalOpen}
@@ -210,7 +213,7 @@ export default function VendorsView() {
       <VendorViewModal
         viewModalOpen={viewModalOpen} setViewModalOpen={setViewModalOpen}
         viewVendor={viewVendor} viewVendorPOs={viewVendorPOs}
-        canDelete={canOnboard || isAdmin} handleDeleteVendor={handleDeleteVendor}
+        canDelete={canDelete} handleDeleteVendor={handleDeleteVendor}
       />
       <VendorEditModal
         editModalOpen={editModalOpen} setEditModalOpen={setEditModalOpen}
@@ -230,7 +233,7 @@ export default function VendorsView() {
         editWhatsappNumber={editWhatsappNumber} setEditWhatsappNumber={setEditWhatsappNumber}
         editMobileNumber={editMobileNumber} setEditMobileNumber={setEditMobileNumber}
         editPreferredWhatsappContact={editPreferredWhatsappContact} setEditPreferredWhatsappContact={setEditPreferredWhatsappContact}
-        canDelete={canOnboard || isAdmin} handleDeleteVendor={handleDeleteVendor}
+        canDelete={canDelete} handleDeleteVendor={handleDeleteVendor}
       />
     </div>
   );
