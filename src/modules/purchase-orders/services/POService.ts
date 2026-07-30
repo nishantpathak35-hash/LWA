@@ -7,6 +7,10 @@ export class POService {
     return PORepository.findAll(options);
   }
 
+  static async getPOCount(): Promise<number> {
+    return PORepository.countAll();
+  }
+
   static async getPO(poNo: string): Promise<IPO | null> {
     if (!poNo) throw new Error("PO Number is required");
     return PORepository.findById(poNo);
@@ -27,7 +31,7 @@ export class POService {
     }
 
     let totalVal = payload.grandTotal || payload.poValue || 0;
-    let gstTotal = Number(payload.gst_total || payload.gstTotal) || 0;
+    let gstTotal = Number(payload.gst_total || (payload as any).gstTotal) || 0;
     
     if (!totalVal && payload.items && payload.items.length) {
       let subt = 0;
@@ -106,9 +110,9 @@ export class POService {
       if (poNo === expectedNext) {
         await NumberSeriesService.getNextNumber('purchase_order', userEmail);
       }
-    } catch (e) {
+    } catch (e: any) {
       // If this is a PK violation from a race condition, retry once with a fresh number
-      if (String(e.message).includes('UNIQUE') || String(e.message).includes('PRIMARY')) {
+      if (String(e?.message).includes('UNIQUE') || String(e?.message).includes('PRIMARY')) {
         console.warn(`PO number collision detected for ${poNo}, this was caught by the duplicate check above.`);
       } else {
         console.error('Failed to consume number series:', e);
@@ -139,7 +143,7 @@ export class POService {
     }
 
     let totalVal = payload.grandTotal || payload.poValue || 0;
-    let gstTotal = Number(payload.gst_total || payload.gstTotal) || 0;
+    let gstTotal = Number(payload.gst_total || (payload as any).gstTotal) || 0;
     
     if (!totalVal && payload.items && payload.items.length) {
       let subt = 0;

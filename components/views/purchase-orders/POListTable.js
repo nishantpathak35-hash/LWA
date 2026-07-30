@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button, Input } from '../../ui/core';
-import { Search, ChevronDown, ChevronUp, Eye, Send, Edit2, Clock, CheckCircle, XCircle, Copy, Trash2, Wallet, History } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Eye, Send, Edit2, Clock, CheckCircle, XCircle, Copy, Trash2, Wallet, History, MessageSquare } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 
 export default function POListTable({
@@ -84,7 +84,18 @@ export default function POListTable({
                     <TableCell className="text-right text-emerald-700 dark:text-emerald-400 font-bold tabular-nums text-sm">{formatCurrency(Number(po.paid || 0))}</TableCell>
                     <TableCell className="text-right text-amber-700 dark:text-gold font-bold tabular-nums text-sm">{formatCurrency(Math.max(0, Number(po.po_value || 0) - Number(po.paid || 0)))}</TableCell>
                     <TableCell className="text-center relative">
-                      <div className="flex justify-center">
+                      <div className="flex justify-center items-center gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewPOHistory(po);
+                          }}
+                          title="Discussion & Team Activity Thread"
+                        >
+                          <MessageSquare className="w-4 h-4 text-amber-600 dark:text-gold hover:text-amber-700" />
+                        </Button>
                         <div className="relative inline-block text-left">
                           <Button
                             variant="ghost"

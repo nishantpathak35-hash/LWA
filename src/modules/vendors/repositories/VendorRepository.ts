@@ -3,9 +3,14 @@ import { IVendor } from '../types/Vendor';
 
 export class VendorRepository {
   static async findAll(options?: { limit?: number; offset?: number }): Promise<IVendor[]> {
-    const limit = options?.limit === 0 ? 10000 : (options?.limit ?? 1000);
+    const limit = options?.limit === 0 ? 100000 : (options?.limit ?? 50);
     const offset = options?.offset ?? 0;
     return queryAll(`SELECT * FROM vendors LIMIT ? OFFSET ?`, [limit, offset]);
+  }
+
+  static async countAll(): Promise<number> {
+    const row = await queryGet(`SELECT COUNT(*) as total FROM vendors`);
+    return Number(row?.total || 0);
   }
 
   static async findById(id: number): Promise<IVendor | null> {

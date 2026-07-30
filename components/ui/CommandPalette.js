@@ -45,41 +45,45 @@ export function CommandPalette() {
 
   if (!mounted || !open) return null;
 
-  const normalizedQuery = query.toLowerCase().trim();
+  const normalizedQuery = (query || '').toLowerCase().trim();
   
   let results = [];
   if (normalizedQuery) {
     // Search POs
-    const matchedPOs = pos.filter(po => 
-      po.po_no.toLowerCase().includes(normalizedQuery) || 
-      (po.project && po.project.toLowerCase().includes(normalizedQuery)) ||
-      (po.vendor_name && po.vendor_name.toLowerCase().includes(normalizedQuery))
-    ).slice(0, 5).map(po => ({
-      id: po.po_no,
+    const matchedPOs = (pos || []).filter(po => {
+      if (!po) return false;
+      const poNo = String(po.po_no || po.poNo || '').toLowerCase();
+      const proj = String(po.project || '').toLowerCase();
+      const vName = String(po.vendor_name || po.vendor || '').toLowerCase();
+      return poNo.includes(normalizedQuery) || proj.includes(normalizedQuery) || vName.includes(normalizedQuery);
+    }).slice(0, 5).map(po => ({
+      id: po.po_no || `po-${Math.random()}`,
       type: 'PO',
-      title: po.po_no,
-      subtitle: `${po.vendor_name || 'Unknown Vendor'} • ${po.project || 'No Project'}`,
+      title: po.po_no || 'Purchase Order',
+      subtitle: `${po.vendor_name || po.vendor || 'Unknown Vendor'} • ${po.project || 'No Project'}`,
       icon: <FileText className="w-4 h-4 text-emerald-400" />,
-      href: `/po/${encodeURIComponent(po.po_no)}`,
+      href: `/po/${encodeURIComponent(po.po_no || '')}`,
       action: (e) => {
         if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
         e?.preventDefault();
-        window.open(`/po/${encodeURIComponent(po.po_no)}`, '_blank');
+        if (po.po_no) window.open(`/po/${encodeURIComponent(po.po_no)}`, '_blank');
         setOpen(false);
       }
     }));
 
     // Search Vendors
-    const matchedVendors = vendors.filter(v => 
-      v.name.toLowerCase().includes(normalizedQuery) ||
-      (v.vendor_type && v.vendor_type.toLowerCase().includes(normalizedQuery))
-    ).slice(0, 3).map(v => ({
-      id: `vendor-${v.id}`,
+    const matchedVendors = (vendors || []).filter(v => {
+      if (!v) return false;
+      const vName = String(v.name || v.legalName || v.tradeName || v.vendor_name || '').toLowerCase();
+      const vType = String(v.vendor_type || v.vendorType || '').toLowerCase();
+      return vName.includes(normalizedQuery) || vType.includes(normalizedQuery);
+    }).slice(0, 3).map(v => ({
+      id: `vendor-${v.id || v.name}`,
       type: 'Vendor',
-      title: v.name,
+      title: v.name || v.legalName || v.tradeName || 'Vendor',
       subtitle: v.vendor_type || 'Vendor',
       icon: <Building2 className="w-4 h-4 text-sky-400" />,
-      href: `/?view=vendors&vendor=${v.id}`,
+      href: `/?view=vendors&vendor=${v.id || ''}`,
       action: (e) => {
         if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
         e?.preventDefault();
@@ -89,15 +93,17 @@ export function CommandPalette() {
     }));
 
     // Search Projects
-    const matchedProjects = projects.filter(p => 
-      p.project.toLowerCase().includes(normalizedQuery)
-    ).slice(0, 3).map(p => ({
-      id: `project-${p.project}`,
+    const matchedProjects = (projects || []).filter(p => {
+      if (!p) return false;
+      const proj = String(p.project || p.name || '').toLowerCase();
+      return proj.includes(normalizedQuery);
+    }).slice(0, 3).map(p => ({
+      id: `project-${p.project || p.name}`,
       type: 'Project',
-      title: p.project,
-      subtitle: `Value: ₹${Number(p.projectValue || 0).toLocaleString()}`,
+      title: p.project || p.name || 'Project',
+      subtitle: `Value: ₹${Number(p.projectValue || p.project_value || 0).toLocaleString()}`,
       icon: <Briefcase className="w-4 h-4 text-amber-400" />,
-      href: `/?view=dashboard&project=${encodeURIComponent(p.project)}`,
+      href: `/?view=dashboard&project=${encodeURIComponent(p.project || p.name || '')}`,
       action: (e) => {
         if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
         e?.preventDefault();
@@ -107,16 +113,19 @@ export function CommandPalette() {
     }));
 
     // Search Payments
-    const matchedPayments = (payments || []).filter(pay => 
-      (pay.payment_req_no && pay.payment_req_no.toLowerCase().includes(normalizedQuery)) ||
-      (pay.po_no && pay.po_no.toLowerCase().includes(normalizedQuery))
-    ).slice(0, 3).map(pay => ({
-      id: `payment-${pay.id}`,
+    const matchedPayments = (payments || []).filter(pay => {
+      if (!pay) return false;
+      const prNo = String(pay.payment_req_no || pay.pr_id || pay.id || '').toLowerCase();
+      const poNo = String(pay.po_no || pay.poNo || '').toLowerCase();
+      const vName = String(pay.vendor_name || pay.vendor || '').toLowerCase();
+      return prNo.includes(normalizedQuery) || poNo.includes(normalizedQuery) || vName.includes(normalizedQuery);
+    }).slice(0, 3).map(pay => ({
+      id: `payment-${pay.id || Math.random()}`,
       type: 'Payment',
-      title: pay.payment_req_no || `Payment ${pay.id}`,
-      subtitle: `PO: ${pay.po_no || 'N/A'} • ₹${Number(pay.amount || 0).toLocaleString()}`,
+      title: pay.payment_req_no || `Payment #${pay.id}`,
+      subtitle: `PO: ${pay.po_no || 'N/A'} • ₹${Number(pay.amount || pay.gross_amount || pay.amount_requested || 0).toLocaleString()}`,
       icon: <CreditCard className="w-4 h-4 text-purple-400" />,
-      href: `/?view=payments&payment=${pay.id}`,
+      href: `/?view=payments&payment=${pay.id || ''}`,
       action: (e) => {
         if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
         e?.preventDefault();

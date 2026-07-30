@@ -6,6 +6,7 @@ import { useAppState } from '../StateProvider';
 
 import { num, pct100, paginateItems } from './dashboard/dashboard-utils';
 import DashboardWelcomeHeader from './dashboard/DashboardWelcomeHeader';
+import PendingActionsWidget from '../ui/PendingActionsWidget';
 import DashboardCashflowSection from './dashboard/DashboardCashflowSection';
 import DashboardChartsSection from './dashboard/DashboardChartsSection';
 import DashboardFinancialSection from './dashboard/DashboardFinancialSection';
@@ -183,6 +184,13 @@ export default function DashboardView() {
         loadDashboardData={loadDashboardData}
         setActiveView={setActiveView}
         approvalMetrics={approvalMetrics}
+      />
+
+      <PendingActionsWidget
+        onSelectRecord={(type, id) => {
+          if (type.toLowerCase().includes('payment')) setActiveView('payments');
+          if (type.toLowerCase().includes('po')) setActiveView('pos');
+        }}
       />
 
       <DashboardCashflowSection

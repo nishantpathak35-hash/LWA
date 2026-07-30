@@ -22,8 +22,8 @@ export async function GET(request) {
     // Fallback to legacy file if database logo is not set
     if (!logoUri) {
       try {
-        const cleanPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_CLEAN.png');
-        const goldPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png');
+        const cleanPath = path.join(process.cwd(), 'public', 'branding', 'LWA_PRIMARY_LOGO_CLEAN.png');
+        const goldPath = path.join(process.cwd(), 'public', 'branding', 'LWA_PRIMARY_LOGO_2_GOLD.png');
         const scratchPath = path.join(process.cwd(), 'scratch', 'logo_uri.txt');
 
         if (fs.existsSync(cleanPath)) {

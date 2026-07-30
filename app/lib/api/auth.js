@@ -96,21 +96,11 @@ export async function loginUser(email, password, meta = {}) {
     throw new Error('Account not activated. Please contact your administrator to receive an invite or password reset.');
   }
 
-  let isValid = false;
   const storedHash = user.password_hash;
-  if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$')) {
-    isValid = bcrypt.compareSync(password, storedHash);
-  } else {
-    // P0-2: Legacy SHA-256 migration only — plaintext fallback removed
-    const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
-    if (storedHash === legacyHash) {
-      isValid = true;
-      // Auto-upgrade to bcrypt on successful legacy login
-      const newBcryptHash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
-      await queryRun(`UPDATE users SET password_hash = ? WHERE LOWER(email) = ?`, [newBcryptHash, normEmail]);
-      user.password_hash = newBcryptHash;
-    }
+  if (!storedHash.startsWith('$2a$') && !storedHash.startsWith('$2b$')) {
+    throw new Error('Your account requires a password reset to upgrade security. Please click Forgot Password or contact an admin.');
   }
+  const isValid = bcrypt.compareSync(password, storedHash);
 
   if (!isValid) {
     recordFailedAttempt(normEmail);
@@ -387,4 +377,16 @@ export async function updateUserDetailsAdmin(email, details, session) {
   );
   await logAudit(session.email, 'User Details Updated', email, 'Settings');
   return { ok: true };
+}
+
+export async function listLegacyHashUsers(session) {
+  requireAdminConsole(session);
+  return AuthService.getLegacyPasswordHashUsers();
+}
+
+export async function forcePasswordResetLegacy(targetEmail, session) {
+  requireAdminConsole(session);
+  const result = await AuthService.forcePasswordResetForLegacyUsers(targetEmail);
+  await logAudit(session.email, 'Force Legacy Password Reset', targetEmail || 'All Legacy Users', 'Settings');
+  return result;
 }

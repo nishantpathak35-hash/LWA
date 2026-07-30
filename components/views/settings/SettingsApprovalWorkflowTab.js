@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
-import SettingsWorkflowEditorModal from './SettingsWorkflowEditorModal';
+import dynamic from 'next/dynamic';
 import { Edit, Plus, Copy, Trash2 } from 'lucide-react';
 import { toast } from '../../ui/Toast';
+
+const SettingsWorkflowEditorModal = dynamic(() => import('./SettingsWorkflowEditorModal'), { ssr: false });
 
 export default function SettingsApprovalWorkflowTab() {
   const { call } = useAppState();

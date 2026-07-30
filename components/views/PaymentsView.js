@@ -11,17 +11,25 @@ import { PlusCircle, Search, CreditCard, ShieldCheck, ShieldAlert, History, Ban,
 
 import PaymentFilters from './payments/PaymentFilters';
 import PaymentListTable from './payments/PaymentListTable';
-import PaymentFormModal from './payments/PaymentFormModal';
+import dynamic from 'next/dynamic';
 import PaymentApprovalModal from './payments/PaymentApprovalModal';
 import PaymentHistoryModal from './payments/PaymentHistoryModal';
 import MultiSelectActionBar from './payments/MultiSelectActionBar';
 import BulkApprovalReviewModal from './payments/BulkApprovalReviewModal';
 import BulkRejectModal from './payments/BulkRejectModal';
+import QueryClarificationModal from './payments/QueryClarificationModal';
+
+const PaymentFormModal = dynamic(() => import('./payments/PaymentFormModal'), { ssr: false });
 
 export default function PaymentsView() {
   const { payments, setPayments, vendors, pos, user, call, refreshData, tdsSections, hasMorePayments, loadMorePayments } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('active'); // active, pending
+  
+  // Query Modal state
+  const [queryModalOpen, setQueryModalOpen] = useState(false);
+  const [queryModalPayment, setQueryModalPayment] = useState(null);
+  const [queryModalMode, setQueryModalMode] = useState('ask');
   
   // Payment Request Form state
   const [requestModalOpen, setRequestModalOpen] = useState(false);
@@ -348,7 +356,6 @@ export default function PaymentsView() {
   };
 
   // ── Keyboard shortcut: G → P → N opens New Payment Request modal ──
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const handler = () => { if (canOnboard) handleOpenRequestModal(); };
     window.addEventListener('lx:new-payment-request', handler);
@@ -886,6 +893,15 @@ export default function PaymentsView() {
         </div>
       </Dialog>
 
+      <QueryClarificationModal
+        open={queryModalOpen}
+        onClose={() => setQueryModalOpen(false)}
+        payment={queryModalPayment}
+        mode={queryModalMode}
+        onSubmitSuccess={() => {
+          refreshData();
+        }}
+      />
     </div>
   );
 }

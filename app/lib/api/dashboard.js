@@ -51,8 +51,8 @@ export async function getBootBundle(session) {
   }
   const [kpis, master, payments, featurePermissions] = await Promise.all([
     getDashboardKPIs(session),
-    getMasterData(session),
-    listPaymentRequests(undefined, session),
+    getMasterData(session, { limit: 50, offset: 0 }),
+    listPaymentRequests({ limit: 50, offset: 0 }, session),
     getFeaturePermissions(session)
   ]);
   
@@ -143,10 +143,10 @@ export async function getDashboardKPIs(session) {
 
 
 
-export async function getMasterData(session) {
+export async function getMasterData(session, options = { limit: 50, offset: 0 }) {
   requireAuth(session);
-  const vendors = await VendorService.getAllVendors();
-  const pos = await POService.getAllPOs();
+  const vendors = await VendorService.getAllVendors(options);
+  const pos = await POService.getAllPOs(options);
   let tdsSections = [];
   try {
     tdsSections = await queryAll(`SELECT * FROM tds_sections WHERE is_active = 1 ORDER BY sort_order ASC, section_code ASC`);
@@ -154,8 +154,14 @@ export async function getMasterData(session) {
     console.error('Failed to load TDS sections:', e);
   }
   
-  // Extract unique projects and vendors from POs
+  // Extract unique projects and vendors from DB & POs
   const projectSet = new Set();
+  try {
+    const projRows = await queryAll(`SELECT DISTINCT project FROM purchase_orders WHERE project IS NOT NULL AND project != '' UNION SELECT DISTINCT project FROM project_financials WHERE project IS NOT NULL AND project != ''`);
+    projRows.forEach(r => { if (r.project) projectSet.add(r.project); });
+  } catch (e) {
+    pos.forEach(p => { if (p.project) projectSet.add(p.project); });
+  }
   const masterVendors = vendors.map(v => ({ 
     recordId: v.id,
     code: v.vendor_code || '',
@@ -365,7 +371,12 @@ export async function getMasterHealth(session) {
 
 export async function getVendorsOnly(options, session) {
   requireAuth(session);
-  const vendors = await VendorService.getAllVendors(options);
+  const [vendors, total] = await Promise.all([
+    VendorService.getAllVendors(options),
+    VendorService.getVendorCount()
+  ]);
+  const limit = options?.limit ?? 50;
+  const offset = options?.offset ?? 0;
   const masterVendors = vendors.map(v => ({
     recordId: v.id,
     code: v.vendor_code,
@@ -377,40 +388,46 @@ export async function getVendorsOnly(options, session) {
     address: v.address || '',
     email: v.email || v.contact_email || ''
   }));
-  return { vendors: masterVendors };
+  return { vendors: masterVendors, total, hasMore: (offset + masterVendors.length) < total };
 }
 
 export async function getPOsOnly(options, session) {
   requireAuth(session);
-  const pos = await POService.getAllPOs(options);
-  return {
-    pos: pos.map(p => ({
-      po_no: p.po_no,
-      vendor_name: p.vendor_name,
-      project: p.project,
-      po_date: p.po_date || '',
-      expected_delivery_date: p.expected_delivery_date || '',
-      category: p.category || '',
-      po_value: p.po_value,
-      paid: p.legacy_paid || 0,
-      balance: (Number(p.po_value) || 0) - (Number(p.legacy_paid) || 0),
-      status: p.approval_status || p.status || 'Draft',
-      approval_status: p.approval_status || p.status || 'Draft',
-      payment_status: p.payment_status || 'Unpaid',
-      payment_eligible: isPOEligibleForPayment(p),
-      terms: p.terms || '',
-      tds_section: p.tds_section || '',
-      tds_pct: Number(p.tds_pct) || 0,
-      tds_amount: Number(p.tds_amount) || 0,
-      gst_total: Number(p.gst_total) || 0,
-      gst_mode: p.gst_mode || 'inter',
-      vendor_key: p.vendor_key || ''
-    }))
-  };
+  const [pos, total] = await Promise.all([
+    POService.getAllPOs(options),
+    POService.getPOCount()
+  ]);
+  const limit = options?.limit ?? 50;
+  const offset = options?.offset ?? 0;
+  const mappedPOs = pos.map(p => ({
+    po_no: p.po_no,
+    vendor_name: p.vendor_name,
+    project: p.project,
+    po_date: p.po_date || '',
+    expected_delivery_date: p.expected_delivery_date || '',
+    category: p.category || '',
+    po_value: p.po_value,
+    paid: p.legacy_paid || 0,
+    balance: (Number(p.po_value) || 0) - (Number(p.legacy_paid) || 0),
+    status: p.approval_status || p.status || 'Draft',
+    approval_status: p.approval_status || p.status || 'Draft',
+    payment_status: p.payment_status || 'Unpaid',
+    payment_eligible: isPOEligibleForPayment(p),
+    terms: p.terms || '',
+    tds_section: p.tds_section || '',
+    tds_pct: Number(p.tds_pct) || 0,
+    tds_amount: Number(p.tds_amount) || 0,
+    gst_total: Number(p.gst_total) || 0,
+    gst_mode: p.gst_mode || 'inter',
+    vendor_key: p.vendor_key || ''
+  }));
+  return { pos: mappedPOs, total, hasMore: (offset + mappedPOs.length) < total };
 }
 
 export async function getPaymentsOnly(options, session) {
   requireAuth(session);
   const payments = await listPaymentRequests(options, session);
-  return { payments };
+  const limit = options?.limit ?? 50;
+  const offset = options?.offset ?? 0;
+  return { payments, hasMore: payments.length >= limit };
 }

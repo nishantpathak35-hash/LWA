@@ -10,6 +10,10 @@ export class VendorService {
     return VendorRepository.findAll(options);
   }
 
+  static async getVendorCount(): Promise<number> {
+    return VendorRepository.countAll();
+  }
+
   /**
    * Fetch vendor by name or code.
    */

@@ -14,7 +14,8 @@ import SiteDPRView from './views/operations/dpr/SiteDPRView';
 import SiteWPRView from './views/operations/wpr/SiteWPRView';
 import ErrorBoundary from './ErrorBoundary';
 import { NotificationsPanel } from './ui/NotificationsPanel';
-import { Menu, Sun, Moon, AlertTriangle, X, Search } from 'lucide-react';
+import ActivityStreamDrawer from './ui/ActivityStreamDrawer';
+import { Menu, Sun, Moon, AlertTriangle, X, Search, Activity } from 'lucide-react';
 import { Button } from './ui/core';
 import { CommandPalette } from './ui/CommandPalette';
 
@@ -94,6 +95,7 @@ function getSessionHoursRemaining() {
 export default function MainLayout() {
   const { activeView, hasPermission, user, setActiveView } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activityDrawerOpen, setActivityDrawerOpen] = useState(false);
   const [theme, setTheme] = useState(readStoredTheme);
   const [sessionHours, setSessionHours] = useState(null);
   const [sessionWarningDismissed, setSessionWarningDismissed] = useState(false);
@@ -316,6 +318,15 @@ export default function MainLayout() {
             )}
             {/* Notifications bell */}
             <NotificationsPanel />
+            {/* Activity Stream Drawer Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setActivityDrawerOpen(true)}
+              title="Team Activity Stream"
+            >
+              <Activity className="w-4 h-4 text-amber-600 dark:text-gold" />
+            </Button>
             {/* Theme toggle */}
             <Button variant="ghost" size="icon" onClick={toggleTheme} title="Toggle theme">
               {theme === 'dark' ? (
@@ -326,6 +337,11 @@ export default function MainLayout() {
             </Button>
           </div>
         </header>
+
+        <ActivityStreamDrawer
+          open={activityDrawerOpen}
+          onClose={() => setActivityDrawerOpen(false)}
+        />
 
         {/* ── Session expiry warning banner ── */}
         {showSessionWarning && (

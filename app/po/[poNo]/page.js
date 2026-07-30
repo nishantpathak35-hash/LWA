@@ -42,8 +42,8 @@ export default async function POPdfPage({ params }) {
     }
     
     if (!rawLogo) {
-      const cleanLogoPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_CLEAN.png');
-      const goldLogoPath = path.join(process.cwd(), 'LWA_PRIMARY_LOGO_2_GOLD.png');
+      const cleanLogoPath = path.join(process.cwd(), 'public', 'branding', 'LWA_PRIMARY_LOGO_CLEAN.png');
+      const goldLogoPath = path.join(process.cwd(), 'public', 'branding', 'LWA_PRIMARY_LOGO_2_GOLD.png');
       const scratchLogoPath = path.join(process.cwd(), 'scratch', 'logo_uri.txt');
       if (fs.existsSync(cleanLogoPath)) {
         rawLogo = `data:image/png;base64,${fs.readFileSync(cleanLogoPath).toString('base64')}`;
@@ -68,7 +68,7 @@ export default async function POPdfPage({ params }) {
   // Read Signature & Stamp Logo
   let signatureUri = '';
   try {
-    const sigPath = path.join(process.cwd(), 'Logo.jpeg');
+    const sigPath = path.join(process.cwd(), 'public', 'branding', 'Logo.jpeg');
     if (fs.existsSync(sigPath)) {
       const imgBuffer = fs.readFileSync(sigPath);
       signatureUri = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;

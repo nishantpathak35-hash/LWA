@@ -324,25 +324,25 @@ export default function ReportsTables({
       );
     }
 
-    // Legacy payment reports
+    // Main payment reports table
     const rows = data || [];
     return (
       <Table id="tblReports">
         <TableHeader>
-          <TableRow>
-            <TableHead>ID</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Vendor</TableHead>
-            <TableHead>Project</TableHead>
-            <TableHead>PO</TableHead>
-            <TableHead className="text-right">Gross Amount</TableHead>
-            <TableHead className="text-right text-violet-400">TDS</TableHead>
-            <TableHead className="text-right text-emerald-400 font-semibold">Net Payment</TableHead>
-            <TableHead className="text-right font-mono text-amber-300">UTR / Ref No.</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Workflow</TableHead>
-            <TableHead>Rejected By</TableHead>
-            <TableHead className="text-center">Actions</TableHead>
+          <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableHead className="w-[50px] text-xs font-bold text-muted-foreground uppercase tracking-wider">ID</TableHead>
+            <TableHead className="w-[90px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</TableHead>
+            <TableHead className="min-w-[160px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Vendor</TableHead>
+            <TableHead className="min-w-[140px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Project</TableHead>
+            <TableHead className="w-[140px] text-xs font-bold text-muted-foreground uppercase tracking-wider">PO Number</TableHead>
+            <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Gross Amt</TableHead>
+            <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">TDS</TableHead>
+            <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Net Payment</TableHead>
+            <TableHead className="w-[130px] text-xs font-bold text-muted-foreground uppercase tracking-wider">UTR / Ref</TableHead>
+            <TableHead className="w-[110px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</TableHead>
+            <TableHead className="w-[80px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval</TableHead>
+            <TableHead className="w-[100px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Rejected</TableHead>
+            <TableHead className="w-[150px] text-right text-xs font-bold text-muted-foreground uppercase tracking-wider pr-4">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -356,23 +356,39 @@ export default function ReportsTables({
               const canSendAdvice = String(p.stage || '').toLowerCase().trim() === 'remitted' || String(p.remittance || '').toLowerCase().trim() === 'remitted';
 
               return (
-                <TableRow key={p.rowNumber || idx}>
-                  <TableCell className="font-bold text-amber-700 dark:text-gold">{p.sNo}</TableCell>
-                  <TableCell className="text-xs text-slate-700 dark:text-slate-400 font-medium">
+                <TableRow key={p.rowNumber || idx} className="hover:bg-muted/30 transition-colors">
+                  <TableCell className="font-bold text-amber-700 dark:text-gold text-xs">#{p.sNo}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground font-medium whitespace-nowrap">
                     {p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}
                   </TableCell>
-                  <TableCell className="font-bold text-slate-900 dark:text-slate-100">{p.vendor}</TableCell>
-                  <TableCell className="font-medium text-slate-800 dark:text-slate-200">{p.project || '—'}</TableCell>
-                  <TableCell className="font-mono text-xs text-slate-800 dark:text-slate-300">{p.poNo || '—'}</TableCell>
-                  <TableCell className="text-right font-medium tabular-nums">{fmtRupees(gross)}</TableCell>
-                  <TableCell className="text-right text-violet-600 dark:text-violet-400 font-medium tabular-nums">{fmtRupees(tds)}</TableCell>
-                  <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-bold tabular-nums">{fmtRupees(net)}</TableCell>
-                  <TableCell className="font-mono text-xs text-amber-700 dark:text-amber-300 font-medium">{p.remittance_ref || p.utr || '—'}</TableCell>
-                  <TableCell>{stageBadge(p.stage)}</TableCell>
-                  <TableCell>{wfSteps(p)}</TableCell>
-                  <TableCell className={p.rejectedBy ? 'text-red-600 dark:text-red-400 font-medium' : 'text-slate-500 dark:text-slate-400'}>{rejBy}</TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-2">
+                  <TableCell className="font-semibold text-foreground max-w-[200px] truncate text-xs" title={p.vendor}>
+                    {p.vendor}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate" title={p.project}>
+                    {p.project || '—'}
+                  </TableCell>
+                  <TableCell className="font-mono text-[11px] text-muted-foreground font-medium whitespace-nowrap">
+                    {p.poNo || '—'}
+                  </TableCell>
+                  <TableCell className="text-right text-xs font-medium tabular-nums text-foreground">
+                    {fmtRupees(gross)}
+                  </TableCell>
+                  <TableCell className="text-right text-xs text-violet-700 dark:text-violet-400 font-medium tabular-nums">
+                    {fmtRupees(tds)}
+                  </TableCell>
+                  <TableCell className="text-right text-xs text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">
+                    {fmtRupees(net)}
+                  </TableCell>
+                  <TableCell className="font-mono text-[11px] text-amber-700 dark:text-amber-300 font-medium max-w-[120px] truncate" title={p.remittance_ref || p.utr}>
+                    {p.remittance_ref || p.utr || '—'}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">{stageBadge(p.stage)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{wfSteps(p)}</TableCell>
+                  <TableCell className={`text-xs whitespace-nowrap ${p.rejectedBy ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground'}`}>
+                    {rejBy}
+                  </TableCell>
+                  <TableCell className="text-right pr-4 whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1.5">
                       {(isAdmin || isDirector || isFinance) && handleOpenEditModal && (
                         <Button
                           variant="outline"
@@ -388,7 +404,7 @@ export default function ReportsTables({
                         <Button
                           variant="primary"
                           size="sm"
-                          className="h-7 text-[10px] px-2"
+                          className="h-7 text-[10px] px-2 font-semibold"
                           onClick={() => handleOpenRemitModal(p)}
                         >
                           Remit
@@ -401,7 +417,7 @@ export default function ReportsTables({
                           onClick={() => handleSendPaymentAdvice(p)}
                           title="Send Payment Advice Email"
                           disabled={sendingAdviceId === p.id}
-                          className="text-gold hover:text-gold/80"
+                          className="h-7 w-7 text-amber-600 dark:text-gold hover:bg-amber-500/10"
                         >
                           {sendingAdviceId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
                         </Button>
@@ -410,15 +426,12 @@ export default function ReportsTables({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-7 text-[10px] px-2"
+                          className="text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-500/10 h-7 text-[10px] px-2"
                           onClick={() => handleDeleteRemittedPayment(p)}
                           title="Delete Payment Request"
                         >
                           Delete
                         </Button>
-                      )}
-                      {!canSendAdvice && !(canRemit && (String(p.stage || '').toLowerCase() === 'approved' || String(p.stage || '').toLowerCase().includes('remit')) && !String(p.stage || '').toLowerCase().includes('remitted')) && !((isAdmin || isDirector || isFinance) && String(p.stage || '').toLowerCase() === 'remitted') && (
-                        <span className="text-slate-700">—</span>
                       )}
                     </div>
                   </TableCell>
@@ -427,7 +440,7 @@ export default function ReportsTables({
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={13} className="text-center py-10 text-slate-500">
+              <TableCell colSpan={13} className="text-center py-10 text-muted-foreground font-medium">
                 No items match your filters.
               </TableCell>
             </TableRow>

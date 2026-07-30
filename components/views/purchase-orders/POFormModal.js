@@ -1,6 +1,7 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
 import AttachmentsSection from '../../ui/AttachmentsSection';
+import RecordDiscussionThread from '../../ui/RecordDiscussionThread';
 import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import { GST_RATES, UOM_OPTIONS } from './po-constants';
@@ -347,8 +348,9 @@ export default function POFormModal(props) {
           )}
 
           {poNo ? (
-            <div className="pt-4 border-t border-border mt-4">
+            <div className="pt-4 border-t border-border mt-4 space-y-4">
               <AttachmentsSection entityType="po" entityId={poNo} />
+              <RecordDiscussionThread recordType="PO" recordId={poNo} />
             </div>
           ) : (
             <div className="pt-4 border-t border-border mt-4 p-4 text-center border border-border border-dashed rounded-xl text-xs text-muted-foreground font-medium">

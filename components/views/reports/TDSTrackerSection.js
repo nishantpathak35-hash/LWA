@@ -3,8 +3,10 @@ import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, 
 import { FileText, Download, CheckCircle, Clock, AlertCircle, Search, Filter, ExternalLink, Plus, Landmark } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import { useAppState } from '../../StateProvider';
-import TDSChallan281Modal from './TDSChallan281Modal';
+import dynamic from 'next/dynamic';
 import { getITDSectionCode, generate26QFileContent } from '../../../app/lib/tdsChallan281';
+
+const TDSChallan281Modal = dynamic(() => import('./TDSChallan281Modal'), { ssr: false });
 
 export default function TDSTrackerSection({ payments = [], vendors = [] }) {
   const { call } = useAppState();

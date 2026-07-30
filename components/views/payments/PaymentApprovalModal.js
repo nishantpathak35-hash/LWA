@@ -10,7 +10,7 @@ export default function PaymentApprovalModal({
   approvalApprovedAmount, setApprovalApprovedAmount, displayedTdsHold, displayedApprovedAmount,
   displayedNetAfterTds, utr, setUtr, comment, setComment, submitting, handleWorkflowAction,
   loadingSummary, projectSummary, getHealthTheme, selectedRequestGross, progressWidths, formError,
-  tdsSections
+  tdsSections, onOpenQueryModal
 }) {
   return (
     <>
@@ -129,13 +129,31 @@ export default function PaymentApprovalModal({
             </div>
           )}
 
-          <div className="pt-4 border-t border-border flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setWorkflowModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? 'Saving...' : workflowAction === 'approve' ? 'Approve' : workflowAction === 'remit' ? 'Remit' : 'Reject'}
-            </Button>
+          <div className="pt-4 border-t border-border flex items-center justify-between gap-3">
+            <div>
+              {onOpenQueryModal && selectedRequest && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-amber-700 dark:text-gold border-amber-500/30 hover:bg-amber-500/10 text-xs font-semibold"
+                  onClick={() => {
+                    setWorkflowModalOpen(false);
+                    onOpenQueryModal(selectedRequest);
+                  }}
+                >
+                  ❓ Request Clarification (Query Hold)
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={() => setWorkflowModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={submitting}>
+                {submitting ? 'Saving...' : workflowAction === 'approve' ? 'Approve' : workflowAction === 'remit' ? 'Remit' : 'Reject'}
+              </Button>
+            </div>
           </div>
         </form>
       </Dialog>

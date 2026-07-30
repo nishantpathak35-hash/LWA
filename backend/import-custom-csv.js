@@ -26,7 +26,7 @@ function parseNumber(val) {
 async function runImport() {
   console.log('Connecting to Turso...');
   
-  const filePath = path.join(process.cwd(), 'Sheet.csv');
+  const filePath = path.join(process.cwd(), 'backend', 'seed-data', 'Sheet.csv');
   
   if (!fs.existsSync(filePath)) {
     console.error('Sheet.csv not found at', filePath);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
-import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail, MessageSquare } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import { getPaymentPriorityScore } from '../../../app/lib/paymentAI';
 
@@ -99,17 +99,19 @@ export default function PaymentListTable({
                             ({reqPct}%)
                           </span>
                         </TableCell>
-                      <TableCell>
-                        <Badge
+                        <TableCell>
+                          <Badge
                           variant={
-                            String(req.status || '').toLowerCase().includes('remitted')
+                            req.query_status === 'hold'
+                              ? 'warning'
+                              : String(req.status || '').toLowerCase().includes('remitted')
                               ? 'success'
                               : String(req.status || '').toLowerCase().includes('reject')
                               ? 'error'
                               : 'pending'
                           }
                         >
-                          {req.status || 'Pending'}
+                          {req.query_status === 'hold' ? 'Query Hold' : (req.status || 'Pending')}
                         </Badge>
                         {String(req.status || '').toLowerCase() === 'pending' && getPaymentPriorityScore(req) !== null && (
                           <div className="mt-1">
@@ -129,7 +131,10 @@ export default function PaymentListTable({
                             <CheckSquare className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                           </Button>
                         )}
- 
+
+                        <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="Discussion & Team Activity Thread">
+                          <MessageSquare className="w-4 h-4 text-amber-600 dark:text-gold hover:text-amber-700" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="View Logs Trail">
                           <History className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                         </Button>

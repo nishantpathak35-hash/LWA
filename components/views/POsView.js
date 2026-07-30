@@ -19,10 +19,12 @@ import {
 
 import POFilters from './purchase-orders/POFilters';
 import POListTable from './purchase-orders/POListTable';
-import POFormModal from './purchase-orders/POFormModal';
+import dynamic from 'next/dynamic';
 import POApprovalModal from './purchase-orders/POApprovalModal';
 import POHistoryModal from './purchase-orders/POHistoryModal';
 import POManualPaymentModal from './purchase-orders/POManualPaymentModal';
+
+const POFormModal = dynamic(() => import('./purchase-orders/POFormModal'), { ssr: false });
 import { GST_RATES, PAYMENT_MODES, UOM_OPTIONS } from './purchase-orders/po-constants';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

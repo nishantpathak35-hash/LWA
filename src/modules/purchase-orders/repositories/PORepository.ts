@@ -6,7 +6,7 @@ export class PORepository {
    * Retrieves all purchase orders.
    */
   static async findAll(options?: { limit?: number; offset?: number }): Promise<IPO[]> {
-    const limit = options?.limit ?? 10000;
+    const limit = options?.limit === 0 ? 100000 : (options?.limit ?? 50);
     const offset = options?.offset ?? 0;
     return queryAll(`
       SELECT p.*,
@@ -15,6 +15,11 @@ export class PORepository {
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
     `, [limit, offset]);
+  }
+
+  static async countAll(): Promise<number> {
+    const row = await queryGet(`SELECT COUNT(*) as total FROM purchase_orders`);
+    return Number(row?.total || 0);
   }
 
   /**

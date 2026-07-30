@@ -7,14 +7,16 @@ import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Table, 
 import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loader2, ClipboardList, ChevronLeft, ChevronRight, Search, ArrowUpDown, Building2, Mail, IndianRupee, Wrench, RefreshCw, Sliders, Layers, Database } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
-import SettingsCompanyTab from './settings/SettingsCompanyTab';
-import SettingsSystemTab from './settings/SettingsSystemTab';
-import SettingsAuditTab from './settings/SettingsAuditTab';
-import SettingsPermissionsTab from './settings/SettingsPermissionsTab';
-import SettingsUsersTab from './settings/SettingsUsersTab';
-import SettingsTDSTab from './settings/SettingsTDSTab';
-import SettingsNumberSeriesTab from './settings/SettingsNumberSeriesTab';
-import SettingsApprovalWorkflowTab from './settings/SettingsApprovalWorkflowTab';
+import dynamic from 'next/dynamic';
+
+const SettingsCompanyTab = dynamic(() => import('./settings/SettingsCompanyTab'), { ssr: false });
+const SettingsSystemTab = dynamic(() => import('./settings/SettingsSystemTab'), { ssr: false });
+const SettingsAuditTab = dynamic(() => import('./settings/SettingsAuditTab'), { ssr: false });
+const SettingsPermissionsTab = dynamic(() => import('./settings/SettingsPermissionsTab'), { ssr: false });
+const SettingsUsersTab = dynamic(() => import('./settings/SettingsUsersTab'), { ssr: false });
+const SettingsTDSTab = dynamic(() => import('./settings/SettingsTDSTab'), { ssr: false });
+const SettingsNumberSeriesTab = dynamic(() => import('./settings/SettingsNumberSeriesTab'), { ssr: false });
+const SettingsApprovalWorkflowTab = dynamic(() => import('./settings/SettingsApprovalWorkflowTab'), { ssr: false });
 export default function SettingsView() {
   const { call, user, refreshData } = useAppState();
   const [activeTab, setActiveTab] = useState('users');

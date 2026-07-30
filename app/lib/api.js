@@ -20,5 +20,6 @@ export { submitDPR, listDPRs, getDPR, updateDPR, deleteDPR, listTemplates, creat
 export { listSchedules, saveSchedule, getWPRAggregation, createWPRReport, listWPRReports, getWPRReport, deleteWPRReport } from './api/wpr.js';
 export { acquireDocumentLock, releaseDocumentLock, getActiveLocks } from './api/locks.js';
 export { registerPresence, deregisterPresence, getActivePresence } from './api/presence.js';
+export { addComment, getComments, requestPaymentClarification, answerPaymentClarification, getActivityStream, createTask, getUserTasks, updateTaskStatus } from './api/collaboration.js';
 
 
