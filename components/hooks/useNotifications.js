@@ -204,10 +204,12 @@ export function useNotifications({ call, user, enabled = true }) {
     }
   }, [call, user]);
 
-  // Initial load
+  // Initial load & 25s poll interval
   useEffect(() => {
     if (enabled && user) {
       refreshNotifications();
+      const interval = setInterval(refreshNotifications, 25000);
+      return () => clearInterval(interval);
     }
   }, [enabled, user, refreshNotifications]);
 
