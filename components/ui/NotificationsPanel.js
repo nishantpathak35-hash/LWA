@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppState } from '../StateProvider';
-import { Bell, CheckCircle2, Clock, AlertTriangle, CreditCard, X } from 'lucide-react';
+import { Bell, CheckCircle2, Clock, AlertTriangle, CreditCard, X, Volume2, Smartphone, ShieldAlert } from 'lucide-react';
 import { formatTimeAgo } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
 
