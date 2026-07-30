@@ -207,12 +207,12 @@ export function StateProvider({ children }) {
           setPos(loadedPOs);
           setProjects(bundle.master.projects || []);
           setTdsSections(bundle.master.tdsSections || []);
-          setHasMoreVendors(loadedVendors.length >= 100);
-          setHasMorePOs(loadedPOs.length >= 100);
+          setHasMoreVendors(false);
+          setHasMorePOs(false);
         }
         const loadedPayments = bundle.payments || [];
         setPayments(loadedPayments);
-        setHasMorePayments(loadedPayments.length >= 100);
+        setHasMorePayments(false);
         if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
           setFeaturePermissions(bundle.featurePermissions);
         }
@@ -228,10 +228,10 @@ export function StateProvider({ children }) {
   const refreshVendors = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await call('getVendorsOnly', { limit: 100, offset: 0 });
+      const res = await call('getVendorsOnly', { limit: 0, offset: 0 });
       if (res && res.vendors) {
         setVendors(res.vendors);
-        setHasMoreVendors(res.vendors.length >= 100);
+        setHasMoreVendors(res.hasMore ?? false);
       }
     } catch (e) {
       console.error('Vendors refresh failed:', e);
@@ -241,10 +241,10 @@ export function StateProvider({ children }) {
   const refreshPOs = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await call('getPOsOnly', { limit: 100, offset: 0 });
+      const res = await call('getPOsOnly', { limit: 0, offset: 0 });
       if (res && res.pos) {
         setPos(res.pos);
-        setHasMorePOs(res.pos.length >= 100);
+        setHasMorePOs(res.hasMore ?? false);
       }
     } catch (e) {
       console.error('POs refresh failed:', e);
@@ -254,10 +254,10 @@ export function StateProvider({ children }) {
   const refreshPayments = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await call('getPaymentsOnly', { limit: 100, offset: 0 });
+      const res = await call('getPaymentsOnly', { limit: 0, offset: 0 });
       if (res && res.payments) {
         setPayments(res.payments);
-        setHasMorePayments(res.payments.length >= 100);
+        setHasMorePayments(res.hasMore ?? false);
       }
     } catch (e) {
       console.error('Payments refresh failed:', e);
@@ -298,7 +298,7 @@ export function StateProvider({ children }) {
       const currentOffset = pos.length;
       const res = await call('getPOsOnly', { limit: 100, offset: currentOffset });
       if (res && res.pos) {
-        setHasMorePOs(res.pos.length >= 100);
+        setHasMorePOs(res.hasMore ?? false);
         setPos(prev => {
           const existingNos = new Set(prev.map(p => p.po_no));
           const newPOs = res.pos.filter(p => !existingNos.has(p.po_no));

@@ -29,7 +29,7 @@ export class PaymentRepository {
       params.push(filters.vendor_code);
     }
     sql += ` ORDER BY pr_id DESC`;
-    const limit = options?.limit ?? 100;
+    const limit = options?.limit === 0 || options?.limit === undefined ? 100000 : options.limit;
     const offset = options?.offset ?? 0;
     sql += ` LIMIT ? OFFSET ?`;
     params.push(limit, offset);

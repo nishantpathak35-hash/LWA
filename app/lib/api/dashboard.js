@@ -51,8 +51,8 @@ export async function getBootBundle(session) {
   }
   const [kpis, master, payments, featurePermissions] = await Promise.all([
     getDashboardKPIs(session),
-    getMasterData(session, { limit: 50, offset: 0 }),
-    listPaymentRequests({ limit: 50, offset: 0 }, session),
+    getMasterData(session, { limit: 0, offset: 0 }),
+    listPaymentRequests({ limit: 0, offset: 0 }, session),
     getFeaturePermissions(session)
   ]);
   
@@ -143,7 +143,7 @@ export async function getDashboardKPIs(session) {
 
 
 
-export async function getMasterData(session, options = { limit: 50, offset: 0 }) {
+export async function getMasterData(session, options = { limit: 0, offset: 0 }) {
   requireAuth(session);
   const vendors = await VendorService.getAllVendors(options);
   const pos = await POService.getAllPOs(options);
@@ -375,7 +375,7 @@ export async function getVendorsOnly(options, session) {
     VendorService.getAllVendors(options),
     VendorService.getVendorCount()
   ]);
-  const limit = options?.limit ?? 50;
+  const limit = options?.limit === 0 ? 100000 : (options?.limit ?? 100);
   const offset = options?.offset ?? 0;
   const masterVendors = vendors.map(v => ({
     recordId: v.id,
@@ -397,7 +397,7 @@ export async function getPOsOnly(options, session) {
     POService.getAllPOs(options),
     POService.getPOCount()
   ]);
-  const limit = options?.limit ?? 50;
+  const limit = options?.limit === 0 ? 100000 : (options?.limit ?? 100);
   const offset = options?.offset ?? 0;
   const mappedPOs = pos.map(p => ({
     po_no: p.po_no,
@@ -427,7 +427,7 @@ export async function getPOsOnly(options, session) {
 export async function getPaymentsOnly(options, session) {
   requireAuth(session);
   const payments = await listPaymentRequests(options, session);
-  const limit = options?.limit ?? 50;
+  const limit = options?.limit === 0 ? 100000 : (options?.limit ?? 100);
   const offset = options?.offset ?? 0;
   return { payments, hasMore: payments.length >= limit };
 }
