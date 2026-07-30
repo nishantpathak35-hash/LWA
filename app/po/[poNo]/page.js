@@ -254,17 +254,17 @@ export default async function POPdfPage({ params }) {
         </div>
 
         {/* Line Items Table */}
-        <div className="mb-3 print:mb-2">
-          <table className="w-full border-collapse border border-gray-300 text-xs font-sans">
+        <div className="mb-3 print:mb-2 overflow-x-auto">
+          <table className="w-full border-collapse border border-gray-300 text-xs font-sans table-fixed" style={{ tableLayout: 'fixed', width: '100%' }}>
             <thead>
               <tr className="bg-gray-100 text-gray-800 border-b border-gray-300 font-bold">
-                <th className="border border-gray-300 px-2 py-1 text-center w-8">#</th>
-                <th className="border border-gray-300 px-2 py-1 text-left">Description</th>
-                <th className="border border-gray-300 px-2 py-1 text-center w-20">HSN/SAC</th>
-                <th className="border border-gray-300 px-2 py-1 text-center w-12">Qty</th>
-                <th className="border border-gray-300 px-2 py-1 text-center w-14">Unit</th>
-                <th className="border border-gray-300 px-2 py-1 text-right w-24">Rate (INR)</th>
-                <th className="border border-gray-300 px-2 py-1 text-right w-28">Amount</th>
+                <th className="border border-gray-300 px-2 py-1 text-center" style={{ width: '5%' }}>#</th>
+                <th className="border border-gray-300 px-2 py-1 text-left" style={{ width: '43%' }}>Description</th>
+                <th className="border border-gray-300 px-2 py-1 text-center" style={{ width: '11%' }}>HSN/SAC</th>
+                <th className="border border-gray-300 px-2 py-1 text-center" style={{ width: '7%' }}>Qty</th>
+                <th className="border border-gray-300 px-2 py-1 text-center" style={{ width: '8%' }}>Unit</th>
+                <th className="border border-gray-300 px-2 py-1 text-right" style={{ width: '13%' }}>Rate (INR)</th>
+                <th className="border border-gray-300 px-2 py-1 text-right" style={{ width: '13%' }}>Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -276,12 +276,12 @@ export default async function POPdfPage({ params }) {
                 items.map((it, idx) => (
                   <tr key={idx} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                     <td className="border border-gray-300 px-2 py-1 text-center align-top">{idx + 1}</td>
-                    <td className="border border-gray-300 px-2 py-1 font-serif text-[11px] align-top whitespace-pre-wrap leading-tight">{it.description}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-center align-top">{it.hsn_sac || '—'}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-center align-top">{it.qty}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-center align-top">{it.unit || 'Nos'}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-right align-top">{Number(it.rate).toLocaleString('en-IN')}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-right align-top font-medium">
+                    <td className="border border-gray-300 px-2 py-1 font-serif text-[11px] align-top whitespace-pre-wrap break-words leading-tight" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{it.description}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-center align-top font-mono text-[10.5px]">{it.hsn_sac || '—'}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-center align-top font-sans">{it.qty}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-center align-top font-sans">{it.unit || 'Nos'}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-right align-top font-sans">{Number(it.rate).toLocaleString('en-IN')}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-right align-top font-medium font-sans">
                       ₹{((Number(it.qty) || 0) * (Number(it.rate) || 0)).toLocaleString('en-IN')}
                     </td>
                   </tr>

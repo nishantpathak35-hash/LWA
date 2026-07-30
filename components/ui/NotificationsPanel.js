@@ -134,6 +134,7 @@ export function NotificationsPanel() {
 
   }, [payments, dismissed, isAdmin, isDirector, isFinance, isProcurement]);
 
+  const actionCount = notifications.filter(n => n.type === 'action').length;
   const unreadDbCount = notificationState?.unreadCount || 0;
   const totalCount = actionCount + unreadDbCount;
 
