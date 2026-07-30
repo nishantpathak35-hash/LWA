@@ -25,8 +25,16 @@ export class VendorService {
   /**
    * Check for duplicate vendor by legal name, trade name, gstin, or pan.
    */
-  static async checkVendorDuplicate(payload: { legalName?: string; tradeName?: string; gstin?: string; pan?: string; excludeVendorCode?: string }): Promise<{ isDuplicate: boolean; duplicate?: IVendor; message?: string }> {
-    const dup = await VendorRepository.findDuplicate(payload.legalName, payload.tradeName, payload.gstin, payload.pan, payload.excludeVendorCode);
+  static async checkVendorDuplicate(payload: {
+    legalName?: string;
+    tradeName?: string;
+    gstin?: string;
+    pan?: string;
+    exclude?: { id?: number; vendorCode?: string; legalName?: string } | string;
+    excludeVendorCode?: string;
+  }): Promise<{ isDuplicate: boolean; duplicate?: IVendor; message?: string }> {
+    const excludeArg = payload.exclude || payload.excludeVendorCode;
+    const dup = await VendorRepository.findDuplicate(payload.legalName, payload.tradeName, payload.gstin, payload.pan, excludeArg);
     if (!dup) return { isDuplicate: false };
 
     let field = 'legal name';
@@ -97,8 +105,15 @@ export class VendorService {
     // Ensure vendor exists
     const existing = await VendorRepository.findByNameOrCode(vendorId);
 
-    // Check duplicates excluding self
-    const dupCheck = await VendorService.checkVendorDuplicate({ ...payload, excludeVendorCode: vendorId });
+    // Check duplicates excluding self by DB id, vendor_code, and existing legal_name
+    const dupCheck = await VendorService.checkVendorDuplicate({
+      ...payload,
+      exclude: {
+        id: existing?.id,
+        vendorCode: existing?.vendor_code || vendorId,
+        legalName: existing?.legal_name
+      }
+    });
     if (dupCheck.isDuplicate) {
       throw new Error(`DUPLICATE_VENDOR: ${dupCheck.message}`);
     }

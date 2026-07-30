@@ -85,7 +85,13 @@ export class VendorRepository {
     }
   }
 
-  static async findDuplicate(legalName?: string, tradeName?: string, gstin?: string, pan?: string, excludeVendorCode?: string): Promise<IVendor | null> {
+  static async findDuplicate(
+    legalName?: string,
+    tradeName?: string,
+    gstin?: string,
+    pan?: string,
+    exclude?: { id?: number; vendorCode?: string; legalName?: string } | string
+  ): Promise<IVendor | null> {
     const cleanLegal = (legalName || '').trim().toLowerCase();
     const cleanTrade = (tradeName || '').trim().toLowerCase();
     const cleanGstin = (gstin || '').trim().toLowerCase();
@@ -114,10 +120,25 @@ export class VendorRepository {
     }
 
     let sql = `SELECT * FROM vendors WHERE (${conditions.join(' OR ')})`;
-    if (excludeVendorCode) {
-      sql += ` AND LOWER(TRIM(vendor_code)) != ? AND id != ?`;
-      params.push(excludeVendorCode.trim().toLowerCase(), Number(excludeVendorCode) || -1);
+
+    if (typeof exclude === 'string' && exclude) {
+      sql += ` AND LOWER(TRIM(vendor_code)) != ? AND LOWER(TRIM(legal_name)) != ?`;
+      params.push(exclude.trim().toLowerCase(), exclude.trim().toLowerCase());
+    } else if (typeof exclude === 'object' && exclude) {
+      if (exclude.id) {
+        sql += ` AND id != ?`;
+        params.push(exclude.id);
+      }
+      if (exclude.vendorCode) {
+        sql += ` AND LOWER(TRIM(vendor_code)) != ?`;
+        params.push(exclude.vendorCode.trim().toLowerCase());
+      }
+      if (exclude.legalName) {
+        sql += ` AND LOWER(TRIM(legal_name)) != ?`;
+        params.push(exclude.legalName.trim().toLowerCase());
+      }
     }
+
     sql += ` LIMIT 1`;
 
     return queryGet(sql, params);

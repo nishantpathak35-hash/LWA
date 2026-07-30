@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "p.o table distorted when sending over email to vendor"
 created: 2026-07-30
 updated: 2026-07-30
@@ -10,7 +10,7 @@ updated: 2026-07-30
 ## Symptoms
 - **Expected behavior**: Line items table in PO print / PDF preview has balanced, fixed column widths matching professional Purchase Order layout.
 - **Actual behavior**: Line items table column widths are distorted (HSN/SAC column stretched excessively wide, while Rate/Amount/Qty columns are compressed/squished) when line descriptions are long.
-- **Errors**: Layout distortion under browser auto-table calculation.
+- **Errors**: Layout distortion under browser auto-table calculation (`table-auto`).
 - **Timeline**: Discovered during vendor PO email / print testing.
 - **Reproduction**: Create PO with long line item description and view/print PO page.
 
@@ -27,7 +27,9 @@ updated: 2026-07-30
 - N/A
 
 ## Resolution
-- **root_cause**: pending
-- **fix**: pending
-- **verification**: pending
-- **files_changed**: []
+- **root_cause**: `app/po/[poNo]/page.js` table rendered using default browser auto table calculation (`table-auto`), causing cell content width algorithms to distort column proportions when descriptions were long.
+- **fix**: Added `table-fixed` (`tableLayout: 'fixed'`), set explicit column width percentages (`#`: 5%, `Description`: 43%, `HSN/SAC`: 11%, `Qty`: 7%, `Unit`: 8%, `Rate`: 13%, `Amount`: 13%), and added `wordBreak: 'break-word'` to description cells in `app/po/[poNo]/page.js`. Fixed missing `actionCount` variable reference in `NotificationsPanel.js`.
+- **verification**: `npx tsc --noEmit` passed with 0 errors and commit `52ce894` pushed to `origin/main`.
+- **files_changed**:
+  - `app/po/[poNo]/page.js`
+  - `components/ui/NotificationsPanel.js`
