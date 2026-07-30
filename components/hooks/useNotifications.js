@@ -64,42 +64,58 @@ export function useNotifications({ call, user, enabled = true }) {
     }
   }, []);
 
-  // Play notification sound chime (Audio element + Web Audio API synth fallback)
+  // Play notification sound chime (rich 2-note glass chime)
   const playSound = useCallback(() => {
     try {
-      if (audioRef.current) {
+      playSynthChime();
+      if (audioRef.current && hasInteractedRef.current) {
         audioRef.current.currentTime = 0;
+        audioRef.current.volume = 0.9;
         const p = audioRef.current.play();
-        if (p && typeof p.catch === 'function') {
-          p.catch(() => {
-            playSynthChime();
-          });
-        }
-      } else {
-        playSynthChime();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
       }
     } catch (e) {
       playSynthChime();
     }
   }, []);
 
-  // Web Audio synth chime helper for mobile/desktop browsers
+  // Web Audio synth crystal glass chime (C6 + G6 2-note harmony)
   const playSynthChime = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.25);
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      const now = ctx.currentTime;
+
+      // Primary tone: C6 (1046.5 Hz) - bright glass ping
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(1046.5, now);
+      gain1.gain.setValueAtTime(0.7, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+
+      // Resonant harmonic: G6 (1567.98 Hz) - elegant 2nd note (ting!)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1567.98, now + 0.08);
+      gain2.gain.setValueAtTime(0.001, now);
+      gain2.gain.setValueAtTime(0.85, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.55);
     } catch (e) {}
   };
 
