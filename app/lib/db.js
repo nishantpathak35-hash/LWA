@@ -10,6 +10,7 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
   console.log('Connected to Turso Cloud Database');
+  tursoClient.execute('PRAGMA foreign_keys = ON;').catch(e => console.error('PRAGMA foreign_keys failed:', e));
 
   // --- Optimistic concurrency: add version columns if missing ---
   const versionMigrations = [

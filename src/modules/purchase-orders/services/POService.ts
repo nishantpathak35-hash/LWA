@@ -1,4 +1,4 @@
-import { PORepository } from '../repositories/PORepository';
+import { PORepository } from '../repositories/PORepository.ts';
 import { IPOInput, IPO, IPOItem } from '../types/PO';
 import { logAudit } from '../../../../app/lib/api.js';
 
@@ -51,12 +51,22 @@ export class POService {
       totalVal = subt + gstSum - tdsAmt;
     }
 
-    const vendorName = payload.vendorName || payload.vendor || 'Unknown';
-    const vendorKey = payload.vendorCode || payload.vendor_key || 'UNKNOWN';
+    let vendorRecord = null;
+    const vQuery = payload.vendor_id || payload.vendorId || payload.vendorCode || payload.vendor_code || payload.vendor_key || payload.vendorName || payload.vendor;
+    if (vQuery) {
+      const { VendorRepository } = await import('../../vendors/repositories/VendorRepository');
+      vendorRecord = await VendorRepository.findByNameOrCode(String(vQuery));
+    }
+
+    const vendorName = vendorRecord ? vendorRecord.legal_name : (payload.vendorName || payload.vendor || 'Unknown');
+    const vendorCode = vendorRecord ? vendorRecord.vendor_code : (payload.vendorCode || payload.vendor_code || payload.vendor_key || 'UNKNOWN');
+    const vendorId = vendorRecord ? vendorRecord.id : (payload.vendor_id || payload.vendorId || null);
 
     const newPO: Omit<IPO, 'created_at' | 'paid'> = {
       po_no: poNo,
-      vendor_key: vendorKey,
+      vendor_id: vendorId || undefined,
+      vendor_code: vendorCode,
+      vendor_key: vendorCode,
       vendor_name: vendorName,
       project: payload.project || '',
       po_value: totalVal,

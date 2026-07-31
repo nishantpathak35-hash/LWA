@@ -17,6 +17,7 @@ export interface IPayment {
 export interface IPaymentRequest {
   id?: number;
   po_no: string;
+  vendor_id?: number;
   vendor_code?: string;
   vendor_name: string;
   project: string;
@@ -46,6 +47,8 @@ export interface IPaymentInput {
 
 export interface IPaymentRequestInput {
   poNo: string;
+  vendor_id?: number;
+  vendorId?: number;
   vendorCode?: string;
   vendor?: string;
   project?: string;

@@ -5,19 +5,17 @@ import { emitBroadcast } from '../broadcast.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from '../email.js';
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from '../poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from '../paymentCalculations.js';
-import { VendorService } from '../../../src/modules/vendors/services/VendorService';
-import { POService } from '../../../src/modules/purchase-orders/services/POService';
-import { PaymentService } from '../../../src/modules/payments/services/PaymentService';
-import { PaymentRepository } from '../../../src/modules/payments/repositories/PaymentRepository';
-import { AuthService } from '../../../src/modules/core/services/AuthService';
-import { SettingsService } from '../../../src/modules/core/services/SettingsService';
-import { AuditService } from '../../../src/modules/core/services/AuditService';
+import { VendorService } from '../../../src/modules/vendors/services/VendorService.ts';
+import { POService } from '../../../src/modules/purchase-orders/services/POService.ts';
+import { PaymentService } from '../../../src/modules/payments/services/PaymentService.ts';
+import { PaymentRepository } from '../../../src/modules/payments/repositories/PaymentRepository.ts';
+import { AuthService } from '../../../src/modules/core/services/AuthService.ts';
+import { SettingsService } from '../../../src/modules/core/services/SettingsService.ts';
+import { AuditService } from '../../../src/modules/core/services/AuditService.ts';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
-import { SYSTEM_FALLBACK_EMAIL } from '../config.js';
-
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -157,40 +155,24 @@ export async function getVendorSummary(vendor = '', session) {
   let sql = `SELECT * FROM vendors`;
   let params = [];
   if (vendor) {
-    sql += ` WHERE vendor_code = ? OR legal_name = ?`;
-    params = [vendor, vendor];
+    sql += ` WHERE vendor_code = ? OR legal_name = ? OR trade_name = ? OR CAST(id AS TEXT) = ?`;
+    params = [vendor, vendor, vendor, vendor];
   }
   const rows = await queryAll(sql, params);
   
-  // Also get vendors from POs if they aren't in the vendors table
-  const pos = await queryAll(`SELECT vendor_key, vendor_name FROM purchase_orders`);
-  const poVendorMap = {};
-  pos.forEach(p => {
-    if (p.vendor_name) {
-      poVendorMap[p.vendor_name] = {
-        code: p.vendor_key || '-',
-        vendor: p.vendor_name,
-        status: 'Active',
-        pan: '',
-        gstin: ''
-      };
-    }
-  });
-  
-  rows.forEach(r => {
-    const name = r.legal_name || r.name || '';
-    if (!name) return; // skip rows with no name
-    poVendorMap[name] = {
-      code: r.vendor_code || '',
-      vendor: name,
-      status: r.status || 'Active',
-      pan: r.pan || '',
-      gstin: r.gstin || '',
-      address: r.address || '',
-      email: r.email || ''
-    };
-  });
-  
-  return Object.values(poVendorMap);
+  return rows.map(r => ({
+    id: r.id,
+    recordId: r.id,
+    code: r.vendor_code || '',
+    vendorId: r.vendor_code || '',
+    vendor_code: r.vendor_code || '',
+    vendor: r.legal_name || r.trade_name || r.vendor_code,
+    legalName: r.legal_name || '',
+    tradeName: r.trade_name || '',
+    status: r.status || 'Active',
+    pan: r.pan || '',
+    gstin: r.gstin || '',
+    address: r.address || '',
+    email: r.email || ''
+  }));
 }
-

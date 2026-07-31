@@ -48,11 +48,11 @@ export class PORepository {
     const milestonesJson = typeof po.milestones === 'string' ? po.milestones : JSON.stringify(po.milestones || []);
     const sql = `
       INSERT INTO purchase_orders 
-        (po_no, vendor_key, vendor_name, project, po_value, revised_po_value, approval_status, status, po_date, terms, tds_section, tds_pct, tds_amount, gst_total, gst_mode, category, notes, expected_delivery_date, milestones) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (po_no, vendor_id, vendor_code, vendor_key, vendor_name, project, po_value, revised_po_value, approval_status, status, po_date, terms, tds_section, tds_pct, tds_amount, gst_total, gst_mode, category, notes, expected_delivery_date, milestones) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
-      po.po_no, po.vendor_key, po.vendor_name, po.project, po.po_value, po.revised_po_value || po.po_value,
+      po.po_no, po.vendor_id || null, po.vendor_code || po.vendor_key || '', po.vendor_key || po.vendor_code || '', po.vendor_name, po.project, po.po_value, po.revised_po_value || po.po_value,
       po.approval_status || 'Draft', po.status || 'Draft', po.po_date, po.terms || '',
       po.tds_section || '', po.tds_pct || 0, po.tds_amount || 0, po.gst_total || 0, po.gst_mode || 'inter',
       po.category || 'Goods', po.notes || '', po.expected_delivery_date || '', milestonesJson
@@ -90,7 +90,7 @@ export class PORepository {
     const values: any[] = [];
     
     // Allowed fields for update
-    const allowedFields = ['vendor_key', 'vendor_name', 'project', 'po_value', 'revised_po_value', 'approval_status', 'status', 'po_date', 'terms', 'tds_section', 'tds_pct', 'tds_amount', 'gst_total', 'gst_mode', 'category', 'notes', 'expected_delivery_date'];
+    const allowedFields = ['vendor_id', 'vendor_code', 'vendor_key', 'vendor_name', 'project', 'po_value', 'revised_po_value', 'approval_status', 'status', 'po_date', 'terms', 'tds_section', 'tds_pct', 'tds_amount', 'gst_total', 'gst_mode', 'category', 'notes', 'expected_delivery_date'];
 
     Object.entries(po).forEach(([key, value]) => {
       if (allowedFields.includes(key) && value !== undefined) {

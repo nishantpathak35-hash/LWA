@@ -1,7 +1,7 @@
-import { PaymentRepository } from '../repositories/PaymentRepository';
+import { PaymentRepository } from '../repositories/PaymentRepository.ts';
 import { IPaymentInput, IPaymentRequestInput, IPaymentRequest } from '../types/Payment';
-import { ApprovalWorkflowService } from '../../core/services/ApprovalWorkflowService';
-import { POService } from '../../purchase-orders/services/POService';
+import { ApprovalWorkflowService } from '../../core/services/ApprovalWorkflowService.ts';
+import { POService } from '../../purchase-orders/services/POService.ts';
 import { logAudit } from '../../../../app/lib/api.js';
 
 export class PaymentService {
@@ -38,8 +38,9 @@ export class PaymentService {
 
     await PaymentRepository.createRequest({
       po_no: payload.poNo,
-      vendor_name: payload.vendor,
-      vendor_code: payload.vendorCode || linkedPO.vendor_key || '',
+      vendor_id: linkedPO.vendor_id || undefined,
+      vendor_code: payload.vendorCode || linkedPO.vendor_code || linkedPO.vendor_key || '',
+      vendor_name: payload.vendor || linkedPO.vendor_name,
       project: payload.project || linkedPO.project || '',
       category: payload.category || linkedPO.category || '',
       amount_requested: reqAmt,

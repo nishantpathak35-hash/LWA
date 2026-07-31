@@ -4,13 +4,13 @@ import { queryAll, queryGet, queryRun } from '../db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from '../email.js';
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from '../poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from '../paymentCalculations.js';
-import { VendorService } from '../../../src/modules/vendors/services/VendorService';
-import { POService } from '../../../src/modules/purchase-orders/services/POService';
-import { PaymentService } from '../../../src/modules/payments/services/PaymentService';
-import { PaymentRepository } from '../../../src/modules/payments/repositories/PaymentRepository';
-import { AuthService } from '../../../src/modules/core/services/AuthService';
-import { SettingsService } from '../../../src/modules/core/services/SettingsService';
-import { AuditService } from '../../../src/modules/core/services/AuditService';
+import { VendorService } from '../../../src/modules/vendors/services/VendorService.ts';
+import { POService } from '../../../src/modules/purchase-orders/services/POService.ts';
+import { PaymentService } from '../../../src/modules/payments/services/PaymentService.ts';
+import { PaymentRepository } from '../../../src/modules/payments/repositories/PaymentRepository.ts';
+import { AuthService } from '../../../src/modules/core/services/AuthService.ts';
+import { SettingsService } from '../../../src/modules/core/services/SettingsService.ts';
+import { AuditService } from '../../../src/modules/core/services/AuditService.ts';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
@@ -102,7 +102,13 @@ export async function getPaymentReportRows(filters = {}, session) {
         if (!isRemitted) return false;
       }
     }
-    if (filters.vendor && !String(r.vendor || r.vendor_name || '').toLowerCase().includes(filters.vendor.toLowerCase().trim())) return false;
+    if (filters.vendor) {
+      const vFilter = String(filters.vendor).toLowerCase().trim();
+      const matchName = String(r.vendor || r.vendor_name || '').toLowerCase().includes(vFilter);
+      const matchCode = String(r.vendor_code || r.vendor_key || '').toLowerCase().includes(vFilter);
+      const matchId = String(r.vendor_id || '') === vFilter;
+      if (!matchName && !matchCode && !matchId) return false;
+    }
     if (filters.project && !String(r.project || '').toLowerCase().includes(filters.project.toLowerCase().trim())) return false;
 
     if (filters.startDate) {

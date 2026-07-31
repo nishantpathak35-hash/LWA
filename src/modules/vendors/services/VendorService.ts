@@ -1,4 +1,4 @@
-import { VendorRepository } from '../repositories/VendorRepository';
+import { VendorRepository } from '../repositories/VendorRepository.ts';
 import { IVendor, IVendorInput } from '../types/Vendor';
 import { logAudit } from '../../../../app/lib/api.js';
 

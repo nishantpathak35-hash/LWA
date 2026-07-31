@@ -24,6 +24,10 @@ export class PaymentRepository {
       sql += ` AND po_no = ?`;
       params.push(filters.po_no);
     }
+    if (filters.vendor_id) {
+      sql += ` AND vendor_id = ?`;
+      params.push(filters.vendor_id);
+    }
     if (filters.vendor_code) {
       sql += ` AND vendor_code = ?`;
       params.push(filters.vendor_code);
@@ -39,13 +43,13 @@ export class PaymentRepository {
   static async createRequest(pr: Omit<IPaymentRequest, 'created_at' | 'id'>): Promise<void> {
     const sql = `
       INSERT INTO payment_requests (
-        po_no, vendor_name, project, category, amount_requested, approved_amount, stage, remittance, created_at, remarks, created_by, vendor_code,
+        po_no, vendor_id, vendor_code, vendor_name, project, category, amount_requested, approved_amount, stage, remittance, created_at, remarks, created_by,
         tds_amount, tds_percentage, tds_section
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
-      pr.po_no, pr.vendor_name, pr.project, pr.category || '', pr.amount_requested, pr.approved_amount,
-      pr.stage, pr.remittance || '', new Date().toISOString(), pr.remarks || '', pr.created_by, pr.vendor_code || '',
+      pr.po_no, pr.vendor_id || null, pr.vendor_code || '', pr.vendor_name, pr.project, pr.category || '', pr.amount_requested, pr.approved_amount,
+      pr.stage, pr.remittance || '', new Date().toISOString(), pr.remarks || '', pr.created_by,
       pr.tds_amount || 0, pr.tds_percentage || 0, pr.tds_section || ''
     ];
     await queryRun(sql, params);
@@ -54,8 +58,8 @@ export class PaymentRepository {
   static async updateRequest(prId: string | number, updates: Partial<IPaymentRequest> & Record<string, any>, expectedVersion?: number): Promise<void> {
     // P0-6: Column allowlist — prevents SQL injection if raw client payload is ever passed
     const validColumns = new Set([
-      'po_no', 'vendor_name', 'project', 'category', 'amount_requested', 'approved_amount',
-      'stage', 'remittance', 'remarks', 'created_by', 'vendor_code',
+      'po_no', 'vendor_id', 'vendor_code', 'vendor_name', 'project', 'category', 'amount_requested', 'approved_amount',
+      'stage', 'remittance', 'remarks', 'created_by',
       'tds_amount', 'tds_percentage', 'tds_section',
       'remittance_ref', 'remittance_date',
       'proc_approval', 'finance_approval', 'director_approval'

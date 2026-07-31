@@ -13,6 +13,8 @@ export interface IPOItem {
 
 export interface IPO {
   po_no: string;
+  vendor_id?: number;
+  vendor_code?: string;
   vendor_key: string;
   vendor_name: string;
   project: string;
@@ -37,9 +39,12 @@ export interface IPO {
 
 export interface IPOInput {
   poNo?: string;
+  vendor_id?: number;
+  vendorId?: number;
   vendor?: string;
   vendorName?: string;
   vendorCode?: string;
+  vendor_code?: string;
   vendor_key?: string;
   project?: string;
   poValue?: number;

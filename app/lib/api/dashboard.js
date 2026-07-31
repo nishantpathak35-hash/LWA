@@ -4,13 +4,13 @@ import { queryAll, queryGet, queryRun } from '../db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from '../email.js';
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from '../poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from '../paymentCalculations.js';
-import { VendorService } from '../../../src/modules/vendors/services/VendorService';
-import { POService } from '../../../src/modules/purchase-orders/services/POService';
-import { PaymentService } from '../../../src/modules/payments/services/PaymentService';
-import { PaymentRepository } from '../../../src/modules/payments/repositories/PaymentRepository';
-import { AuthService } from '../../../src/modules/core/services/AuthService';
-import { SettingsService } from '../../../src/modules/core/services/SettingsService';
-import { AuditService } from '../../../src/modules/core/services/AuditService';
+import { VendorService } from '../../../src/modules/vendors/services/VendorService.ts';
+import { POService } from '../../../src/modules/purchase-orders/services/POService.ts';
+import { PaymentService } from '../../../src/modules/payments/services/PaymentService.ts';
+import { PaymentRepository } from '../../../src/modules/payments/repositories/PaymentRepository.ts';
+import { AuthService } from '../../../src/modules/core/services/AuthService.ts';
+import { SettingsService } from '../../../src/modules/core/services/SettingsService.ts';
+import { AuditService } from '../../../src/modules/core/services/AuditService.ts';
 import { ensureSettingsTable } from './core.js';
 import { listPaymentRequests } from './payments.js';
 import { getFeaturePermissions } from './settings.js';
@@ -164,8 +164,10 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
   }
   const masterVendors = vendors.map(v => ({ 
     recordId: v.id,
+    vendor_id: v.id,
     code: v.vendor_code || '',
     vendorId: v.vendor_code || '', 
+    vendor_code: v.vendor_code || '',
     name: v.legal_name || v.name || v.vendor_code, 
     legalName: v.legal_name || v.name || v.vendor_code, 
     tradeName: v.trade_name || '',
@@ -174,34 +176,6 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
     address: v.address || '',
     email: (v.email || v.contact_email || v.primary_contact_email || '').trim()
   }));
-
-  const poVendorMap = {};
-  
-  // Real vendors take top precedence
-  masterVendors.forEach(v => {
-    if (v.code) poVendorMap[v.code.toLowerCase().trim()] = v;
-    if (v.name) poVendorMap[v.name.toLowerCase().trim()] = v;
-  });
-
-  // Only add PO vendors if not already present from Vendor Master
-  pos.forEach(p => { 
-    if (p.project) projectSet.add(p.project); 
-    const vName = p.vendor_name ? p.vendor_name.toLowerCase().trim() : '';
-    const vCode = p.vendor_key ? p.vendor_key.toLowerCase().trim() : '';
-    
-    if (vName && vName !== 'unknown' && !poVendorMap[vName] && (!vCode || !poVendorMap[vCode])) {
-      const newV = {
-        code: p.vendor_key || '',
-        vendorId: p.vendor_key || '',
-        name: p.vendor_name,
-        legalName: p.vendor_name,
-        status: 'Active',
-        email: ''
-      };
-      if (vName) poVendorMap[vName] = newV;
-      if (vCode) poVendorMap[vCode] = newV;
-    }
-  });
 
   // Build project list & pfMap from project_financials
   const pfMap = {};
@@ -219,10 +193,16 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
     });
   } catch (e) { /* table might not exist yet */ }
 
+  pos.forEach(p => { 
+    if (p.project) projectSet.add(p.project); 
+  });
+
   return {
-    vendors: Array.from(new Set(Object.values(poVendorMap))),
+    vendors: masterVendors,
     pos: pos.map(p => ({
       po_no: p.po_no,
+      vendor_id: p.vendor_id,
+      vendor_code: p.vendor_code || p.vendor_key || '',
       vendor_name: p.vendor_name,
       project: p.project,
       po_date: p.po_date || '',
