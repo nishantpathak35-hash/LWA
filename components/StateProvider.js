@@ -79,6 +79,17 @@ export function StateProvider({ children }) {
   const [activePresence, setActivePresence] = useState({});
   const [hasMorePOs, setHasMorePOs] = useState(true);
   const [hasMorePayments, setHasMorePayments] = useState(true);
+  const [syncStatus, setSyncStatus] = useState('connected'); // 'connected' | 'syncing' | 'reconnecting'
+
+  const broadcastLocalChange = useCallback((entity) => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const channel = new BroadcastChannel('lwa_app_sync');
+        channel.postMessage({ entity, timestamp: Date.now() });
+        channel.close();
+      } catch (e) {}
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     const currentToken = token || localStorage.getItem('lx_auth_token');
@@ -149,6 +160,19 @@ export function StateProvider({ children }) {
       if (!response.ok || (data && data.error)) {
         throw new Error((data && data.error) || 'API Error');
       }
+
+      // Auto-broadcast mutative changes across open browser tabs
+      const lower = String(method || '').toLowerCase();
+      if (lower.includes('create') || lower.includes('update') || lower.includes('approve') ||
+          lower.includes('reject') || lower.includes('delete') || lower.includes('issue') ||
+          lower.includes('remit') || lower.includes('save')) {
+        let entity = 'general';
+        if (lower.includes('po')) entity = 'po';
+        else if (lower.includes('payment')) entity = 'payment';
+        else if (lower.includes('vendor')) entity = 'vendor';
+        broadcastLocalChange(entity);
+      }
+
       return data;
     } catch (e) {
       const msg = e.message || String(e);
@@ -157,7 +181,7 @@ export function StateProvider({ children }) {
       }
       throw e;
     }
-  }, [token, logout]);
+  }, [token, logout, broadcastLocalChange]);
 
   const notificationState = useNotifications({ call, user, enabled: !!token });
 
@@ -448,6 +472,22 @@ export function StateProvider({ children }) {
     };
   }, [user, refreshData]);
 
+  // BroadcastChannel multi-tab sync listener for instant same-browser updates
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+    const channel = new BroadcastChannel('lwa_app_sync');
+    channel.onmessage = (event) => {
+      const { entity } = event.data || {};
+      setSyncStatus('syncing');
+      if (entity === 'vendor') refreshVendors();
+      else if (entity === 'po') { refreshPOs(); refreshKPIs(); }
+      else if (entity === 'payment') { refreshPayments(); refreshKPIs(); }
+      else refreshData();
+      setTimeout(() => setSyncStatus('connected'), 500);
+    };
+    return () => { channel.close(); };
+  }, [refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshData]);
+
   // SSE real-time subscription — primary sync mechanism
   useEffect(() => {
     if (!user || !token) return;
@@ -471,6 +511,7 @@ export function StateProvider({ children }) {
         eventSource.onopen = () => {
           // Reset backoff on successful connection
           backoff = 1000;
+          setSyncStatus('connected');
         };
 
         eventSource.onmessage = (event) => {
@@ -480,33 +521,38 @@ export function StateProvider({ children }) {
             parsed = JSON.parse(event.data);
           } catch (e) {}
 
+          setSyncStatus('syncing');
+
           if (debounceTimeout) clearTimeout(debounceTimeout);
-          debounceTimeout = setTimeout(() => {
+          debounceTimeout = setTimeout(async () => {
             if (!activeRef.current) return;
-            if (parsed && parsed.entity) {
-              if (parsed.entity === 'vendor') {
-                refreshVendors();
-              } else if (parsed.entity === 'po') {
-                refreshPOs();
-                refreshKPIs();
-              } else if (parsed.entity === 'payment') {
-                refreshPayments();
-                refreshKPIs();
-              } else if (parsed.entity.endsWith('_lock')) {
-                refreshActiveLocks();
-              } else if (parsed.entity.endsWith('_presence')) {
-                refreshActivePresence();
+            try {
+              if (parsed && parsed.entity) {
+                if (parsed.entity === 'vendor') {
+                  await refreshVendors();
+                } else if (parsed.entity === 'po') {
+                  await Promise.all([refreshPOs(), refreshKPIs()]);
+                } else if (parsed.entity === 'payment') {
+                  await Promise.all([refreshPayments(), refreshKPIs()]);
+                } else if (parsed.entity.endsWith('_lock')) {
+                  await refreshActiveLocks();
+                } else if (parsed.entity.endsWith('_presence')) {
+                  await refreshActivePresence();
+                } else {
+                  await refreshData();
+                }
               } else {
-                refreshData();
+                await refreshData();
               }
-            } else {
-              refreshData();
+            } finally {
+              if (activeRef.current) setSyncStatus('connected');
             }
           }, 300);
         };
 
         eventSource.onerror = () => {
           if (!activeRef.current) return;
+          setSyncStatus('reconnecting');
           // Close and reconnect with backoff
           if (eventSource) {
             eventSource.close();
@@ -521,6 +567,7 @@ export function StateProvider({ children }) {
         };
       } catch (err) {
         console.error('EventSource creation failed:', err);
+        setSyncStatus('reconnecting');
       }
     }
 
@@ -536,7 +583,7 @@ export function StateProvider({ children }) {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (debounceTimeout) clearTimeout(debounceTimeout);
     };
-  }, [user, token, refreshData, refreshActivePresence]);
+  }, [user, token, refreshData, refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshActiveLocks, refreshActivePresence]);
 
   const hasPermission = useCallback((feature) => {
     if (!user) return false;
@@ -630,6 +677,7 @@ export function StateProvider({ children }) {
     activePresence,
     refreshActivePresence,
     notificationState,
+    syncStatus,
   };
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>;

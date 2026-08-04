@@ -65,7 +65,7 @@ export default function DashboardView() {
 
   useEffect(() => {
     loadDashboardData();
-  }, [loadDashboardData]);
+  }, [loadDashboardData, payments.length, pos.length]);
 
   const filterProjects = (query) => projectsList.filter(r => {
     const q = query.trim().toLowerCase();

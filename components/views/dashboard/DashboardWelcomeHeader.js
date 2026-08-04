@@ -1,9 +1,14 @@
 'use client';
 import React from 'react';
 import { Button } from '../../ui/core';
-import { CreditCard, FilePlus, CheckSquare, RefreshCw, Sparkles, AlertTriangle, ShieldCheck, FileCheck2, ArrowUpRight } from 'lucide-react';
+import { CreditCard, FilePlus, CheckSquare, Sparkles, AlertTriangle, ShieldCheck, FileCheck2, ArrowUpRight } from 'lucide-react';
+
+import { useAppState } from '../../StateProvider';
 
 export default function DashboardWelcomeHeader({ user, loading, loadDashboardData, setActiveView, approvalMetrics }) {
+  const { syncStatus } = useAppState();
+  const isSyncing = loading || syncStatus === 'syncing';
+
   return (
     <>
       {/* ── Welcome Header ── */}
@@ -19,14 +24,43 @@ export default function DashboardWelcomeHeader({ user, loading, loadDashboardDat
             Real-time Project Balances, Outflow Ledger, Approvals and Studio Performance Metrics.
           </p>
         </div>
-        <button
-          onClick={() => loadDashboardData()}
-          disabled={loading}
-          className="relative z-10 flex items-center gap-2 px-4 py-2 text-xs font-bold text-amber-800 dark:text-gold bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-2xs"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Refreshing…' : 'Refresh Dashboard'}
-        </button>
+
+        {/* ── Cloud ERP Live Sync Status ── */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+              syncStatus === 'reconnecting'
+                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                : isSyncing
+                ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20'
+                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+            }`}
+          >
+            <span className="relative flex h-2 w-2">
+              {isSyncing ? (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              ) : syncStatus === 'reconnecting' ? (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              ) : (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              )}
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  syncStatus === 'reconnecting'
+                    ? 'bg-amber-500'
+                    : isSyncing
+                    ? 'bg-blue-500'
+                    : 'bg-emerald-500'
+                }`}
+              ></span>
+            </span>
+            {syncStatus === 'reconnecting'
+              ? 'Reconnecting...'
+              : isSyncing
+              ? 'Syncing...'
+              : 'Live Sync Active'}
+          </div>
+        </div>
       </div>
 
       {/* ── Quick Actions ── */}
