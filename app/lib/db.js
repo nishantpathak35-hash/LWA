@@ -10,48 +10,52 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
   console.log('Connected to Turso Cloud Database');
-  tursoClient.execute('PRAGMA foreign_keys = ON;').catch(e => console.error('PRAGMA foreign_keys failed:', e));
 
-  // --- Optimistic concurrency: add version columns if missing ---
-  const versionMigrations = [
-    `ALTER TABLE vendors ADD COLUMN version INTEGER DEFAULT 1`,
-    `ALTER TABLE purchase_orders ADD COLUMN version INTEGER DEFAULT 1`,
-    `ALTER TABLE payment_requests ADD COLUMN version INTEGER DEFAULT 1`,
-  ];
-  for (const sql of versionMigrations) {
-    tursoClient.execute(sql).catch(() => {
-      // Silently ignore — column already exists
-    });
+  if (!global.__tursoInitialized) {
+    global.__tursoInitialized = true;
+    
+    // Silence PRAGMA foreign_keys 404 on Turso HTTP API
+    tursoClient.execute('PRAGMA foreign_keys = ON;').catch(() => {});
+
+    // --- Optimistic concurrency: add version columns if missing ---
+    const versionMigrations = [
+      `ALTER TABLE vendors ADD COLUMN version INTEGER DEFAULT 1`,
+      `ALTER TABLE purchase_orders ADD COLUMN version INTEGER DEFAULT 1`,
+      `ALTER TABLE payment_requests ADD COLUMN version INTEGER DEFAULT 1`,
+    ];
+    Promise.all(versionMigrations.map(sql => tursoClient.execute(sql).catch(() => {})))
+      .then(() => {
+        // --- Auto-reconcile historical PO payment calculations (Gross Approved Amount = Net + TDS) ---
+        return tursoClient.execute(`
+          UPDATE purchase_orders
+          SET legacy_paid = (
+            COALESCE((
+              SELECT SUM(COALESCE(pr.approved_amount, pr.amount_requested, 0))
+              FROM payment_requests pr
+              WHERE pr.po_no = purchase_orders.po_no
+                AND (LOWER(pr.stage) = 'remitted' OR LOWER(pr.remittance) = 'remitted')
+            ), 0) +
+            COALESCE((
+              SELECT SUM(COALESCE(sp.amount, 0))
+              FROM system_payments sp
+              WHERE sp.po_no = purchase_orders.po_no
+                AND (sp.pr_key IS NULL OR sp.pr_key LIKE 'MANUAL-%')
+            ), 0)
+          )
+        `).then(() => {
+          return tursoClient.execute(`
+            UPDATE purchase_orders
+            SET final_payable = CASE WHEN COALESCE(revised_po_value, po_value, 0) - COALESCE(legacy_paid, 0) < 0 THEN 0 ELSE COALESCE(revised_po_value, po_value, 0) - COALESCE(legacy_paid, 0) END,
+                payment_status = CASE
+                  WHEN COALESCE(legacy_paid, 0) >= COALESCE(revised_po_value, po_value, 0) AND COALESCE(revised_po_value, po_value, 0) > 0 THEN 'Fully Paid'
+                  WHEN COALESCE(legacy_paid, 0) > 0 THEN 'Partially Paid'
+                  ELSE 'Unpaid'
+                END
+          `);
+        });
+      })
+      .catch(() => {});
   }
-
-  // --- Auto-reconcile historical PO payment calculations (Gross Approved Amount = Net + TDS) ---
-  tursoClient.execute(`
-    UPDATE purchase_orders
-    SET legacy_paid = (
-      COALESCE((
-        SELECT SUM(COALESCE(pr.approved_amount, pr.amount_requested, 0))
-        FROM payment_requests pr
-        WHERE pr.po_no = purchase_orders.po_no
-          AND (LOWER(pr.stage) = 'remitted' OR LOWER(pr.remittance) = 'remitted')
-      ), 0) +
-      COALESCE((
-        SELECT SUM(COALESCE(sp.amount, 0))
-        FROM system_payments sp
-        WHERE sp.po_no = purchase_orders.po_no
-          AND (sp.pr_key IS NULL OR sp.pr_key LIKE 'MANUAL-%')
-      ), 0)
-    )
-  `).then(() => {
-    return tursoClient.execute(`
-      UPDATE purchase_orders
-      SET final_payable = CASE WHEN COALESCE(revised_po_value, po_value, 0) - COALESCE(legacy_paid, 0) < 0 THEN 0 ELSE COALESCE(revised_po_value, po_value, 0) - COALESCE(legacy_paid, 0) END,
-          payment_status = CASE
-            WHEN COALESCE(legacy_paid, 0) >= COALESCE(revised_po_value, po_value, 0) AND COALESCE(revised_po_value, po_value, 0) > 0 THEN 'Fully Paid'
-            WHEN COALESCE(legacy_paid, 0) > 0 THEN 'Partially Paid'
-            ELSE 'Unpaid'
-          END
-    `);
-  }).catch(err => console.error('PO ledger auto-reconciliation warning:', err.message));
 }
 
 async function executeWithRetry(action, retries = 3, delay = 300) {
