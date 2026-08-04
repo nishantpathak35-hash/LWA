@@ -7,21 +7,21 @@
 
 ### UI & Contrast
 
-- [ ] **UI-01**: Remove blanket CSS overrides on `.text-slate-100/200/300/400` and `.bg-slate-800/900/950` in globals.css.
-- [ ] **UI-02**: Audit components using text/bg color classes and fix them at the source with theme-aware tokens (`text-foreground`, `text-muted-foreground`, `bg-card` etc.) to guarantee contrast.
-- [ ] **UI-03**: Style raw `<option>` elements inside all modals (e.g. `VendorEditModal.js`, `InternalWhatsAppModal.js`, `VendorOnboardModal.js`, etc.) with explicit `bg-background` and `text-foreground` (or replace with themed Select component).
-- [ ] **UI-04**: Add an `onWheel` handler on the Table wrapper in `components/ui/core.js` (or similar) to convert vertical mouse wheel scroll to horizontal scroll when the table has horizontal overflow.
-- [ ] **UI-05**: Increase the horizontal scrollbar thickness/visibility for wide-table containers.
+- [x] **UI-01**: Remove blanket CSS overrides on `.text-slate-100/200/300/400` and `.bg-slate-800/900/950` in globals.css.
+- [x] **UI-02**: Audit components using text/bg color classes and fix them at the source with theme-aware tokens (`text-foreground`, `text-muted-foreground`, `bg-card` etc.) to guarantee contrast.
+- [x] **UI-03**: Style raw `<option>` elements inside all modals (e.g. `VendorEditModal.js`, `InternalWhatsAppModal.js`, `VendorOnboardModal.js`, etc.) with explicit `bg-background` and `text-foreground` (or replace with themed Select component).
+- [x] **UI-04**: Add an `onWheel` handler on the Table wrapper in `components/ui/core.js` (or similar) to convert vertical mouse wheel scroll to horizontal scroll when the table has horizontal overflow.
+- [x] **UI-05**: Increase the horizontal scrollbar thickness/visibility for wide-table containers.
 
 ### Performance
 
-- [ ] **PERF-01**: Convert the in-memory Promise-guarded `ALTER TABLE` checks into a one-time migration or a persisted database flag/table so migration checks do not run on every cold start / request.
-- [ ] **PERF-02**: Cache or reduce the redundant `getMySession(token)` DB calls run on every RPC query/call in `app/api/rpc/route.js`.
-- [ ] **PERF-03**: Run the `getInvoices` query in parallel (within the same `Promise.all` block) alongside other KPI and master data queries in `getBootBundle()`.
+- [x] **PERF-01**: Convert the in-memory Promise-guarded `ALTER TABLE` checks into a one-time migration or a persisted database flag/table so migration checks do not run on every cold start / request.
+- [x] **PERF-02**: Cache or reduce the redundant `getMySession(token)` DB calls run on every RPC query/call in `app/api/rpc/route.js`.
+- [x] **PERF-03**: Run the `getInvoices` query in parallel (within the same `Promise.all` block) alongside other KPI and master data queries in `getBootBundle()`.
 
 ### Live Data Sync
 
-- [ ] **SYNC-01**: Propose, confirm, and implement a suitable sync/polling mechanism to update other logged-in users with live mutation updates without relying on long 120-second polling or manually refreshing.
+- [x] **SYNC-01**: Propose, confirm, and implement a suitable sync/polling mechanism to update other logged-in users with live mutation updates without relying on long 120-second polling or manually refreshing.
 
 ## Out of Scope
 
@@ -33,15 +33,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | Phase 1 | Pending |
-| UI-02 | Phase 1 | Pending |
-| UI-03 | Phase 1 | Pending |
-| UI-04 | Phase 2 | Pending |
-| UI-05 | Phase 2 | Pending |
-| PERF-01 | Phase 3 | Pending |
-| PERF-02 | Phase 3 | Pending |
-| PERF-03 | Phase 3 | Pending |
-| SYNC-01 | Phase 4 | Pending |
+| UI-01 | Phase 1 | Completed |
+| UI-02 | Phase 1 | Completed |
+| UI-03 | Phase 1 | Completed |
+| UI-04 | Phase 2 | Completed |
+| UI-05 | Phase 2 | Completed |
+| PERF-01 | Phase 3 | Completed |
+| PERF-02 | Phase 3 | Completed |
+| PERF-03 | Phase 3 | Completed |
+| SYNC-01 | Phase 4 | Completed |
 
 **Coverage:**
 - v1 requirements: 9 total
