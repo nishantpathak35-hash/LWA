@@ -26,9 +26,7 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
   const accountsContactNo = viewVendor?.accountsContactNo || viewVendor?.accounts_contact_no || '—';
   const purchaseContactName = viewVendor?.purchaseContactName || viewVendor?.purchase_contact_name || '—';
   const purchaseContactNo = viewVendor?.purchaseContactNo || viewVendor?.purchase_contact_no || '—';
-  const whatsappNumber = viewVendor?.whatsappNumber || viewVendor?.whatsapp_number || '—';
   const mobileNumber = viewVendor?.mobileNumber || viewVendor?.mobile_number || viewVendor?.mobile || '—';
-  const preferredWhatsappContact = viewVendor?.preferredWhatsappContact || viewVendor?.preferred_whatsapp_contact || 'Primary';
 
   return (
     <Dialog open={viewModalOpen} onClose={() => setViewModalOpen(false)} maxWidth="max-w-4xl" title={tradeName || 'Vendor Master Details'}>
@@ -59,8 +57,8 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
               <span>Email: <strong className="text-slate-900 dark:text-slate-200 font-semibold">{email}</strong></span>
             </div>
             <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-              <span>Preferred Contact: <strong className="text-amber-800 dark:text-amber-400 font-semibold">{preferredWhatsappContact}</strong></span>
+              <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <span>Mobile Number: <strong className="font-mono text-slate-900 dark:text-slate-200 font-bold">{mobileNumber}</strong></span>
             </div>
           </div>
         </div>
@@ -118,16 +116,6 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
               <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block">Purchase Contact</span>
               <div className="text-xs font-bold text-slate-900 dark:text-slate-200">{purchaseContactName}</div>
               <div className="text-xs text-slate-600 dark:text-slate-400 font-mono">{purchaseContactNo}</div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2 text-xs text-slate-800 dark:text-slate-300">
-              <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-              <span>WhatsApp Number: <strong className="font-mono text-slate-900 dark:text-slate-200 font-bold">{whatsappNumber}</strong></span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-slate-800 dark:text-slate-300">
-              <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-              <span>Mobile Number: <strong className="font-mono text-slate-900 dark:text-slate-200 font-bold">{mobileNumber}</strong></span>
             </div>
           </div>
         </div>

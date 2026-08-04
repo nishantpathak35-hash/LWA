@@ -9,8 +9,7 @@ export default function VendorOnboardModal({
   primaryContactName, setPrimaryContactName, primaryContactNo, setPrimaryContactNo,
   accountsContactName, setAccountsContactName, accountsContactNo, setAccountsContactNo,
   purchaseContactName, setPurchaseContactName, purchaseContactNo, setPurchaseContactNo,
-  whatsappNumber, setWhatsappNumber, mobileNumber, setMobileNumber,
-  preferredWhatsappContact, setPreferredWhatsappContact, duplicateWarning
+  mobileNumber, setMobileNumber, duplicateWarning
 }) {
   return (
     <Dialog open={modalOpen} onClose={() => setModalOpen(false)} title="Onboard New Vendor">
@@ -70,21 +69,8 @@ export default function VendorOnboardModal({
               <Input type="text" value={purchaseContactNo} onChange={(e) => setPurchaseContactNo(e.target.value)} />
             </div>
             <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">WHATSAPP NUMBER</label>
-              <Input type="text" value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value)} />
-            </div>
-            <div>
               <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">MOBILE NUMBER</label>
               <Input type="text" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-[10px] font-medium text-slate-400 tracking-wider block mb-1.5">PREFERRED WHATSAPP CONTACT</label>
-              <Select value={preferredWhatsappContact} onChange={(e) => setPreferredWhatsappContact(e.target.value)}>
-                <option value="Primary">Primary Contact</option>
-                <option value="Accounts">Accounts Contact</option>
-                <option value="Purchase">Purchase Contact</option>
-                <option value="Other">WhatsApp/Mobile Number</option>
-              </Select>
             </div>
           </div>
         </div>

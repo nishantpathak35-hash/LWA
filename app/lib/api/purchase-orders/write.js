@@ -179,6 +179,13 @@ export async function updatePOFull(poNo, payload, session) {
   return { ok: true, poNo: nextPoNo, oldPoNo: originalPoNo, newStatus, changesLogged: auditChanges };
 }
 
+export async function shortClosePO(poNo, remarks, session) {
+  requireAuth(session);
+  const result = await POService.shortClosePO(poNo, session?.email || SYSTEM_FALLBACK_EMAIL, remarks);
+  await emitBroadcast('po', 'updated', poNo);
+  return result;
+}
+
 
 export async function deletePOFull(poNo, session) {
   requireAuth(session);

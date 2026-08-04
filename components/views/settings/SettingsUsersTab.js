@@ -7,9 +7,7 @@ export default function SettingsUsersTab({
   usersSearch, setUsersSearch,
   handleExportUsers,
   setTargetEmail, setNewUserName, setNewUserPassword, setNewUserRoles,
-  newWhatsApp, setNewWhatsApp,
   newEmployeeId, setNewEmployeeId, newDepartment, setNewDepartment, newMobileNumber, setNewMobileNumber,
-  editWhatsApp, setEditWhatsApp,
   editEmployeeId, setEditEmployeeId, editDepartment, setEditDepartment, editMobileNumber, setEditMobileNumber,
   setInviteResult, setInviteModalOpen,
   loading, filteredUsers,
@@ -68,7 +66,6 @@ export default function SettingsUsersTab({
                 setTargetEmail('');
                 setNewUserName('');
                 setNewUserPassword('ChangeMe123!');
-                setNewWhatsApp('');
                 setNewEmployeeId('');
                 setNewDepartment('');
                 setNewMobileNumber('');
@@ -92,7 +89,6 @@ export default function SettingsUsersTab({
               <TableHeader>
                 <TableRow className="border-b border-border bg-muted/40 hover:bg-transparent">
                   <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">User Details</TableHead>
-                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">WhatsApp</TableHead>
                   <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Access Roles</TableHead>
                   <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Status</TableHead>
                   <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Last Active</TableHead>
@@ -126,7 +122,6 @@ export default function SettingsUsersTab({
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="py-3.5 text-xs text-slate-800 dark:text-slate-200 font-mono">{u.whatsapp_number || '—'}</TableCell>
                         <TableCell className="py-3.5">
                           <div className="flex gap-1 flex-wrap">
                             {rs.map(r => getRoleBadge(r))}
@@ -161,7 +156,6 @@ export default function SettingsUsersTab({
                                 : (typeof u.roles === 'string' ? u.roles.split(',') : []).map(r => r.trim()).filter(Boolean);
                               rs.forEach(role => { updatedRoles[role] = true; });
                               setEditAccessRoles(updatedRoles);
-                              setEditWhatsApp(u.whatsapp_number || '');
                               setEditEmployeeId(u.employee_id || '');
                               setEditDepartment(u.department || '');
                               setEditMobileNumber(u.mobile_number || '');
@@ -208,7 +202,7 @@ export default function SettingsUsersTab({
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10 text-slate-500 text-xs">
+                    <TableCell colSpan={5} className="text-center py-10 text-slate-500 text-xs">
                       No users found.
                     </TableCell>
                   </TableRow>

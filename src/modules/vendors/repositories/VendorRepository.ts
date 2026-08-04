@@ -29,8 +29,8 @@ export class VendorRepository {
         primary_contact_name, primary_contact_no,
         accounts_contact_name, accounts_contact_no,
         purchase_contact_name, purchase_contact_no,
-        whatsapp_number, mobile_number, preferred_whatsapp_contact
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        mobile_number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
       vendor.legal_name, vendor.trade_name || '', vendor.vendor_code, vendor.vendor_type || '', 
@@ -39,7 +39,7 @@ export class VendorRepository {
       vendor.primary_contact_name || '', vendor.primary_contact_no || '',
       vendor.accounts_contact_name || '', vendor.accounts_contact_no || '',
       vendor.purchase_contact_name || '', vendor.purchase_contact_no || '',
-      vendor.whatsapp_number || '', vendor.mobile_number || '', vendor.preferred_whatsapp_contact || 'Primary'
+      vendor.mobile_number || ''
     ];
     await queryRun(sql, params);
   }
@@ -53,7 +53,7 @@ export class VendorRepository {
       'legal_name', 'trade_name', 'gstin', 'pan', 'status', 'address', 'vendor_type', 
       'email', 'bank_account', 'ifsc', 'primary_contact_name', 'primary_contact_no',
       'accounts_contact_name', 'accounts_contact_no', 'purchase_contact_name', 'purchase_contact_no',
-      'whatsapp_number', 'mobile_number', 'preferred_whatsapp_contact'
+      'mobile_number'
     ];
     
     Object.entries(vendor).forEach(([key, value]) => {

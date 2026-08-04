@@ -32,4 +32,25 @@ describe('PaymentService unit tests', () => {
       PaymentService.createManualPayment({ poNo: 'PO-100', amount: 0 } as any, 'user@luxe.com')
     ).rejects.toThrow('Valid amount is required for manual payment');
   });
+
+  it('updates amount_requested and approved_amount when editing payment request', async () => {
+    const { PaymentRepository } = await import('../../src/modules/payments/repositories/PaymentRepository');
+    vi.spyOn(PaymentRepository, 'findRequestById').mockResolvedValue({
+      pr_id: 101,
+      po_no: 'PO-100',
+      stage: 'Pending Procurement',
+      amount_requested: 5000,
+      approved_amount: 5000
+    } as any);
+
+    let capturedUpdates: any = null;
+    vi.spyOn(PaymentRepository, 'updateRequest').mockImplementation(async (id, updates) => {
+      capturedUpdates = updates;
+    });
+
+    const res = await PaymentService.updatePaymentRequest(101, { amountRequested: 7500 }, 'user@luxe.com');
+    expect(res.ok).toBe(true);
+    expect(capturedUpdates.amount_requested).toBe(7500);
+    expect(capturedUpdates.approved_amount).toBe(7500);
+  });
 });

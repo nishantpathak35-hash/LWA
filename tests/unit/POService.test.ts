@@ -22,4 +22,22 @@ describe('POService unit tests', () => {
       POService.createPO({ poNo: 'PO-EXISTING', vendorName: 'Vendor X', poValue: 10000 } as any, 'user@luxe.com')
     ).rejects.toThrow('already exists');
   });
+
+  it('updates PO status to Short Closed when shortClosePO is called', async () => {
+    vi.spyOn(PORepository, 'findById').mockResolvedValue({
+      po_no: 'PO-101',
+      status: 'Approved',
+      notes: ''
+    } as any);
+
+    let updatedPayload: any = null;
+    vi.spyOn(PORepository, 'update').mockImplementation(async (poNo, updates) => {
+      updatedPayload = updates;
+    });
+
+    const res = await POService.shortClosePO('PO-101', 'user@luxe.com', 'Done');
+    expect(res.ok).toBe(true);
+    expect(updatedPayload.status).toBe('Short Closed');
+    expect(updatedPayload.approval_status).toBe('Short Closed');
+  });
 });

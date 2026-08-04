@@ -9,10 +9,10 @@ export default function POListTable({
   poDateSortDir, setPoDateSortDir,
   openActionMenuPoNo, setOpenActionMenuPoNo,
   canCreate, canApprove, canManualPay, isAdmin,
-  handleOpenModal, handleSubmitForApproval, handleOpenApproval, handleDuplicatePO, handleDeletePO,
+  handleOpenModal, handleSubmitForApproval, handleOpenApproval, handleDuplicatePO, handleDeletePO, handleShortClosePO,
   reloadPayments, setMpDate, setMpAmount, setMpMode, setMpUtr, setMpBank, setMpRef, setMpRemarks, setMpError, setManualPayModalOpen, setEditingPoNo,
   handleViewPOHistory,
-  handleSendPOWhatsApp, handleSendPOEmail,
+  handleSendPOEmail,
   getStatusBadge, getPaymentStatusBadge,
   hasMorePOs, loadMorePOs
 }) {
@@ -38,19 +38,88 @@ export default function POListTable({
           <div className="p-12 text-center text-muted-foreground text-sm font-medium">No purchase orders found.</div>
         ) : (
           <>
-            <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>PO No</TableHead>
-                <TableHead>
-                  <button
-                    type="button"
-                    onClick={() => setPoDateSortDir(dir => dir === 'desc' ? 'asc' : 'desc')}
-                    className="inline-flex items-center gap-1 text-left uppercase font-bold"
-                  >
-                    P.O. Date {poDateSortDir === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
-                  </button>
-                </TableHead>
+            {/* ── Mobile View: Cards Layout ── */}
+            <div className="block md:hidden p-3 space-y-3">
+              {filteredPOs.map((po, idx) => {
+                const st = String(po.status || po.approval_status || 'Draft').toLowerCase();
+                const isDraft    = st === 'draft';
+                const isPending  = st === 'pending approval' || st === 'pending_approval';
+                const isApproved = st === 'approved' || st === 'active';
+                const isRejected = st === 'rejected';
+                const isShortClosed = st === 'short closed' || st === 'short_closed' || st === 'closed';
+                const poValue = Number(po.po_value || 0);
+                const paid = Number(po.paid || 0);
+                const calcBalance = isShortClosed ? 0 : Math.max(0, poValue - paid);
+                const paidPct = poValue > 0 ? Math.min(100, Math.round((paid / poValue) * 100)) : 0;
+
+                return (
+                  <div key={idx} className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4 space-y-3 backdrop-blur-xl shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <a href={`/po/${encodeURIComponent(po.po_no)}`} target="_blank" rel="noreferrer" className="font-mono text-xs font-bold text-gold hover:underline">
+                        {po.po_no}
+                      </a>
+                      <div className="flex items-center gap-1.5">
+                        {getStatusBadge(po.status || po.approval_status)}
+                        {getPaymentStatusBadge(po.payment_status)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-bold text-slate-100 text-sm">{po.vendor_name || po.vendor_key}</h4>
+                      <p className="text-xs text-slate-400 mt-0.5">{po.project} • {formatDate(po.po_date)}</p>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-1 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/40">
+                      <div className="flex justify-between text-xs font-semibold tabular-nums">
+                        <span className="text-slate-400">PO: {formatCurrency(poValue)}</span>
+                        <span className="text-emerald-400">Paid: {formatCurrency(paid)} ({paidPct}%)</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full" style={{ width: `${paidPct}%` }} />
+                      </div>
+                      <div className="flex justify-between text-[11px] text-slate-400 pt-0.5">
+                        <span>Balance:</span>
+                        <span className="font-bold text-amber-400 tabular-nums">{formatCurrency(calcBalance)}</span>
+                      </div>
+                    </div>
+
+                    {/* Actions Row */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/60">
+                      <Button variant="ghost" size="sm" onClick={() => handleViewPOHistory(po)} className="h-8 text-xs text-amber-400">
+                        <MessageSquare className="w-3.5 h-3.5 mr-1" /> History
+                      </Button>
+                      {canCreate && (isDraft || isApproved || isRejected) && (
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenModal(po.po_no)} className="h-8 text-xs">
+                          <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                        </Button>
+                      )}
+                      {isApproved && !isShortClosed && handleShortClosePO && (
+                        <Button variant="ghost" size="sm" onClick={() => handleShortClosePO(po.po_no)} className="h-8 text-xs text-amber-400">
+                          <XCircle className="w-3.5 h-3.5 mr-1" /> Close
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Desktop View: Table ── */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>PO No</TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        onClick={() => setPoDateSortDir(dir => dir === 'desc' ? 'asc' : 'desc')}
+                        className="inline-flex items-center gap-1 text-left uppercase font-bold"
+                      >
+                        P.O. Date {poDateSortDir === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                      </button>
+                    </TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead>Status</TableHead>
@@ -68,6 +137,8 @@ export default function POListTable({
                 const isPending  = st === 'pending approval' || st === 'pending_approval';
                 const isApproved = st === 'approved' || st === 'active';
                 const isRejected = st === 'rejected';
+                const isShortClosed = st === 'short closed' || st === 'short_closed' || st === 'closed';
+                const calcBalance  = isShortClosed ? 0 : Math.max(0, Number(po.po_value || 0) - Number(po.paid || 0));
                 return (
                   <TableRow key={idx}>
                     <TableCell className="font-mono text-xs font-bold text-amber-700 dark:text-amber-300 hover:underline cursor-pointer" title="View PO Details">
@@ -82,7 +153,7 @@ export default function POListTable({
                     <TableCell>{getPaymentStatusBadge(po.payment_status)}</TableCell>
                     <TableCell className="text-right font-bold text-foreground tabular-nums text-sm">{formatCurrency(Number(po.po_value || 0))}</TableCell>
                     <TableCell className="text-right text-emerald-700 dark:text-emerald-400 font-bold tabular-nums text-sm">{formatCurrency(Number(po.paid || 0))}</TableCell>
-                    <TableCell className="text-right text-amber-700 dark:text-gold font-bold tabular-nums text-sm">{formatCurrency(Math.max(0, Number(po.po_value || 0) - Number(po.paid || 0)))}</TableCell>
+                    <TableCell className="text-right text-amber-700 dark:text-gold font-bold tabular-nums text-sm">{formatCurrency(calcBalance)}</TableCell>
                     <TableCell className="text-center relative">
                       <div className="flex justify-center items-center gap-1.5">
                         <Button
@@ -131,16 +202,6 @@ export default function POListTable({
                                   className="flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors text-left font-medium"
                                 >
                                   <Send className="w-3.5 h-3.5 text-muted-foreground" /> Email PO
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionMenuPoNo(null);
-                                    if (handleSendPOWhatsApp) handleSendPOWhatsApp(po.po_no);
-                                  }}
-                                  className="flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors text-left font-medium"
-                                >
-                                  <Send className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> WhatsApp PO
                                 </button>
                                 {!isPending && (
                                   <button
@@ -230,6 +291,18 @@ export default function POListTable({
                                      <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-gold" /> Add Manual Payment
                                    </button>
                                  )}
+                                 {isApproved && !isShortClosed && handleShortClosePO && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenActionMenuPoNo(null);
+                                        handleShortClosePO(po.po_no);
+                                      }}
+                                      className="flex items-center gap-2 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 hover:bg-muted transition-colors text-left font-medium"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Short Close PO
+                                    </button>
+                                  )}
                                  <button
                                    type="button"
                                    onClick={() => {
@@ -251,6 +324,7 @@ export default function POListTable({
               })}
             </TableBody>
           </Table>
+          </div>
           {hasMorePOs && (
              <div className="flex justify-center p-4 border-t border-border bg-muted/20">
                <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="text-muted-foreground hover:text-foreground font-medium">

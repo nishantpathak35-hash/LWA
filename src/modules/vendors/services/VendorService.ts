@@ -84,9 +84,7 @@ export class VendorService {
       accounts_contact_no: payload.accountsContactNo,
       purchase_contact_name: payload.purchaseContactName,
       purchase_contact_no: payload.purchaseContactNo,
-      whatsapp_number: payload.whatsappNumber,
-      mobile_number: payload.mobileNumber,
-      preferred_whatsapp_contact: payload.preferredWhatsappContact || 'Primary'
+      mobile_number: payload.mobileNumber
     };
 
     await VendorRepository.create(newVendor);
@@ -135,9 +133,7 @@ export class VendorService {
       accounts_contact_no: payload.accountsContactNo,
       purchase_contact_name: payload.purchaseContactName,
       purchase_contact_no: payload.purchaseContactNo,
-      whatsapp_number: payload.whatsappNumber,
-      mobile_number: payload.mobileNumber,
-      preferred_whatsapp_contact: payload.preferredWhatsappContact
+      mobile_number: payload.mobileNumber
     };
 
     if (!existing) {

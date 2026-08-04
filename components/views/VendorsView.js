@@ -36,9 +36,7 @@ export default function VendorsView() {
   const [editAccountsContactNo, setEditAccountsContactNo] = useState('');
   const [editPurchaseContactName, setEditPurchaseContactName] = useState('');
   const [editPurchaseContactNo, setEditPurchaseContactNo] = useState('');
-  const [editWhatsappNumber, setEditWhatsappNumber] = useState('');
   const [editMobileNumber, setEditMobileNumber] = useState('');
-  const [editPreferredWhatsappContact, setEditPreferredWhatsappContact] = useState('Primary');
   const [editVersion, setEditVersion] = useState(null);
 
   // Form state
@@ -55,9 +53,7 @@ export default function VendorsView() {
   const [accountsContactNo, setAccountsContactNo] = useState('');
   const [purchaseContactName, setPurchaseContactName] = useState('');
   const [purchaseContactNo, setPurchaseContactNo] = useState('');
-  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
-  const [preferredWhatsappContact, setPreferredWhatsappContact] = useState('Primary');
 
   const isSuper = isSuperAdmin(user?.email);
   const roles = isSuper ? Array.from(new Set([...(user?.roles || []), 'admin', 'director', 'finance', 'procurement'])) : (user?.roles || []);
@@ -75,7 +71,7 @@ export default function VendorsView() {
   const handleOpenModal = () => {
     setName(''); setLegalName(''); setVendorCode(''); setGstin(''); setAddress('');
     setPrimaryContactName(''); setPrimaryContactNo(''); setAccountsContactName(''); setAccountsContactNo('');
-    setPurchaseContactName(''); setPurchaseContactNo(''); setWhatsappNumber(''); setMobileNumber(''); setPreferredWhatsappContact('Primary');
+    setPurchaseContactName(''); setPurchaseContactNo(''); setMobileNumber('');
     setFormError(null);
     setModalOpen(true);
   };
@@ -89,7 +85,7 @@ export default function VendorsView() {
         legalName: legalName || name, tradeName: name, 
         gstin: gstin.trim(), address: address.trim(), status: 'Active',
         primaryContactName, primaryContactNo, accountsContactName, accountsContactNo,
-        purchaseContactName, purchaseContactNo, whatsappNumber, mobileNumber, preferredWhatsappContact
+        purchaseContactName, purchaseContactNo, mobileNumber
       };
       await call('addVendor', payload);
       await refreshData();
@@ -101,46 +97,34 @@ export default function VendorsView() {
     }
   };
 
-  const handleOpenViewModal = async (v) => {
-    setViewVendor(v); setViewVendorPOs([]); setViewModalOpen(true);
-    const vendorCode = v.code || v.vendorId || v.vendor_code || v.legalName || v.legal_name || v.tradeName || v.trade_name || v.name;
+  const handleOpenViewModal = async (vendor) => {
+    setViewVendor(vendor);
+    setViewModalOpen(true);
     try {
-      let details = await call('getVendorByName', vendorCode);
-      if (!details && (v.legalName || v.legal_name || v.name)) {
-        details = await call('getVendorByName', v.legalName || v.legal_name || v.name);
-      }
-      if (details) {
-        setViewVendor(prev => ({ ...prev, ...details }));
-      }
-      const allPOs = await call('getPOsByVendor', vendorCode);
-      setViewVendorPOs(allPOs || []);
-    } catch (e) { console.error('Failed to load details for vendor:', e); }
+      const res = await call('getVendorSummary', vendor.code || vendor.vendorId || vendor.vendor_code);
+      setViewVendorPOs(res?.purchaseOrders || []);
+    } catch (err) { console.error('Failed to load vendor POs:', err); }
   };
 
-  const handleOpenEditModal = async (v) => {
-    setFormError(null); setSubmitting(false);
-    const vendorCode = v.code || v.vendorId || v.vendor_code;
-    
+  const handleOpenEditModal = async (vendor) => {
+    const vCode = vendor.code || vendor.vendorId || vendor.vendor_code;
+    setEditVendorId(vCode);
+    setEditTradeName(vendor.tradeName || vendor.name || '');
+    setEditLegalName(vendor.legalName || vendor.name || '');
+    setEditGstin(vendor.gstin || '');
+    setEditPan(vendor.pan || '');
+    setEditEmail(vendor.email || '');
+    setEditStatus(vendor.status || 'Active');
+    setEditAddress(vendor.address || '');
     try {
-      const details = await call('getVendorByName', vendorCode);
-      
-      setEditVendorId(details?.vendorId || vendorCode); 
-      setEditLegalName(details?.legalName || v.legalName || ''); 
-      setEditTradeName(details?.tradeName || v.name || '');
-      setEditGstin(details?.gstin || v.gstin || ''); 
-      setEditPan(details?.pan || v.pan || ''); 
-      setEditStatus(details?.status || v.status || 'Active');
-      setEditAddress(details?.address || v.address || '');
-      setEditEmail(details?.email || v.email || '');
+      const details = await call('getVendorDetails', vCode);
       setEditPrimaryContactName(details?.primaryContactName || '');
       setEditPrimaryContactNo(details?.primaryContactNo || '');
       setEditAccountsContactName(details?.accountsContactName || '');
       setEditAccountsContactNo(details?.accountsContactNo || '');
       setEditPurchaseContactName(details?.purchaseContactName || '');
       setEditPurchaseContactNo(details?.purchaseContactNo || '');
-      setEditWhatsappNumber(details?.whatsappNumber || '');
       setEditMobileNumber(details?.mobileNumber || '');
-      setEditPreferredWhatsappContact(details?.preferredWhatsappContact || 'Primary');
       setEditVersion(details?.version || null);
 
       setEditAccountNo(details?.accountNo || '');
@@ -161,7 +145,7 @@ export default function VendorsView() {
         primaryContactName: editPrimaryContactName, primaryContactNo: editPrimaryContactNo,
         accountsContactName: editAccountsContactName, accountsContactNo: editAccountsContactNo,
         purchaseContactName: editPurchaseContactName, purchaseContactNo: editPurchaseContactNo,
-        whatsappNumber: editWhatsappNumber, mobileNumber: editMobileNumber, preferredWhatsappContact: editPreferredWhatsappContact,
+        mobileNumber: editMobileNumber,
         expectedVersion: editVersion
       };
       await call('updateVendor', payload);
@@ -206,9 +190,7 @@ export default function VendorsView() {
         accountsContactNo={accountsContactNo} setAccountsContactNo={setAccountsContactNo}
         purchaseContactName={purchaseContactName} setPurchaseContactName={setPurchaseContactName}
         purchaseContactNo={purchaseContactNo} setPurchaseContactNo={setPurchaseContactNo}
-        whatsappNumber={whatsappNumber} setWhatsappNumber={setWhatsappNumber}
         mobileNumber={mobileNumber} setMobileNumber={setMobileNumber}
-        preferredWhatsappContact={preferredWhatsappContact} setPreferredWhatsappContact={setPreferredWhatsappContact}
       />
       <VendorViewModal
         viewModalOpen={viewModalOpen} setViewModalOpen={setViewModalOpen}
@@ -230,9 +212,7 @@ export default function VendorsView() {
         editAccountsContactNo={editAccountsContactNo} setEditAccountsContactNo={setEditAccountsContactNo}
         editPurchaseContactName={editPurchaseContactName} setEditPurchaseContactName={setEditPurchaseContactName}
         editPurchaseContactNo={editPurchaseContactNo} setEditPurchaseContactNo={setEditPurchaseContactNo}
-        editWhatsappNumber={editWhatsappNumber} setEditWhatsappNumber={setEditWhatsappNumber}
         editMobileNumber={editMobileNumber} setEditMobileNumber={setEditMobileNumber}
-        editPreferredWhatsappContact={editPreferredWhatsappContact} setEditPreferredWhatsappContact={setEditPreferredWhatsappContact}
         canDelete={canDelete} handleDeleteVendor={handleDeleteVendor}
       />
     </div>

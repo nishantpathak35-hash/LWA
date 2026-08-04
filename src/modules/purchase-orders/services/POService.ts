@@ -239,4 +239,19 @@ export class POService {
     await logAudit(userEmail, 'PO Updated', `PO#${originalPoNo} edited`, 'Procurement');
     return { ok: true, poNo: nextPoNo };
   }
+
+  static async shortClosePO(poNo: string, userEmail: string, remarks?: string): Promise<{ ok: boolean }> {
+    if (!poNo) throw new Error("PO Number is required");
+    const existing = await PORepository.findById(poNo);
+    if (!existing) throw new Error(`Purchase Order not found: ${poNo}`);
+
+    await PORepository.update(poNo, {
+      status: 'Short Closed',
+      approval_status: 'Short Closed',
+      notes: (existing.notes ? `${existing.notes}\n` : '') + `[Short Closed by ${userEmail}]: ${remarks || 'Manual PO Short Close'}`
+    });
+
+    await logAudit(userEmail, 'PO Short Closed', `PO#${poNo} marked Short Closed. Remarks: ${remarks || 'N/A'}`, 'Procurement');
+    return { ok: true };
+  }
 }

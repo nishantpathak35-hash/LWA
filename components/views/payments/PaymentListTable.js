@@ -28,7 +28,78 @@ export default function PaymentListTable({
             </div>
           ) : (
             <>
-              <Table>
+              {/* ── Mobile View: Payment Cards ── */}
+              <div className="block md:hidden p-3 space-y-3">
+                {displayedRequests.map((req, idx) => {
+                  const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
+                  const poValue = Number(relatedPO ? (relatedPO.po_value || relatedPO.poValue) : (req.po_value || 0));
+                  const paidAmount = Number(relatedPO ? (relatedPO.paid ?? relatedPO.legacy_paid ?? 0) : 0);
+                  const requestedAmt = Number(req.amount_requested || req.gross_amount || req.amountRequested || 0);
+                  const approvedAmt = Number(req.approved_amount ?? req.approvedAmount ?? requestedAmt);
+                  const tdsAmt = Number(req.tds_amount || req.tdsAmount || 0);
+                  const netValue = Math.max(0, approvedAmt - tdsAmt);
+                  const isChecked = selectedPayments.includes(req.id || req.pr_id);
+                  const canAct = canActOnReq(req);
+                  const reqStage = req.approval_stage || req.stage || 'Pending';
+
+                  return (
+                    <div key={idx} className={`rounded-2xl border ${isChecked ? 'border-amber-500/50 bg-amber-500/5' : 'border-slate-800/80 bg-slate-900/60'} p-4 space-y-3 backdrop-blur-xl shadow-lg transition-all`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {canAct && (
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => onSelectPayment?.(req.id || req.pr_id)}
+                              className="rounded border-slate-700 text-amber-500 focus:ring-amber-500/30"
+                            />
+                          )}
+                          <span className="font-mono text-xs font-bold text-slate-200">#{req.id || req.pr_id || req.sNo}</span>
+                        </div>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          reqStage.includes('Approved') || reqStage.includes('Remitted') ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                          reqStage.includes('Rejected') ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                          'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        }`}>
+                          {reqStage}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold text-slate-100 text-sm">{req.vendor_name || req.vendor}</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">{req.project || '—'} • PO: <span className="font-mono text-amber-400">{req.po_no || '—'}</span></p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/40 text-xs">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-500 block">Requested</span>
+                          <span className="font-bold text-slate-200 tabular-nums">{formatCurrency(requestedAmt)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 block">Net Payable</span>
+                          <span className="font-bold text-gold tabular-nums">{formatCurrency(netValue)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/60">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-8 text-xs text-amber-400">
+                          <History className="w-3.5 h-3.5 mr-1" /> Trail
+                        </Button>
+                        {(String(reqStage).toLowerCase().includes('procurement') || String(reqStage).toLowerCase().includes('finance')) && onEditPayment && (
+                          <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-8 text-xs">
+                            Edit
+                          </Button>
+                        )}
+                        {canAct && getWorkflowActionButton && getWorkflowActionButton(req)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── Desktop View: Table ── */}
+              <div className="hidden md:block">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10 text-center">
@@ -156,6 +227,7 @@ export default function PaymentListTable({
                 })}
                 </TableBody>
               </Table>
+              </div>
               {hasMorePayments && (
                 <div className="flex justify-center p-4 border-t border-border bg-muted/20">
                   <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="text-muted-foreground hover:text-foreground font-medium">

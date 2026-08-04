@@ -154,7 +154,7 @@ export default function PaymentsView() {
   };
 
   const handleEditPayment = (pr) => {
-    setEditingPrId(pr.id);
+    setEditingPrId(pr.id || pr.pr_id || pr.sNo);
     setEditPrVersion(pr.version || null);
     
     // Find the vendor code for this vendor name
@@ -380,6 +380,8 @@ export default function PaymentsView() {
         project: selectedPO ? selectedPO.project : '',
         amountRequested: grossAmount,
         gross_amount: grossAmount,
+        approved_amount: grossAmount,
+        approvedAmount: grossAmount,
         tds_deducted: tdsAmount,
         tds_amount: tdsAmount,
         tds_percentage: Number(selectedPO?.tds_pct || 0),

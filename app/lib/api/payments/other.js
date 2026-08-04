@@ -21,7 +21,7 @@ function requireAuth(session) {
 
 
 export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
-  if (typeof emailOverride === 'string' && (emailOverride.toLowerCase() === 'email' || emailOverride.toLowerCase() === 'whatsapp') && typeof session === 'string') {
+  if (typeof emailOverride === 'string' && emailOverride.toLowerCase() === 'email' && typeof session === 'string') {
     const actualEmail = session;
     session = arguments[3];
     emailOverride = actualEmail;

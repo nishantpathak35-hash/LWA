@@ -178,7 +178,6 @@ export class DPRService {
     const rec = await SettingsRepository.get('dpr_settings');
     if (!rec) {
       return {
-        whatsappRecipients: '',
         weatherOptions: 'Normal, Rainy, Windy, Extreme Heat',
         shiftOptions: 'Day, Night',
         statusOptions: 'Normal, Delayed, Critical',

@@ -140,12 +140,8 @@ export async function getVendorByName(name, session) {
     purchase_contact_name: row.purchase_contact_name || '',
     purchaseContactNo: row.purchase_contact_no || '',
     purchase_contact_no: row.purchase_contact_no || '',
-    whatsappNumber: row.whatsapp_number || '',
-    whatsapp_number: row.whatsapp_number || '',
     mobileNumber: row.mobile_number || '',
     mobile_number: row.mobile_number || '',
-    preferredWhatsappContact: row.preferred_whatsapp_contact || 'Primary',
-    preferred_whatsapp_contact: row.preferred_whatsapp_contact || 'Primary',
     version: row.version || 1
   };
 }

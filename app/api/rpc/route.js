@@ -26,6 +26,7 @@ const ALLOWED_METHODS = new Set([
   'getCommandCenter',
   'getMasterHealth',
   'updatePOFull',
+  'shortClosePO',
   'deletePOFull',
   'submitPOForApproval',
   'approvePO',

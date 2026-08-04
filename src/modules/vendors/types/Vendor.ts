@@ -17,9 +17,7 @@ export interface IVendor {
   accounts_contact_no?: string;
   purchase_contact_name?: string;
   purchase_contact_no?: string;
-  whatsapp_number?: string;
   mobile_number?: string;
-  preferred_whatsapp_contact?: string;
   created_at?: string;
 }
 
@@ -42,7 +40,5 @@ export interface IVendorInput {
   accountsContactNo?: string;
   purchaseContactName?: string;
   purchaseContactNo?: string;
-  whatsappNumber?: string;
   mobileNumber?: string;
-  preferredWhatsappContact?: string;
 }

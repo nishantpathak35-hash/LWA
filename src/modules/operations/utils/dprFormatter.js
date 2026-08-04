@@ -1,7 +1,7 @@
 import { calculateOverallManpower } from './dprCalculations.js';
 
 /**
- * Formats a DPR data object into a neat WhatsApp/Text string
+ * Formats a DPR data object into a neat text string
  * according to the exact client-ready output specification.
  */
 export function formatDPRToText(dpr) {

@@ -200,7 +200,6 @@ export async function inviteUserAdmin(payload, session) {
   try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) {}
   try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) {}
   try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) {}
-  try { await queryRun(`ALTER TABLE users ADD COLUMN whatsapp_number TEXT`); } catch (e) {}
 
   // Check if user already exists
   const existing = await queryGet(`SELECT email FROM users WHERE LOWER(email) = ?`, [normEmail]);
@@ -208,19 +207,19 @@ export async function inviteUserAdmin(payload, session) {
     // Update roles, reset token, and update password if re-invited
     if (hash) {
       await queryRun(
-        `UPDATE users SET name = ?, roles = ?, invite_token = ?, password_hash = ?, department = ?, employee_id = ?, mobile_number = ?, whatsapp_number = ? WHERE LOWER(email) = ?`,
-        [payload.name || '', JSON.stringify(payload.roles || []), token, hash, payload.department || null, payload.employeeId || null, payload.mobileNumber || null, payload.whatsappNumber || null, normEmail]
+        `UPDATE users SET name = ?, roles = ?, invite_token = ?, password_hash = ?, department = ?, employee_id = ?, mobile_number = ? WHERE LOWER(email) = ?`,
+        [payload.name || '', JSON.stringify(payload.roles || []), token, hash, payload.department || null, payload.employeeId || null, payload.mobileNumber || null, normEmail]
       );
     } else {
       await queryRun(
-        `UPDATE users SET name = ?, roles = ?, invite_token = ?, department = ?, employee_id = ?, mobile_number = ?, whatsapp_number = ? WHERE LOWER(email) = ?`,
-        [payload.name || '', JSON.stringify(payload.roles || []), token, payload.department || null, payload.employeeId || null, payload.mobileNumber || null, payload.whatsappNumber || null, normEmail]
+        `UPDATE users SET name = ?, roles = ?, invite_token = ?, department = ?, employee_id = ?, mobile_number = ? WHERE LOWER(email) = ?`,
+        [payload.name || '', JSON.stringify(payload.roles || []), token, payload.department || null, payload.employeeId || null, payload.mobileNumber || null, normEmail]
       );
     }
   } else {
     await queryRun(
-      `INSERT INTO users (email, name, roles, invite_token, password_hash, active, department, employee_id, mobile_number, whatsapp_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [normEmail, payload.name || '', JSON.stringify(payload.roles || []), token, hash, true, payload.department || null, payload.employeeId || null, payload.mobileNumber || null, payload.whatsappNumber || null]
+      `INSERT INTO users (email, name, roles, invite_token, password_hash, active, department, employee_id, mobile_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [normEmail, payload.name || '', JSON.stringify(payload.roles || []), token, hash, true, payload.department || null, payload.employeeId || null, payload.mobileNumber || null]
     );
   }
 
@@ -256,9 +255,8 @@ export async function listUsersAdmin(session) {
   try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) {}
   try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) {}
   try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) {}
-  try { await queryRun(`ALTER TABLE users ADD COLUMN whatsapp_number TEXT`); } catch (e) {}
 
-  const users = await queryAll(`SELECT email, name, roles, active, invite_token, password_hash, last_login, last_login_ip, last_login_device, whatsapp_number, mobile_number, department, employee_id FROM users`);
+  const users = await queryAll(`SELECT email, name, roles, active, invite_token, password_hash, last_login, last_login_ip, last_login_device, mobile_number, department, employee_id FROM users`);
   return users.map(u => ({
     email: u.email,
     name: u.name,
@@ -269,7 +267,6 @@ export async function listUsersAdmin(session) {
     lastLogin: u.last_login || null,
     lastLoginIp: u.last_login_ip || null,
     lastLoginDevice: u.last_login_device || null,
-    whatsapp_number: u.whatsapp_number || null,
     mobile_number: u.mobile_number || null,
     department: u.department || null,
     employee_id: u.employee_id || null
@@ -278,12 +275,11 @@ export async function listUsersAdmin(session) {
 
 export async function listActiveUsers(session) {
   requireAuth(session);
-  const users = await queryAll(`SELECT email, name, department, whatsapp_number, mobile_number FROM users WHERE active = 1`);
+  const users = await queryAll(`SELECT email, name, department, mobile_number FROM users WHERE active = 1`);
   return users.map(u => ({
     email: u.email,
     name: u.name,
     department: u.department || null,
-    whatsapp_number: u.whatsapp_number || null,
     mobile_number: u.mobile_number || null,
     active: true
   }));
@@ -354,26 +350,18 @@ export async function acceptInvite(token, password) {
 }
 
 // --- EMAIL ACTIONS ---
-export async function setUserWhatsAppAdmin(email, whatsapp_number, session) {
-  requireAdminConsole(session);
-  await queryRun('UPDATE users SET whatsapp_number = ? WHERE LOWER(email) = ?', [whatsapp_number || null, String(email).trim().toLowerCase()]);
-  await logAudit(session.email, 'User WhatsApp Updated', email, 'Settings');
-  return { ok: true };
-}
-
 export async function updateUserDetailsAdmin(email, details, session) {
   requireAdminConsole(session);
-  const { whatsappNumber, mobileNumber, department, employeeId } = details || {};
+  const { mobileNumber, department, employeeId } = details || {};
   
   // ensure columns exist
   try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) { /* already exists */ }
-  try { await queryRun(`ALTER TABLE users ADD COLUMN whatsapp_number TEXT`); } catch (e) { /* already exists */ }
 
   await queryRun(
-    'UPDATE users SET whatsapp_number = ?, mobile_number = ?, department = ?, employee_id = ? WHERE LOWER(email) = ?',
-    [whatsappNumber || null, mobileNumber || null, department || null, employeeId || null, String(email).trim().toLowerCase()]
+    'UPDATE users SET mobile_number = ?, department = ?, employee_id = ? WHERE LOWER(email) = ?',
+    [mobileNumber || null, department || null, employeeId || null, String(email).trim().toLowerCase()]
   );
   await logAudit(session.email, 'User Details Updated', email, 'Settings');
   return { ok: true };

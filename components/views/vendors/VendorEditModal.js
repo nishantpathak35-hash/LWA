@@ -14,8 +14,7 @@ export default function VendorEditModal({
   editPrimaryContactName, setEditPrimaryContactName, editPrimaryContactNo, setEditPrimaryContactNo,
   editAccountsContactName, setEditAccountsContactName, editAccountsContactNo, setEditAccountsContactNo,
   editPurchaseContactName, setEditPurchaseContactName, editPurchaseContactNo, setEditPurchaseContactNo,
-  editWhatsappNumber, setEditWhatsappNumber, editMobileNumber, setEditMobileNumber,
-  editPreferredWhatsappContact, setEditPreferredWhatsappContact,
+  editMobileNumber, setEditMobileNumber,
   canDelete, handleDeleteVendor
 }) {
   const [confirmDelete, setConfirmDelete] = React.useState(false);
@@ -121,22 +120,9 @@ export default function VendorEditModal({
               <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">PURCHASE CONTACT NO</label>
               <Input type="text" value={editPurchaseContactNo} onChange={(e) => setEditPurchaseContactNo(e.target.value)} className="bg-background text-foreground text-xs" />
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">WHATSAPP NUMBER</label>
-              <Input type="text" value={editWhatsappNumber} onChange={(e) => setEditWhatsappNumber(e.target.value)} className="bg-background text-foreground text-xs" />
-            </div>
-            <div>
+            <div className="md:col-span-2">
               <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">MOBILE NUMBER</label>
               <Input type="text" value={editMobileNumber} onChange={(e) => setEditMobileNumber(e.target.value)} className="bg-background text-foreground text-xs" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">PREFERRED WHATSAPP CONTACT</label>
-              <Select value={editPreferredWhatsappContact} onChange={(e) => setEditPreferredWhatsappContact(e.target.value)} className="bg-background text-foreground text-xs font-semibold">
-                <option value="Primary">Primary Contact</option>
-                <option value="Accounts">Accounts Contact</option>
-                <option value="Purchase">Purchase Contact</option>
-                <option value="Other">WhatsApp/Mobile Number</option>
-              </Select>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 /**
- * Formats WPR report data into a neat WhatsApp/Text string.
+ * Formats WPR report data into a neat text string.
  */
 export function formatWPRToText(wpr) {
   const {

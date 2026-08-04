@@ -73,17 +73,28 @@ export class PaymentService {
     }
 
     const reqAmt = payload.amountRequested !== undefined ? Number(payload.amountRequested || payload.gross_amount || 0) : Number(pr.amount_requested || 0);
-    const approvedAmt = payload.approved_amount !== undefined ? Number(payload.approved_amount) : (payload.approvedAmount !== undefined ? Number(payload.approvedAmount) : Number(pr.approved_amount || reqAmt));
+    let approvedAmt = payload.approved_amount !== undefined 
+      ? Number(payload.approved_amount) 
+      : (payload.approvedAmount !== undefined 
+        ? Number(payload.approvedAmount) 
+        : (pr.approved_amount !== undefined && pr.approved_amount !== null && Number(pr.approved_amount) !== Number(pr.amount_requested)
+          ? Number(pr.approved_amount)
+          : reqAmt));
+    if (approvedAmt <= 0) approvedAmt = reqAmt;
     
     const tdsSec = payload.tds_section !== undefined ? payload.tds_section : (payload.tdsSection !== undefined ? payload.tdsSection : (pr.tds_section || ''));
     const tdsPct = payload.tds_percentage !== undefined ? Number(payload.tds_percentage) : (payload.tdsPct !== undefined ? Number(payload.tdsPct) : Number(pr.tds_percentage || 0));
-    const tdsAmt = payload.tds_amount !== undefined ? Number(payload.tds_amount) : (payload.tdsAmount !== undefined ? Number(payload.tdsAmount) : Number(pr.tds_amount || 0));
+    let tdsAmt = payload.tds_amount !== undefined ? Number(payload.tds_amount) : (payload.tdsAmount !== undefined ? Number(payload.tdsAmount) : Number(pr.tds_amount || 0));
+    
+    if (payload.tds_amount === undefined && payload.tdsAmount === undefined && tdsPct > 0) {
+      tdsAmt = Math.round(approvedAmt * (tdsPct / 100));
+    }
 
     const remarks = payload.remarks !== undefined ? payload.remarks : (pr.remarks || '');
 
     const updates: Record<string, any> = {
       amount_requested: reqAmt > 0 ? reqAmt : pr.amount_requested,
-      approved_amount: approvedAmt,
+      approved_amount: approvedAmt > 0 ? approvedAmt : (reqAmt > 0 ? reqAmt : pr.amount_requested),
       tds_section: tdsSec,
       tds_percentage: tdsPct,
       tds_amount: tdsAmt,

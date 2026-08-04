@@ -30,6 +30,13 @@ export default function ReportsEditPaymentModal({
     }
   }, [editingPayment]);
 
+  const handleAmountRequestedChange = (val) => {
+    setAmountRequested(val);
+    if (!approvedAmount || Number(approvedAmount) === Number(amountRequested)) {
+      handleApprovedAmountChange(val);
+    }
+  };
+
   const handleTdsSectionChange = (secCode) => {
     setTdsSection(secCode);
     if (!secCode) {
@@ -103,7 +110,7 @@ export default function ReportsEditPaymentModal({
               required
               min="1"
               value={amountRequested}
-              onChange={e => setAmountRequested(e.target.value)}
+              onChange={e => handleAmountRequestedChange(e.target.value)}
             />
           </div>
           <div>
