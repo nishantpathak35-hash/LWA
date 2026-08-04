@@ -279,7 +279,7 @@ export default function MainLayout() {
       {/* Main content */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* ── Header / Topbar ── */}
-        <header className="h-14 px-6 border-b border-border bg-card/80 backdrop-blur-md shadow-2xs flex items-center justify-between flex-shrink-0 transition-colors duration-200 sticky top-0 z-20">
+        <header className="h-13 px-5 border-b border-border bg-slate-950/90 backdrop-blur-sm flex items-center justify-between flex-shrink-0 transition-colors duration-150 sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -287,14 +287,14 @@ export default function MainLayout() {
               className="md:hidden"
               onClick={() => setMobileMenuOpen(true)}
             >
-              <Menu className="w-5 h-5 text-muted-foreground" />
+              <Menu className="w-4 h-4 text-slate-400" />
             </Button>
             
             {/* Breadcrumb Navigation */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground font-medium hidden sm:inline">Luxeworx ERP</span>
-              <span className="text-muted-foreground/50 hidden sm:inline">/</span>
-              <h1 className="text-sm font-semibold text-foreground tracking-tight">
+              <span className="text-slate-500 font-medium hidden sm:inline">Luxeworx ERP</span>
+              <span className="text-slate-700 hidden sm:inline">/</span>
+              <h1 className="text-sm font-semibold text-slate-100 tracking-tight">
                 {VIEW_LABELS[activeView] || activeView}
               </h1>
             </div>
@@ -304,16 +304,18 @@ export default function MainLayout() {
             {/* Search Trigger Button */}
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('lx:open-command-palette'))}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 hover:bg-muted border border-border text-xs text-muted-foreground transition-all"
+              className="hidden md:flex items-center justify-between w-60 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400 hover:text-slate-200 transition-colors"
             >
-              <Search className="w-3.5 h-3.5" />
-              <span>Search...</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono shadow-2xs text-muted-foreground">⌘K</kbd>
+              <div className="flex items-center gap-2">
+                <Search className="w-3.5 h-3.5 text-slate-400" />
+                <span>Search...</span>
+              </div>
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-slate-400">⌘K</kbd>
             </button>
 
-            {/* Keyboard shortcut hint (shows sequence in progress) */}
+            {/* Keyboard shortcut hint */}
             {keySequence.length > 0 && (
-              <span className="text-[10px] px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-mono animate-pulse mr-1 font-semibold">
+              <span className="text-[10px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-amber-400 font-mono font-semibold">
                 {keySequence.map(k => k.toUpperCase()).join(' → ')} …
               </span>
             )}
@@ -326,14 +328,14 @@ export default function MainLayout() {
               onClick={() => setActivityDrawerOpen(true)}
               title="Team Activity Stream"
             >
-              <Activity className="w-4 h-4 text-amber-600 dark:text-gold" />
+              <Activity className="w-4 h-4 text-slate-400 hover:text-slate-200" />
             </Button>
             {/* Theme toggle */}
             <Button variant="ghost" size="icon" onClick={toggleTheme} title="Toggle theme">
               {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                <Sun className="w-4 h-4 text-slate-400 hover:text-slate-200" />
               ) : (
-                <Moon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                <Moon className="w-4 h-4 text-slate-400 hover:text-slate-200" />
               )}
             </Button>
           </div>

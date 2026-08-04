@@ -43,7 +43,7 @@ export default function PaymentListTable({
                   const reqStage = req.approval_stage || req.stage || 'Pending';
 
                   return (
-                    <div key={idx} className={`rounded-2xl border ${isChecked ? 'border-amber-500/50 bg-amber-500/5' : 'border-slate-800/80 bg-slate-900/60'} p-4 space-y-3 backdrop-blur-xl shadow-lg transition-all`}>
+                    <div key={idx} className={`rounded-xl border ${isChecked ? 'border-amber-500/40 bg-amber-500/5' : 'border-slate-800 bg-slate-900/40'} p-3.5 space-y-2.5 transition-colors`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {canAct && (
@@ -54,9 +54,9 @@ export default function PaymentListTable({
                               className="rounded border-slate-700 text-amber-500 focus:ring-amber-500/30"
                             />
                           )}
-                          <span className="font-mono text-xs font-bold text-slate-200">#{req.id || req.pr_id || req.sNo}</span>
+                          <span className="font-mono text-xs font-semibold text-slate-200">#{req.id || req.pr_id || req.sNo}</span>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
                           reqStage.includes('Approved') || reqStage.includes('Remitted') ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                           reqStage.includes('Rejected') ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
                           'bg-amber-500/10 text-amber-400 border-amber-500/20'
@@ -66,27 +66,27 @@ export default function PaymentListTable({
                       </div>
 
                       <div>
-                        <h4 className="font-bold text-slate-100 text-sm">{req.vendor_name || req.vendor}</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">{req.project || '—'} • PO: <span className="font-mono text-amber-400">{req.po_no || '—'}</span></p>
+                        <h4 className="font-semibold text-slate-100 text-xs">{req.vendor_name || req.vendor}</h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{req.project || '—'} • PO: <span className="font-mono text-amber-500">{req.po_no || '—'}</span></p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/40 text-xs">
+                      <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded-lg border border-slate-800/60 text-[11px]">
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-500 block">Requested</span>
-                          <span className="font-bold text-slate-200 tabular-nums">{formatCurrency(requestedAmt)}</span>
+                          <span className="text-[10px] uppercase font-semibold text-slate-500 block">Requested</span>
+                          <span className="font-medium text-slate-300 tabular-nums">{formatCurrency(requestedAmt)}</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] uppercase font-bold text-slate-500 block">Net Payable</span>
-                          <span className="font-bold text-gold tabular-nums">{formatCurrency(netValue)}</span>
+                          <span className="text-[10px] uppercase font-semibold text-slate-500 block">Net Payable</span>
+                          <span className="font-semibold text-slate-100 tabular-nums">{formatCurrency(netValue)}</span>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/60">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-8 text-xs text-amber-400">
-                          <History className="w-3.5 h-3.5 mr-1" /> Trail
+                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-7 text-[11px] text-slate-400 hover:text-slate-200">
+                          <History className="w-3 h-3 mr-1" /> Trail
                         </Button>
                         {(String(reqStage).toLowerCase().includes('procurement') || String(reqStage).toLowerCase().includes('finance')) && onEditPayment && (
-                          <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-8 text-xs">
+                          <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-7 text-[11px]">
                             Edit
                           </Button>
                         )}
@@ -101,26 +101,26 @@ export default function PaymentListTable({
               <div className="hidden md:block">
                 <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10 text-center">
+                  <TableRow className="border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/80">
+                    <TableHead className="w-10 text-center py-2.5">
                       <input 
                         type="checkbox" 
-                        className="rounded border-slate-300 dark:border-slate-700 text-amber-600 dark:text-gold focus:ring-amber-500/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="rounded border-slate-300 dark:border-slate-700 text-amber-600 dark:text-amber-500 focus:ring-amber-500/30 cursor-pointer disabled:opacity-30"
                         checked={allSelected}
                         onChange={(e) => onSelectAll?.(e.target.checked)}
                       />
                     </TableHead>
-                    <TableHead className="w-16">ID</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>PO Number</TableHead>
-                    <TableHead className="text-right">PO Amount</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Net Value</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Current Stage</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
+                    <TableHead className="w-14 font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">ID</TableHead>
+                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Date</TableHead>
+                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Project</TableHead>
+                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Vendor</TableHead>
+                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">PO Number</TableHead>
+                    <TableHead className="text-right font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">PO Amount</TableHead>
+                    <TableHead className="text-right font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Paid Amount</TableHead>
+                    <TableHead className="text-right font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Net Value</TableHead>
+                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Status</TableHead>
+                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Current Stage</TableHead>
+                    <TableHead className="text-center font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -134,39 +134,39 @@ export default function PaymentListTable({
                     const isSelected = selectedPayments.includes(req.id);
                     const isActionable = canActOnReq(req);
                     return (
-                      <TableRow key={idx} className={`${isSelected ? 'bg-amber-50 dark:bg-amber-900/20 border-l-4 border-l-amber-600 dark:border-l-gold' : ''} ${!isActionable ? 'opacity-65 bg-muted/30' : ''}`}>
-                        <TableCell className="text-center">
+                      <TableRow key={idx} className={`border-b border-slate-200/80 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${isSelected ? 'bg-amber-50 dark:bg-amber-500/5 border-l-2 border-l-amber-500' : ''} ${!isActionable ? 'opacity-60' : ''}`}>
+                        <TableCell className="text-center py-2.5">
                           <input 
                             type="checkbox" 
-                            className="rounded border-slate-300 dark:border-slate-700 text-amber-600 dark:text-gold focus:ring-amber-500/30 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="rounded border-slate-300 dark:border-slate-700 text-amber-600 dark:text-amber-500 focus:ring-amber-500/30 cursor-pointer disabled:opacity-30"
                             checked={isSelected}
                             onChange={() => isActionable && onSelectPayment?.(req.id)}
                             disabled={!isActionable}
                           />
                         </TableCell>
-                        <TableCell className="font-bold text-xs text-muted-foreground">#{req.id}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground font-medium">{req.created_at ? formatDate(req.created_at) : '—'}</TableCell>
-                        <TableCell className="font-medium text-foreground text-sm">{req.project || '—'}</TableCell>
-                        <TableCell className="font-bold text-foreground text-sm">{req.vendor_name}</TableCell>
-                        <TableCell className="font-mono text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline cursor-pointer" title="View Purchase Order">
+                        <TableCell className="font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 py-2.5">#{req.id}</TableCell>
+                        <TableCell className="text-xs text-slate-600 dark:text-slate-400 font-normal whitespace-nowrap py-2.5">{req.created_at ? formatDate(req.created_at) : '—'}</TableCell>
+                        <TableCell className="text-xs text-slate-600 dark:text-slate-400 font-normal truncate max-w-[140px] py-2.5" title={req.project || ''}>{req.project || '—'}</TableCell>
+                        <TableCell className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[170px] py-2.5" title={req.vendor_name || ''}>{req.vendor_name}</TableCell>
+                        <TableCell className="font-mono text-[11px] font-medium text-amber-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors py-2.5">
                           <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
                             {req.po_no}
                           </a>
                         </TableCell>
-                        <TableCell className="text-right text-muted-foreground font-medium tabular-nums">{formatCurrency(poValue)}</TableCell>
-                        <TableCell className="text-right tabular-nums whitespace-nowrap">
-                          <span className="font-bold text-emerald-700 dark:text-emerald-400 text-sm">
+                        <TableCell className="text-right text-xs font-normal text-slate-600 dark:text-slate-400 tabular-nums py-2.5">{formatCurrency(poValue)}</TableCell>
+                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-2.5">
+                          <span className="font-normal text-emerald-700 dark:text-emerald-400">
                             {formatCurrency(paidAmount)}
                           </span>
-                          <span className="ml-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400/80">
+                          <span className="ml-1 text-[10px] font-normal text-slate-500 dark:text-slate-500">
                             ({paidPct}%)
                           </span>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums whitespace-nowrap">
-                          <span className="font-bold text-foreground text-sm">
+                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-2.5">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">
                             {formatCurrency(netAmount)}
                           </span>
-                          <span className="ml-1 text-[11px] font-semibold text-amber-700 dark:text-gold">
+                          <span className="ml-1 text-[10px] font-normal text-slate-500 dark:text-slate-500">
                             ({reqPct}%)
                           </span>
                         </TableCell>
