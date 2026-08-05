@@ -322,7 +322,9 @@ export default function POsView() {
     try {
       if (typeof window === 'undefined') return null;
       const html2pdf = (await import('html2pdf.js')).default;
-      const res = await fetch(`/po/${encodeURIComponent(poNumber)}`);
+      // Use literal slashes so the [...poNo] catch-all route handles the multi-segment PO number
+      const poPath = poNumber.split('/').map(encodeURIComponent).join('/');
+      const res = await fetch(`/po/${poPath}`);
       if (!res.ok) return null;
       const htmlText = await res.text();
 

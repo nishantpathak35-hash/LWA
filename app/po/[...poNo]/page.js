@@ -3,8 +3,12 @@ import fs from 'fs';
 import path from 'path';
 
 export default async function POPdfPage({ params }) {
-  const { poNo } = await params;
-  const decodedPoNo = decodeURIComponent(poNo);
+  const resolvedParams = await params;
+  let rawPoNo = resolvedParams?.poNo;
+  if (Array.isArray(rawPoNo)) {
+    rawPoNo = rawPoNo.join('/');
+  }
+  const decodedPoNo = decodeURIComponent(rawPoNo || '');
 
   // Fetch Company Settings from app_settings
   let companyName = 'LUXEWORX ATELIER INTERIOR PRIVATE LIMITED';
@@ -144,7 +148,7 @@ export default async function POPdfPage({ params }) {
     
     if (crore) out += threeD(crore) + ' Crore ';
     if (lakh) out += twoD(lakh) + ' Lakh ';
-    if (thou) out += twoD(thou) + ' Thousand ';
+    if (thou) out += threeD(thou) + ' Thousand ';
     if (hund) out += threeD(hund);
     
     return out.trim() + ' Rupees Only';
