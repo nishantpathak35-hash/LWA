@@ -44,8 +44,8 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           </div>
         </div>
  
-        <Button variant="primary" size="sm" onClick={handleOpenModal}>
-          <PlusCircle className="w-4 h-4" />
+        <Button variant="primary" size="sm" onClick={handleOpenModal} className="font-medium">
+          <PlusCircle className="w-4 h-4 mr-1.5" />
           Onboard Vendor
         </Button>
       </div>

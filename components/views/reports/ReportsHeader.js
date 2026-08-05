@@ -44,7 +44,7 @@ export default function ReportsHeader({
             <FileText className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-foreground tracking-tight flex items-center gap-2">
               Financial Reports & Analytics
             </h1>
             <p className="text-xs text-muted-foreground font-medium">
