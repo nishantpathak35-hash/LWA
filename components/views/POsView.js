@@ -322,29 +322,33 @@ export default function POsView() {
     try {
       if (typeof window === 'undefined') return null;
       const html2pdf = (await import('html2pdf.js')).default;
-      // Use literal slashes so the [...poNo] catch-all route handles the multi-segment PO number
-      const poPath = poNumber.split('/').map(encodeURIComponent).join('/');
-      const res = await fetch(`/po/${poPath}`);
-      if (!res.ok) return null;
-      const htmlText = await res.text();
 
-      // Create a hidden iframe to render the full HTML page with CSS and images
+      // Use same URL encoding as system-view links so both hit the identical [poNo] route
+      const encodedPoNo = encodeURIComponent(poNumber);
+
+      // Create a hidden iframe and load via src so the browser resolves /_next/static/css correctly
+      // (document.write creates an about:blank null-origin context that blocks CSS loading)
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
       iframe.style.left = '-9999px';
       iframe.style.top = '-9999px';
       iframe.style.width = '1024px';
-      iframe.style.height = '1400px';
+      iframe.style.height = '1500px';
       iframe.style.border = 'none';
       document.body.appendChild(iframe);
 
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      iframeDoc.open();
-      iframeDoc.write(htmlText);
-      iframeDoc.close();
+      // Wait for the page to fully load via src (not document.write)
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Iframe PO page load timeout')), 20000);
+        iframe.onload = () => { clearTimeout(timeout); resolve(); };
+        iframe.onerror = () => { clearTimeout(timeout); reject(new Error('Iframe PO page load error')); };
+        iframe.src = `/po/${encodedPoNo}`;
+      });
 
-      // Wait for iframe styles and images to settle completely
-      await new Promise(r => setTimeout(r, 600));
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+      // Extra settle time for fonts and images
+      await new Promise(r => setTimeout(r, 1200));
       const imgs = Array.from(iframeDoc.querySelectorAll('img'));
       await Promise.all(
         imgs.map(img => {
@@ -380,6 +384,7 @@ export default function POsView() {
     }
     return null;
   };
+
 
   const handleSendPOEmail = (poNumber) => {
     const poObj = pos.find(p => p.po_no === poNumber);

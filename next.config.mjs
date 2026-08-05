@@ -10,6 +10,11 @@ const nextConfig = {
   },
   serverExternalPackages: ['@libsql/client'],
   allowedDevOrigins: ['armor-subcommittee-interpreted-sees.trycloudflare.com'],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '20mb',
+    },
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.alias = {

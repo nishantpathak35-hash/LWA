@@ -236,3 +236,6 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
+
+// Raise body size limit for this route — browser PO PDF attachments can be 5–15MB base64
+export const maxDuration = 60;

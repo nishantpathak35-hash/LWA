@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { toast } from '../ui/Toast';
 import { useAppState } from '../StateProvider';
 import { isSuperAdmin } from '../../app/lib/config';
 
@@ -117,7 +118,7 @@ export default function VendorsView() {
     setEditStatus(vendor.status || 'Active');
     setEditAddress(vendor.address || '');
     try {
-      const details = await call('getVendorDetails', vCode);
+      const details = await call('getVendorByName', vCode);
       setEditPrimaryContactName(details?.primaryContactName || '');
       setEditPrimaryContactNo(details?.primaryContactNo || '');
       setEditAccountsContactName(details?.accountsContactName || '');
