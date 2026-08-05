@@ -15,9 +15,9 @@ export default function DashboardWelcomeHeader({ user, loading, loadDashboardDat
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-6 bg-card border border-border rounded-xl shadow-2xs relative overflow-hidden">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-amber-600 dark:text-gold" />
-            <h2 className="text-xl font-bold tracking-tight text-foreground">
-              Welcome back, <span className="text-amber-800 dark:text-gold">{user?.name || user?.email}</span>
+            <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              Welcome back, <span className="text-amber-800 dark:text-amber-400">{user?.name || user?.email}</span>
             </h2>
           </div>
           <p className="text-xs text-muted-foreground font-medium">
@@ -28,7 +28,7 @@ export default function DashboardWelcomeHeader({ user, loading, loadDashboardDat
         {/* ── Cloud ERP Live Sync Status ── */}
         <div className="relative z-10 flex items-center gap-3">
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
               syncStatus === 'reconnecting'
                 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
                 : isSyncing
@@ -65,38 +65,38 @@ export default function DashboardWelcomeHeader({ user, loading, loadDashboardDat
 
       {/* ── Quick Actions ── */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Quick Actions</h3>
+        <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Quick Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
             onClick={() => setActiveView('payments')}
-            className="flex items-center justify-between p-5 bg-card border border-border hover:border-amber-500/50 rounded-xl transition-all hover:-translate-y-0.5 shadow-2xs group cursor-pointer text-left"
+            className="flex items-center justify-between p-5 bg-card border border-border hover:border-amber-500/40 rounded-xl transition-all duration-150 active:scale-[0.98] shadow-2xs group cursor-pointer text-left"
           >
             <div className="space-y-1">
-              <span className="text-xs text-amber-800 dark:text-gold font-bold uppercase tracking-wider block">New Payment Request</span>
+              <span className="text-xs text-amber-800 dark:text-amber-400 font-semibold uppercase tracking-wider block">New Payment Request</span>
               <span className="text-xs text-muted-foreground font-medium block">Initiate a vendor payment request</span>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-700 dark:text-gold group-hover:scale-110 transition-transform">
-              <CreditCard className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-700 dark:text-amber-400 transition-transform">
+              <CreditCard className="w-4 h-4" />
             </div>
           </button>
           <button
             onClick={() => setActiveView('pos')}
-            className="flex items-center justify-between p-5 bg-card border border-border hover:border-emerald-500/50 rounded-xl transition-all hover:-translate-y-0.5 shadow-2xs group cursor-pointer text-left"
+            className="flex items-center justify-between p-5 bg-card border border-border hover:border-emerald-500/40 rounded-xl transition-all duration-150 active:scale-[0.98] shadow-2xs group cursor-pointer text-left"
           >
             <div className="space-y-1">
-              <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider block">New Purchase Order</span>
+              <span className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold uppercase tracking-wider block">New Purchase Order</span>
               <span className="text-xs text-muted-foreground font-medium block">Create & issue a purchase order</span>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-              <FilePlus className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-700 dark:text-emerald-400 transition-transform">
+              <FilePlus className="w-4 h-4" />
             </div>
           </button>
           <button
             onClick={() => setActiveView('payments')}
-            className="flex items-center justify-between p-5 bg-card border border-border hover:border-blue-500/50 rounded-xl transition-all hover:-translate-y-0.5 shadow-2xs group cursor-pointer text-left"
+            className="flex items-center justify-between p-5 bg-card border border-border hover:border-blue-500/40 rounded-xl transition-all duration-150 active:scale-[0.98] shadow-2xs group cursor-pointer text-left"
           >
             <div className="space-y-1">
-              <span className="text-xs text-blue-700 dark:text-blue-400 font-bold uppercase tracking-wider block">Approvals Queue</span>
+              <span className="text-xs text-sky-700 dark:text-sky-400 font-semibold uppercase tracking-wider block">Approvals Queue</span>
               <span className="text-xs text-muted-foreground font-medium block">Review pending workflow stages</span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-700 dark:text-blue-400 group-hover:scale-110 transition-transform">

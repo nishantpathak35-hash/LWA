@@ -205,7 +205,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                 >
                   <div className="flex items-center gap-2">
                     <GroupIcon className={`w-3.5 h-3.5 ${hasActiveChild ? 'text-amber-400' : 'text-slate-500'}`} />
-                    <span className={`text-[10px] font-semibold tracking-wider uppercase ${hasActiveChild ? 'text-slate-200' : 'text-slate-400'}`}>
+                    <span className={`text-[10px] font-medium tracking-wider uppercase ${hasActiveChild ? 'text-slate-200' : 'text-slate-400'}`}>
                       {group.label}
                     </span>
                     {!isExpanded && groupBadgeCount > 0 && (
@@ -234,7 +234,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                         className={`
                           w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors duration-150 focus:outline-none cursor-pointer
                           ${isActive 
-                            ? 'bg-slate-800/80 text-slate-100 font-semibold border-l-2 border-amber-500 pl-2' 
+                            ? 'bg-slate-800/80 text-slate-100 font-medium border-l-2 border-amber-500 pl-2' 
                             : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                           }
                         `}

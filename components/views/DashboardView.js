@@ -124,24 +124,75 @@ export default function DashboardView() {
   ];
   const stageTotal = stageParts.reduce((a, s) => a + s.v, 0) || 1;
 
-  // Top vendors payables
-  const sortedVendors = [...vendorsList]
-    .sort((a, b) => num(b.totalPayable) - num(a.totalPayable))
-    .slice(0, 5);
-  const totalVendorPayable = vendorsList.reduce((a, v) => a + num(v.totalPayable), 0);
+  // Calculate Vendor Exposure / Payables Liability from Purchase Orders & Vendors
+  const vendorPayablesMap = useMemo(() => {
+    const map = {};
+    (pos || []).forEach(po => {
+      const st = String(po.status || po.approval_status || '').toLowerCase();
+      if (st === 'rejected' || st === 'cancelled') return;
+      const isShortClosed = st === 'short closed' || st === 'short_closed' || st === 'closed';
+      const poValue = Number(po.po_value || po.poValue || 0);
+      const paid = Number(po.paid || po.paid_amount || 0);
+      const balance = isShortClosed ? 0 : Math.max(0, poValue - paid);
+      
+      const vName = po.vendor_name || po.vendor_key || po.vendor;
+      if (vName) {
+        map[vName] = (map[vName] || 0) + balance;
+      }
+    });
 
-  const vendorPalette = [
-    'rgba(200,164,90,.95)',
-    'rgba(34,211,238,.95)',
-    'rgba(155,114,248,.95)',
-    'rgba(245,158,11,.95)',
-    'rgba(61,214,140,.95)'
-  ];
-  const vendorSlices = sortedVendors.map((v, i) => ({
-    label: v.vendor,
-    value: num(v.totalPayable),
-    color: vendorPalette[i % vendorPalette.length]
-  })).filter(s => s.value > 0);
+    // If all balances are 0 or no POs, fall back to total PO commitment per vendor
+    const totalBal = Object.values(map).reduce((a, b) => a + b, 0);
+    if (totalBal === 0) {
+      (pos || []).forEach(po => {
+        const st = String(po.status || po.approval_status || '').toLowerCase();
+        if (st === 'rejected' || st === 'cancelled') return;
+        const poValue = Number(po.po_value || po.poValue || 0);
+        const vName = po.vendor_name || po.vendor_key || po.vendor;
+        if (vName && poValue > 0) {
+          map[vName] = (map[vName] || 0) + poValue;
+        }
+      });
+    }
+
+    // Also include vendor list names if no POs exist yet
+    if (Object.keys(map).length === 0 && vendorsList.length > 0) {
+      vendorsList.forEach(v => {
+        const vName = v.name || v.tradeName || v.legalName || v.vendor;
+        const val = num(v.totalPayable || v.balance || 0);
+        if (vName && val > 0) {
+          map[vName] = val;
+        }
+      });
+    }
+
+    return map;
+  }, [pos, vendorsList]);
+
+  const vendorSlices = useMemo(() => {
+    const entries = Object.entries(vendorPayablesMap)
+      .map(([label, value]) => ({ label, value: num(value) }))
+      .filter(s => s.value > 0)
+      .sort((a, b) => b.value - a.value);
+
+    const top5 = entries.slice(0, 5);
+    const vendorPalette = [
+      'rgba(200,164,90,.95)',
+      'rgba(34,211,238,.95)',
+      'rgba(155,114,248,.95)',
+      'rgba(245,158,11,.95)',
+      'rgba(61,214,140,.95)'
+    ];
+
+    return top5.map((item, idx) => ({
+      ...item,
+      color: vendorPalette[idx % vendorPalette.length]
+    }));
+  }, [vendorPayablesMap]);
+
+  const totalVendorPayable = useMemo(() => {
+    return Object.values(vendorPayablesMap).reduce((acc, val) => acc + num(val), 0);
+  }, [vendorPayablesMap]);
 
   const handleOpenEditModal = (proj) => {
     setEditProject(proj);

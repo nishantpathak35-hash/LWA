@@ -55,12 +55,12 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
   return (
     <div className="space-y-6">
       {/* Project Details Header & Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-5 rounded-xl shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-5 rounded-xl shadow-2xs">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h2 className="text-xl font-bold text-foreground tracking-tight">{selectedProject.project}</h2>
+            <h2 className="text-xl font-semibold text-foreground tracking-tight">{selectedProject.project}</h2>
             {selectedProject.project_ref && (
-              <Badge variant="default" className="text-[10px] uppercase font-bold tracking-wider">{selectedProject.project_ref}</Badge>
+              <Badge variant="default" className="text-[10px] uppercase font-medium tracking-wider">{selectedProject.project_ref}</Badge>
             )}
           </div>
           {selectedProject.client && (
@@ -70,61 +70,61 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
           )}
           {selectedProject.site_address && (
             <p className="text-xs text-muted-foreground mt-2 max-w-xl whitespace-pre-line leading-relaxed">
-              <span className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider block mb-0.5">Site Address</span>
+              <span className="font-medium text-muted-foreground uppercase text-[10px] tracking-wider block mb-0.5">Site Address</span>
               {selectedProject.site_address}
             </p>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)} className="text-xs font-semibold shrink-0">
+        <Button variant="default" size="sm" onClick={() => setShowEditModal(true)} className="text-xs font-medium shrink-0">
           Edit Settings
         </Button>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-card border-border shadow-xs hover:border-amber-500/30 transition-colors">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-gold shrink-0">
-              <TrendingUp className="w-5 h-5" />
+        <Card className="bg-card border-border/80 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <CardContent className="p-5 flex items-center gap-3.5">
+            <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+              <TrendingUp className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total PO Committed</p>
-              <p className="text-lg font-bold text-foreground tabular-nums mt-0.5">{formatCurrency(selectedProject.poIssued)}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total PO Committed</p>
+              <p className="text-2xl font-semibold tracking-tight text-foreground tabular-nums mt-0.5">{formatCurrency(selectedProject.poIssued)}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border shadow-xs hover:border-emerald-500/30 transition-colors">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="p-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
-              <IndianRupee className="w-5 h-5" />
+        <Card className="bg-card border-border/80 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <CardContent className="p-5 flex items-center gap-3.5">
+            <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+              <IndianRupee className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Paid Outflow</p>
-              <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-0.5">{formatCurrency(selectedProject.outflow)}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Paid Outflow</p>
+              <p className="text-2xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums mt-0.5">{formatCurrency(selectedProject.outflow)}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border shadow-xs hover:border-blue-500/30 transition-colors">
-          <CardContent className="p-4 flex items-center gap-3.5">
-            <div className="p-3 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-              <Wallet className="w-5 h-5" />
+        <Card className="bg-card border-border/80 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <CardContent className="p-5 flex items-center gap-3.5">
+            <div className="p-2.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0">
+              <Wallet className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Unspent Balance</p>
-              <p className="text-lg font-bold text-foreground tabular-nums mt-0.5">{formatCurrency(selectedProject.pendingOutflow)}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Unspent Balance</p>
+              <p className="text-2xl font-semibold tracking-tight text-foreground tabular-nums mt-0.5">{formatCurrency(selectedProject.pendingOutflow)}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* POs Table */}
-      <Card className="bg-card border-border shadow-xs">
-        <CardHeader className="border-b border-border/60 py-3.5 px-4">
+      <Card className="bg-card border-border/80 shadow-2xs">
+        <CardHeader className="border-b border-border/80 py-3.5 px-6">
           <div className="flex items-center gap-2">
-            <Folder className="w-4 h-4 text-amber-600 dark:text-gold" />
-            <CardTitle className="text-sm font-bold text-foreground">POs Linked to {selectedProject.project}</CardTitle>
+            <Folder className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <CardTitle className="text-xs font-semibold text-foreground uppercase tracking-wider">POs Linked to {selectedProject.project}</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -135,19 +135,23 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/40">
-                  <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider">PO Number</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Vendor</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</TableHead>
-                  <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">PO Value</TableHead>
+                <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
+                  <TableHead className="w-32 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Number</TableHead>
+                  <TableHead className="min-w-[180px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Vendor</TableHead>
+                  <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Status</TableHead>
+                  <TableHead className="text-right py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Value</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {projectPOs.map((po, idx) => (
-                  <TableRow key={idx} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-mono text-xs font-semibold text-amber-700 dark:text-gold">{po.po_no || po.poNo}</TableCell>
-                    <TableCell className="font-semibold text-xs text-foreground">{po.vendor_name || po.vendor || 'Vendor'}</TableCell>
-                    <TableCell>
+                  <TableRow key={idx} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150">
+                    <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
+                      <a href={`/po/${encodeURIComponent(po.po_no || po.poNo)}`} target="_blank" rel="noreferrer" title={`Open PO ${po.po_no || po.poNo}`}>
+                        {po.po_no || po.poNo}
+                      </a>
+                    </TableCell>
+                    <TableCell className="px-3 py-3 font-semibold text-xs text-slate-900 dark:text-slate-100 truncate max-w-[220px]" title={po.vendor_name || po.vendor || ''}>{po.vendor_name || po.vendor || 'Vendor'}</TableCell>
+                    <TableCell className="px-3 py-3 whitespace-nowrap">
                       <Badge 
                         variant={
                           String(po.status || '').toLowerCase().includes('approved') || String(po.status || '').toLowerCase().includes('active')
@@ -160,7 +164,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
                         {po.status || 'Active'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-bold text-xs text-foreground tabular-nums">
+                    <TableCell className="px-4 py-3 text-right font-semibold text-xs text-slate-900 dark:text-slate-100 tabular-nums">
                       {formatCurrency(po.po_value || po.poValue || po.amount)}
                     </TableCell>
                   </TableRow>

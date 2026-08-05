@@ -39,7 +39,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-foreground tracking-tight">Vendors</h2>
+            <h2 className="text-xl font-semibold text-foreground tracking-tight">Vendors</h2>
             <p className="text-xs text-muted-foreground mt-0.5 font-medium">Manage onboarded vendor files and profiles.</p>
           </div>
         </div>
@@ -53,7 +53,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
       {/* Search and Table Grid */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3.5 px-6">
-          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">REGISTERED VENDORS ({filteredVendors.length})</CardTitle>
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Registered Vendors ({filteredVendors.length})</CardTitle>
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -74,50 +74,52 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
             <>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Display Name</TableHead>
-                    <TableHead>Legal Name</TableHead>
-                    <TableHead>GSTIN</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
+                  <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
+                    <TableHead className="w-28 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Code</TableHead>
+                    <TableHead className="min-w-[180px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Display Name</TableHead>
+                    <TableHead className="min-w-[180px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Legal Name</TableHead>
+                    <TableHead className="w-36 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">GSTIN</TableHead>
+                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Status</TableHead>
+                    <TableHead className="text-center w-48 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredVendors.map((v, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-mono text-xs font-bold text-amber-700 dark:text-amber-300">{v.code}</TableCell>
-                      <TableCell className="font-bold text-foreground text-sm">{v.name}</TableCell>
-                      <TableCell className="text-muted-foreground font-medium text-sm">{v.legalName || '-'}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground font-medium">{v.gstin || '-'}</TableCell>
-                      <TableCell>
+                    <TableRow key={idx} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150">
+                      <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">{v.code}</TableCell>
+                      <TableCell className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[220px]" title={v.name}>{v.name}</TableCell>
+                      <TableCell className="px-3 py-3 text-slate-500 dark:text-slate-400 font-normal text-xs truncate max-w-[220px]" title={v.legalName || ''}>{v.legalName || '—'}</TableCell>
+                      <TableCell className="px-3 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 font-medium">{v.gstin || '—'}</TableCell>
+                      <TableCell className="px-3 py-3 whitespace-nowrap">
                         <Badge variant={String(v.status || '').toLowerCase() === 'active' ? 'success' : 'inactive'}>
                           {v.status || 'Active'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center flex justify-center gap-1.5">
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(v)} title="View Vendor Details">
-                          <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                          View
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} title="Edit Vendor">
-                          <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => { setDeleteError(null); setVendorToDelete(v); }}
-                          title="Delete Vendor"
-                          className="text-red-500 hover:text-red-400 hover:bg-red-950/40"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setActiveView('payments')} title="Request Payment">
-                          <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
-                          Request
-                        </Button>
+                      <TableCell className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(v)} title="View Vendor Details" className="h-7 text-xs font-medium">
+                            <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                            View
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} title="Edit Vendor" className="h-7 text-xs font-medium">
+                            <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => { setDeleteError(null); setVendorToDelete(v); }}
+                            title="Delete Vendor"
+                            className="h-7 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setActiveView('payments')} title="Request Payment" className="h-7 text-xs font-medium">
+                            <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+                            Request
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

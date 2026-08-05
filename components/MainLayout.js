@@ -279,7 +279,7 @@ export default function MainLayout() {
       {/* Main content */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* ── Header / Topbar ── */}
-        <header className="h-13 px-5 border-b border-border bg-slate-950/90 backdrop-blur-sm flex items-center justify-between flex-shrink-0 transition-colors duration-150 sticky top-0 z-20">
+        <header className="h-13 px-5 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 transition-colors duration-150 sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -287,14 +287,14 @@ export default function MainLayout() {
               className="md:hidden"
               onClick={() => setMobileMenuOpen(true)}
             >
-              <Menu className="w-4 h-4 text-slate-400" />
+              <Menu className="w-4 h-4 text-muted-foreground" />
             </Button>
             
             {/* Breadcrumb Navigation */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-500 font-medium hidden sm:inline">Luxeworx ERP</span>
-              <span className="text-slate-700 hidden sm:inline">/</span>
-              <h1 className="text-sm font-semibold text-slate-100 tracking-tight">
+              <span className="text-muted-foreground font-medium hidden sm:inline">Luxeworx ERP</span>
+              <span className="text-muted-foreground/60 hidden sm:inline">/</span>
+              <h1 className="text-sm font-semibold text-foreground tracking-tight">
                 {VIEW_LABELS[activeView] || activeView}
               </h1>
             </div>

@@ -4,80 +4,81 @@
 
 @layer base {
   :root {
-    /* Light Mode — Zoho Books / Stripe / Enterprise ERP design system */
-    --background: 210 40% 98%;          /* #F8FAFC — crisp, clean light slate canvas */
+    /* Stripe / Linear Enterprise Light Mode */
+    --background: 210 20% 98%;          /* #FAFAFC — crisp neutral enterprise canvas */
     --foreground: 222 47% 11%;          /* #0F172A — deep navy charcoal primary text */
 
-    --muted: 210 40% 96.1%;             /* #F1F5F9 — subtle light gray for muted surfaces */
-    --muted-foreground: 215 16% 40%;    /* #475569 — slate-600 secondary text (WCAG AA) */
+    --muted: 210 20% 96%;               /* #F1F4F8 — subtle surface */
+    --muted-foreground: 215 16% 44%;    /* #526071 — secondary metadata text */
 
-    --popover: 0 0% 100%;               /* #FFFFFF — clean white popovers */
+    --popover: 0 0% 100%;               /* #FFFFFF */
     --popover-foreground: 222 47% 11%;
 
-    --card: 0 0% 100%;                  /* #FFFFFF — pure white card surface with shadow */
+    --card: 0 0% 100%;                  /* #FFFFFF */
     --card-foreground: 222 47% 11%;
 
-    --border: 214 32% 91%;              /* #E2E8F0 — crisp border */
-    --input: 0 0% 100%;                 /* #FFFFFF — clean white inputs */
+    --border: 214 25% 90%;              /* #E1E6EC — crisp fine border */
+    --input: 0 0% 100%;
 
-    --primary: 217 91% 60%;             /* #2563EB — rich enterprise blue / gold accent */
+    --primary: 220 90% 56%;             /* #2563EB — rich primary accent */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 210 20% 96%;
     --secondary-foreground: 222 47% 11%;
 
-    --accent: 210 40% 95%;              /* soft subtle accent */
+    --accent: 210 20% 94%;
     --accent-foreground: 222 47% 11%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --ring: 217 91% 60%;
+    --ring: 220 90% 56%;
 
     --radius: 0.5rem;
 
     /* Enterprise Table Tokens (Light) */
-    --table-header-bg: 210 40% 96.1%;
-    --table-header-text: 215 20% 32%;
-    --table-hover: 210 40% 96.5%;
+    --table-header-bg: 210 20% 96.5%;
+    --table-header-text: 215 16% 40%;
+    --table-hover: 210 25% 97.5%;
     --table-selected: 214 100% 97%;
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
+    /* Stripe / Linear Enterprise Dark Mode */
+    --background: 224 25% 6%;           /* #0B0E14 — ultra deep neutral canvas */
+    --foreground: 213 27% 93%;          /* #E2E8F0 — high contrast readable text */
 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted: 223 20% 11%;              /* #161A22 — quiet dark surface */
+    --muted-foreground: 215 14% 60%;    /* #8A99AD — soft secondary metadata */
 
-    --popover: 224 71% 4%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 224 25% 7%;
+    --popover-foreground: 213 27% 93%;
 
-    --card: 222 47% 7%;
-    --card-foreground: 213 31% 91%;
+    --card: 222 22% 9%;                 /* #11151D — card surface */
+    --card-foreground: 213 27% 93%;
 
-    --border: 223 47% 12%;
-    --input: 223 47% 12%;
+    --border: 223 18% 15%;              /* #1F2633 — fine dark border */
+    --input: 223 18% 13%;
 
-    --primary: 36 39% 64%; /* #c5a880 Gold */
-    --primary-foreground: 224 71% 4%;
+    --primary: 38 70% 60%;              /* Warm gold/amber accent */
+    --primary-foreground: 224 25% 6%;
 
-    --secondary: 222 47% 7%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 222 22% 9%;
+    --secondary-foreground: 210 20% 98%;
 
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 216 20% 15%;
+    --accent-foreground: 210 20% 98%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 63% 36%;
+    --destructive-foreground: 210 20% 98%;
 
-    --ring: 36 39% 64%;
+    --ring: 38 70% 60%;
 
     /* Enterprise Table Tokens (Dark) */
-    --table-header-bg: 223 47% 9%;
-    --table-header-text: 215.4 16.3% 65%;
-    --table-hover: 223 47% 10%;
-    --table-selected: 38 42% 14%;
+    --table-header-bg: 224 22% 8%;
+    --table-header-text: 215 14% 60%;
+    --table-hover: 223 20% 11%;
+    --table-selected: 38 40% 12%;
   }
 }
 
@@ -86,9 +87,19 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background text-foreground antialiased selection:bg-amber-500/20 selection:text-amber-700 dark:selection:text-amber-300;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tabular-nums" 1;
+    text-rendering: optimizeLegibility;
   }
+}
+
+/* Reusable Typography & Table Utilities */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.text-meta {
+  @apply font-mono text-[11px] tracking-tight font-medium text-muted-foreground;
 }
 
 /* Custom scrollbars matching premium theme */
@@ -97,7 +108,7 @@
   height: 6px;
 }
 .overflow-x-auto::-webkit-scrollbar {
-  height: 8px;
+  height: 6px;
 }
 .overflow-x-auto::-webkit-scrollbar-thumb {
   border-radius: 4px;
@@ -110,31 +121,31 @@
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.5);
+  background: hsl(var(--muted-foreground) / 0.4);
 }
 
 /* Custom animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* --- PREMIUM UTILITIES & MICRO-ANIMATIONS --- */
 .glass-card {
-  @apply bg-card border border-border shadow-xs rounded-xl transition-all duration-200;
+  @apply bg-card border border-border shadow-2xs rounded-xl transition-all duration-150;
 }
 .glass-card:hover {
-  @apply shadow-sm border-slate-300 dark:border-slate-700;
+  @apply border-slate-300 dark:border-slate-700;
 }
 .glass-panel {
   @apply bg-card/90 backdrop-blur-md border-b border-border;
 }
 .premium-btn {
-  @apply transition-all duration-200 hover:-translate-y-[1px];
+  @apply transition-all duration-150 active:scale-[0.98];
 }
 
 /* Native dropdown option contrast fixes */

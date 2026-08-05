@@ -101,8 +101,8 @@ export default function PaymentListTable({
               <div className="hidden md:block">
                 <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/80">
-                    <TableHead className="w-10 text-center py-2.5">
+                  <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
+                    <TableHead className="w-10 text-center py-3 px-2">
                       <input 
                         type="checkbox" 
                         className="rounded border-slate-300 dark:border-slate-700 text-amber-600 dark:text-amber-500 focus:ring-amber-500/30 cursor-pointer disabled:opacity-30"
@@ -110,17 +110,17 @@ export default function PaymentListTable({
                         onChange={(e) => onSelectAll?.(e.target.checked)}
                       />
                     </TableHead>
-                    <TableHead className="w-14 font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">ID</TableHead>
-                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Date</TableHead>
-                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Project</TableHead>
-                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Vendor</TableHead>
-                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">PO Number</TableHead>
-                    <TableHead className="text-right font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">PO Amount</TableHead>
-                    <TableHead className="text-right font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Paid Amount</TableHead>
-                    <TableHead className="text-right font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Net Value</TableHead>
-                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Status</TableHead>
-                    <TableHead className="font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Current Stage</TableHead>
-                    <TableHead className="text-center font-medium text-[11px] text-slate-700 dark:text-slate-400 py-2.5">Actions</TableHead>
+                    <TableHead className="w-16 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">ID</TableHead>
+                    <TableHead className="w-24 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Date</TableHead>
+                    <TableHead className="min-w-[140px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Vendor</TableHead>
+                    <TableHead className="min-w-[130px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Project</TableHead>
+                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Number</TableHead>
+                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Amount</TableHead>
+                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Paid Amount</TableHead>
+                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Net Value</TableHead>
+                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Status</TableHead>
+                    <TableHead className="w-32 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Current Stage</TableHead>
+                    <TableHead className="text-center w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -134,8 +134,8 @@ export default function PaymentListTable({
                     const isSelected = selectedPayments.includes(req.id);
                     const isActionable = canActOnReq(req);
                     return (
-                      <TableRow key={idx} className={`border-b border-slate-200/80 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${isSelected ? 'bg-amber-50 dark:bg-amber-500/5 border-l-2 border-l-amber-500' : ''} ${!isActionable ? 'opacity-60' : ''}`}>
-                        <TableCell className="text-center py-2.5">
+                      <TableRow key={idx} className={`border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150 ${isSelected ? 'bg-amber-500/5 border-l-2 border-l-amber-500' : ''} ${!isActionable ? 'opacity-60' : ''}`}>
+                        <TableCell className="text-center py-3 px-2">
                           <input 
                             type="checkbox" 
                             className="rounded border-slate-300 dark:border-slate-700 text-amber-600 dark:text-amber-500 focus:ring-amber-500/30 cursor-pointer disabled:opacity-30"
@@ -144,87 +144,87 @@ export default function PaymentListTable({
                             disabled={!isActionable}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 py-2.5">#{req.id}</TableCell>
-                        <TableCell className="text-xs text-slate-600 dark:text-slate-400 font-normal whitespace-nowrap py-2.5">{req.created_at ? formatDate(req.created_at) : '—'}</TableCell>
-                        <TableCell className="text-xs text-slate-600 dark:text-slate-400 font-normal truncate max-w-[140px] py-2.5" title={req.project || ''}>{req.project || '—'}</TableCell>
-                        <TableCell className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[170px] py-2.5" title={req.vendor_name || ''}>{req.vendor_name}</TableCell>
-                        <TableCell className="font-mono text-[11px] font-medium text-amber-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors py-2.5">
-                          <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 py-3 px-3">#{req.id}</TableCell>
+                        <TableCell className="text-xs text-slate-500 dark:text-slate-400 font-normal whitespace-nowrap py-3 px-3">{req.created_at ? formatDate(req.created_at) : '—'}</TableCell>
+                        <TableCell className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[200px] py-3 px-3" title={req.vendor_name || ''}>{req.vendor_name}</TableCell>
+                        <TableCell className="text-xs text-slate-500 dark:text-slate-400 font-normal truncate max-w-[160px] py-3 px-3" title={req.project || ''}>{req.project || '—'}</TableCell>
+                        <TableCell className="font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors py-3 px-3">
+                          <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={`Open PO ${req.po_no}`}>
                             {req.po_no}
                           </a>
                         </TableCell>
-                        <TableCell className="text-right text-xs font-normal text-slate-600 dark:text-slate-400 tabular-nums py-2.5">{formatCurrency(poValue)}</TableCell>
-                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-2.5">
-                          <span className="font-normal text-emerald-700 dark:text-emerald-400">
+                        <TableCell className="text-right text-xs font-medium text-slate-700 dark:text-slate-300 tabular-nums py-3 px-3">{formatCurrency(poValue)}</TableCell>
+                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-3 px-3">
+                          <span className="font-medium text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(paidAmount)}
                           </span>
-                          <span className="ml-1 text-[10px] font-normal text-slate-500 dark:text-slate-500">
+                          <span className="ml-1 text-[10px] font-normal text-slate-400 dark:text-slate-500">
                             ({paidPct}%)
                           </span>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-2.5">
+                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-3 px-3">
                           <span className="font-semibold text-slate-900 dark:text-slate-100">
                             {formatCurrency(netAmount)}
                           </span>
-                          <span className="ml-1 text-[10px] font-normal text-slate-500 dark:text-slate-500">
+                          <span className="ml-1 text-[10px] font-normal text-slate-400 dark:text-slate-500">
                             ({reqPct}%)
                           </span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-3 px-3 whitespace-nowrap">
                           <Badge
-                          variant={
-                            req.query_status === 'hold'
-                              ? 'warning'
-                              : String(req.status || '').toLowerCase().includes('remitted')
-                              ? 'success'
-                              : String(req.status || '').toLowerCase().includes('reject')
-                              ? 'error'
-                              : 'pending'
-                          }
-                        >
-                          {req.query_status === 'hold' ? 'Query Hold' : (req.status || 'Pending')}
-                        </Badge>
-                        {String(req.status || '').toLowerCase() === 'pending' && getPaymentPriorityScore(req) !== null && (
-                          <div className="mt-1">
-                            <Badge variant={getPaymentPriorityScore(req) > 75 ? 'success' : getPaymentPriorityScore(req) < 40 ? 'error' : 'secondary'} className="text-[10px] py-0 px-1 border-dashed">
-                              ⚡ AI Priority: {getPaymentPriorityScore(req)}%
-                            </Badge>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-medium">{req.approval_stage || 'Completed'}</TableCell>
-                        <TableCell className="text-center flex items-center justify-center gap-1.5">
-                        {getWorkflowActionButton(req)}
-                        
-                        {/* Edit Button - only for pre-approval stages */}
-                        {(String(req.stage || req.approval_stage || '').toLowerCase().includes('procurement') || String(req.stage || req.approval_stage || '').toLowerCase().includes('finance')) && onEditPayment && (
-                          <Button variant="ghost" size="icon" onClick={() => onEditPayment(req)} title="Edit Payment Request">
-                            <CheckSquare className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                          </Button>
-                        )}
-
-                        <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="Discussion & Team Activity Thread">
-                          <MessageSquare className="w-4 h-4 text-amber-600 dark:text-gold hover:text-amber-700" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="View Logs Trail">
-                          <History className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                        </Button>
-                        {/* Payment Advice — ONLY for successfully remitted payments, NEVER for rejected */}
-                        {(String(req.stage || '').toLowerCase().trim() === 'remitted' || String(req.remittance || '').toLowerCase().trim() === 'remitted') && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => handleSendPaymentAdvice(req.id, 'email')} 
-                            title="Send Payment Advice Email"
-                            className="text-amber-700 dark:text-gold hover:text-amber-800"
+                            variant={
+                              req.query_status === 'hold'
+                                ? 'warning'
+                                : String(req.status || '').toLowerCase().includes('remitted')
+                                ? 'success'
+                                : String(req.status || '').toLowerCase().includes('reject')
+                                ? 'error'
+                                : 'pending'
+                            }
                           >
-                            <Mail className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                            {req.query_status === 'hold' ? 'Query Hold' : (req.status || 'Pending')}
+                          </Badge>
+                          {String(req.status || '').toLowerCase() === 'pending' && getPaymentPriorityScore(req) !== null && (
+                            <div className="mt-1">
+                              <Badge variant={getPaymentPriorityScore(req) > 75 ? 'success' : getPaymentPriorityScore(req) < 40 ? 'error' : 'secondary'} className="text-[10px] py-0 px-1 border-dashed">
+                                ⚡ AI Priority: {getPaymentPriorityScore(req)}%
+                              </Badge>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-500 dark:text-slate-400 font-medium py-3 px-3">{req.approval_stage || 'Completed'}</TableCell>
+                        <TableCell className="text-center py-3 px-3">
+                          <div className="flex items-center justify-center gap-1">
+                            {getWorkflowActionButton(req)}
+                            
+                            {(String(req.stage || req.approval_stage || '').toLowerCase().includes('procurement') || String(req.stage || req.approval_stage || '').toLowerCase().includes('finance')) && onEditPayment && (
+                              <Button variant="ghost" size="icon" onClick={() => onEditPayment(req)} title="Edit Payment Request" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                                <CheckSquare className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+
+                            <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="Discussion & Team Activity Thread" className="h-7 w-7 text-muted-foreground hover:text-amber-500">
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="View Logs Trail" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                              <History className="w-3.5 h-3.5" />
+                            </Button>
+                            {(String(req.stage || '').toLowerCase().trim() === 'remitted' || String(req.remittance || '').toLowerCase().trim() === 'remitted') && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleSendPaymentAdvice(req.id, 'email')} 
+                                title="Send Payment Advice Email"
+                                className="h-7 w-7 text-amber-600 dark:text-amber-400 hover:text-amber-700"
+                              >
+                                <Mail className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
               </div>
