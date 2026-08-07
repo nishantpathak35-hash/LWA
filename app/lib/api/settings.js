@@ -1,7 +1,7 @@
 // Domain: settings
 // Auto-extracted from api.js
 import { queryAll, queryGet, queryRun } from '../db.js';
-import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from '../email.js';
+import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail, normalizeEmailList } from '../email.js';
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from '../poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from '../paymentCalculations.js';
 import { VendorService } from '../../../src/modules/vendors/services/VendorService';
@@ -77,16 +77,12 @@ export async function getDefaultCCRecipients(session) {
   requireAuth(session);
   const raw = await getSetting('default_cc_recipients', null);
   if (!raw) return [];
-  try {
-    return JSON.parse(raw);
-  } catch (e) {
-    return [];
-  }
+  return normalizeEmailList(raw);
 }
 
 export async function setDefaultCCRecipients(emails, session) {
   requireAdminConsole(session);
-  const validEmails = (emails || []).map(e => String(e).trim().toLowerCase()).filter(e => e.includes('@'));
+  const validEmails = normalizeEmailList(emails);
   await setSetting('default_cc_recipients', JSON.stringify(validEmails));
   await logAudit(session.email, 'Email CC Settings Updated', JSON.stringify(validEmails), 'Settings');
   await emitBroadcast('settings', 'updated', 'cc_recipients');

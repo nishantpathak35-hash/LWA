@@ -488,100 +488,69 @@ export function StateProvider({ children }) {
     return () => { channel.close(); };
   }, [refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshData]);
 
-  // SSE real-time subscription — primary sync mechanism
+  // Lightweight REST polling for background events (Vercel serverless optimized)
   useEffect(() => {
     if (!user || !token) return;
 
-    let eventSource = null;
-    let reconnectTimeout = null;
-    let debounceTimeout = null;
-    let backoff = 1000; // Start at 1s, exponential to max 30s
+    let intervalId = null;
     let active = true;
-    const activeRef = { current: true };
+    let lastEventId = 0;
 
-    function connect() {
-      if (!activeRef.current) return;
+    async function checkForEvents() {
+      if (!active || document.visibilityState !== 'visible') return;
 
       const currentToken = token || localStorage.getItem('lx_auth_token');
       if (!currentToken) return;
 
       try {
-        eventSource = new EventSource(`/api/events?token=${encodeURIComponent(currentToken)}`);
+        const res = await window.fetch(`/api/events?token=${encodeURIComponent(currentToken)}&since=${lastEventId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active || !data || !Array.isArray(data.events) || data.events.length === 0) return;
 
-        eventSource.onopen = () => {
-          // Reset backoff on successful connection
-          backoff = 1000;
-          setSyncStatus('connected');
-        };
-
-        eventSource.onmessage = (event) => {
-          if (!activeRef.current) return;
-          let parsed = null;
-          try {
-            parsed = JSON.parse(event.data);
-          } catch (e) {}
-
-          setSyncStatus('syncing');
-
-          if (debounceTimeout) clearTimeout(debounceTimeout);
-          debounceTimeout = setTimeout(async () => {
-            if (!activeRef.current) return;
-            try {
-              if (parsed && parsed.entity) {
-                if (parsed.entity === 'vendor') {
-                  await refreshVendors();
-                } else if (parsed.entity === 'po') {
-                  await Promise.all([refreshPOs(), refreshKPIs()]);
-                } else if (parsed.entity === 'payment') {
-                  await Promise.all([refreshPayments(), refreshKPIs()]);
-                } else if (parsed.entity.endsWith('_lock')) {
-                  await refreshActiveLocks();
-                } else if (parsed.entity.endsWith('_presence')) {
-                  await refreshActivePresence();
-                } else {
-                  await refreshData();
-                }
-              } else {
-                await refreshData();
-              }
-            } finally {
-              if (activeRef.current) setSyncStatus('connected');
-            }
-          }, 300);
-        };
-
-        eventSource.onerror = () => {
-          if (!activeRef.current) return;
-          setSyncStatus('reconnecting');
-          // Close and reconnect with backoff
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
+        setSyncStatus('syncing');
+        for (const evt of data.events) {
+          if (evt.id > lastEventId) {
+            lastEventId = evt.id;
           }
-          reconnectTimeout = setTimeout(() => {
-            if (activeRef.current) {
-              connect();
-            }
-          }, backoff);
-          backoff = Math.min(backoff * 2, 30000);
-        };
-      } catch (err) {
-        console.error('EventSource creation failed:', err);
-        setSyncStatus('reconnecting');
+          if (evt.entity) {
+            if (evt.entity === 'vendor') await refreshVendors();
+            else if (evt.entity === 'po') await Promise.all([refreshPOs(), refreshKPIs()]);
+            else if (evt.entity === 'payment') await Promise.all([refreshPayments(), refreshKPIs()]);
+            else if (evt.entity.endsWith('_lock')) await refreshActiveLocks();
+            else if (evt.entity.endsWith('_presence')) await refreshActivePresence();
+            else await refreshData();
+          } else {
+            await refreshData();
+          }
+        }
+      } catch (e) {
+        // Silent catch for background poll
+      } finally {
+        if (active) setSyncStatus('connected');
       }
     }
 
-    connect();
+    // Initial check on mount
+    checkForEvents();
+
+    // Poll every 30 seconds if tab is visible
+    intervalId = setInterval(checkForEvents, 30000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkForEvents();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      activeRef.current = false;
       active = false;
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-      }
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (debounceTimeout) clearTimeout(debounceTimeout);
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [user, token, refreshData, refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshActiveLocks, refreshActivePresence]);
 

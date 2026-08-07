@@ -22,16 +22,61 @@ function handleResendError(error, defaultMsg) {
   throw new Error(msg);
 }
 
+export function sanitizeEmail(email) {
+  if (!email || typeof email !== 'string') return null;
+  const clean = email.trim().toLowerCase();
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(clean) ? clean : null;
+}
+
+export function normalizeEmailList(input) {
+  if (!input) return [];
+  let rawList = [];
+  if (typeof input === 'string') {
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed)) rawList = parsed;
+      else rawList = [input];
+    } catch {
+      rawList = [input];
+    }
+  } else if (Array.isArray(input)) {
+    rawList = input;
+  }
+
+  const validEmails = [];
+  for (const item of rawList) {
+    if (!item) continue;
+    let str = typeof item === 'string' ? item : (typeof item === 'object' && item !== null ? item.email || '' : '');
+    if (!str || typeof str !== 'string') continue;
+
+    const parts = str.split(/[,;\s]+/);
+    for (const part of parts) {
+      const sanitized = sanitizeEmail(part);
+      if (sanitized && !validEmails.includes(sanitized)) {
+        validEmails.push(sanitized);
+      }
+    }
+  }
+  return validEmails;
+}
+
 async function sendEmailData({ toEmail, cc, subject, html, attachments }) {
+  const sanitizedTo = sanitizeEmail(toEmail);
+  if (!sanitizedTo) {
+    throw new Error(`Invalid recipient email address: "${toEmail || ''}"`);
+  }
+  const sanitizedCc = normalizeEmailList(cc);
+
   if (process.env.BREVO_API_KEY) {
     const brevoPayload = {
       sender: { name: COMPANY, email: process.env.BREVO_FROM_EMAIL || 'accounts@luxeworxatelier.com' },
-      to: [{ email: toEmail }],
+      to: [{ email: sanitizedTo }],
       subject: subject,
       htmlContent: html
     };
-    if (cc && Array.isArray(cc) && cc.length > 0) {
-      brevoPayload.cc = cc.map(email => ({ email }));
+    if (sanitizedCc.length > 0) {
+      brevoPayload.cc = sanitizedCc.map(email => ({ email }));
     }
     if (attachments && attachments.length > 0) {
       brevoPayload.attachment = attachments.map(att => ({
@@ -57,12 +102,12 @@ async function sendEmailData({ toEmail, cc, subject, html, attachments }) {
   } else if (resend) {
     const payload = {
       from: FROM,
-      to: [toEmail],
+      to: [sanitizedTo],
       subject: subject,
       html
     };
-    if (cc && Array.isArray(cc) && cc.length > 0) {
-      payload.cc = cc;
+    if (sanitizedCc.length > 0) {
+      payload.cc = sanitizedCc;
     }
     if (attachments && attachments.length > 0) {
       payload.attachments = attachments.map(att => ({
