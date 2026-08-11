@@ -54,6 +54,7 @@ const SHORTCUT_MAP = {
     d: { view: 'dashboard' },
     p: { view: 'payments', children: { n: { event: 'lx:new-payment-request' } } },
     o: { view: 'pos',      children: { n: { event: 'lx:new-po' } } },
+    i: { view: 'invoices' },
     v: { view: 'vendors' },
     r: { view: 'reports' },
     s: { view: 'settings' },
@@ -62,7 +63,7 @@ const SHORTCUT_MAP = {
 };
 
 
-const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'payments', 'reports', 'settings', 'site_dpr', 'site_wpr'];
+const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'invoices', 'payments', 'reports', 'settings', 'site_dpr', 'site_wpr'];
 
 function getFirstAllowedView(hasPermission) {
   return ORDERED_VIEWS.find((viewId) => {

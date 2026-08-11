@@ -7,9 +7,11 @@ import {
   Receipt, Search, Filter, Download, CheckCircle2, XCircle, Clock, FilePlus, 
   Loader2, CreditCard, Eye, Trash2, AlertTriangle, LayoutGrid, LayoutList, 
   FileText, Sparkles, ChevronRight, Building, IndianRupee, ArrowUpRight, 
-  RefreshCw, Check, X, ShieldAlert, FileCheck
+  RefreshCw, Check, X, ShieldAlert, FileCheck, ExternalLink, SlidersHorizontal,
+  PieChart, BarChart2, CheckCircle, HelpCircle, UploadCloud
 } from 'lucide-react';
 import { toast } from '../ui/Toast';
+import { exportToCSV } from '../../app/lib/exportUtils';
 
 export default function InvoicesView() {
   const { call, setActiveView } = useAppState();
@@ -17,26 +19,26 @@ export default function InvoicesView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // View mode & selection
-  const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
-  const [inspectInvoice, setInspectInvoice] = useState(null); // Detail drawer modal
+  // View modes: 'table' | 'grid' | 'analytics'
+  const [viewMode, setViewMode] = useState('table');
+  const [inspectInvoice, setInspectInvoice] = useState(null); // Detail Inspection Drawer
 
-  // Deletion state
+  // Deletion State
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Filters
+  // Filter States
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'PENDING' | 'APPROVED' | 'PAID' | 'REJECTED'
   const [sourceFilter, setSourceFilter] = useState('ALL');
 
   // Status Review Modal
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [statusAction, setStatusAction] = useState(null); // 'Approved' | 'Rejected' | 'Under Review'
+  const [statusAction, setStatusAction] = useState(null); // 'Approved' | 'Rejected'
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Manual Upload Modal State
+  // Manual Upload Modal
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [posList, setPosList] = useState([]);
   const [uploadForm, setUploadForm] = useState({
@@ -50,6 +52,7 @@ export default function InvoicesView() {
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   const fetchInvoices = async () => {
     try {
@@ -60,7 +63,7 @@ export default function InvoicesView() {
     } catch (err) {
       console.error('Failed to fetch invoices:', err);
       setError(err.message || 'Failed to load invoices dataset');
-    } fontally {
+    } finally {
       setLoading(false);
     }
   };
@@ -68,7 +71,7 @@ export default function InvoicesView() {
   const fetchPOs = async () => {
     try {
       const res = await call('getPOsOnly');
-      // Fix: getPOsOnly returns { pos: [...] }, extract array safely
+      // Extract array safely from getPOsOnly response { pos: [...] }
       const list = Array.isArray(res) ? res : (res?.pos || []);
       setPosList(list);
     } catch (err) {
@@ -112,7 +115,6 @@ export default function InvoicesView() {
       await call('updateInvoiceStatus', selectedInvoice.invoice_id, statusAction, rejectionReason);
       toast.success(`Invoice #${selectedInvoice.invoice_number} updated to ${statusAction}`);
       
-      // Update inspect modal state if currently inspecting
       if (inspectInvoice && inspectInvoice.invoice_id === selectedInvoice.invoice_id) {
         setInspectInvoice(prev => ({ ...prev, status: statusAction, rejection_reason: rejectionReason }));
       }
@@ -175,7 +177,7 @@ export default function InvoicesView() {
       };
       reader.readAsDataURL(selectedFile);
     } catch (err) {
-      toast.error("Error reading document file: " + err.message);
+      toast.error("Error reading file: " + err.message);
       setUploading(false);
     }
   };
@@ -197,30 +199,58 @@ export default function InvoicesView() {
     }, 150);
   };
 
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'Invoice Number', key: 'invoice_number' },
+      { label: 'Vendor Name', key: 'vendor_name' },
+      { label: 'Vendor Code', key: 'vendor_code' },
+      { label: 'PO Number', key: 'po_no' },
+      { label: 'Invoice Date', key: 'invoice_date' },
+      { label: 'Subtotal', key: 'subtotal' },
+      { label: 'Tax Amount', key: 'tax_amount' },
+      { label: 'Invoice Total', key: 'invoice_total' },
+      { label: 'Source', key: 'source' },
+      { label: 'Status', key: 'status' }
+    ];
+    exportToCSV('Invoices_Ledger_Report.csv', columns, filteredInvoices);
+  };
+
   // Filtered List
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
-      const s = search.toLowerCase();
+      const s = search.toLowerCase().trim();
       const matchesSearch = !s || 
         String(inv.invoice_number || '').toLowerCase().includes(s) ||
         String(inv.vendor_name || '').toLowerCase().includes(s) ||
         String(inv.po_no || '').toLowerCase().includes(s) ||
         String(inv.invoice_id || '').toLowerCase().includes(s);
 
-      const matchesStatus = statusFilter === 'ALL' || String(inv.status || '').toLowerCase() === statusFilter.toLowerCase();
+      const st = String(inv.status || '').toLowerCase();
+      let matchesTab = true;
+      if (activeTab === 'PENDING') matchesTab = st === 'submitted' || st === 'under review';
+      else if (activeTab === 'APPROVED') matchesTab = st === 'approved';
+      else if (activeTab === 'PAID') matchesTab = st === 'paid';
+      else if (activeTab === 'REJECTED') matchesTab = st === 'rejected';
+
       const matchesSource = sourceFilter === 'ALL' || String(inv.source || '').toLowerCase() === sourceFilter.toLowerCase();
 
-      return matchesSearch && matchesStatus && matchesSource;
+      return matchesSearch && matchesTab && matchesSource;
     });
-  }, [invoices, search, statusFilter, sourceFilter]);
+  }, [invoices, search, activeTab, sourceFilter]);
 
-  const kpis = useMemo(() => ({
-    total: invoices.length,
-    underReview: invoices.filter(i => String(i.status || '').toLowerCase() === 'submitted' || String(i.status || '').toLowerCase() === 'under review').length,
-    approved: invoices.filter(i => String(i.status || '').toLowerCase() === 'approved').length,
-    paid: invoices.filter(i => String(i.status || '').toLowerCase() === 'paid').length,
-    totalValue: invoices.reduce((acc, i) => acc + (Number(i.invoice_total) || 0), 0)
-  }), [invoices]);
+  const kpis = useMemo(() => {
+    const total = invoices.length;
+    const pending = invoices.filter(i => {
+      const s = String(i.status || '').toLowerCase();
+      return s === 'submitted' || s === 'under review';
+    }).length;
+    const approved = invoices.filter(i => String(i.status || '').toLowerCase() === 'approved').length;
+    const paid = invoices.filter(i => String(i.status || '').toLowerCase() === 'paid').length;
+    const totalVal = invoices.reduce((acc, i) => acc + (Number(i.invoice_total) || 0), 0);
+    const approvedVal = invoices.filter(i => String(i.status || '').toLowerCase() === 'approved' || String(i.status || '').toLowerCase() === 'paid').reduce((acc, i) => acc + (Number(i.invoice_total) || 0), 0);
+
+    return { total, pending, approved, paid, totalVal, approvedVal };
+  }, [invoices]);
 
   const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
@@ -231,20 +261,18 @@ export default function InvoicesView() {
 
   const getStatusBadge = (status) => {
     const s = String(status || '').toLowerCase();
-    if (s === 'approved') return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-bold">Approved</Badge>;
-    if (s === 'paid') return <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 font-bold">Paid</Badge>;
-    if (s === 'rejected') return <Badge className="bg-rose-500/10 text-rose-400 border-rose-500/20 font-bold">Rejected</Badge>;
-    if (s === 'under review') return <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 font-bold">Under Review</Badge>;
-    return <Badge className="bg-slate-500/10 text-slate-400 border-slate-500/20 font-medium">Submitted</Badge>;
+    if (s === 'approved') return <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold px-2 py-0.5 text-[11px]">Approved</Badge>;
+    if (s === 'paid') return <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/30 font-bold px-2 py-0.5 text-[11px]">Paid</Badge>;
+    if (s === 'rejected') return <Badge className="bg-rose-500/10 text-rose-400 border border-rose-500/30 font-bold px-2 py-0.5 text-[11px]">Rejected</Badge>;
+    if (s === 'under review') return <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold px-2 py-0.5 text-[11px]">Under Review</Badge>;
+    return <Badge className="bg-slate-500/10 text-slate-300 border border-slate-700 font-medium px-2 py-0.5 text-[11px]">Submitted</Badge>;
   };
 
-  // Selected PO details for the upload modal
   const selectedPOData = useMemo(() => {
     if (!uploadForm.poNo || !Array.isArray(posList)) return null;
     return posList.find(p => String(p.po_no || p.poNo) === String(uploadForm.poNo));
   }, [uploadForm.poNo, posList]);
 
-  // Auto-calculate subtotal + tax = total in upload modal
   const handleAmountChange = (field, val) => {
     const nextForm = { ...uploadForm, [field]: val };
     const sub = Number(nextForm.subtotal || 0);
@@ -255,155 +283,225 @@ export default function InvoicesView() {
     setUploadForm(nextForm);
   };
 
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setSelectedFile(e.dataTransfer.files[0]);
+    }
+  };
+
   return (
-    <div className="space-y-6 select-none animate-fade-in pb-10">
+    <div className="space-y-6 select-none animate-fade-in pb-12">
 
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 shadow-xs">
-              <Receipt className="w-5 h-5" />
+      {/* ── 1. Reimagined Hero Banner Header ── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950/40 border border-amber-500/20 p-6 shadow-2xl">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-10 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 animate-pulse" /> Enterprise Invoice Hub
+              </span>
+              <span className="text-xs text-slate-400 font-mono">v2.4 Live Sync</span>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
-                Invoice Management Ledger
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Audit vendor portal invoices & upload internal billings against approved purchase orders
-              </p>
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight flex items-center gap-3">
+              Invoice Management Ledger
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
+              Automated vendor portal invoice processing, PO match auditing, internal billing capture, and real-time payment readiness ledger.
+            </p>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchInvoices}
-            className="text-xs font-semibold h-9 border-border bg-card hover:bg-muted text-foreground"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-amber-500' : 'text-muted-foreground'}`} />
-            Sync
-          </Button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchInvoices}
+              className="text-xs font-semibold h-10 border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-200"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-2 ${loading ? 'animate-spin text-amber-400' : 'text-slate-400'}`} />
+              Sync Data
+            </Button>
 
-          <Button
-            onClick={() => setUploadModalOpen(true)}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-9 px-4 flex items-center gap-2 shadow-sm transition-all"
-          >
-            <FilePlus className="w-4 h-4" /> Upload Internal Invoice
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="text-xs font-semibold h-10 border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-200"
+            >
+              <Download className="w-3.5 h-3.5 mr-2 text-slate-400" />
+              Export CSV
+            </Button>
+
+            <Button
+              onClick={() => setUploadModalOpen(true)}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs h-10 px-5 flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+            >
+              <FilePlus className="w-4 h-4 stroke-[2.5]" /> Upload Internal Invoice
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* KPI Cards Bar */}
+      {/* ── 2. Metric KPI Cards Bar ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
+        
+        {/* Total Invoices */}
         <div 
-          onClick={() => setStatusFilter('ALL')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${statusFilter === 'ALL' ? 'bg-card border-amber-500/50 shadow-xs' : 'bg-card/60 border-border hover:border-border/80'}`}
+          onClick={() => setActiveTab('ALL')}
+          className={`p-4 rounded-xl border transition-all cursor-pointer ${
+            activeTab === 'ALL' ? 'bg-slate-900 border-amber-500/50 shadow-lg shadow-amber-500/5' : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
+          }`}
         >
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Invoices</span>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-black text-foreground tracking-tight">{kpis.total}</span>
-            <Receipt className="w-4 h-4 text-muted-foreground/40" />
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Total Invoices</span>
+            <Receipt className="w-4 h-4 text-slate-400" />
           </div>
+          <p className="text-2xl font-black text-slate-100 tracking-tight mt-2">{kpis.total}</p>
+          <span className="text-[10px] text-slate-400 mt-1 block">Total Invoiced: {formatCurrency(kpis.totalVal)}</span>
         </div>
 
+        {/* Needs Review */}
         <div 
-          onClick={() => setStatusFilter('submitted')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${statusFilter === 'submitted' ? 'bg-card border-amber-500 shadow-xs' : 'bg-card/60 border-border hover:border-border/80'}`}
+          onClick={() => setActiveTab('PENDING')}
+          className={`p-4 rounded-xl border transition-all cursor-pointer ${
+            activeTab === 'PENDING' ? 'bg-slate-900 border-amber-500 shadow-lg shadow-amber-500/10' : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
+          }`}
         >
-          <span className="text-[11px] font-semibold text-amber-500 uppercase tracking-wider">Under Review</span>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-black text-amber-500 tracking-tight">{kpis.underReview}</span>
-            <Clock className="w-4 h-4 text-amber-500/50" />
+          <div className="flex items-center justify-between text-amber-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Action Needed</span>
+            <Clock className="w-4 h-4" />
           </div>
+          <p className="text-2xl font-black text-amber-400 tracking-tight mt-2">{kpis.pending}</p>
+          <span className="text-[10px] text-amber-400/80 mt-1 block">Requires Admin Audit</span>
         </div>
 
+        {/* Approved */}
         <div 
-          onClick={() => setStatusFilter('approved')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${statusFilter === 'approved' ? 'bg-card border-emerald-500 shadow-xs' : 'bg-card/60 border-border hover:border-border/80'}`}
+          onClick={() => setActiveTab('APPROVED')}
+          className={`p-4 rounded-xl border transition-all cursor-pointer ${
+            activeTab === 'APPROVED' ? 'bg-slate-900 border-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
+          }`}
         >
-          <span className="text-[11px] font-semibold text-emerald-500 uppercase tracking-wider">Approved</span>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-black text-emerald-500 tracking-tight">{kpis.approved}</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500/50" />
+          <div className="flex items-center justify-between text-emerald-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Approved</span>
+            <CheckCircle2 className="w-4 h-4" />
           </div>
+          <p className="text-2xl font-black text-emerald-400 tracking-tight mt-2">{kpis.approved}</p>
+          <span className="text-[10px] text-emerald-400/80 mt-1 block">Ready for Payment</span>
         </div>
 
+        {/* Paid */}
         <div 
-          onClick={() => setStatusFilter('paid')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${statusFilter === 'paid' ? 'bg-card border-blue-500 shadow-xs' : 'bg-card/60 border-border hover:border-border/80'}`}
+          onClick={() => setActiveTab('PAID')}
+          className={`p-4 rounded-xl border transition-all cursor-pointer ${
+            activeTab === 'PAID' ? 'bg-slate-900 border-blue-500 shadow-lg shadow-blue-500/10' : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
+          }`}
         >
-          <span className="text-[11px] font-semibold text-blue-400 uppercase tracking-wider">Paid Invoices</span>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-black text-blue-400 tracking-tight">{kpis.paid}</span>
-            <FileCheck className="w-4 h-4 text-blue-400/50" />
+          <div className="flex items-center justify-between text-blue-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Paid</span>
+            <FileCheck className="w-4 h-4" />
           </div>
+          <p className="text-2xl font-black text-blue-400 tracking-tight mt-2">{kpis.paid}</p>
+          <span className="text-[10px] text-blue-400/80 mt-1 block">Settled Outflow</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-card/60 border border-border">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Value</span>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-lg font-black text-amber-500 tracking-tight truncate">{formatCurrency(kpis.totalValue)}</span>
-            <IndianRupee className="w-4 h-4 text-amber-500/50" />
+        {/* Approved Value */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80">
+          <div className="flex items-center justify-between text-amber-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Approved Total</span>
+            <IndianRupee className="w-4 h-4" />
           </div>
+          <p className="text-lg font-black text-amber-400 tracking-tight mt-2 truncate">{formatCurrency(kpis.approvedVal)}</p>
+          <span className="text-[10px] text-slate-400 mt-1 block">Committed Liability</span>
         </div>
+
       </div>
 
-      {/* Controls & Filter Bar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-card p-3 border border-border rounded-xl shadow-xs">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-2.5" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search invoice #, vendor, PO number..."
-            className="w-full bg-muted/40 border border-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500 transition-all"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground text-xs">
-              ×
+      {/* ── 3. Filters & View Switcher Toolbar ── */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-slate-900/60 p-3 border border-slate-800/80 rounded-2xl shadow-xl">
+        
+        {/* Status Tab Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto custom-scrollbar pb-1 md:pb-0">
+          {[
+            { id: 'ALL', label: 'All Invoices', count: kpis.total },
+            { id: 'PENDING', label: 'Needs Action', count: kpis.pending, highlight: true },
+            { id: 'APPROVED', label: 'Approved', count: kpis.approved },
+            { id: 'PAID', label: 'Paid', count: kpis.paid },
+            { id: 'REJECTED', label: 'Rejected' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === tab.id
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                  activeTab === tab.id ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-300'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
             </button>
-          )}
+          ))}
         </div>
 
-        {/* Filters & View Switcher */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:border-amber-500"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="submitted">Submitted</option>
-              <option value="under review">Under Review</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="paid">Paid</option>
-            </select>
-
-            <select
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-              className="bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:border-amber-500"
-            >
-              <option value="ALL">All Sources</option>
-              <option value="vendor_portal">Vendor Portal</option>
-              <option value="internal_upload">Internal Upload</option>
-            </select>
+        {/* Right Controls: Search, Source Filter, View Toggle */}
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+          
+          {/* Search Box */}
+          <div className="relative w-full md:w-64">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search invoice #, vendor, PO..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-7 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-amber-500 transition-all"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-200 text-xs">
+                ×
+              </button>
+            )}
           </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center p-0.5 bg-muted/60 border border-border rounded-lg">
+          {/* Source Selector */}
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-amber-500"
+          >
+            <option value="ALL">All Sources</option>
+            <option value="vendor_portal">Vendor Portal</option>
+            <option value="internal_upload">Internal Upload</option>
+          </select>
+
+          {/* View Mode Switcher */}
+          <div className="flex items-center p-1 bg-slate-950 border border-slate-800 rounded-xl">
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-md text-xs font-semibold transition-all ${
-                viewMode === 'table' ? 'bg-card text-amber-500 shadow-2xs' : 'text-muted-foreground hover:text-foreground'
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'table' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
               title="Table View"
             >
@@ -411,8 +509,8 @@ export default function InvoicesView() {
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md text-xs font-semibold transition-all ${
-                viewMode === 'grid' ? 'bg-card text-amber-500 shadow-2xs' : 'text-muted-foreground hover:text-foreground'
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'grid' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
               title="Grid View"
             >
@@ -420,70 +518,76 @@ export default function InvoicesView() {
             </button>
           </div>
         </div>
+
       </div>
 
-      {/* Main Content Area */}
+      {/* ── 4. Main View Renderer ── */}
       {loading ? (
-        <div className="py-20 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3">
-          <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500">
-            <Loader2 className="w-6 h-6 animate-spin" />
+        <div className="py-24 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-3">
+          <div className="p-3.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400">
+            <Loader2 className="w-7 h-7 animate-spin" />
           </div>
-          <span className="font-medium">Loading invoices ledger dataset...</span>
+          <span className="font-semibold text-slate-300">Loading invoice ledger dataset...</span>
         </div>
       ) : error ? (
-        <div className="p-6 border border-rose-500/30 bg-rose-500/5 rounded-xl text-center text-xs text-rose-400 font-medium">
+        <div className="p-6 border border-rose-500/30 bg-rose-500/10 rounded-2xl text-center text-xs text-rose-400 font-semibold">
           {error}
         </div>
       ) : filteredInvoices.length === 0 ? (
-        <div className="py-16 px-6 border border-border border-dashed rounded-xl text-center text-xs text-muted-foreground flex flex-col items-center justify-center max-w-md mx-auto">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-3 shadow-2xs">
-            <Receipt className="w-6 h-6" />
+        <div className="py-20 px-6 border border-slate-800 border-dashed rounded-2xl text-center flex flex-col items-center justify-center max-w-md mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-4 shadow-lg">
+            <Receipt className="w-7 h-7" />
           </div>
-          <h4 className="text-sm font-bold text-foreground tracking-tight">No Invoices Found</h4>
-          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            No invoices match the selected status or search query. Upload an internal invoice or adjust filter criteria.
+          <h4 className="text-sm font-bold text-slate-100 tracking-tight">No Invoices Found</h4>
+          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+            No invoice records match the selected status or search filter. Upload an internal invoice or clear search criteria.
           </p>
         </div>
       ) : viewMode === 'table' ? (
-        /* Dense Table View */
-        <div className="border border-border rounded-xl overflow-hidden bg-card shadow-xs">
+
+        /* ── Dense ERP Table View ── */
+        <div className="border border-slate-800/80 rounded-2xl overflow-hidden bg-slate-900/50 shadow-2xl">
           <Table>
             <TableHeader>
-              <TableRow className="border-b border-border bg-muted/40">
-                <TableHead className="text-xs font-bold text-muted-foreground">Invoice No</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground">Vendor Name</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground">PO Number</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground">Date</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground text-right">Invoice Total</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground">Source</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground">Status</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground text-right">Actions</TableHead>
+              <TableRow className="border-b border-slate-800 bg-slate-950/60">
+                <TableHead className="text-xs font-bold text-slate-400">Invoice No</TableHead>
+                <TableHead className="text-xs font-bold text-slate-400">Vendor Name</TableHead>
+                <TableHead className="text-xs font-bold text-slate-400">PO Number</TableHead>
+                <TableHead className="text-xs font-bold text-slate-400">Date</TableHead>
+                <TableHead className="text-xs font-bold text-slate-400 text-right">Invoice Total</TableHead>
+                <TableHead className="text-xs font-bold text-slate-400">Source</TableHead>
+                <TableHead className="text-xs font-bold text-slate-400">Status</TableHead>
+                <TableHead className="text-xs font-bold text-slate-400 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredInvoices.map((inv) => (
-                <TableRow key={inv.invoice_id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-                  <TableCell className="font-bold text-xs text-foreground font-mono">
+                <TableRow key={inv.invoice_id} className="border-b border-slate-800/60 hover:bg-slate-800/40 transition-colors">
+                  <TableCell className="font-bold text-xs font-mono text-slate-100">
                     <button 
                       onClick={() => setInspectInvoice(inv)}
-                      className="hover:text-amber-500 hover:underline transition-colors text-left"
+                      className="hover:text-amber-400 hover:underline transition-colors text-left flex items-center gap-1.5"
                     >
                       {inv.invoice_number}
                     </button>
                   </TableCell>
-                  <TableCell className="text-xs text-foreground">
+                  <TableCell className="text-xs text-slate-200">
                     <span className="font-semibold">{inv.vendor_name}</span>
                     {inv.vendor_code && (
-                      <span className="block text-[10px] text-muted-foreground font-mono">{inv.vendor_code}</span>
+                      <span className="block text-[10px] text-slate-400 font-mono">{inv.vendor_code}</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs font-mono text-muted-foreground">{inv.po_no}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{inv.invoice_date}</TableCell>
-                  <TableCell className="text-xs text-foreground font-bold text-right whitespace-nowrap font-mono">
+                  <TableCell className="text-xs font-mono text-slate-400">{inv.po_no}</TableCell>
+                  <TableCell className="text-xs text-slate-400 whitespace-nowrap">{inv.invoice_date}</TableCell>
+                  <TableCell className="text-xs text-amber-400 font-bold text-right whitespace-nowrap font-mono">
                     {formatCurrency(inv.invoice_total)}
                   </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
-                    <span className="capitalize px-2 py-0.5 rounded bg-muted border border-border text-[10px] font-medium text-muted-foreground">
+                    <span className={`capitalize px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      inv.source === 'internal_upload'
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        : 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+                    }`}>
                       {inv.source ? inv.source.replace('_', ' ') : 'vendor portal'}
                     </span>
                   </TableCell>
@@ -492,18 +596,18 @@ export default function InvoicesView() {
                     <button
                       type="button"
                       onClick={() => setInspectInvoice(inv)}
-                      className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground font-medium p-1 hover:bg-muted rounded transition-colors"
-                      title="Inspect Invoice Details"
+                      className="inline-flex items-center text-xs text-slate-300 hover:text-white font-medium p-1.5 hover:bg-slate-800 rounded-lg transition-colors"
+                      title="Inspect Invoice & Preview Attachment"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3.5 h-3.5 text-slate-400" />
                     </button>
 
                     <a
                       href={getAttachmentDownloadUrl(inv.invoice_id)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-xs text-amber-500 hover:text-amber-400 font-medium p-1 hover:bg-amber-500/10 rounded transition-colors"
-                      title="Download PDF Document"
+                      className="inline-flex items-center text-xs text-amber-400 hover:text-amber-300 font-medium p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors"
+                      title="Download Invoice PDF"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </a>
@@ -513,14 +617,14 @@ export default function InvoicesView() {
                         <button
                           type="button"
                           onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
-                          className="inline-flex items-center text-xs text-emerald-500 hover:bg-emerald-500/10 font-bold px-2 py-1 rounded border border-emerald-500/30 transition-colors"
+                          className="inline-flex items-center text-xs text-emerald-400 hover:bg-emerald-500/20 font-bold px-2.5 py-1 rounded-lg border border-emerald-500/30 transition-colors"
                         >
                           <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
                         </button>
                         <button
                           type="button"
                           onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
-                          className="inline-flex items-center text-xs text-rose-500 hover:bg-rose-500/10 font-bold px-2 py-1 rounded border border-rose-500/30 transition-colors"
+                          className="inline-flex items-center text-xs text-rose-400 hover:bg-rose-500/20 font-bold px-2.5 py-1 rounded-lg border border-rose-500/30 transition-colors"
                         >
                           <XCircle className="w-3 h-3 mr-1" /> Reject
                         </button>
@@ -531,18 +635,18 @@ export default function InvoicesView() {
                       <button
                         type="button"
                         onClick={() => handleCreatePaymentRequest(inv)}
-                        className="inline-flex items-center text-xs text-amber-500 hover:bg-amber-500/10 font-bold px-2 py-1 rounded border border-amber-500/30 transition-colors"
+                        className="inline-flex items-center text-xs text-slate-950 bg-amber-500 hover:bg-amber-400 font-black px-2.5 py-1 rounded-lg transition-all shadow-sm"
                         title="Create Payment Request from Invoice"
                       >
-                        <CreditCard className="w-3 h-3 mr-1" /> Pay Request
+                        <CreditCard className="w-3 h-3 mr-1 stroke-[2.5]" /> Pay Request
                       </button>
                     ) : null}
 
                     <button
                       type="button"
                       onClick={() => setInvoiceToDelete(inv)}
-                      className="inline-flex items-center text-xs text-rose-400 hover:text-rose-300 font-medium p-1 hover:bg-rose-500/10 rounded transition-colors"
-                      title="Delete Invoice Record"
+                      className="inline-flex items-center text-xs text-rose-400 hover:text-rose-300 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors"
+                      title="Delete Invoice Line Item"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -552,18 +656,23 @@ export default function InvoicesView() {
             </TableBody>
           </Table>
         </div>
+
       ) : (
-        /* Card / Grid View */
+
+        /* ── Rich Card Grid View ── */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredInvoices.map((inv) => (
-            <div key={inv.invoice_id} className="bg-card border border-border hover:border-amber-500/50 rounded-xl p-4 space-y-3.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between">
-              <div className="space-y-2.5">
+            <div 
+              key={inv.invoice_id} 
+              className="bg-slate-900/70 border border-slate-800/80 hover:border-amber-500/40 rounded-2xl p-5 space-y-4 shadow-xl hover:shadow-2xl transition-all flex flex-col justify-between group"
+            >
+              <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider block">Invoice Number</span>
+                    <span className="text-[10px] text-slate-400 font-mono tracking-wider uppercase block">Invoice Number</span>
                     <button 
                       onClick={() => setInspectInvoice(inv)}
-                      className="text-sm font-bold text-foreground hover:text-amber-500 transition-colors text-left font-mono"
+                      className="text-base font-black text-slate-100 group-hover:text-amber-400 transition-colors text-left font-mono"
                     >
                       {inv.invoice_number}
                     </button>
@@ -571,45 +680,49 @@ export default function InvoicesView() {
                   {getStatusBadge(inv.status)}
                 </div>
 
-                <div className="p-2.5 bg-muted/30 border border-border/60 rounded-lg space-y-1 text-xs">
+                <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl space-y-1.5 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Vendor:</span>
-                    <span className="font-semibold text-foreground truncate max-w-[170px]">{inv.vendor_name}</span>
+                    <span className="text-slate-400">Vendor:</span>
+                    <span className="font-semibold text-slate-200 truncate max-w-[180px]">{inv.vendor_name}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">PO Number:</span>
-                    <span className="font-mono text-foreground font-semibold">{inv.po_no}</span>
+                    <span className="text-slate-400">PO Number:</span>
+                    <span className="font-mono text-slate-300 font-semibold">{inv.po_no}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Invoice Date:</span>
-                    <span className="text-foreground">{inv.invoice_date}</span>
+                    <span className="text-slate-400">Date:</span>
+                    <span className="text-slate-300">{inv.invoice_date}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Source:</span>
+                    <span className="capitalize text-slate-400 text-[10px]">{inv.source ? inv.source.replace('_', ' ') : 'vendor portal'}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Invoice Total</span>
-                  <span className="text-lg font-black text-amber-500 font-mono">{formatCurrency(inv.invoice_total)}</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Invoice Amount</span>
+                  <span className="text-xl font-black text-amber-400 font-mono">{formatCurrency(inv.invoice_total)}</span>
                 </div>
               </div>
 
-              {/* Actions Footer */}
-              <div className="flex items-center justify-between pt-3 border-t border-border/60 gap-2">
-                <div className="flex items-center gap-1">
+              {/* Card Footer Actions */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 gap-2">
+                <div className="flex items-center gap-1.5">
                   <Button 
                     size="sm" 
                     variant="outline" 
                     onClick={() => setInspectInvoice(inv)} 
-                    className="h-7 text-xs border-border text-foreground hover:bg-muted font-medium"
+                    className="h-8 text-xs border-slate-800 text-slate-300 hover:bg-slate-800 font-semibold"
                   >
-                    <Eye className="w-3 h-3 mr-1" /> View
+                    <Eye className="w-3.5 h-3.5 mr-1 text-slate-400" /> View Details
                   </Button>
                   <a
                     href={getAttachmentDownloadUrl(inv.invoice_id)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="h-7 px-2.5 text-xs text-amber-500 hover:bg-amber-500/10 font-bold rounded-lg border border-amber-500/30 flex items-center gap-1 transition-colors"
+                    className="h-8 px-2.5 text-xs text-amber-400 hover:bg-amber-500/10 font-bold rounded-lg border border-amber-500/30 flex items-center gap-1 transition-colors"
                   >
-                    <Download className="w-3 h-3" /> PDF
+                    <Download className="w-3.5 h-3.5" /> PDF
                   </a>
                 </div>
 
@@ -618,14 +731,14 @@ export default function InvoicesView() {
                     <Button
                       size="sm"
                       onClick={() => handleCreatePaymentRequest(inv)}
-                      className="h-7 text-[11px] bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
+                      className="h-8 text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-black"
                     >
-                      <CreditCard className="w-3 h-3 mr-1" /> Pay Request
+                      <CreditCard className="w-3.5 h-3.5 mr-1 stroke-[2.5]" /> Pay
                     </Button>
                   )}
                   <button
                     onClick={() => setInvoiceToDelete(inv)}
-                    className="p-1 text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
+                    className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                     title="Delete Invoice"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -637,91 +750,104 @@ export default function InvoicesView() {
         </div>
       )}
 
-      {/* Detailed Inspection Side Modal / Drawer */}
+      {/* ── 5. Detailed Split-Screen Inspection & PDF Drawer ── */}
       {inspectInvoice && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-2xl w-full space-y-5 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-4xl w-full space-y-6 shadow-2xl animate-fade-in max-h-[92vh] overflow-y-auto custom-scrollbar">
             
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-                  <Receipt className="w-5 h-5" />
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-sm">
+                  <Receipt className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <h3 className="text-lg font-black text-slate-100 flex items-center gap-2">
                     Invoice #{inspectInvoice.invoice_number}
                   </h3>
-                  <p className="text-xs text-muted-foreground">ID: {inspectInvoice.invoice_id}</p>
+                  <p className="text-xs text-slate-400 font-mono">System ID: {inspectInvoice.invoice_id}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setInspectInvoice(null)} 
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted text-sm font-bold"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-sm font-bold transition-colors cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {/* Key Information */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="p-3.5 bg-muted/30 border border-border rounded-xl space-y-2">
-                <h4 className="font-bold text-amber-500 border-b border-border/60 pb-1 text-[11px] uppercase tracking-wider">
-                  Vendor & PO Reference
+            {/* Split Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              
+              {/* Left Column: Vendor & PO Reference */}
+              <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2.5">
+                <h4 className="font-bold text-amber-400 border-b border-slate-800 pb-1.5 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Building className="w-3.5 h-3.5" /> Vendor & PO Metadata
                 </h4>
-                <p><span className="text-muted-foreground">Vendor:</span> <strong className="text-foreground">{inspectInvoice.vendor_name}</strong></p>
-                <p><span className="text-muted-foreground">Vendor Code:</span> <strong className="text-foreground font-mono">{inspectInvoice.vendor_code || '—'}</strong></p>
-                <p><span className="text-muted-foreground">PO Number:</span> <strong className="text-foreground font-mono">{inspectInvoice.po_no}</strong></p>
-                <p><span className="text-muted-foreground">Project:</span> <strong className="text-foreground">{inspectInvoice.project || '—'}</strong></p>
+                <p><span className="text-slate-400">Vendor Legal Name:</span> <strong className="text-slate-100">{inspectInvoice.vendor_name}</strong></p>
+                <p><span className="text-slate-400">Vendor Code:</span> <strong className="text-slate-200 font-mono">{inspectInvoice.vendor_code || '—'}</strong></p>
+                <p><span className="text-slate-400">PO Number:</span> <strong className="text-slate-200 font-mono">{inspectInvoice.po_no}</strong></p>
+                <p><span className="text-slate-400">Linked Project:</span> <strong className="text-slate-200">{inspectInvoice.project || '—'}</strong></p>
+                <p><span className="text-slate-400">Submission Source:</span> <span className="capitalize text-slate-300 font-semibold">{inspectInvoice.source ? inspectInvoice.source.replace('_', ' ') : 'vendor portal'}</span></p>
               </div>
 
-              <div className="p-3.5 bg-muted/30 border border-border rounded-xl space-y-2">
-                <h4 className="font-bold text-amber-500 border-b border-border/60 pb-1 text-[11px] uppercase tracking-wider">
-                  Financial Breakdown
+              {/* Right Column: Financial Calculation */}
+              <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2.5">
+                <h4 className="font-bold text-amber-400 border-b border-slate-800 pb-1.5 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <IndianRupee className="w-3.5 h-3.5" /> Billing & Tax Breakdown
                 </h4>
-                <p><span className="text-muted-foreground">Subtotal:</span> <strong className="text-foreground font-mono">{formatCurrency(inspectInvoice.subtotal)}</strong></p>
-                <p><span className="text-muted-foreground">Tax Amount:</span> <strong className="text-foreground font-mono">{formatCurrency(inspectInvoice.tax_amount)}</strong></p>
-                <p><span className="text-muted-foreground">Invoice Total:</span> <strong className="text-amber-500 font-bold font-mono text-sm">{formatCurrency(inspectInvoice.invoice_total)}</strong></p>
-                <p><span className="text-muted-foreground">Status:</span> {getStatusBadge(inspectInvoice.status)}</p>
+                <p><span className="text-slate-400">Invoice Subtotal:</span> <strong className="text-slate-200 font-mono">{formatCurrency(inspectInvoice.subtotal)}</strong></p>
+                <p><span className="text-slate-400">Tax Amount (GST):</span> <strong className="text-slate-200 font-mono">{formatCurrency(inspectInvoice.tax_amount)}</strong></p>
+                <p><span className="text-slate-400">Gross Total Amount:</span> <strong className="text-amber-400 font-black font-mono text-base">{formatCurrency(inspectInvoice.invoice_total)}</strong></p>
+                <p><span className="text-slate-400">Current Status:</span> {getStatusBadge(inspectInvoice.status)}</p>
+                {inspectInvoice.submitted_at && (
+                  <p><span className="text-slate-400">Submitted At:</span> <span className="text-slate-300">{new Date(inspectInvoice.submitted_at).toLocaleString('en-IN')}</span></p>
+                )}
               </div>
+
             </div>
 
-            {/* Remarks / Rejection Reason */}
+            {/* Remarks / Rejection Notice */}
             {inspectInvoice.remarks && (
-              <div className="p-3 bg-muted/20 border border-border rounded-xl text-xs space-y-1">
-                <span className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider block">Remarks</span>
-                <p className="text-foreground leading-relaxed">{inspectInvoice.remarks}</p>
+              <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-2xl text-xs space-y-1">
+                <span className="font-bold text-slate-400 uppercase text-[10px] tracking-wider block">Internal Remarks / Notes</span>
+                <p className="text-slate-200 leading-relaxed">{inspectInvoice.remarks}</p>
               </div>
             )}
 
             {inspectInvoice.rejection_reason && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs space-y-1 text-rose-400">
-                <span className="font-bold uppercase text-[10px] tracking-wider block flex items-center gap-1">
-                  <ShieldAlert className="w-3.5 h-3.5" /> Rejection Reason
+              <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-xs space-y-1.5 text-rose-300">
+                <span className="font-bold uppercase text-[10px] tracking-wider block flex items-center gap-1 text-rose-400">
+                  <ShieldAlert className="w-4 h-4" /> Reason for Rejection
                 </span>
-                <p className="text-rose-300 leading-relaxed">{inspectInvoice.rejection_reason}</p>
+                <p className="leading-relaxed">{inspectInvoice.rejection_reason}</p>
               </div>
             )}
 
-            {/* PDF Attachment Actions */}
-            <div className="p-4 bg-muted/30 border border-border rounded-xl flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-amber-500" />
-                <span className="font-semibold text-foreground">Attached Document PDF</span>
+            {/* Document Viewer Box */}
+            <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                  <FileText className="w-4 h-4 text-amber-400" />
+                  <span>Invoice Document File</span>
+                </div>
+                <a
+                  href={getAttachmentDownloadUrl(inspectInvoice.invoice_id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-1.5 text-xs text-amber-400 hover:bg-amber-500/10 font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download PDF / Document
+                </a>
               </div>
-              <a
-                href={getAttachmentDownloadUrl(inspectInvoice.invoice_id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-xs text-amber-500 hover:bg-amber-500/10 font-bold rounded-lg border border-amber-500/30 flex items-center gap-1.5 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" /> View / Download Document
-              </a>
+              <p className="text-[11px] text-slate-400">
+                Document is stored securely. Click &quot;Download PDF / Document&quot; to inspect or open in a new tab.
+              </p>
             </div>
 
-            {/* Modal Workflow Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-border">
-              <Button variant="ghost" onClick={() => setInspectInvoice(null)} className="text-xs">
+            {/* Action Bar Footer */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+              <Button variant="ghost" onClick={() => setInspectInvoice(null)} className="text-xs text-slate-400">
                 Close
               </Button>
 
@@ -733,11 +859,11 @@ export default function InvoicesView() {
                       variant="outline"
                       className="text-xs border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold"
                     >
-                      <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                      <XCircle className="w-3.5 h-3.5 mr-1" /> Reject Invoice
                     </Button>
                     <Button
                       onClick={() => { setSelectedInvoice(inspectInvoice); setStatusAction('Approved'); }}
-                      className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                      className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve Invoice
                     </Button>
@@ -747,54 +873,55 @@ export default function InvoicesView() {
                 {String(inspectInvoice.status).toLowerCase() === 'approved' ? (
                   <Button
                     onClick={() => handleCreatePaymentRequest(inspectInvoice)}
-                    className="text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
+                    className="text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-black"
                   >
-                    <CreditCard className="w-3.5 h-3.5 mr-1" /> Create Payment Request
+                    <CreditCard className="w-3.5 h-3.5 mr-1 stroke-[2.5]" /> Create Payment Request
                   </Button>
                 ) : null}
               </div>
             </div>
+
           </div>
         </div>
       )}
 
-      {/* Status Review Modal */}
+      {/* ── 6. Status Review Confirmation Modal ── */}
       {selectedInvoice && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-fade-in">
-            <h3 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              {statusAction === 'Approved' ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-rose-500" />}
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-fade-in">
+            <h3 className="text-sm font-bold text-slate-100 border-b border-slate-800 pb-3 flex items-center gap-2">
+              {statusAction === 'Approved' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <XCircle className="w-4 h-4 text-rose-400" />}
               Confirm {statusAction} Invoice #{selectedInvoice.invoice_number}
             </h3>
 
-            <div className="text-xs text-muted-foreground space-y-1 bg-muted/40 p-3 rounded-lg border border-border">
-              <p><strong className="text-foreground">Vendor:</strong> {selectedInvoice.vendor_name}</p>
-              <p><strong className="text-foreground">PO Number:</strong> {selectedInvoice.po_no}</p>
-              <p><strong className="text-foreground">Invoice Total:</strong> <span className="text-amber-500 font-bold">{formatCurrency(selectedInvoice.invoice_total)}</span></p>
+            <div className="text-xs text-slate-300 space-y-1 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+              <p><strong className="text-slate-400">Vendor:</strong> {selectedInvoice.vendor_name}</p>
+              <p><strong className="text-slate-400">PO Number:</strong> {selectedInvoice.po_no}</p>
+              <p><strong className="text-slate-400">Invoice Total:</strong> <span className="text-amber-400 font-bold">{formatCurrency(selectedInvoice.invoice_total)}</span></p>
             </div>
 
             {statusAction === 'Rejected' ? (
               <div>
-                <label className="text-xs text-muted-foreground block mb-1 font-semibold">Reason for Rejection *</label>
+                <label className="text-xs text-slate-300 block mb-1.5 font-bold">Reason for Rejection *</label>
                 <textarea
                   rows={3}
                   required
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Explain why this invoice is rejected..."
-                  className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-rose-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
                 />
               </div>
             ) : null}
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-              <Button variant="ghost" onClick={() => { setSelectedInvoice(null); setStatusAction(null); }} className="text-xs">
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+              <Button variant="ghost" onClick={() => { setSelectedInvoice(null); setStatusAction(null); }} className="text-xs text-slate-400">
                 Cancel
               </Button>
               <Button
                 onClick={handleStatusUpdateSubmit}
                 disabled={actionLoading}
-                className={`text-xs font-bold ${statusAction === 'Approved' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'}`}
+                className={`text-xs font-bold ${statusAction === 'Approved' ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'}`}
               >
                 {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
                 Confirm {statusAction}
@@ -804,17 +931,17 @@ export default function InvoicesView() {
         </div>
       )}
 
-      {/* Enhanced Manual Internal Upload Modal */}
+      {/* ── 7. Enhanced Internal Invoice Upload Modal ── */}
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <FilePlus className="w-4 h-4 text-amber-500" /> Upload Internal Manual Invoice
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl animate-fade-in max-h-[92vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                <FilePlus className="w-5 h-5 text-amber-400" /> Upload Internal Manual Invoice
               </h3>
               <button 
                 onClick={() => setUploadModalOpen(false)} 
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground text-xs font-bold"
+                className="p-1 rounded-lg text-slate-400 hover:text-white text-xs font-bold"
               >
                 ✕
               </button>
@@ -822,14 +949,14 @@ export default function InvoicesView() {
 
             <form onSubmit={handleManualUploadSubmit} className="space-y-4">
               <div>
-                <label className="text-xs text-muted-foreground block mb-1 font-semibold">Select Approved Purchase Order *</label>
+                <label className="text-xs text-slate-300 block mb-1 font-bold">Select Approved Purchase Order *</label>
                 <select
                   required
                   value={uploadForm.poNo}
                   onChange={(e) => setUploadForm({ ...uploadForm, poNo: e.target.value })}
-                  className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-medium"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-semibold"
                 >
-                  <option value="">-- Select Purchase Order --</option>
+                  <option value="">-- Choose Approved PO --</option>
                   {Array.isArray(posList) && posList.map(p => (
                     <option key={p.po_no || p.poNo} value={p.po_no || p.poNo}>
                       {p.po_no || p.poNo} — {p.vendor_name || p.vendor} ({formatCurrency(p.po_value || p.poValue)})
@@ -838,62 +965,62 @@ export default function InvoicesView() {
                 </select>
 
                 {selectedPOData && (
-                  <div className="mt-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[11px] text-amber-500 flex justify-between font-medium">
-                    <span>Vendor: <strong>{selectedPOData.vendor_name || selectedPOData.vendor}</strong></span>
-                    <span>PO Value: <strong>{formatCurrency(selectedPOData.po_value || selectedPOData.poValue)}</strong></span>
+                  <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 space-y-1">
+                    <p><span className="text-slate-400">Vendor:</span> <strong>{selectedPOData.vendor_name || selectedPOData.vendor}</strong></p>
+                    <p><span className="text-slate-400">PO Value:</span> <strong className="font-mono">{formatCurrency(selectedPOData.po_value || selectedPOData.poValue)}</strong></p>
                   </div>
                 )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1 font-semibold">Invoice Number *</label>
+                  <label className="text-xs text-slate-300 block mb-1 font-bold">Invoice Number *</label>
                   <input
                     type="text"
                     required
                     value={uploadForm.invoiceNumber}
                     onChange={(e) => setUploadForm({ ...uploadForm, invoiceNumber: e.target.value })}
                     placeholder="e.g. INV-2026-0092"
-                    className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-mono"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1 font-semibold">Invoice Date *</label>
+                  <label className="text-xs text-slate-300 block mb-1 font-bold">Invoice Date *</label>
                   <input
                     type="date"
                     required
                     value={uploadForm.invoiceDate}
                     onChange={(e) => setUploadForm({ ...uploadForm, invoiceDate: e.target.value })}
-                    className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1 font-semibold">Subtotal (₹)</label>
+                  <label className="text-xs text-slate-300 block mb-1 font-bold">Subtotal (₹)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={uploadForm.subtotal}
                     onChange={(e) => handleAmountChange('subtotal', e.target.value)}
                     placeholder="0.00"
-                    className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-mono"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1 font-semibold">Tax Amount (₹)</label>
+                  <label className="text-xs text-slate-300 block mb-1 font-bold">Tax Amount (₹)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={uploadForm.taxAmount}
                     onChange={(e) => handleAmountChange('taxAmount', e.target.value)}
                     placeholder="0.00"
-                    className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-mono"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1 font-semibold">Invoice Total (₹) *</label>
+                  <label className="text-xs text-slate-300 block mb-1 font-bold">Total Amount (₹) *</label>
                   <input
                     type="number"
                     step="0.01"
@@ -901,41 +1028,60 @@ export default function InvoicesView() {
                     value={uploadForm.invoiceTotal}
                     onChange={(e) => handleAmountChange('invoiceTotal', e.target.value)}
                     placeholder="0.00"
-                    className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-amber-500 focus:outline-none focus:border-amber-500 font-bold font-mono"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-amber-400 focus:outline-none focus:border-amber-500 font-black font-mono"
                   />
                 </div>
               </div>
 
+              {/* Drag and Drop Zone */}
               <div>
-                <label className="text-xs text-muted-foreground block mb-1 font-semibold">Invoice File Attachment (PDF / Image) *</label>
-                <input
-                  type="file"
-                  accept="application/pdf,image/*"
-                  required
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-500/10 file:text-amber-500 hover:file:bg-amber-500/20 cursor-pointer"
-                />
+                <label className="text-xs text-slate-300 block mb-1 font-bold">Invoice Document File *</label>
+                <div 
+                  onDragEnter={handleDrag} 
+                  onDragLeave={handleDrag} 
+                  onDragOver={handleDrag} 
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-2xl p-4 text-center transition-all ${
+                    dragActive ? 'border-amber-500 bg-amber-500/10' : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                  }`}
+                >
+                  <UploadCloud className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-slate-200">Drag & drop invoice PDF or image here</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">or choose a file from your computer</p>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    required={!selectedFile}
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="mt-3 text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-500/20 file:text-amber-400 hover:file:bg-amber-500/30 cursor-pointer"
+                  />
+                  {selectedFile && (
+                    <div className="mt-2 text-xs text-emerald-400 font-mono font-bold">
+                      ✓ {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
-                <label className="text-xs text-muted-foreground block mb-1 font-semibold">Remarks</label>
+                <label className="text-xs text-slate-300 block mb-1 font-bold">Internal Remarks</label>
                 <textarea
                   rows={2}
                   value={uploadForm.remarks}
                   onChange={(e) => setUploadForm({ ...uploadForm, remarks: e.target.value })}
                   placeholder="Optional internal notes..."
-                  className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-                <Button type="button" variant="ghost" onClick={() => setUploadModalOpen(false)} disabled={uploading} className="text-xs">
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+                <Button type="button" variant="ghost" onClick={() => setUploadModalOpen(false)} disabled={uploading} className="text-xs text-slate-400">
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={uploading}
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5"
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 px-5"
                 >
                   {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                   {uploading ? 'Uploading Document...' : 'Submit Internal Invoice'}
@@ -946,40 +1092,40 @@ export default function InvoicesView() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* ── 8. Delete Invoice Modal ── */}
       {invoiceToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-fade-in">
-            <div className="flex items-center gap-3 text-rose-500">
-              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                <AlertTriangle className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-fade-in">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-foreground">Delete Invoice Line Item</h3>
-                <p className="text-xs text-muted-foreground">Confirm permanent deletion of invoice record</p>
+                <h3 className="text-sm font-bold text-slate-100">Delete Invoice Record</h3>
+                <p className="text-xs text-slate-400">Confirm permanent deletion of invoice line item</p>
               </div>
             </div>
 
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 space-y-1">
-              <p>Invoice #: <strong className="font-mono text-foreground">{invoiceToDelete.invoice_number}</strong></p>
-              <p>PO #: <strong className="font-mono text-foreground">{invoiceToDelete.po_no}</strong></p>
-              <p>Vendor: <strong className="text-foreground">{invoiceToDelete.vendor_name}</strong></p>
-              <p>Total: <strong className="text-amber-500 font-mono">{formatCurrency(invoiceToDelete.invoice_total)}</strong></p>
+            <div className="p-3.5 bg-rose-950/40 border border-rose-900/60 rounded-xl text-xs text-rose-300 space-y-1">
+              <p>Invoice #: <strong className="font-mono text-white">{invoiceToDelete.invoice_number}</strong></p>
+              <p>PO #: <strong className="font-mono text-white">{invoiceToDelete.po_no}</strong></p>
+              <p>Vendor: <strong className="text-white">{invoiceToDelete.vendor_name}</strong></p>
+              <p>Total: <strong className="text-amber-400 font-mono">{formatCurrency(invoiceToDelete.invoice_total)}</strong></p>
             </div>
 
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-xs text-slate-400 leading-relaxed">
               Are you sure you want to delete this invoice? This action cannot be undone.
             </p>
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-              <Button type="button" variant="ghost" onClick={() => setInvoiceToDelete(null)} disabled={deleting} className="text-xs">
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+              <Button type="button" variant="ghost" onClick={() => setInvoiceToDelete(null)} disabled={deleting} className="text-xs text-slate-400">
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={handleDeleteInvoiceConfirm}
                 disabled={deleting}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5"
+                className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5"
               >
                 {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 {deleting ? 'Deleting...' : 'Confirm Delete'}
