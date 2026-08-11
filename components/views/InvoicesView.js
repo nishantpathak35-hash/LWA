@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppState } from '../StateProvider';
-import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog, Textarea } from '../ui/core';
+import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Button, Input, Dialog, Textarea } from '../ui/core';
 import { 
   Receipt, Search, Filter, Download, CheckCircle2, XCircle, Clock, FilePlus, 
   Loader2, CreditCard, Eye, Trash2, AlertTriangle, LayoutGrid, LayoutList, 
-  FileText, Sparkles, Building, IndianRupee, RefreshCw, FileCheck, ShieldAlert, UploadCloud
+  FileText, Sparkles, Building, IndianRupee, RefreshCw, FileCheck, ShieldAlert, UploadCloud,
+  ChevronDown, ChevronRight, Users, Calendar
 } from 'lucide-react';
 import { toast } from '../ui/Toast';
 import { exportToCSV } from '../../app/lib/exportUtils';
+import { formatDate } from '../../app/lib/utils';
 
 export default function InvoicesView() {
   const { call, setActiveView } = useAppState();
@@ -17,9 +19,14 @@ export default function InvoicesView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // View modes: 'table' | 'grid'
-  const [viewMode, setViewMode] = useState('table');
-  const [inspectInvoice, setInspectInvoice] = useState(null); // Detail Inspection Drawer
+  // View mode tab: 'vendor' (Vendor-Wise Grouped) | 'flat' (Detailed All Invoices Table)
+  const [activeViewMode, setActiveViewMode] = useState('vendor');
+
+  // Vendor View Expanded Accordion State: object mapping vendorKey -> boolean
+  const [expandedVendors, setExpandedVendors] = useState({});
+
+  // Inspection Drawer State
+  const [inspectInvoice, setInspectInvoice] = useState(null);
 
   // Deletion State
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
@@ -27,7 +34,7 @@ export default function InvoicesView() {
 
   // Filter States
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'PENDING' | 'APPROVED' | 'PAID' | 'REJECTED'
+  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'APPROVED' | 'PAID' | 'REJECTED'
   const [sourceFilter, setSourceFilter] = useState('ALL');
 
   // Status Review Modal
@@ -57,10 +64,12 @@ export default function InvoicesView() {
       setLoading(true);
       setError(null);
       const data = await call('listInvoices', {});
-      setInvoices(data || []);
+      const list = Array.isArray(data) ? data : [];
+      setInvoices(list);
     } catch (err) {
       console.error('Failed to fetch invoices:', err);
       setError(err.message || 'Failed to load invoices dataset');
+      setInvoices([]);
     } finally {
       setLoading(false);
     }
@@ -69,7 +78,6 @@ export default function InvoicesView() {
   const fetchPOs = async () => {
     try {
       const res = await call('getPOsOnly');
-      // Extract array safely from getPOsOnly response { pos: [...] }
       const list = Array.isArray(res) ? res : (res?.pos || []);
       setPosList(list);
     } catch (err) {
@@ -199,15 +207,14 @@ export default function InvoicesView() {
 
   const handleExportCSV = () => {
     const columns = [
-      { label: 'Invoice Number', key: 'invoice_number' },
+      { label: 'Entered Date', key: 'created_at', formatter: (v, r) => formatDate(v || r.submitted_at || r.invoice_date) },
       { label: 'Vendor Name', key: 'vendor_name' },
-      { label: 'Vendor Code', key: 'vendor_code' },
-      { label: 'PO Number', key: 'po_no' },
-      { label: 'Invoice Date', key: 'invoice_date' },
-      { label: 'Subtotal', key: 'subtotal' },
-      { label: 'Tax Amount', key: 'tax_amount' },
-      { label: 'Invoice Total', key: 'invoice_total' },
-      { label: 'Source', key: 'source' },
+      { label: 'Invoice Date', key: 'invoice_date', formatter: (v) => formatDate(v) },
+      { label: 'P.O Number', key: 'po_no' },
+      { label: 'Invoice Number', key: 'invoice_number' },
+      { label: 'Basic Value', key: 'subtotal', formatter: (v, r) => Number(v || (r.invoice_total - (r.tax_amount || 0)) || 0) },
+      { label: 'Tax', key: 'tax_amount', formatter: (v) => Number(v || 0) },
+      { label: 'Total', key: 'invoice_total', formatter: (v) => Number(v || 0) },
       { label: 'Status', key: 'status' }
     ];
     exportToCSV('Invoices_Ledger_Report.csv', columns, filteredInvoices);
@@ -215,26 +222,71 @@ export default function InvoicesView() {
 
   // Filtered List
   const filteredInvoices = useMemo(() => {
+    if (!Array.isArray(invoices)) return [];
     return invoices.filter(inv => {
       const s = search.toLowerCase().trim();
       const matchesSearch = !s || 
         String(inv.invoice_number || '').toLowerCase().includes(s) ||
         String(inv.vendor_name || '').toLowerCase().includes(s) ||
+        String(inv.vendor_code || '').toLowerCase().includes(s) ||
         String(inv.po_no || '').toLowerCase().includes(s) ||
         String(inv.invoice_id || '').toLowerCase().includes(s);
 
       const st = String(inv.status || '').toLowerCase();
       let matchesTab = true;
-      if (activeTab === 'PENDING') matchesTab = st === 'submitted' || st === 'under review';
-      else if (activeTab === 'APPROVED') matchesTab = st === 'approved';
-      else if (activeTab === 'PAID') matchesTab = st === 'paid';
-      else if (activeTab === 'REJECTED') matchesTab = st === 'rejected';
+      if (statusFilter === 'PENDING') matchesTab = st === 'submitted' || st === 'under review';
+      else if (statusFilter === 'APPROVED') matchesTab = st === 'approved';
+      else if (statusFilter === 'PAID') matchesTab = st === 'paid';
+      else if (statusFilter === 'REJECTED') matchesTab = st === 'rejected';
 
       const matchesSource = sourceFilter === 'ALL' || String(inv.source || '').toLowerCase() === sourceFilter.toLowerCase();
 
       return matchesSearch && matchesTab && matchesSource;
     });
-  }, [invoices, search, activeTab, sourceFilter]);
+  }, [invoices, search, statusFilter, sourceFilter]);
+
+  // Grouped by Vendor
+  const vendorGroups = useMemo(() => {
+    const map = new Map();
+    filteredInvoices.forEach(inv => {
+      const vName = inv.vendor_name || 'Unassigned Vendor';
+      const vCode = inv.vendor_code || 'N/A';
+      const key = `${vName}||${vCode}`;
+      
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          vendorName: vName,
+          vendorCode: vCode,
+          invoices: [],
+          totalAmount: 0,
+          pendingCount: 0,
+          approvedCount: 0,
+          paidCount: 0
+        });
+      }
+      const group = map.get(key);
+      group.invoices.push(inv);
+      group.totalAmount += Number(inv.invoice_total || 0);
+
+      const st = String(inv.status || '').toLowerCase();
+      if (st === 'submitted' || st === 'under review') group.pendingCount++;
+      else if (st === 'approved') group.approvedCount++;
+      else if (st === 'paid') group.paidCount++;
+    });
+
+    return Array.from(map.values());
+  }, [filteredInvoices]);
+
+  const toggleVendorExpanded = (key) => {
+    setExpandedVendors(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleAllVendors = (expand) => {
+    const next = {};
+    vendorGroups.forEach(g => { next[g.key] = expand; });
+    setExpandedVendors(next);
+  };
 
   const kpis = useMemo(() => {
     const total = invoices.length;
@@ -300,10 +352,20 @@ export default function InvoicesView() {
     }
   };
 
+  const getEnteredDateString = (inv) => {
+    const raw = inv.created_at || inv.submitted_at || inv.created_date || inv.invoice_date;
+    if (!raw) return '—';
+    try {
+      return formatDate(raw);
+    } catch {
+      return String(raw).split('T')[0];
+    }
+  };
+
   return (
     <div className="space-y-6 select-none animate-fade-in pb-12">
 
-      {/* ── 1. Header Card (Harmonized with ERP Design System) ── */}
+      {/* ── 1. Header Card ── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-5 rounded-xl shadow-2xs">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
@@ -312,10 +374,10 @@ export default function InvoicesView() {
             </div>
             <div>
               <h2 className="text-xl font-bold tracking-tight text-foreground">
-                Invoices Ledger
+                Invoice Management Ledger
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Review vendor-submitted and internal invoices against purchase orders
+                Vendor-grouped & financial detailed views for invoice processing and audit
               </p>
             </div>
           </div>
@@ -351,14 +413,12 @@ export default function InvoicesView() {
         </div>
       </div>
 
-      {/* ── 2. Metric KPI Cards Bar (Harmonized Color Tokens) ── */}
+      {/* ── 2. Metric KPI Cards Bar ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
-        
-        {/* Total Invoices */}
         <Card 
-          onClick={() => setActiveTab('ALL')}
+          onClick={() => setStatusFilter('ALL')}
           className={`cursor-pointer transition-all ${
-            activeTab === 'ALL' ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
+            statusFilter === 'ALL' ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <CardContent className="p-4">
@@ -373,11 +433,10 @@ export default function InvoicesView() {
           </CardContent>
         </Card>
 
-        {/* Needs Action */}
         <Card 
-          onClick={() => setActiveTab('PENDING')}
+          onClick={() => setStatusFilter('PENDING')}
           className={`cursor-pointer transition-all ${
-            activeTab === 'PENDING' ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
+            statusFilter === 'PENDING' ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <CardContent className="p-4">
@@ -392,11 +451,10 @@ export default function InvoicesView() {
           </CardContent>
         </Card>
 
-        {/* Approved */}
         <Card 
-          onClick={() => setActiveTab('APPROVED')}
+          onClick={() => setStatusFilter('APPROVED')}
           className={`cursor-pointer transition-all ${
-            activeTab === 'APPROVED' ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
+            statusFilter === 'APPROVED' ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <CardContent className="p-4">
@@ -411,11 +469,10 @@ export default function InvoicesView() {
           </CardContent>
         </Card>
 
-        {/* Paid */}
         <Card 
-          onClick={() => setActiveTab('PAID')}
+          onClick={() => setStatusFilter('PAID')}
           className={`cursor-pointer transition-all ${
-            activeTab === 'PAID' ? 'border-blue-500/60 ring-1 ring-blue-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
+            statusFilter === 'PAID' ? 'border-blue-500/60 ring-1 ring-blue-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <CardContent className="p-4">
@@ -430,7 +487,6 @@ export default function InvoicesView() {
           </CardContent>
         </Card>
 
-        {/* Approved Total Value */}
         <Card className="bg-card border-border/80">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -443,105 +499,121 @@ export default function InvoicesView() {
             <span className="text-[10px] text-muted-foreground mt-0.5 block">Committed Liability</span>
           </CardContent>
         </Card>
-
       </div>
 
-      {/* ── 3. Filters & View Switcher Toolbar ── */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-card p-3 border border-border rounded-xl shadow-2xs">
-        
-        {/* Status Tab Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto custom-scrollbar pb-1 md:pb-0">
-          {[
-            { id: 'ALL', label: 'All Invoices', count: kpis.total },
-            { id: 'PENDING', label: 'Needs Action', count: kpis.pending },
-            { id: 'APPROVED', label: 'Approved', count: kpis.approved },
-            { id: 'PAID', label: 'Paid', count: kpis.paid },
-            { id: 'REJECTED', label: 'Rejected' }
-          ].map(tab => (
+      {/* ── 3. Mode Switcher Tabs & Filter Toolbar ── */}
+      <div className="space-y-3">
+        {/* Main View Mode Selector Tabs */}
+        <div className="flex items-center justify-between border-b border-border pb-2 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                activeTab === tab.id
-                  ? 'bg-amber-500/15 text-amber-700 dark:text-gold font-bold border border-amber-500/30'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              onClick={() => setActiveViewMode('vendor')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeViewMode === 'vendor'
+                  ? 'bg-amber-600 text-slate-950 shadow-xs'
+                  : 'bg-card text-muted-foreground hover:text-foreground border border-border'
               }`}
             >
-              <span>{tab.label}</span>
-              {tab.count !== undefined && (
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
-                  activeTab === tab.id ? 'bg-amber-500/20 text-amber-700 dark:text-gold' : 'bg-muted text-muted-foreground'
-                }`}>
-                  {tab.count}
-                </span>
-              )}
+              <Users className="w-4 h-4" />
+              <span>Vendor Wise View ({vendorGroups.length} Vendors)</span>
             </button>
-          ))}
+
+            <button
+              onClick={() => setActiveViewMode('flat')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeViewMode === 'flat'
+                  ? 'bg-amber-600 text-slate-950 shadow-xs'
+                  : 'bg-card text-muted-foreground hover:text-foreground border border-border'
+              }`}
+            >
+              <LayoutList className="w-4 h-4" />
+              <span>Detailed All Invoices Ledger ({filteredInvoices.length})</span>
+            </button>
+          </div>
+
+          {activeViewMode === 'vendor' && vendorGroups.length > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <Button variant="ghost" size="sm" onClick={() => toggleAllVendors(true)} className="text-xs text-muted-foreground h-7">
+                Expand All
+              </Button>
+              <span className="text-border">|</span>
+              <Button variant="ghost" size="sm" onClick={() => toggleAllVendors(false)} className="text-xs text-muted-foreground h-7">
+                Collapse All
+              </Button>
+            </div>
+          )}
         </div>
 
-        {/* Right Controls: Search, Source Filter, View Toggle */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
-          
-          {/* Search Box */}
-          <div className="relative w-full md:w-64">
-            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-2.5" />
-            <Input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search invoice #, vendor, PO..."
-              className="pl-9 pr-7 py-1.5 h-8 text-xs bg-background border-border text-foreground"
-            />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground text-xs">
-                ×
+        {/* Filter Controls Bar */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-card p-3 border border-border rounded-xl shadow-2xs">
+          {/* Status Tab Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto custom-scrollbar pb-1 md:pb-0">
+            {[
+              { id: 'ALL', label: 'All Statuses', count: kpis.total },
+              { id: 'PENDING', label: 'Needs Action', count: kpis.pending },
+              { id: 'APPROVED', label: 'Approved', count: kpis.approved },
+              { id: 'PAID', label: 'Paid', count: kpis.paid },
+              { id: 'REJECTED', label: 'Rejected' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === tab.id
+                    ? 'bg-amber-500/15 text-amber-700 dark:text-gold font-bold border border-amber-500/30'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                    statusFilter === tab.id ? 'bg-amber-500/20 text-amber-700 dark:text-gold' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {tab.count}
+                  </span>
+                )}
               </button>
-            )}
+            ))}
           </div>
 
-          {/* Source Selector */}
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            className="bg-background border border-border rounded-lg px-2.5 py-1.5 h-8 text-xs font-semibold text-foreground focus:outline-none focus:border-amber-500 cursor-pointer"
-          >
-            <option value="ALL">All Sources</option>
-            <option value="vendor_portal">Vendor Portal</option>
-            <option value="internal_upload">Internal Upload</option>
-          </select>
+          {/* Right Search & Source Controls */}
+          <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+            <div className="relative w-full md:w-64">
+              <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-2.5" />
+              <Input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search vendor, invoice #, PO..."
+                className="pl-9 pr-7 py-1.5 h-8 text-xs bg-background border-border text-foreground"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground text-xs">
+                  ×
+                </button>
+              )}
+            </div>
 
-          {/* View Mode Switcher */}
-          <div className="flex items-center p-0.5 bg-muted rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'table' ? 'bg-card text-amber-600 dark:text-gold shadow-2xs' : 'text-muted-foreground hover:text-foreground'
-              }`}
-              title="Table View"
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="bg-background border border-border rounded-lg px-2.5 py-1.5 h-8 text-xs font-semibold text-foreground focus:outline-none focus:border-amber-500 cursor-pointer"
             >
-              <LayoutList className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'grid' ? 'bg-card text-amber-600 dark:text-gold shadow-2xs' : 'text-muted-foreground hover:text-foreground'
-              }`}
-              title="Grid View"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </button>
+              <option value="ALL">All Sources</option>
+              <option value="vendor_portal">Vendor Portal</option>
+              <option value="internal_upload">Internal Upload</option>
+            </select>
           </div>
         </div>
-
       </div>
 
-      {/* ── 4. Main View Renderer ── */}
+      {/* ── 4. Main Views Renderer ── */}
       {loading ? (
         <div className="py-20 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3">
           <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-gold">
             <Loader2 className="w-6 h-6 animate-spin" />
           </div>
-          <span className="font-semibold text-foreground">Loading invoice ledger dataset...</span>
+          <span className="font-semibold text-foreground">Loading invoices dataset...</span>
         </div>
       ) : error ? (
         <div className="p-6 border border-red-500/30 bg-red-500/10 rounded-xl text-center text-xs text-red-600 dark:text-red-400 font-semibold">
@@ -554,211 +626,311 @@ export default function InvoicesView() {
           </div>
           <h4 className="text-sm font-bold text-foreground tracking-tight">No Invoices Found</h4>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            No invoice records match the selected status or search filter. Upload an internal invoice or adjust search criteria.
+            No invoice records match the selected search or status criteria.
           </p>
         </div>
-      ) : viewMode === 'table' ? (
+      ) : activeViewMode === 'vendor' ? (
 
-        /* ── Harmonized ERP Table View ── */
+        /* ── VENDOR-WISE GROUPED VIEW ── */
+        <div className="space-y-4">
+          {vendorGroups.map((group) => {
+            const isExpanded = expandedVendors[group.key] !== false; // expanded by default
+
+            return (
+              <Card key={group.key} className="border border-border/80 rounded-xl overflow-hidden bg-card shadow-2xs">
+                {/* Vendor Group Header Card */}
+                <div 
+                  onClick={() => toggleVendorExpanded(group.key)}
+                  className="p-4 bg-muted/30 hover:bg-muted/60 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer select-none border-b border-border/60"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-gold border border-amber-500/20 shrink-0">
+                      <Building className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                        {group.vendorName}
+                        {group.vendorCode !== 'N/A' && (
+                          <span className="text-xs text-muted-foreground font-mono font-normal">({group.vendorCode})</span>
+                        )}
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2">
+                        <span><strong>{group.invoices.length}</strong> Invoices linked</span>
+                        <span>•</span>
+                        <span>Total Invoiced: <strong className="text-foreground">{formatCurrency(group.totalAmount)}</strong></span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    {/* Status Counters */}
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      {group.pendingCount > 0 && (
+                        <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold">
+                          {group.pendingCount} Pending
+                        </span>
+                      )}
+                      {group.approvedCount > 0 && (
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+                          {group.approvedCount} Approved
+                        </span>
+                      )}
+                      {group.paidCount > 0 && (
+                        <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold">
+                          {group.paidCount} Paid
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-1 rounded text-muted-foreground hover:text-foreground">
+                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Vendor Invoices Table */}
+                {isExpanded && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-border bg-slate-50/50 dark:bg-slate-900/30 text-[11px]">
+                        <TableHead className="font-semibold text-muted-foreground">Entered Date</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">Invoice Number</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">PO Number</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">Invoice Date</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground text-right">Basic Value</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground text-right">Tax</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground text-right">Total Amount</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.invoices.map((inv) => {
+                        const sub = Number(inv.subtotal || (Number(inv.invoice_total || 0) - Number(inv.tax_amount || 0)));
+                        const tax = Number(inv.tax_amount || 0);
+                        const tot = Number(inv.invoice_total || 0);
+
+                        return (
+                          <TableRow key={inv.invoice_id} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {getEnteredDateString(inv)}
+                            </TableCell>
+                            <TableCell className="font-bold text-xs font-mono text-foreground">
+                              <button 
+                                onClick={() => setInspectInvoice(inv)}
+                                className="hover:text-amber-600 dark:hover:text-gold hover:underline text-left font-mono"
+                              >
+                                {inv.invoice_number}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-xs font-mono text-muted-foreground">{inv.po_no}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{inv.invoice_date || '—'}</TableCell>
+                            <TableCell className="text-xs text-foreground text-right font-mono tabular-nums">
+                              {formatCurrency(sub)}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground text-right font-mono tabular-nums">
+                              {formatCurrency(tax)}
+                            </TableCell>
+                            <TableCell className="text-xs text-foreground font-bold text-right font-mono tabular-nums">
+                              {formatCurrency(tot)}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(inv.status)}</TableCell>
+                            <TableCell className="text-right whitespace-nowrap space-x-1">
+                              <button
+                                type="button"
+                                onClick={() => setInspectInvoice(inv)}
+                                className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground p-1 hover:bg-muted rounded transition-colors cursor-pointer"
+                                title="Inspect Invoice"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+
+                              <a
+                                href={getAttachmentDownloadUrl(inv.invoice_id)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline p-1 hover:bg-amber-500/10 rounded transition-colors"
+                                title="Download PDF"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+
+                              {String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
+                                    className="inline-flex items-center text-[11px] text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
+                                    className="inline-flex items-center text-[11px] text-red-600 dark:text-red-400 font-bold px-1.5 py-0.5 rounded border border-red-500/30 hover:bg-red-500/10 cursor-pointer"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              ) : null}
+
+                              {String(inv.status).toLowerCase() === 'approved' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCreatePaymentRequest(inv)}
+                                  className="inline-flex items-center text-[11px] bg-amber-600 hover:bg-amber-700 dark:bg-gold text-slate-950 font-bold px-2 py-0.5 rounded cursor-pointer"
+                                >
+                                  Pay
+                                </button>
+                              ) : null}
+
+                              <button
+                                type="button"
+                                onClick={() => setInvoiceToDelete(inv)}
+                                className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-500/10 rounded transition-colors cursor-pointer"
+                                title="Delete Invoice"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+
+      ) : (
+
+        /* ── DETAILED ALL INVOICES TABLE VIEW ── */
         <Card className="border border-border rounded-xl overflow-hidden bg-card shadow-2xs">
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border bg-slate-50/80 dark:bg-slate-900/50">
-                <TableHead className="text-xs font-semibold text-muted-foreground">Invoice No</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground">Entered Date</TableHead>
                 <TableHead className="text-xs font-semibold text-muted-foreground">Vendor Name</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground">PO Number</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground">Date</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground text-right">Invoice Total</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground">Source</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground">Invoice Date</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground">P.O Number</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground">Invoice Number</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground text-right">Basic Value</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground text-right">Tax</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground text-right">Total Amount</TableHead>
                 <TableHead className="text-xs font-semibold text-muted-foreground">Status</TableHead>
                 <TableHead className="text-xs font-semibold text-muted-foreground text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredInvoices.map((inv) => (
-                <TableRow key={inv.invoice_id} className="border-b border-border/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                  <TableCell className="font-bold text-xs font-mono text-foreground">
-                    <button 
-                      onClick={() => setInspectInvoice(inv)}
-                      className="hover:text-amber-600 dark:hover:text-gold hover:underline transition-colors text-left font-mono"
-                    >
-                      {inv.invoice_number}
-                    </button>
-                  </TableCell>
-                  <TableCell className="text-xs text-foreground">
-                    <span className="font-semibold">{inv.vendor_name}</span>
-                    {inv.vendor_code && (
-                      <span className="block text-[10px] text-muted-foreground font-mono">{inv.vendor_code}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs font-mono text-muted-foreground">{inv.po_no}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{inv.invoice_date}</TableCell>
-                  <TableCell className="text-xs text-foreground font-bold text-right whitespace-nowrap font-mono tabular-nums">
-                    {formatCurrency(inv.invoice_total)}
-                  </TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">
-                    <span className="capitalize px-2 py-0.5 rounded-md text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
-                      {inv.source ? inv.source.replace('_', ' ') : 'vendor portal'}
-                    </span>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(inv.status)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap space-x-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setInspectInvoice(inv)}
-                      className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground font-medium p-1.5 hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                      title="Inspect Invoice Details & Document"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
+              {filteredInvoices.map((inv) => {
+                const sub = Number(inv.subtotal || (Number(inv.invoice_total || 0) - Number(inv.tax_amount || 0)));
+                const tax = Number(inv.tax_amount || 0);
+                const tot = Number(inv.invoice_total || 0);
 
-                    <a
-                      href={getAttachmentDownloadUrl(inv.invoice_id)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline font-medium p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors"
-                      title="Download Invoice PDF"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </a>
-
-                    {String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review' ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
-                          className="inline-flex items-center text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold px-2 py-1 rounded-md border border-emerald-500/30 transition-colors cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
-                          className="inline-flex items-center text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 font-bold px-2 py-1 rounded-md border border-red-500/30 transition-colors cursor-pointer"
-                        >
-                          <XCircle className="w-3 h-3 mr-1" /> Reject
-                        </button>
-                      </>
-                    ) : null}
-
-                    {String(inv.status).toLowerCase() === 'approved' ? (
+                return (
+                  <TableRow key={inv.invoice_id} className="border-b border-border/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {getEnteredDateString(inv)}
+                    </TableCell>
+                    <TableCell className="text-xs text-foreground">
+                      <span className="font-semibold">{inv.vendor_name || 'Unassigned'}</span>
+                      {inv.vendor_code && (
+                        <span className="block text-[10px] text-muted-foreground font-mono">{inv.vendor_code}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{inv.invoice_date || '—'}</TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">{inv.po_no}</TableCell>
+                    <TableCell className="font-bold text-xs font-mono text-foreground">
+                      <button 
+                        onClick={() => setInspectInvoice(inv)}
+                        className="hover:text-amber-600 dark:hover:text-gold hover:underline transition-colors text-left font-mono"
+                      >
+                        {inv.invoice_number}
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-xs text-foreground text-right font-mono tabular-nums">
+                      {formatCurrency(sub)}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground text-right font-mono tabular-nums">
+                      {formatCurrency(tax)}
+                    </TableCell>
+                    <TableCell className="text-xs text-foreground font-bold text-right whitespace-nowrap font-mono tabular-nums">
+                      {formatCurrency(tot)}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(inv.status)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap space-x-1.5">
                       <button
                         type="button"
-                        onClick={() => handleCreatePaymentRequest(inv)}
-                        className="inline-flex items-center text-xs bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold px-2 py-1 rounded-md transition-colors cursor-pointer shadow-2xs"
-                        title="Create Payment Request from Invoice"
+                        onClick={() => setInspectInvoice(inv)}
+                        className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground font-medium p-1.5 hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                        title="Inspect Invoice Details"
                       >
-                        <CreditCard className="w-3 h-3 mr-1" /> Pay Request
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
-                    ) : null}
 
-                    <button
-                      type="button"
-                      onClick={() => setInvoiceToDelete(inv)}
-                      className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                      title="Delete Invoice Line Item"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      <a
+                        href={getAttachmentDownloadUrl(inv.invoice_id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline font-medium p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors"
+                        title="Download Invoice PDF"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+
+                      {String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
+                            className="inline-flex items-center text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold px-2 py-1 rounded-md border border-emerald-500/30 transition-colors cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
+                            className="inline-flex items-center text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 font-bold px-2 py-1 rounded-md border border-red-500/30 transition-colors cursor-pointer"
+                          >
+                            <XCircle className="w-3 h-3 mr-1" /> Reject
+                          </button>
+                        </>
+                      ) : null}
+
+                      {String(inv.status).toLowerCase() === 'approved' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleCreatePaymentRequest(inv)}
+                          className="inline-flex items-center text-xs bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1 rounded-md transition-colors cursor-pointer shadow-2xs"
+                          title="Create Payment Request from Invoice"
+                        >
+                          <CreditCard className="w-3 h-3 mr-1" /> Pay Request
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceToDelete(inv)}
+                        className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Invoice Line Item"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>
-
-      ) : (
-
-        /* ── Card Grid View ── */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredInvoices.map((inv) => (
-            <Card key={inv.invoice_id} className="bg-card border border-border hover:border-amber-500/50 p-4 space-y-3 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between">
-              <div className="space-y-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider block">Invoice Number</span>
-                    <button 
-                      onClick={() => setInspectInvoice(inv)}
-                      className="text-sm font-bold text-foreground hover:text-amber-600 dark:hover:text-gold transition-colors text-left font-mono"
-                    >
-                      {inv.invoice_number}
-                    </button>
-                  </div>
-                  {getStatusBadge(inv.status)}
-                </div>
-
-                <div className="p-3 bg-muted/40 border border-border/80 rounded-lg space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Vendor:</span>
-                    <span className="font-semibold text-foreground truncate max-w-[180px]">{inv.vendor_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">PO Number:</span>
-                    <span className="font-mono text-foreground font-semibold">{inv.po_no}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date:</span>
-                    <span className="text-foreground">{inv.invoice_date}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Invoice Amount</span>
-                  <span className="text-lg font-bold text-foreground font-mono tabular-nums">{formatCurrency(inv.invoice_total)}</span>
-                </div>
-              </div>
-
-              {/* Card Footer Actions */}
-              <div className="flex items-center justify-between pt-3 border-t border-border gap-2">
-                <div className="flex items-center gap-1.5">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => setInspectInvoice(inv)} 
-                    className="h-8 text-xs font-semibold"
-                  >
-                    <Eye className="w-3.5 h-3.5 mr-1 text-muted-foreground" /> Inspect
-                  </Button>
-                  <a
-                    href={getAttachmentDownloadUrl(inv.invoice_id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-8 px-2.5 text-xs text-amber-600 dark:text-gold hover:bg-amber-500/10 font-bold rounded-lg border border-amber-500/30 flex items-center gap-1 transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" /> PDF
-                  </a>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  {String(inv.status).toLowerCase() === 'approved' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleCreatePaymentRequest(inv)}
-                      className="h-8 text-xs bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold"
-                    >
-                      <CreditCard className="w-3.5 h-3.5 mr-1" /> Pay
-                    </Button>
-                  )}
-                  <button
-                    onClick={() => setInvoiceToDelete(inv)}
-                    className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                    title="Delete Invoice"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
       )}
 
       {/* ── 5. Detailed Inspection Modal ── */}
       {inspectInvoice && (
         <Dialog open={true} onClose={() => setInspectInvoice(null)} title={`Invoice Inspection — ${inspectInvoice.invoice_number}`} maxWidth="max-w-2xl">
           <div className="space-y-5 select-none">
-            
-            {/* Metadata Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="p-3.5 bg-muted/40 border border-border rounded-xl space-y-2">
                 <h4 className="font-bold text-amber-600 dark:text-amber-400 border-b border-border pb-1 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
@@ -768,20 +940,20 @@ export default function InvoicesView() {
                 <p><span className="text-muted-foreground">Vendor Code:</span> <strong className="text-foreground font-mono">{inspectInvoice.vendor_code || '—'}</strong></p>
                 <p><span className="text-muted-foreground">PO Number:</span> <strong className="text-foreground font-mono">{inspectInvoice.po_no}</strong></p>
                 <p><span className="text-muted-foreground">Project:</span> <strong className="text-foreground">{inspectInvoice.project || '—'}</strong></p>
+                <p><span className="text-muted-foreground">Entered Date:</span> <span className="text-foreground font-medium">{getEnteredDateString(inspectInvoice)}</span></p>
               </div>
 
               <div className="p-3.5 bg-muted/40 border border-border rounded-xl space-y-2">
                 <h4 className="font-bold text-amber-600 dark:text-amber-400 border-b border-border pb-1 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                  <IndianRupee className="w-3.5 h-3.5" /> Billing & Tax Breakdown
+                  <IndianRupee className="w-3.5 h-3.5" /> Financial & Tax Breakdown
                 </h4>
-                <p><span className="text-muted-foreground">Subtotal:</span> <strong className="text-foreground font-mono">{formatCurrency(inspectInvoice.subtotal)}</strong></p>
-                <p><span className="text-muted-foreground">Tax Amount:</span> <strong className="text-foreground font-mono">{formatCurrency(inspectInvoice.tax_amount)}</strong></p>
+                <p><span className="text-muted-foreground">Basic Value:</span> <strong className="text-foreground font-mono">{formatCurrency(inspectInvoice.subtotal || (inspectInvoice.invoice_total - (inspectInvoice.tax_amount || 0)))}</strong></p>
+                <p><span className="text-muted-foreground">Tax Amount:</span> <strong className="text-foreground font-mono">{formatCurrency(inspectInvoice.tax_amount || 0)}</strong></p>
                 <p><span className="text-muted-foreground">Invoice Total:</span> <strong className="text-amber-600 dark:text-amber-400 font-bold font-mono text-sm">{formatCurrency(inspectInvoice.invoice_total)}</strong></p>
                 <p><span className="text-muted-foreground">Status:</span> {getStatusBadge(inspectInvoice.status)}</p>
               </div>
             </div>
 
-            {/* Remarks / Rejection Notice */}
             {inspectInvoice.remarks && (
               <div className="p-3 bg-muted/20 border border-border rounded-xl text-xs space-y-1">
                 <span className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider block">Internal Remarks / Notes</span>
@@ -798,11 +970,10 @@ export default function InvoicesView() {
               </div>
             )}
 
-            {/* PDF Attachment Actions */}
             <div className="p-4 bg-muted/30 border border-border rounded-xl flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-foreground font-semibold">
                 <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span>Invoice Document Attachment</span>
+                <span>Invoice Document File</span>
               </div>
               <a
                 href={getAttachmentDownloadUrl(inspectInvoice.invoice_id)}
@@ -814,7 +985,6 @@ export default function InvoicesView() {
               </a>
             </div>
 
-            {/* Action Bar Footer */}
             <div className="flex items-center justify-between pt-4 border-t border-border">
               <Button variant="ghost" onClick={() => setInspectInvoice(null)} className="text-xs">
                 Close
@@ -849,7 +1019,6 @@ export default function InvoicesView() {
                 ) : null}
               </div>
             </div>
-
           </div>
         </Dialog>
       )}
@@ -949,7 +1118,7 @@ export default function InvoicesView() {
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-xs text-foreground block mb-1 font-bold">Subtotal (₹)</label>
+                <label className="text-xs text-foreground block mb-1 font-bold">Subtotal / Basic (₹)</label>
                 <Input
                   type="number"
                   step="0.01"
@@ -984,7 +1153,6 @@ export default function InvoicesView() {
               </div>
             </div>
 
-            {/* Drag and Drop Zone */}
             <div>
               <label className="text-xs text-foreground block mb-1 font-bold">Invoice Document File *</label>
               <div 

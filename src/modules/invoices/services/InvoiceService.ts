@@ -289,14 +289,21 @@ export class InvoiceService {
     AuthService.requireAuth(userSession);
     const invoices = await InvoiceRepository.findAll(filters);
 
-    // Attach PO details for context
+    // Attach PO details for context safely
     const enriched = [];
     for (const inv of invoices) {
-      const summary = await InvoiceRepository.getPOInvoiceSummary(inv.po_no);
-      enriched.push({
-        ...inv,
-        po_summary: summary
-      });
+      try {
+        const summary = inv.po_no ? await InvoiceRepository.getPOInvoiceSummary(inv.po_no) : { totalInvoiced: 0, totalApproved: 0, count: 0 };
+        enriched.push({
+          ...inv,
+          po_summary: summary
+        });
+      } catch (err) {
+        enriched.push({
+          ...inv,
+          po_summary: { totalInvoiced: 0, totalApproved: 0, count: 0 }
+        });
+      }
     }
 
     return enriched;
