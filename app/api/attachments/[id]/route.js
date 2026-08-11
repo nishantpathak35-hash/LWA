@@ -32,7 +32,7 @@ export async function GET(request, { params }) {
       return new NextResponse('Unauthorized: Invalid Token', { status: 401 });
     }
 
-    const attachment = await queryGet(`SELECT entity_type, entity_id, file_name, file_type, file_data FROM attachments WHERE id = ?`, [id]);
+    const attachment = await queryGet(`SELECT entity_type, entity_id, file_name, file_type, file_data FROM attachments WHERE id = ? OR entity_id = ? ORDER BY id DESC LIMIT 1`, [id, id]);
     
     if (!attachment || !attachment.file_data) {
       return new NextResponse('Attachment Not Found', { status: 404 });
