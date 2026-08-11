@@ -90,6 +90,24 @@ export async function getAttachments(payload, session) {
 
   await ensureAttachmentsTable();
 
+  // Enforce vendor tenant isolation for attachment metadata access
+  if (session && session.user_type === 'vendor') {
+    if (entityType === 'invoice') {
+      const inv = await queryGet(`SELECT vendor_code FROM invoices WHERE invoice_id = ?`, [entityId]);
+      if (!inv || String(inv.vendor_code).trim().toLowerCase() !== String(session.vendor_code).trim().toLowerCase()) {
+        throw new Error('AUTH: Forbidden - Access Denied');
+      }
+    } else if (entityType === 'po' || entityType === 'purchase_order') {
+      const po = await queryGet(`SELECT vendor_code, vendor_key FROM purchase_orders WHERE po_no = ?`, [entityId]);
+      const vCode = String(po?.vendor_code || po?.vendor_key || '').trim().toLowerCase();
+      if (!po || vCode !== String(session.vendor_code).trim().toLowerCase()) {
+        throw new Error('AUTH: Forbidden - Access Denied');
+      }
+    } else {
+      throw new Error('AUTH: Forbidden - Access Denied');
+    }
+  }
+
   // Include file_data (Cloudinary URL or legacy base64) for attachment preview and download
   return queryAll(
     `SELECT id, entity_type, entity_id, file_name, file_type, file_size, file_data, uploaded_by, created_at
@@ -108,6 +126,24 @@ export async function deleteAttachment(attachmentId, session) {
 
   const existing = await queryGet(`SELECT * FROM attachments WHERE id = ?`, [attachmentId]);
   if (!existing) throw new Error('Attachment not found.');
+
+  // Enforce vendor tenant isolation for attachment deletion
+  if (session && session.user_type === 'vendor') {
+    if (existing.entity_type === 'invoice') {
+      const inv = await queryGet(`SELECT vendor_code FROM invoices WHERE invoice_id = ?`, [existing.entity_id]);
+      if (!inv || String(inv.vendor_code).trim().toLowerCase() !== String(session.vendor_code).trim().toLowerCase()) {
+        throw new Error('AUTH: Forbidden - Access Denied');
+      }
+    } else if (existing.entity_type === 'po' || existing.entity_type === 'purchase_order') {
+      const po = await queryGet(`SELECT vendor_code, vendor_key FROM purchase_orders WHERE po_no = ?`, [existing.entity_id]);
+      const vCode = String(po?.vendor_code || po?.vendor_key || '').trim().toLowerCase();
+      if (!po || vCode !== String(session.vendor_code).trim().toLowerCase()) {
+        throw new Error('AUTH: Forbidden - Access Denied');
+      }
+    } else {
+      throw new Error('AUTH: Forbidden - Access Denied');
+    }
+  }
 
   await queryRun(`DELETE FROM attachments WHERE id = ?`, [attachmentId]);
   await logAudit(

@@ -6,7 +6,7 @@ import { VendorPortalAuthService } from '../../vendor-portal/services/VendorPort
 import { IOnboardingSubmitInput } from '../types/VendorOnboarding';
 import { sanitizeEmail, sendVendorOnboardingInviteEmail, sendVendorOnboardingRejectionEmail, sendVendorPortalWelcomeEmail } from '../../../../app/lib/email.js';
 import { logAudit, uploadAttachment, getAttachments } from '../../../../app/lib/api.js';
-import { queryAll, queryRun } from '../../../../app/lib/db.js';
+import { queryAll, queryGet, queryRun } from '../../../../app/lib/db.js';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://lwa-iota.vercel.app';
 
@@ -277,25 +277,33 @@ export class VendorOnboardingService {
     await VendorOnboardingRepository.updateInvitationStatus(sub.invitation_id, 'Approved', createdVendor?.id);
 
     // 3. Handle Portal Access (ONLY if explicitly granted)
-    if (grantPortalAccess && createdVendor) {
-      const tempPassword = `Luxe${Math.floor(100000 + Math.random() * 900000)}!`;
-      await VendorPortalAuthService.inviteVendorUser({
-        vendorCode: vendorCode,
-        email: sub.email,
-        name: sub.primary_contact_name || sub.legal_name,
-        password: tempPassword
-      });
+    if (grantPortalAccess && createdVendor && sub.email) {
+      const normEmail = sub.email.trim().toLowerCase();
+      const existingUser = await queryGet(`SELECT id FROM vendor_portal_users WHERE LOWER(email) = ?`, [normEmail]);
 
-      const portalUrl = `${APP_URL}/vendor`;
-      try {
-        await sendVendorPortalWelcomeEmail({
-          toEmail: sub.email,
-          vendorName: sub.legal_name,
-          portalUrl,
-          tempPassword
+      if (existingUser) {
+        // Safe activation: do not overwrite password or trigger welcome emails
+        await queryRun(`UPDATE vendor_portal_users SET vendor_id = ?, vendor_code = ?, status = 'Active' WHERE id = ?`, [createdVendor.id, vendorCode, existingUser.id]);
+      } else {
+        const tempPassword = `Luxe${Math.floor(100000 + Math.random() * 900000)}!`;
+        await VendorPortalAuthService.inviteVendorUser({
+          vendorCode: vendorCode,
+          email: sub.email,
+          name: sub.primary_contact_name || sub.legal_name,
+          password: tempPassword
         });
-      } catch (err: any) {
-        console.warn('Failed to send vendor welcome email:', err?.message || err);
+
+        const portalUrl = `${APP_URL}/vendor`;
+        try {
+          await sendVendorPortalWelcomeEmail({
+            toEmail: sub.email,
+            vendorName: sub.legal_name,
+            portalUrl,
+            tempPassword
+          });
+        } catch (err: any) {
+          console.warn('Failed to send vendor welcome email:', err?.message || err);
+        }
       }
     }
 
@@ -350,25 +358,39 @@ export class VendorOnboardingService {
     await queryRun(`UPDATE vendors SET portal_access = ? WHERE vendor_code = ?`, [newStatus, vendorCode]);
 
     if (enable && vendor.email) {
-      const tempPassword = `Luxe${Math.floor(100000 + Math.random() * 900000)}!`;
-      await VendorPortalAuthService.inviteVendorUser({
-        vendorCode: vendor.vendor_code,
-        email: vendor.email,
-        name: vendor.primary_contact_name || vendor.legal_name,
-        password: tempPassword
-      });
+      // Check if they already have an existing portal user record
+      const normEmail = vendor.email.trim().toLowerCase();
+      const existingUser = await queryGet(`SELECT id FROM vendor_portal_users WHERE LOWER(email) = ?`, [normEmail]);
 
-      const portalUrl = `${APP_URL}/vendor`;
-      try {
-        await sendVendorPortalWelcomeEmail({
-          toEmail: vendor.email,
-          vendorName: vendor.legal_name,
-          portalUrl,
-          tempPassword
+      if (existingUser) {
+        // Safe reactivation: do not overwrite password or trigger welcome emails
+        await queryRun(`UPDATE vendor_portal_users SET status = 'Active' WHERE id = ?`, [existingUser.id]);
+      } else {
+        // Fresh invite
+        const tempPassword = `Luxe${Math.floor(100000 + Math.random() * 900000)}!`;
+        await VendorPortalAuthService.inviteVendorUser({
+          vendorCode: vendor.vendor_code,
+          email: vendor.email,
+          name: vendor.primary_contact_name || vendor.legal_name,
+          password: tempPassword
         });
-      } catch (err: any) {
-        console.warn('Failed to send vendor welcome email:', err?.message || err);
+
+        const portalUrl = `${APP_URL}/vendor`;
+        try {
+          await sendVendorPortalWelcomeEmail({
+            toEmail: vendor.email,
+            vendorName: vendor.legal_name,
+            portalUrl,
+            tempPassword
+          });
+        } catch (err: any) {
+          console.warn('Failed to send vendor welcome email:', err?.message || err);
+        }
       }
+    } else if (!enable && vendor.email) {
+      // Deactivate associated portal account
+      const normEmail = vendor.email.trim().toLowerCase();
+      await queryRun(`UPDATE vendor_portal_users SET status = 'Inactive' WHERE LOWER(email) = ?`, [normEmail]);
     }
 
     await logAudit(userEmail, 'Vendor Portal Access Changed', `${vendorCode} (${newStatus})`, 'Vendors');
