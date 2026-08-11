@@ -14,7 +14,7 @@ export default function ProjectFinancialSummaryCard({
   const projHealth = getHealthTheme ? getHealthTheme(projectSummary.projectedUtilisation) : { text: 'text-amber-400', bar: 'bg-amber-500' };
 
   return (
-    <div className="bg-slate-950/70 border border-slate-800/90 rounded-xl p-4 space-y-3 animate-in fade-in duration-300 min-w-0 select-none text-slate-100">
+    <div className="bg-slate-950/70 border border-slate-800/90 rounded-xl p-4 space-y-3 animate-in fade-in duration-300 min-w-0 text-slate-100">
       
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-2.5">

@@ -60,6 +60,16 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
     }
   };
 
+  const handleAmountChange = (field, val) => {
+    const nextForm = { ...formData, [field]: val };
+    const sub = Number(nextForm.subtotal || 0);
+    const tax = Number(nextForm.taxAmount || 0);
+    if (field === 'subtotal' || field === 'taxAmount') {
+      nextForm.invoiceTotal = (sub + tax).toFixed(2);
+    }
+    setFormData(nextForm);
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -278,7 +288,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
                   type="number"
                   step="0.01"
                   value={formData.subtotal}
-                  onChange={(e) => setFormData({ ...formData, subtotal: e.target.value })}
+                  onChange={(e) => handleAmountChange('subtotal', e.target.value)}
                   placeholder="0.00"
                   className="bg-background border-border text-xs font-mono"
                 />
@@ -289,7 +299,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
                   type="number"
                   step="0.01"
                   value={formData.taxAmount}
-                  onChange={(e) => setFormData({ ...formData, taxAmount: e.target.value })}
+                  onChange={(e) => handleAmountChange('taxAmount', e.target.value)}
                   placeholder="0.00"
                   className="bg-background border-border text-xs font-mono"
                 />
@@ -301,7 +311,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
                   step="0.01"
                   required
                   value={formData.invoiceTotal}
-                  onChange={(e) => setFormData({ ...formData, invoiceTotal: e.target.value })}
+                  onChange={(e) => handleAmountChange('invoiceTotal', e.target.value)}
                   placeholder="0.00"
                   className="bg-background border-border text-xs font-bold text-amber-600 dark:text-amber-400 font-mono"
                 />

@@ -142,7 +142,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
   };
 
   return (
-    <div className="space-y-6 select-none animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* View Title & Action Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-border/40">
         <div>
