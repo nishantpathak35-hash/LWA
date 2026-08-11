@@ -677,7 +677,7 @@ export default function VendorPortalApp() {
                   className="bg-amber-400 text-slate-950 hover:bg-amber-300 font-bold text-xs flex items-center gap-1.5"
                 >
                   {uploadSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                  {uploadSubmitting ? 'Uploading PDF to Cloudinary...' : 'Submit Invoice'}
+                  {uploadSubmitting ? 'Submitting Invoice...' : 'Submit Invoice'}
                 </Button>
               </div>
             </form>

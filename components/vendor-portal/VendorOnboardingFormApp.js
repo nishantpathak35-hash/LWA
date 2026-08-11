@@ -498,7 +498,7 @@ export default function VendorOnboardingFormApp({ token }) {
               {/* STEP 4: Documents Upload */}
               {currentStep === 4 && (
                 <div className="space-y-4">
-                  <p className="text-xs text-slate-400">Upload supporting documentation for verified onboarding approval. Documents are securely stored in Cloudinary.</p>
+                  <p className="text-xs text-slate-400">Upload supporting documentation for verified onboarding approval. Documents are securely stored in the system.</p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* GST Cert */}
