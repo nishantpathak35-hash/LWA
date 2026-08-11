@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, ShoppingBag, Receipt, LogOut, Download, FilePlus, Loader2, CheckCircle2, Clock, XCircle, Eye, ShieldCheck, UserCheck, Search } from 'lucide-react';
+import { Building2, ShoppingBag, Receipt, LogOut, Download, FilePlus, Loader2, CheckCircle2, Clock, XCircle, Eye, ShieldCheck, UserCheck, Search, Sparkles } from 'lucide-react';
 import { Button, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge } from '../ui/core';
 
 export default function VendorPortalApp() {
@@ -38,6 +38,54 @@ export default function VendorPortalApp() {
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadSubmitting, setUploadSubmitting] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAiAutoFill = async () => {
+    if (!selectedFile) return;
+    setAiLoading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const base64Data = event.target.result.split(',')[1];
+          const res = await fetch('/api/ai/parse-invoice', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-lwa-token': token || ''
+            },
+            body: JSON.stringify({
+              fileData: base64Data,
+              fileType: selectedFile.type
+            })
+          });
+          const result = await res.json();
+          if (!res.ok || result.error) {
+            throw new Error(result.error || 'AI parsing failed');
+          }
+          const data = result.data;
+          
+          setUploadForm(prev => ({
+            ...prev,
+            invoiceNumber: data.invoiceNumber || prev.invoiceNumber,
+            invoiceDate: data.invoiceDate || prev.invoiceDate,
+            subtotal: data.subtotal ? String(data.subtotal) : prev.subtotal,
+            taxAmount: data.taxAmount ? String(data.taxAmount) : prev.taxAmount,
+            invoiceTotal: data.invoiceTotal ? String(data.invoiceTotal) : prev.invoiceTotal
+          }));
+          alert("AI auto-filled invoice details successfully!");
+        } catch (err) {
+          alert("AI parsing failed: " + err.message);
+        } finally {
+          setAiLoading(false);
+        }
+      };
+      reader.readAsDataURL(selectedFile);
+    } catch (err) {
+      alert("Error reading file: " + err.message);
+      setAiLoading(false);
+    }
+  };
 
   // RPC helper for vendor API calls
   const callVendorApi = async (method, ...args) => {
@@ -654,6 +702,22 @@ export default function VendorPortalApp() {
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                   className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-500/10 file:text-amber-400 hover:file:bg-amber-500/20 cursor-pointer"
                 />
+                {selectedFile && (
+                  <div className="mt-2.5 flex flex-col items-start gap-2">
+                    <div className="text-xs text-emerald-400 font-mono font-bold">
+                      ✓ {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleAiAutoFill}
+                      disabled={aiLoading}
+                      className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                    >
+                      {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {aiLoading ? 'AI Reading Document...' : '✨ AI Auto-Fill Invoice Details'}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div>
