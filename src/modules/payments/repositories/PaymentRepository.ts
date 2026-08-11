@@ -44,13 +44,13 @@ export class PaymentRepository {
     const sql = `
       INSERT INTO payment_requests (
         po_no, vendor_id, vendor_code, vendor_name, project, category, amount_requested, approved_amount, stage, remittance, created_at, remarks, created_by,
-        tds_amount, tds_percentage, tds_section
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        tds_amount, tds_percentage, tds_section, invoice_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
       pr.po_no, pr.vendor_id || null, pr.vendor_code || '', pr.vendor_name, pr.project, pr.category || '', pr.amount_requested, pr.approved_amount,
       pr.stage, pr.remittance || '', new Date().toISOString(), pr.remarks || '', pr.created_by,
-      pr.tds_amount || 0, pr.tds_percentage || 0, pr.tds_section || ''
+      pr.tds_amount || 0, pr.tds_percentage || 0, pr.tds_section || '', pr.invoice_id || null
     ];
     await queryRun(sql, params);
   }
@@ -60,7 +60,7 @@ export class PaymentRepository {
     const validColumns = new Set([
       'po_no', 'vendor_id', 'vendor_code', 'vendor_name', 'project', 'category', 'amount_requested', 'approved_amount',
       'stage', 'remittance', 'remarks', 'created_by',
-      'tds_amount', 'tds_percentage', 'tds_section',
+      'tds_amount', 'tds_percentage', 'tds_section', 'invoice_id',
       'remittance_ref', 'remittance_date',
       'proc_approval', 'finance_approval', 'director_approval'
     ]);

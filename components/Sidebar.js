@@ -18,7 +18,8 @@ import {
   Package,
   Wallet,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  Receipt
 } from 'lucide-react';
 import { Badge } from './ui/core';
 
@@ -57,6 +58,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     { id: 'projects', label: 'Projects', icon: FolderKanban, feature: 'projects' },
     { id: 'vendors', label: 'Vendors', icon: Users, feature: 'vendors' },
     { id: 'pos', label: 'Purchase Orders', icon: ScrollText, feature: 'purchase_orders' },
+    { id: 'invoices', label: 'Invoices', icon: Receipt, feature: 'payments' },
     { id: 'site_dpr', label: 'Site DPR', icon: HardHat, feature: 'operations' },
     { id: 'site_wpr', label: 'Site WPR', icon: HardHat, feature: 'operations' },
     { 
@@ -93,7 +95,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
       id: 'finance',
       label: 'FINANCE',
       icon: Wallet,
-      items: ['dashboard', 'payments']
+      items: ['dashboard', 'invoices', 'payments']
     },
     {
       id: 'site_ops',

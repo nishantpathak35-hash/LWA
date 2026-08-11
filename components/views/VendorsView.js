@@ -171,13 +171,25 @@ export default function VendorsView() {
   const canDelete = true;
   const canOnboardPermission = canOnboard || true;
 
+  const handleTogglePortalAccess = async (vendorCode, enable) => {
+    try {
+      await call('toggleVendorPortalAccess', vendorCode, enable);
+      toast.success(`Portal access ${enable ? 'granted' : 'revoked'} for vendor ${vendorCode}`);
+      if (refreshData) refreshData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update portal access');
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <VendorsHeader
-        canOnboard={canOnboardPermission} handleOpenModal={handleOpenModal}
+        canOnboard={canOnboard} handleOpenModal={handleOpenModal}
         filteredVendors={filteredVendors} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-        handleOpenViewModal={handleOpenViewModal} handleOpenEditModal={handleOpenEditModal} setActiveView={setActiveView}
+        handleOpenViewModal={handleOpenViewModal} handleOpenEditModal={handleOpenEditModal}
+        setActiveView={setActiveView}
         hasMoreVendors={hasMoreVendors} loadMoreVendors={loadMoreVendors} handleDeleteVendor={handleDeleteVendor}
+        handleTogglePortalAccess={handleTogglePortalAccess}
       />
       <VendorOnboardModal
         modalOpen={modalOpen} setModalOpen={setModalOpen}

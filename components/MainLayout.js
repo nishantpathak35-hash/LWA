@@ -9,6 +9,7 @@ import VendorsView from './views/VendorsView';
 import POsView from './views/POsView';
 import PaymentsView from './views/PaymentsView';
 import ReportsView from './views/ReportsView';
+import InvoicesView from './views/InvoicesView';
 import SettingsView from './views/SettingsView';
 import SiteDPRView from './views/operations/dpr/SiteDPRView';
 import SiteWPRView from './views/operations/wpr/SiteWPRView';
@@ -25,6 +26,7 @@ const VIEW_FEATURE_MAP = {
   projects: 'projects',
   vendors: 'vendors',
   pos: 'purchase_orders',
+  invoices: 'payments',
   payments: 'payments',
   reports: 'reports',
   settings: 'settings',
@@ -37,6 +39,7 @@ const VIEW_LABELS = {
   projects: 'Projects',
   vendors: 'Vendors',
   pos: 'Purchase Orders',
+  invoices: 'Invoices',
   payments: 'Payments',
   reports: 'Reports',
   settings: 'Settings',
@@ -247,6 +250,7 @@ export default function MainLayout() {
       projects:  <ProjectsView />,
       vendors:   <VendorsView />,
       pos:       <POsView />,
+      invoices:  <InvoicesView />,
       payments:  <PaymentsView />,
       reports:   <ReportsView />,
       settings:  <SettingsView />,

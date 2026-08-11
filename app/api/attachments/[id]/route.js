@@ -17,15 +17,41 @@ export async function GET(request, { params }) {
       return new NextResponse('Unauthorized: Missing Token', { status: 401 });
     }
 
-    const session = await api.getMySession(token);
+    let session = null;
+    try {
+      session = await api.getMySession(token);
+    } catch (e) {
+      try {
+        session = await api.getVendorPortalSession(token);
+      } catch (vErr) {
+        return new NextResponse('Unauthorized: Invalid Token', { status: 401 });
+      }
+    }
+
     if (!session) {
       return new NextResponse('Unauthorized: Invalid Token', { status: 401 });
     }
 
-    const attachment = await queryGet(`SELECT file_name, file_type, file_data FROM attachments WHERE id = ?`, [id]);
+    const attachment = await queryGet(`SELECT entity_type, entity_id, file_name, file_type, file_data FROM attachments WHERE id = ?`, [id]);
     
     if (!attachment || !attachment.file_data) {
       return new NextResponse('Attachment Not Found', { status: 404 });
+    }
+
+    // Vendor access control: verify entity ownership if requested by vendor
+    if (session.user_type === 'vendor') {
+      if (attachment.entity_type === 'invoice') {
+        const inv = await queryGet(`SELECT vendor_code FROM invoices WHERE invoice_id = ?`, [attachment.entity_id]);
+        if (!inv || String(inv.vendor_code).trim().toLowerCase() !== String(session.vendor_code).trim().toLowerCase()) {
+          return new NextResponse('Forbidden: Access Denied', { status: 403 });
+        }
+      } else if (attachment.entity_type === 'po' || attachment.entity_type === 'purchase_order') {
+        const po = await queryGet(`SELECT vendor_code, vendor_key FROM purchase_orders WHERE po_no = ?`, [attachment.entity_id]);
+        const vCode = String(po?.vendor_code || po?.vendor_key || '').trim().toLowerCase();
+        if (!po || vCode !== String(session.vendor_code).trim().toLowerCase()) {
+          return new NextResponse('Forbidden: Access Denied', { status: 403 });
+        }
+      }
     }
 
     if (typeof attachment.file_data === 'string' && attachment.file_data.trim().startsWith('http')) {

@@ -2,6 +2,7 @@ import React from 'react';
 import { Dialog, Button, Input, Select, Textarea, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
 import AttachmentsSection from '../../ui/AttachmentsSection';
 import RecordDiscussionThread from '../../ui/RecordDiscussionThread';
+import POInvoicesTab from './POInvoicesTab';
 import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import { GST_RATES, UOM_OPTIONS } from './po-constants';
@@ -357,6 +358,7 @@ export default function POFormModal(props) {
 
           {poNo ? (
             <div className="pt-4 border-t border-border mt-4 space-y-4">
+              <POInvoicesTab poNo={poNo} poValue={summaryTotals?.grandTotal || netPayable || editingPO?.po_value || 0} vendorName={editingPO?.vendor_name} />
               <AttachmentsSection entityType="po" entityId={poNo} />
               <RecordDiscussionThread recordType="PO" recordId={poNo} />
             </div>

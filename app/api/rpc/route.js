@@ -156,7 +156,29 @@ const ALLOWED_METHODS = new Set([
   'markNotificationRead',
   'markAllNotificationsRead',
   'deleteVendor',
-  'checkVendorDuplicate'
+  'checkVendorDuplicate',
+  'vendorLogin',
+  'getVendorPortalSession',
+  'getVendorPortalPOs',
+  'getVendorPortalPO',
+  'submitVendorInvoice',
+  'getVendorPortalInvoices',
+  'getVendorPortalInvoice',
+  'listInvoices',
+  'getInvoice',
+  'uploadInternalInvoice',
+  'getPOInvoices',
+  'inviteVendorPortalUserAdmin',
+  'createVendorInvitation',
+  'resendVendorInvitation',
+  'getVendorOnboardingByToken',
+  'submitVendorOnboarding',
+  'listPendingOnboardings',
+  'getOnboardingDetails',
+  'approveVendorOnboarding',
+  'rejectVendorOnboarding',
+  'toggleVendorPortalAccess',
+  'deleteInvoice'
 ]);
 
 export async function POST(request) {
@@ -195,7 +217,15 @@ export async function POST(request) {
       }
 
       if (token) {
-        session = await api.getMySession(token);
+        try {
+          session = await api.getMySession(token);
+        } catch (e) {
+          try {
+            session = await api.getVendorPortalSession(token);
+          } catch (vErr) {
+            // Neither internal nor vendor token matched
+          }
+        }
       }
     } catch (e) {
       console.error('RPC session lookup failed. Token resolution error:', e);

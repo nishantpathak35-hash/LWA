@@ -51,7 +51,8 @@ export class PaymentService {
       created_by: userEmail,
       tds_amount: tdsAmount,
       tds_percentage: tdsPct,
-      tds_section: tdsSection
+      tds_section: tdsSection,
+      invoice_id: payload.invoice_id || payload.invoiceId || undefined
     });
 
     await logAudit(userEmail, 'Payment Request', `Requested ${reqAmt} for PO#${payload.poNo}`, 'Finance');

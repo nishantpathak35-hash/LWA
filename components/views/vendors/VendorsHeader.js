@@ -1,14 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog } from '../../ui/core';
-import { PlusCircle, Search, Eye, Edit2, CreditCard, Trash2, AlertTriangle, Download, Users } from 'lucide-react';
+import { PlusCircle, Search, Eye, Edit2, CreditCard, Trash2, AlertTriangle, Download, Users, Mail, UserCheck, ShieldCheck, Key } from 'lucide-react';
 import SortableHeader from '../../ui/SortableHeader';
 import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
+import VendorInviteModal from './VendorInviteModal';
+import VendorOnboardingAdminView from './VendorOnboardingAdminView';
 
-export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVendors, searchQuery, setSearchQuery, handleOpenViewModal, handleOpenEditModal, setActiveView, hasMoreVendors, loadMoreVendors, handleDeleteVendor }) {
+export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVendors, searchQuery, setSearchQuery, handleOpenViewModal, handleOpenEditModal, setActiveView, hasMoreVendors, loadMoreVendors, handleDeleteVendor, handleTogglePortalAccess }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('directory'); // 'directory' | 'pending'
 
   // Sorting & Filtering State
   const [sortField, setSortField] = useState('code');
@@ -87,15 +91,39 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-foreground tracking-tight">Vendors</h2>
-            <p className="text-xs text-muted-foreground mt-0.5 font-medium">Manage onboarded vendor files and profiles.</p>
+            <h2 className="text-xl font-semibold text-foreground tracking-tight">Vendors Master</h2>
+            <p className="text-xs text-muted-foreground mt-0.5 font-medium">Manage canonical vendor files, self-onboardings, and B2B portal access.</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Sub view toggle */}
+          <div className="flex items-center p-1 bg-slate-900 border border-slate-800 rounded-xl mr-2">
+            <button
+              onClick={() => setActiveTab('directory')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                activeTab === 'directory' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Vendor Directory
+            </button>
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'pending' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" /> Pending Onboardings
+            </button>
+          </div>
+
           <Button variant="outline" size="sm" onClick={handleExportCSV} className="font-medium text-xs">
             <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
             Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setInviteModalOpen(true)} className="font-medium text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
+            <Mail className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+            + Invite Vendor
           </Button>
           <Button variant="primary" size="sm" onClick={handleOpenModal} className="font-medium">
             <PlusCircle className="w-4 h-4 mr-1.5" />
@@ -103,9 +131,11 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           </Button>
         </div>
       </div>
- 
-      {/* Search, Filter and Table Grid */}
-      <Card>
+
+      {activeTab === 'pending' ? (
+        <VendorOnboardingAdminView onVendorApproved={() => loadMoreVendors && loadMoreVendors()} />
+      ) : (
+        <Card>
         <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4 py-3.5 px-6">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Registered Vendors ({processedVendors.length})
@@ -158,50 +188,67 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
                     <SortableHeader field="name" label="Display Name" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
                     <SortableHeader field="legalName" label="Legal Name" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
                     <SortableHeader field="gstin" label="GSTIN" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-36" />
-                    <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
-                    <TableHead className="text-center w-48 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Actions</TableHead>
+                    <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-24" />
+                    <TableHead className="w-32 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Portal Access</TableHead>
+                    <TableHead className="text-center w-56 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {processedVendors.map((v, idx) => (
-                    <TableRow key={idx} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150">
-                      <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">{v.code}</TableCell>
-                      <TableCell className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[220px]" title={v.name}>{v.name}</TableCell>
-                      <TableCell className="px-3 py-3 text-slate-500 dark:text-slate-400 font-normal text-xs truncate max-w-[220px]" title={v.legalName || ''}>{v.legalName || '—'}</TableCell>
-                      <TableCell className="px-3 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 font-medium">{v.gstin || '—'}</TableCell>
-                      <TableCell className="px-3 py-3 whitespace-nowrap">
-                        <Badge variant={String(v.status || '').toLowerCase() === 'active' ? 'success' : 'inactive'}>
-                          {v.status || 'Active'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(v)} title="View Vendor Details" className="h-7 text-xs font-medium">
-                            <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                            View
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} title="Edit Vendor" className="h-7 text-xs font-medium">
-                            <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => { setDeleteError(null); setVendorToDelete(v); }}
-                            title="Delete Vendor"
-                            className="h-7 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Delete
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setActiveView('payments')} title="Request Payment" className="h-7 text-xs font-medium">
-                            <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
-                            Request
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {processedVendors.map((v, idx) => {
+                    const isPortalEnabled = String(v.portal_access || v.portalAccess || '').toLowerCase() === 'enabled';
+                    const code = v.code || v.vendorId || v.vendor_code;
+                    return (
+                      <TableRow key={idx} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150">
+                        <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">{v.code}</TableCell>
+                        <TableCell className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[220px]" title={v.name}>{v.name}</TableCell>
+                        <TableCell className="px-3 py-3 text-slate-500 dark:text-slate-400 font-normal text-xs truncate max-w-[220px]" title={v.legalName || ''}>{v.legalName || '—'}</TableCell>
+                        <TableCell className="px-3 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 font-medium">{v.gstin || '—'}</TableCell>
+                        <TableCell className="px-3 py-3 whitespace-nowrap">
+                          <Badge variant={String(v.status || '').toLowerCase() === 'active' ? 'success' : 'inactive'}>
+                            {v.status || 'Active'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-nowrap">
+                          <Badge variant={isPortalEnabled ? 'success' : 'outline'} className="text-[10px] font-bold">
+                            {isPortalEnabled ? '● Enabled' : '○ Disabled'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(v)} title="View Vendor Details" className="h-7 text-xs font-medium">
+                              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                              View
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} title="Edit Vendor" className="h-7 text-xs font-medium">
+                              <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+                              Edit
+                            </Button>
+                            {handleTogglePortalAccess && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleTogglePortalAccess(code, !isPortalEnabled)}
+                                title={isPortalEnabled ? 'Revoke Portal Access' : 'Grant Portal Access'}
+                                className={`h-7 text-[11px] font-semibold ${isPortalEnabled ? 'text-amber-400 hover:bg-amber-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'}`}
+                              >
+                                <Key className="w-3 h-3 mr-1" />
+                                {isPortalEnabled ? 'Revoke Portal' : 'Grant Portal'}
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => { setDeleteError(null); setVendorToDelete(v); }}
+                              title="Delete Vendor"
+                              className="h-7 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
               {hasMoreVendors && (
@@ -215,6 +262,14 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Invite Vendor Modal */}
+      <VendorInviteModal
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        onInviteSuccess={() => { if (loadMoreVendors) loadMoreVendors(); }}
+      />
 
       {/* Row-Level Delete Confirmation Modal */}
       {vendorToDelete && (

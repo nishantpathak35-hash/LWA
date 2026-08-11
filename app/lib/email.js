@@ -264,3 +264,125 @@ export async function sendPOEmail({ toEmail, cc, vendorName, poNo, project, poDa
     attachments
   });
 }
+
+// ── Vendor Onboarding Invitation Email ───────────────────────────────────────
+export async function sendVendorOnboardingInviteEmail({ toEmail, inviteUrl, invitedBy }) {
+  const html = `
+  <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0b0f;color:#e2e8f0;border-radius:12px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#c8a45a,#a07840);padding:32px;text-align:center">
+      <h1 style="margin:0;color:#fff;font-size:22px;letter-spacing:0.5px">${COMPANY}</h1>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Supplier Onboarding Portal</p>
+    </div>
+    <div style="padding:32px">
+      <h2 style="color:#c8a45a;font-size:18px;margin:0 0 16px">Vendor Onboarding Invitation</h2>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 16px">Dear Partner,</p>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 24px">
+        You have been invited by <strong style="color:#e2e8f0">${invitedBy || 'our procurement team'}</strong> to complete your supplier onboarding registration with <strong style="color:#c8a45a">${COMPANY}</strong>.
+      </p>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 24px">
+        Please click the secure link below to submit your company details, GSTIN/PAN documents, and banking information:
+      </p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${inviteUrl}" style="background:linear-gradient(135deg,#c8a45a,#a07840);color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block">
+          Complete Vendor Onboarding
+        </a>
+      </div>
+      <p style="color:#64748b;font-size:12px;line-height:1.6;margin:24px 0 0">
+        If the button above does not work, copy and paste this link into your browser:<br>
+        <a href="${inviteUrl}" style="color:#c8a45a;word-break:break-all">${inviteUrl}</a>
+      </p>
+      <p style="color:#64748b;font-size:12px;margin:16px 0 0">This onboarding link is valid for 7 days.</p>
+    </div>
+    <div style="background:#0d0e14;padding:16px 32px;border-top:1px solid #1e2330;text-align:center">
+      <p style="color:#475569;font-size:11px;margin:0">${COMPANY} · Vendor Management System</p>
+    </div>
+  </div>`;
+
+  return sendEmailData({
+    toEmail,
+    subject: `Vendor Onboarding Registration — ${COMPANY}`,
+    html
+  });
+}
+
+// ── Vendor Onboarding Rejection Email ────────────────────────────────────────
+export async function sendVendorOnboardingRejectionEmail({ toEmail, legalName, reason }) {
+  const html = `
+  <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0b0f;color:#e2e8f0;border-radius:12px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#e11d48,#9f1239);padding:32px;text-align:center">
+      <h1 style="margin:0;color:#fff;font-size:22px">${COMPANY}</h1>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Supplier Onboarding Update</p>
+    </div>
+    <div style="padding:32px">
+      <h2 style="color:#f43f5e;font-size:18px;margin:0 0 16px">Onboarding Submission Status</h2>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 16px">Dear <strong style="color:#e2e8f0">${legalName || 'Vendor'}</strong>,</p>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 24px">
+        Thank you for submitting your vendor onboarding registration for <strong style="color:#e2e8f0">${COMPANY}</strong>.
+      </p>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 16px">
+        After reviewing your registration, our vendor management team requires additional updates before your onboarding can be approved:
+      </p>
+      <div style="background:#1e1b2e;border-left:4px solid #f43f5e;padding:16px;border-radius:6px;margin:0 0 24px">
+        <p style="margin:0;color:#f87171;font-weight:600;font-size:13px">Reason for Review / Rejection:</p>
+        <p style="margin:8px 0 0;color:#e2e8f0;font-size:14px;line-height:1.5">${reason || 'Required documentation or information was incomplete or mismatched.'}</p>
+      </div>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 0">
+        Please contact our procurement department or reply to this email for assistance.
+      </p>
+    </div>
+    <div style="background:#0d0e14;padding:16px 32px;border-top:1px solid #1e2330;text-align:center">
+      <p style="color:#475569;font-size:11px;margin:0">${COMPANY} · Vendor Management System</p>
+    </div>
+  </div>`;
+
+  return sendEmailData({
+    toEmail,
+    subject: `Onboarding Status Update — ${legalName || COMPANY}`,
+    html
+  });
+}
+
+// ── Vendor Portal Welcome Email (Sent ONLY when Portal Access = Enabled) ─────
+export async function sendVendorPortalWelcomeEmail({ toEmail, vendorName, portalUrl, tempPassword }) {
+  const html = `
+  <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0b0f;color:#e2e8f0;border-radius:12px;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#c8a45a,#a07840);padding:32px;text-align:center">
+      <h1 style="margin:0;color:#fff;font-size:22px">${COMPANY}</h1>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Vendor Portal Access Granted</p>
+    </div>
+    <div style="padding:32px">
+      <h2 style="color:#c8a45a;font-size:18px;margin:0 0 16px">Welcome to ${COMPANY} Vendor Portal</h2>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 16px">Dear <strong style="color:#e2e8f0">${vendorName}</strong>,</p>
+      <p style="color:#94a3b8;line-height:1.6;margin:0 0 24px">
+        Your vendor onboarding is complete and your B2B Vendor Portal access has been <strong style="color:#3dd68c">Enabled</strong>!
+      </p>
+      <div style="background:#0d0e14;border:1px solid #1e2330;border-radius:8px;padding:20px;margin:0 0 24px">
+        <h4 style="margin:0 0 12px;color:#c8a45a;font-size:14px">Your Portal Credentials:</h4>
+        <p style="margin:0 0 8px;color:#94a3b8;font-size:13px">Portal URL: <a href="${portalUrl}" style="color:#c8a45a;text-decoration:none">${portalUrl}</a></p>
+        <p style="margin:0 0 8px;color:#94a3b8;font-size:13px">Username: <strong style="color:#e2e8f0">${toEmail}</strong></p>
+        ${tempPassword ? `<p style="margin:0;color:#94a3b8;font-size:13px">Temporary Password: <code style="background:#1e2330;color:#3dd68c;padding:2px 6px;border-radius:4px;font-family:monospace">${tempPassword}</code></p>` : ''}
+      </div>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${portalUrl}" style="background:linear-gradient(135deg,#c8a45a,#a07840);color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block">
+          Access Vendor Portal
+        </a>
+      </div>
+      <p style="color:#94a3b8;font-size:13px;line-height:1.6;margin:0 0 0">
+        Through your portal dashboard you can:
+        • View and download approved Purchase Orders
+        • Submit invoice PDFs directly for payment processing
+        • Track invoice review & approval progress
+      </p>
+    </div>
+    <div style="background:#0d0e14;padding:16px 32px;border-top:1px solid #1e2330;text-align:center">
+      <p style="color:#475569;font-size:11px;margin:0">${COMPANY} · B2B Vendor Portal</p>
+    </div>
+  </div>`;
+
+  return sendEmailData({
+    toEmail,
+    subject: `Vendor Portal Access Granted — ${COMPANY}`,
+    html
+  });
+}
+
