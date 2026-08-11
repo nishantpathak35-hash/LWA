@@ -59,7 +59,7 @@ export default function VendorInviteModal({ open, onClose, onInviteSuccess }) {
 
   return (
     <Dialog open={open} onClose={onClose} title="Invite Vendor for Onboarding" maxWidth="max-w-md">
-      <form onSubmit={handleSendInvite} className="space-y-4 select-none">
+      <form onSubmit={handleSendInvite} className="space-y-4">
         <p className="text-xs text-muted-foreground leading-relaxed">
           Enter the vendor's email address below. An onboarding invitation link will be sent directly to the vendor to complete their registration, GSTIN/PAN documents, and banking details.
         </p>

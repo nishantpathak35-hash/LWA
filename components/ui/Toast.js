@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, XCircle, Info, X } from 'lucide-react';
+import { CheckCircle2, XCircle, Info, X, AlertTriangle } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 
 let toastCount = 0;
@@ -15,7 +15,9 @@ export const toast = (message, options = {}) => {
 };
 
 toast.success = (msg, opts) => toast(msg, { ...opts, type: 'success' });
-toast.error = (msg, opts) => toast(msg, { ...opts, type: 'error' });
+toast.error = (msg, opts) => toast(msg, { ...opts, type: 'error', duration: 5000, ...(opts || {}) });
+toast.warning = (msg, opts) => toast(msg, { ...opts, type: 'warning' });
+toast.info = (msg, opts) => toast(msg, { ...opts, type: 'info' });
 
 export function Toaster() {
   const [toasts, setToasts] = useState([]);
@@ -43,17 +45,19 @@ export function Toaster() {
         <div 
           key={t.id} 
           className={cn(
-            "pointer-events-auto flex items-center gap-3 bg-card/95 text-card-foreground backdrop-blur-xl border px-4 py-3 rounded-2xl shadow-2xl min-w-[320px] transition-all transform animate-in slide-in-from-bottom-5 fade-in duration-300",
-            t.type === 'success' ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : 
-            t.type === 'error' ? "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400" : 
-            "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            "pointer-events-auto flex items-center gap-3 backdrop-blur-xl border px-4 py-3 rounded-2xl shadow-2xl min-w-[320px] max-w-[480px] transition-all transform animate-in slide-in-from-bottom-5 fade-in duration-300",
+            t.type === 'success' ? "border-emerald-500/40 bg-emerald-950/90 text-emerald-300" : 
+            t.type === 'error' ? "border-rose-500/40 bg-rose-950/90 text-rose-300" : 
+            t.type === 'warning' ? "border-amber-500/40 bg-amber-950/90 text-amber-300" :
+            "border-sky-500/40 bg-sky-950/90 text-sky-300"
           )}
         >
-          {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />}
-          {t.type === 'error' && <XCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />}
-          {t.type === 'info' && <Info className="w-5 h-5 text-amber-500 flex-shrink-0" />}
+          {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />}
+          {t.type === 'error' && <XCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />}
+          {t.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />}
+          {t.type === 'info' && <Info className="w-5 h-5 text-sky-400 flex-shrink-0" />}
           
-          <span className="text-sm font-semibold text-foreground">{t.message}</span>
+          <span className="text-sm font-semibold leading-snug">{t.message}</span>
           
           <button 
             onClick={() => setToasts(prev => prev.filter(i => i.id !== t.id))} 

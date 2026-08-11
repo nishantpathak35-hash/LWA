@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useAppState } from './StateProvider';
 import BrandIdentity from './BrandIdentity';
-import { ShieldCheck, RefreshCw, KeyRound, Mail, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, RefreshCw, KeyRound, Mail, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginScreen({ inviteToken, clearInvite }) {
   const { login, error, setError, callDirect } = useAppState();
@@ -11,11 +11,14 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
   // Login Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Invite Form States
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [inviteError, setInviteError] = useState(null);
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -30,6 +33,16 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
     } catch (err) {
       setLoading(false);
     }
+  };
+
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    if (error) setError(null);
+  };
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    if (error) setError(null);
   };
 
   const handleInviteSubmit = async (e) => {
@@ -161,17 +174,26 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
                       <label className="text-xs font-medium text-slate-400 tracking-wider block mb-2" htmlFor="newPassword">
                         NEW PASSWORD
                       </label>
-                      <div className="relative">
-                        <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input
-                          id="newPassword"
-                          type="password"
-                          required
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-slate-900 rounded-lg text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all"
-                          placeholder="At least 8 characters"
-                        />
+                        <div className="relative">
+                          <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                          <input
+                            id="newPassword"
+                            type={showNewPassword ? 'text' : 'password'}
+                            required
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full pl-11 pr-10 py-3 bg-slate-950/80 border border-slate-900 rounded-lg text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all"
+                            placeholder="At least 8 characters"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(p => !p)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                            tabIndex={-1}
+                            aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
                       </div>
                     </div>
 
@@ -179,18 +201,27 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
                       <label className="text-xs font-medium text-slate-400 tracking-wider block mb-2" htmlFor="confirmPassword">
                         CONFIRM PASSWORD
                       </label>
-                      <div className="relative">
-                        <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input
-                          id="confirmPassword"
-                          type="password"
-                          required
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-slate-900 rounded-lg text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all"
-                          placeholder="Re-enter password"
-                        />
-                      </div>
+                        <div className="relative">
+                          <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                          <input
+                            id="confirmPassword"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            required
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full pl-11 pr-10 py-3 bg-slate-950/80 border border-slate-900 rounded-lg text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all"
+                            placeholder="Re-enter password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(p => !p)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                            tabIndex={-1}
+                            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                     </div>
                   </div>
 
@@ -236,19 +267,19 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
                   <label className="text-xs font-medium text-slate-400 tracking-wider block mb-2" htmlFor="email">
                     EMAIL ADDRESS
                   </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      autoComplete="username"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-slate-900 rounded-lg text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all"
-                      placeholder="you@luxeworx.com"
-                    />
+                    <div className="relative">
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          autoComplete="username"
+                          required
+                          value={email}
+                          onChange={handleEmailChange}
+                          className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-slate-900 rounded-lg text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all"
+                          placeholder="you@luxeworx.com"
+                        />
                   </div>
                 </div>
 
@@ -256,19 +287,28 @@ export default function LoginScreen({ inviteToken, clearInvite }) {
                   <label className="text-xs font-medium text-slate-400 tracking-wider block mb-2" htmlFor="password">
                     PASSWORD
                   </label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      autoComplete="current-password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-slate-900 rounded-lg text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all"
-                      placeholder="Enter your password"
-                    />
+                    <div className="relative">
+                        <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          id="password"
+                          name="password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          required
+                          value={password}
+                          onChange={handlePasswordChange}
+                          className="w-full pl-11 pr-10 py-3 bg-slate-950/80 border border-slate-900 rounded-lg text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-all"
+                          placeholder="Enter your password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(p => !p)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                          tabIndex={-1}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                   </div>
                 </div>
               </div>

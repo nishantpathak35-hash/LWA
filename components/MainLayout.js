@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppState } from './StateProvider';
 import Sidebar from './Sidebar';
 import DashboardView from './views/DashboardView';
@@ -19,6 +19,9 @@ import ActivityStreamDrawer from './ui/ActivityStreamDrawer';
 import { Menu, Sun, Moon, AlertTriangle, X, Search, Activity, LayoutDashboard, ShoppingBag, CreditCard, HardHat, MoreHorizontal, Plus, FilePlus, Receipt } from 'lucide-react';
 import { Button } from './ui/core';
 import { CommandPalette } from './ui/CommandPalette';
+
+// Detect Mac for keyboard shortcut display
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const VIEW_FEATURE_MAP = {
@@ -315,7 +318,7 @@ export default function MainLayout() {
                 <Search className="w-3.5 h-3.5 text-slate-400" />
                 <span>Search...</span>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-slate-400">⌘K</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-slate-400">{isMac ? '⌘K' : 'Ctrl+K'}</kbd>
             </button>
 
             {/* Keyboard shortcut hint */}
@@ -484,7 +487,6 @@ export default function MainLayout() {
           </nav>
         </div>
       </div>
-      <CommandPalette />
     </div>
   );
 }

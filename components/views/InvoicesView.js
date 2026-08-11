@@ -363,7 +363,7 @@ export default function InvoicesView() {
   };
 
   return (
-    <div className="space-y-6 select-none animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in pb-12">
 
       {/* ── 1. Header Card ── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-5 rounded-xl shadow-2xs">
@@ -930,7 +930,7 @@ export default function InvoicesView() {
       {/* ── 5. Detailed Inspection Modal ── */}
       {inspectInvoice && (
         <Dialog open={true} onClose={() => setInspectInvoice(null)} title={`Invoice Inspection — ${inspectInvoice.invoice_number}`} maxWidth="max-w-2xl">
-          <div className="space-y-5 select-none">
+          <div className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="p-3.5 bg-muted/40 border border-border rounded-xl space-y-2">
                 <h4 className="font-bold text-amber-600 dark:text-amber-400 border-b border-border pb-1 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
