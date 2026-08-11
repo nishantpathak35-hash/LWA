@@ -84,9 +84,9 @@ export async function getAttachments(payload, session) {
 
   await ensureAttachmentsTable();
 
-  // Do NOT return heavy file_data in list — only metadata
+  // Include file_data (Cloudinary URL or legacy base64) for attachment preview and download
   return queryAll(
-    `SELECT id, entity_type, entity_id, file_name, file_type, file_size, uploaded_by, created_at
+    `SELECT id, entity_type, entity_id, file_name, file_type, file_size, file_data, uploaded_by, created_at
      FROM attachments
      WHERE entity_type = ? AND entity_id = ?
      ORDER BY created_at DESC`,

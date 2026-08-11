@@ -50,7 +50,8 @@ export default function VendorOnboardingFormApp({ token }) {
   const [files, setFiles] = useState({
     gstCert: null,
     panCert: null,
-    chequeCert: null
+    chequeCert: null,
+    ndcCert: null
   });
 
   useEffect(() => {
@@ -154,6 +155,7 @@ export default function VendorOnboardingFormApp({ token }) {
       if (files.gstCert) attachmentsPayload.push({ ...files.gstCert, documentType: 'GST Certificate' });
       if (files.panCert) attachmentsPayload.push({ ...files.panCert, documentType: 'PAN Card' });
       if (files.chequeCert) attachmentsPayload.push({ ...files.chequeCert, documentType: 'Cancelled Cheque' });
+      if (files.ndcCert) attachmentsPayload.push({ ...files.ndcCert, documentType: 'Non-Disclosure Certificate (NDC)' });
 
       const res = await call('submitVendorOnboarding', {
         token,
@@ -498,7 +500,7 @@ export default function VendorOnboardingFormApp({ token }) {
                 <div className="space-y-4">
                   <p className="text-xs text-slate-400">Upload supporting documentation for verified onboarding approval. Documents are securely stored in Cloudinary.</p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* GST Cert */}
                     <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
@@ -542,6 +544,22 @@ export default function VendorOnboardingFormApp({ token }) {
                         className="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-amber-500/10 file:text-amber-400"
                       />
                       {files.chequeCert && <p className="text-[10px] text-emerald-400 font-mono truncate">✓ {files.chequeCert.fileName}</p>}
+                    </div>
+
+                    {/* NDC */}
+                    <div className="p-4 bg-slate-950/60 border border-amber-500/20 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-200">Non-Disclosure Certificate (NDC)</span>
+                        <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">Optional</Badge>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">Upload a signed NDC / NDA or any confidentiality agreement required by your procurement team.</p>
+                      <input
+                        type="file"
+                        accept="application/pdf,image/*"
+                        onChange={e => handleFileChange('ndcCert', e)}
+                        className="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-amber-500/10 file:text-amber-400"
+                      />
+                      {files.ndcCert && <p className="text-[10px] text-emerald-400 font-mono truncate">✓ {files.ndcCert.fileName}</p>}
                     </div>
                   </div>
                 </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Dialog, Input, Textarea } from '../../ui/core';
-import { UserCheck, ShieldAlert, CheckCircle2, XCircle, Eye, Loader2, Download, AlertTriangle, Send, Mail, Copy, Check } from 'lucide-react';
+import { UserCheck, ShieldAlert, CheckCircle2, XCircle, Eye, Loader2, Download, AlertTriangle, Send, Mail, Copy, Check, FileText } from 'lucide-react';
 import { toast } from '../../ui/Toast';
 
 async function call(method, ...args) {
@@ -381,25 +381,40 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
                 </div>
 
                 {/* Submitted Documents */}
-                <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-                  <h4 className="font-bold text-amber-400 border-b border-slate-800 pb-1 text-xs">Submitted Documents (Cloudinary Storage)</h4>
-                  {reviewDetails.documents?.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No documents attached by vendor.</p>
+                <div className="p-3 bg-card border border-border rounded-xl space-y-2">
+                  <h4 className="font-bold text-foreground border-b border-border pb-1 text-xs flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-500" /> Submitted Documents
+                  </h4>
+                  {!reviewDetails.documents || reviewDetails.documents.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">No documents attached by vendor.</p>
                   ) : (
-                    <div className="space-y-1.5">
-                      {reviewDetails.documents.map((doc, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs p-2 bg-slate-950 rounded-lg border border-slate-800">
-                          <span className="font-mono text-slate-300">{doc.file_name}</span>
-                          <a
-                            href={doc.file_data}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-amber-400 hover:underline text-[11px] font-semibold flex items-center gap-1"
-                          >
-                            <Download className="w-3 h-3" /> View / Download Document
-                          </a>
-                        </div>
-                      ))}
+                    <div className="space-y-2">
+                      {reviewDetails.documents.map((doc, idx) => {
+                        const isCloudinary = doc.file_data && (doc.file_data.startsWith('http://') || doc.file_data.startsWith('https://'));
+                        const fileSizeKB = doc.file_size ? `${Math.ceil(doc.file_size / 1024)} KB` : null;
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-xs p-2.5 bg-muted/40 rounded-lg border border-border gap-3">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-foreground truncate">{doc.file_name}</div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                {doc.file_type || 'File'}{fileSizeKB ? ` · ${fileSizeKB}` : ''}{doc.uploaded_by ? ` · by ${doc.uploaded_by}` : ''}
+                              </div>
+                            </div>
+                            {isCloudinary ? (
+                              <a
+                                href={doc.file_data}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex-shrink-0 text-amber-500 hover:text-amber-400 hover:underline text-[11px] font-bold flex items-center gap-1 border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 rounded-lg transition-colors"
+                              >
+                                <Download className="w-3 h-3" /> View / Download
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic flex-shrink-0">No preview</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
