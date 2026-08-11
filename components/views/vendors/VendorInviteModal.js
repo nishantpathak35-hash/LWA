@@ -5,9 +5,13 @@ import { Dialog, Button, Input } from '../../ui/core';
 import { Mail, Send, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 async function call(method, ...args) {
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('lx_auth_token') || '') : '';
   const res = await fetch('/api/rpc', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'x-lwa-token': token
+    },
     body: JSON.stringify({ method, args })
   });
   const data = await res.json();

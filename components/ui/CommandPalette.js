@@ -6,7 +6,7 @@ import { useAppState } from '../StateProvider';
 import { Search, FileText, Building2, Briefcase, ChevronRight, X, LayoutDashboard, CreditCard, Receipt, BarChart3, Settings } from 'lucide-react';
 
 export function CommandPalette() {
-  const { pos, vendors, projects, payments, setActiveView, setTargetPo } = useAppState();
+  const { pos, vendors, projects, payments, invoices, setActiveView, setTargetPo } = useAppState();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -112,6 +112,27 @@ export function CommandPalette() {
       }
     }));
 
+    // Search Invoices
+    const matchedInvoices = (invoices || []).filter(inv => {
+      if (!inv) return false;
+      const invNo = String(inv.invoice_number || '').toLowerCase();
+      const poNo = String(inv.po_no || '').toLowerCase();
+      const vName = String(inv.vendor_name || '').toLowerCase();
+      return invNo.includes(normalizedQuery) || poNo.includes(normalizedQuery) || vName.includes(normalizedQuery);
+    }).slice(0, 3).map(inv => ({
+      id: `invoice-${inv.invoice_id || Math.random()}`,
+      type: 'Invoice',
+      title: `Invoice #${inv.invoice_number}`,
+      subtitle: `${inv.vendor_name || 'Vendor'} • PO: ${inv.po_no} • ₹${Number(inv.invoice_total || 0).toLocaleString()}`,
+      icon: <Receipt className="w-4 h-4 text-amber-400" />,
+      action: (e) => {
+        if (e && (e.ctrlKey || e.metaKey || e.button === 1)) return;
+        e?.preventDefault();
+        setActiveView('invoices');
+        setOpen(false);
+      }
+    }));
+
     // Search Payments
     const matchedPayments = (payments || []).filter(pay => {
       if (!pay) return false;
@@ -134,7 +155,7 @@ export function CommandPalette() {
       }
     }));
 
-    results = [...matchedPOs, ...matchedVendors, ...matchedProjects, ...matchedPayments];
+    results = [...matchedPOs, ...matchedVendors, ...matchedProjects, ...matchedInvoices, ...matchedPayments];
   }
 
   const handleKeyDown = (e) => {
@@ -163,7 +184,7 @@ export function CommandPalette() {
             ref={inputRef}
             type="text"
             className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground/60 text-base font-medium focus:outline-none"
-            placeholder="Search POs, Vendors, Projects..."
+            placeholder="Search POs, Vendors, Projects, Invoices..."
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -179,11 +200,12 @@ export function CommandPalette() {
         <div className="max-h-[60vh] overflow-y-auto p-2">
           {!query && (
             <div className="p-6 space-y-4">
-              <p className="text-center text-muted-foreground text-sm font-medium">Type to search POs, vendors, or projects.</p>
+              <p className="text-center text-muted-foreground text-sm font-medium">Type to search POs, vendors, projects, or invoices.</p>
               <div className="space-y-1.5">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Quick Navigation (G → key)</p>
                 {[
                   { key: 'D', label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> },
+                  { key: 'I', label: 'Invoices', icon: <Receipt className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> },
                   { key: 'P', label: 'Payments', icon: <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> },
                   { key: 'O', label: 'Purchase Orders', icon: <Receipt className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> },
                   { key: 'R', label: 'Reports', icon: <BarChart3 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> },

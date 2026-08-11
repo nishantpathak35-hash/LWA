@@ -10,7 +10,7 @@ export default function ProjectsSidebar({ projectsList, selectedProject, handleP
   const [sortDir, setSortDir] = useState('asc');
 
   const processedProjects = useMemo(() => {
-    let result = projectsList.filter(p => {
+    let result = (projectsList || []).filter(p => {
       if (!searchTerm.trim()) return true;
       const term = searchTerm.toLowerCase();
       return (

@@ -6,9 +6,13 @@ import { UserCheck, ShieldAlert, CheckCircle2, XCircle, Eye, Loader2, Download, 
 import { toast } from '../../ui/Toast';
 
 async function call(method, ...args) {
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('lx_auth_token') || '') : '';
   const res = await fetch('/api/rpc', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'x-lwa-token': token
+    },
     body: JSON.stringify({ method, args })
   });
   const data = await res.json();
