@@ -155,7 +155,7 @@ export default function VendorOnboardingFormApp({ token }) {
       if (files.gstCert) attachmentsPayload.push({ ...files.gstCert, documentType: 'GST Certificate' });
       if (files.panCert) attachmentsPayload.push({ ...files.panCert, documentType: 'PAN Card' });
       if (files.chequeCert) attachmentsPayload.push({ ...files.chequeCert, documentType: 'Cancelled Cheque' });
-      if (files.ndcCert) attachmentsPayload.push({ ...files.ndcCert, documentType: 'Non-Disclosure Certificate (NDC)' });
+      if (files.ndcCert) attachmentsPayload.push({ ...files.ndcCert, documentType: 'Non-Disclosure Agreement (NDA)' });
 
       const res = await call('submitVendorOnboarding', {
         token,
@@ -546,13 +546,13 @@ export default function VendorOnboardingFormApp({ token }) {
                       {files.chequeCert && <p className="text-[10px] text-emerald-400 font-mono truncate">✓ {files.chequeCert.fileName}</p>}
                     </div>
 
-                    {/* NDC */}
+                    {/* NDA */}
                     <div className="p-4 bg-slate-950/60 border border-amber-500/20 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-200">Non-Disclosure Certificate (NDC)</span>
+                        <span className="text-xs font-bold text-slate-200">Non-Disclosure Agreement (NDA)</span>
                         <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">Optional</Badge>
                       </div>
-                      <p className="text-[10px] text-slate-500 leading-relaxed">Upload a signed NDC / NDA or any confidentiality agreement required by your procurement team.</p>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">Upload a signed NDA or any confidentiality agreement required by your procurement team.</p>
                       <input
                         type="file"
                         accept="application/pdf,image/*"
