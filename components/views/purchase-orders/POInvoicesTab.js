@@ -24,6 +24,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
     invoiceTotal: '',
     remarks: ''
   });
+  const [selectedFile, setSelectedFile] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
   const handleAiAutoFill = async () => {
