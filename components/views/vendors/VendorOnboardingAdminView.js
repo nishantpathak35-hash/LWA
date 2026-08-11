@@ -106,66 +106,79 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
   };
 
   return (
-    <div className="space-y-4 select-none">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 select-none animate-fade-in">
+      {/* View Title & Action Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-border/40">
         <div>
-          <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-amber-400" /> Pending Vendor Onboardings
+          <h3 className="text-base font-bold text-foreground flex items-center gap-2 tracking-tight">
+            <UserCheck className="w-4 h-4 text-amber-500" /> Pending Vendor Onboardings
           </h3>
-          <p className="text-xs text-slate-400">Review vendor self-registrations, tax proofs, banking details, and portal access settings.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Review vendor self-registrations, tax proofs, banking details, and portal access settings.
+          </p>
         </div>
-        <Button size="sm" variant="ghost" onClick={loadPending} className="text-xs">
+        <Button size="sm" variant="outline" onClick={loadPending} className="text-xs font-semibold h-8 bg-card border-border hover:bg-muted text-foreground">
+          <Loader2 className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-amber-500' : 'text-muted-foreground'}`} />
           Refresh List
         </Button>
       </div>
 
-      <Card className="bg-slate-900/60 border-slate-800">
+      <Card className="bg-card text-card-foreground border-border shadow-sm overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
-            <div className="py-12 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-amber-400" /> Loading pending onboardings...
+            <div className="py-16 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3">
+              <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                <Loader2 className="w-6 h-6 animate-spin" />
+              </div>
+              <span className="font-medium">Fetching pending vendor self-registrations...</span>
             </div>
           ) : pendingList.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400">
-              No pending vendor onboardings awaiting review.
+            <div className="py-16 px-6 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-sm">
+                <UserCheck className="w-7 h-7" />
+              </div>
+              <h4 className="text-sm font-bold text-foreground tracking-tight">No Pending Vendor Onboardings</h4>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                All vendor self-registrations have been reviewed. Send a new onboarding invite link to suppliers to collect their GSTIN, banking, and tax documents directly.
+              </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-b border-slate-800 bg-slate-900/80">
-                  <TableHead className="text-xs font-bold text-slate-300">Company Name</TableHead>
-                  <TableHead className="text-xs font-bold text-slate-300">Email & Contact</TableHead>
-                  <TableHead className="text-xs font-bold text-slate-300">GSTIN / PAN</TableHead>
-                  <TableHead className="text-xs font-bold text-slate-300">Docs</TableHead>
-                  <TableHead className="text-xs font-bold text-slate-300">Submitted</TableHead>
-                  <TableHead className="text-xs font-bold text-slate-300 text-right">Action</TableHead>
+                <TableRow className="border-b border-border bg-muted/40">
+                  <TableHead className="text-xs font-bold text-muted-foreground">Company Name</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">Email & Contact</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">GSTIN / PAN</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">Docs</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">Submitted</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pendingList.map(sub => (
-                  <TableRow key={sub.submission_id} className="border-b border-slate-800/60 hover:bg-slate-900/40 transition-colors">
-                    <TableCell className="text-xs font-semibold text-slate-200">
+                  <TableRow key={sub.submission_id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                    <TableCell className="text-xs font-semibold text-foreground">
                       <div>{sub.legal_name}</div>
-                      {sub.trade_name && <div className="text-[10px] text-slate-400 font-normal">{sub.trade_name}</div>}
+                      {sub.trade_name && <div className="text-[10px] text-muted-foreground font-normal">{sub.trade_name}</div>}
                     </TableCell>
-                    <TableCell className="text-xs text-slate-300">
+                    <TableCell className="text-xs text-foreground">
                       <div>{sub.email}</div>
-                      <div className="text-[10px] text-slate-400">{sub.primary_contact_name} ({sub.primary_contact_no})</div>
+                      <div className="text-[10px] text-muted-foreground">{sub.primary_contact_name} ({sub.primary_contact_no})</div>
                     </TableCell>
-                    <TableCell className="text-xs font-mono text-slate-300">
+                    <TableCell className="text-xs font-mono text-foreground">
                       <div>GST: {sub.gstin || '—'}</div>
-                      <div className="text-[10px] text-slate-400">PAN: {sub.pan || '—'}</div>
+                      <div className="text-[10px] text-muted-foreground">PAN: {sub.pan || '—'}</div>
                     </TableCell>
                     <TableCell className="text-xs">
-                      <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300">
+                      <Badge variant="outline" className="text-[10px] border-border text-muted-foreground font-semibold">
                         {sub.document_count || 0} File(s)
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-slate-400">
+                    <TableCell className="text-xs text-muted-foreground">
                       {sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString('en-IN') : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="outline" onClick={() => handleOpenReview(sub)} className="text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
+                      <Button size="sm" variant="outline" onClick={() => handleOpenReview(sub)} className="text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/10 font-semibold h-7">
                         <Eye className="w-3.5 h-3.5 mr-1" /> Review
                       </Button>
                     </TableCell>

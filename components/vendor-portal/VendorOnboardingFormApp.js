@@ -15,7 +15,7 @@ async function call(method, ...args) {
   if (!res.ok || data.error) {
     throw new Error(data.error || 'API call failed');
   }
-  return data.result;
+  return data.result !== undefined ? data.result : data;
 }
 
 export default function VendorOnboardingFormApp({ token }) {

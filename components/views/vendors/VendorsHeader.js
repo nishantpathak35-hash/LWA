@@ -82,53 +82,106 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
     }
   };
 
+  const totalVendors = filteredVendors.length;
+  const activeCount = useMemo(() => filteredVendors.filter(v => (v.status || 'Active').toLowerCase() === 'active').length, [filteredVendors]);
+  const portalEnabledCount = useMemo(() => filteredVendors.filter(v => String(v.portal_access || v.portalAccess || '').toLowerCase() === 'enabled').length, [filteredVendors]);
+
   return (
     <>
       {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-gold border border-amber-500/20">
-            <Users className="w-5 h-5" />
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-2">
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-sm">
+            <Users className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-foreground tracking-tight">Vendors Master</h2>
-            <p className="text-xs text-muted-foreground mt-0.5 font-medium">Manage canonical vendor files, self-onboardings, and B2B portal access.</p>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">Vendors Master</h2>
+            <p className="text-xs text-muted-foreground mt-0.5 font-medium">Manage canonical vendor directory, self-registrations, and B2B portal access.</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Sub view toggle */}
-          <div className="flex items-center p-1 bg-slate-900 border border-slate-800 rounded-xl mr-2">
+        <div className="flex items-center gap-2.5 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
+          {/* Sub view toggle pill */}
+          <div className="flex items-center p-1 bg-muted/60 border border-border rounded-xl">
             <button
               onClick={() => setActiveTab('directory')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                activeTab === 'directory' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-slate-200'
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                activeTab === 'directory' 
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold' 
+                  : 'text-muted-foreground hover:text-foreground font-semibold'
               }`}
             >
-              Vendor Directory
+              Vendor Directory ({totalVendors})
             </button>
             <button
               onClick={() => setActiveTab('pending')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'pending' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-slate-200'
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'pending' 
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold' 
+                  : 'text-muted-foreground hover:text-foreground font-semibold'
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" /> Pending Onboardings
             </button>
           </div>
 
-          <Button variant="outline" size="sm" onClick={handleExportCSV} className="font-medium text-xs">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="font-semibold text-xs h-8 bg-card border-border hover:bg-muted text-foreground">
             <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
             Export CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setInviteModalOpen(true)} className="font-medium text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
-            <Mail className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+          <Button variant="outline" size="sm" onClick={() => setInviteModalOpen(true)} className="font-semibold text-xs h-8 border-amber-500/30 text-amber-500 hover:bg-amber-500/10 bg-amber-500/5">
+            <Mail className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
             + Invite Vendor
           </Button>
-          <Button variant="primary" size="sm" onClick={handleOpenModal} className="font-medium">
-            <PlusCircle className="w-4 h-4 mr-1.5" />
+          <Button variant="primary" size="sm" onClick={handleOpenModal} className="font-bold text-xs h-8 bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-sm">
+            <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
             Onboard Vendor
           </Button>
+        </div>
+      </div>
+
+      {/* KPI Metric Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
+            <Users className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Vendors</div>
+            <div className="text-lg font-bold text-foreground tracking-tight mt-0.5">{totalVendors}</div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+            <UserCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Active Master</div>
+            <div className="text-lg font-bold text-foreground tracking-tight mt-0.5">{activeCount}</div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            <Mail className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pending Review</div>
+            <div className="text-lg font-bold text-amber-500 tracking-tight mt-0.5 flex items-center gap-1.5">
+              <span>Review Queue</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+            <Key className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Portal Access</div>
+            <div className="text-lg font-bold text-foreground tracking-tight mt-0.5">{portalEnabledCount} Enabled</div>
+          </div>
         </div>
       </div>
 
@@ -183,14 +236,14 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
             <>
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
+                  <TableRow className="border-b border-border bg-muted/40">
                     <SortableHeader field="code" label="Code" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
                     <SortableHeader field="name" label="Display Name" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
                     <SortableHeader field="legalName" label="Legal Name" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
                     <SortableHeader field="gstin" label="GSTIN" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-36" />
                     <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-24" />
-                    <TableHead className="w-32 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Portal Access</TableHead>
-                    <TableHead className="text-center w-56 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Actions</TableHead>
+                    <TableHead className="w-32 py-3 px-4 font-bold text-[11px] text-muted-foreground tracking-wide select-none">Portal Access</TableHead>
+                    <TableHead className="text-center w-56 py-3 px-4 font-bold text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -198,11 +251,11 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
                     const isPortalEnabled = String(v.portal_access || v.portalAccess || '').toLowerCase() === 'enabled';
                     const code = v.code || v.vendorId || v.vendor_code;
                     return (
-                      <TableRow key={idx} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150">
-                        <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">{v.code}</TableCell>
-                        <TableCell className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[220px]" title={v.name}>{v.name}</TableCell>
-                        <TableCell className="px-3 py-3 text-slate-500 dark:text-slate-400 font-normal text-xs truncate max-w-[220px]" title={v.legalName || ''}>{v.legalName || '—'}</TableCell>
-                        <TableCell className="px-3 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 font-medium">{v.gstin || '—'}</TableCell>
+                      <TableRow key={idx} className="border-b border-border/40 hover:bg-muted/30 transition-colors duration-150">
+                        <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-muted-foreground">{v.code}</TableCell>
+                        <TableCell className="px-3 py-3 font-semibold text-foreground text-xs truncate max-w-[220px]" title={v.name}>{v.name}</TableCell>
+                        <TableCell className="px-3 py-3 text-muted-foreground font-normal text-xs truncate max-w-[220px]" title={v.legalName || ''}>{v.legalName || '—'}</TableCell>
+                        <TableCell className="px-3 py-3 font-mono text-[11px] text-muted-foreground font-medium">{v.gstin || '—'}</TableCell>
                         <TableCell className="px-3 py-3 whitespace-nowrap">
                           <Badge variant={String(v.status || '').toLowerCase() === 'active' ? 'success' : 'inactive'}>
                             {v.status || 'Active'}
