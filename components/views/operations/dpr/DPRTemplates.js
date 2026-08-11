@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
 import { Trash2, Edit2, Eye, FileText, X } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
+import { toast } from '../../../ui/Toast';
 
 export default function DPRTemplates() {
   const { call } = useAppState();
@@ -34,10 +35,10 @@ export default function DPRTemplates() {
         id: template.id,
         updates: { name: newName }
       });
-      alert("Template renamed successfully!");
+      toast.success("Template renamed successfully!");
       await fetchTemplates();
     } catch (err) {
-      alert("Failed to rename template: " + err.message);
+      toast.error("Failed to rename template: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -48,10 +49,10 @@ export default function DPRTemplates() {
     try {
       setLoading(true);
       await call('deleteTemplate', { id: template.id });
-      alert("Template deleted successfully.");
+      toast.success("Template deleted successfully.");
       await fetchTemplates();
     } catch (err) {
-      alert("Failed to delete template: " + err.message);
+      toast.error("Failed to delete template: " + err.message);
     } finally {
       setLoading(false);
     }

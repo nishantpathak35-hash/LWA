@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
 import { Save, RefreshCw } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
+import { toast } from '../../../ui/Toast';
 
 export default function DPRSettings() {
   const { call } = useAppState();
@@ -38,9 +39,9 @@ export default function DPRSettings() {
     try {
       setSaving(true);
       await call('saveDPRSettings', settings);
-      alert("DPR settings saved successfully!");
+      toast.success("DPR settings saved successfully!");
     } catch (err) {
-      alert("Failed to save settings: " + err.message);
+      toast.error("Failed to save settings: " + err.message);
     } finally {
       setSaving(false);
     }

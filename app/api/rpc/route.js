@@ -44,8 +44,6 @@ const ALLOWED_METHODS = new Set([
   'setUserRolesAdmin',
   'updateUserDetailsAdmin',
   'resetUserPasswordAdmin',
-  'listLegacyHashUsers',
-  'forcePasswordResetLegacy',
   'addCustomRole',
   'getPOPrefix',
   'getNextPONumber',
@@ -178,6 +176,7 @@ const ALLOWED_METHODS = new Set([
   'approveVendorOnboarding',
   'rejectVendorOnboarding',
   'toggleVendorPortalAccess',
+  'updateInvoiceStatus',
   'deleteInvoice',
   'listActiveInvitations'
 ]);

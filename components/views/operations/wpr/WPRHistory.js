@@ -4,6 +4,7 @@ import { Eye, Trash2, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
 import SortableHeader from '../../../ui/SortableHeader';
 import { exportToCSV, sortData } from '../../../../app/lib/exportUtils';
+import { toast } from '../../../ui/Toast';
 
 export default function WPRHistory({ onNavigate, onView }) {
   const { call, projects, user } = useAppState();
@@ -72,10 +73,10 @@ export default function WPRHistory({ onNavigate, onView }) {
     try {
       setLoading(true);
       await call('deleteWPRReport', { id: wpr.id });
-      alert("WPR deleted successfully.");
+      toast.success("WPR deleted successfully.");
       await fetchHistory();
     } catch (err) {
-      alert("Failed to delete WPR: " + err.message);
+      toast.error("Failed to delete WPR: " + err.message);
     } finally {
       setLoading(false);
     }

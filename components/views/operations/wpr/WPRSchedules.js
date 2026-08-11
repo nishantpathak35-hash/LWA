@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
 import { Plus, Trash2, Calendar, Save, RefreshCw } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
+import { toast } from '../../../ui/Toast';
 
 export default function WPRSchedules() {
   const { call, projects } = useAppState();
@@ -66,7 +67,7 @@ export default function WPRSchedules() {
     if (!file) return;
 
     if (file.size > 3.5 * 1024 * 1024) {
-      alert("File exceeds 3.5MB limit.");
+      toast.error("File exceeds 3.5MB limit.");
       return;
     }
 
@@ -87,7 +88,7 @@ export default function WPRSchedules() {
           setFormData(prev => ({ ...prev, render_image_url: res.url }));
         }
       } catch (err) {
-        alert("Upload failed: " + err.message);
+        toast.error("Upload failed: " + err.message);
       } finally {
         setSaving(false);
       }
@@ -98,14 +99,14 @@ export default function WPRSchedules() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.project || !formData.milestone_name) {
-      alert("Please fill in project name and milestone name.");
+      toast.error("Please fill in project name and milestone name.");
       return;
     }
 
     try {
       setSaving(true);
       await call('saveSchedule', formData);
-      alert("Schedule saved successfully!");
+      toast.success("Schedule saved successfully!");
       setShowAddForm(false);
       setFormData({
         project: '',
@@ -118,7 +119,7 @@ export default function WPRSchedules() {
       });
       await fetchSchedules();
     } catch (err) {
-      alert("Failed to save schedule: " + err.message);
+      toast.error("Failed to save schedule: " + err.message);
     } finally {
       setSaving(false);
     }

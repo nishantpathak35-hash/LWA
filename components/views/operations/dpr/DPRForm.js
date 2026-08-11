@@ -3,6 +3,7 @@ import { Card, CardContent, Button } from '../../../ui/core';
 import { Plus, Trash2, Save, Send, HardHat, FileText, CheckCircle } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
 import { calculateFloorManpower, calculateOverallManpower as calcOverall } from '../../../../src/modules/operations/utils/dprCalculations.js';
+import { toast } from '../../../ui/Toast';
 
 export default function DPRForm({ onNavigate, editData = null }) {
   const { user, projects, call } = useAppState();
@@ -74,38 +75,31 @@ export default function DPRForm({ onNavigate, editData = null }) {
     fetchSettings();
   }, []);
 
-  const handleLoadTemplate = (templateId) => {
-    if (!templateId) return;
-    const t = templates.find(temp => temp.id === parseInt(templateId));
+  const handleLoadTemplate = (tId) => {
+    const t = (templates || []).find(x => x.id === Number(tId));
     if (!t) return;
-    const parsedData = typeof t.data === 'string' ? JSON.parse(t.data) : t.data;
-    setFormData(prev => ({
-      ...prev,
-      data: parsedData
-    }));
-    alert(`Loaded template: ${t.name}`);
-  };
-
-  const handleSaveAsTemplate = async () => {
-    const name = prompt("Enter a name for this template:");
-    if (!name) return;
     try {
-      setLoading(true);
-      await call('createTemplate', {
-        name,
-        description: `Template for project ${formData.project || 'General'}`,
-        data: formData.data
-      });
-      alert("Template saved successfully!");
-      const list = await call('listTemplates', {});
-      setTemplates(list || []);
-    } catch (err) {
-      alert("Failed to save template: " + err.message);
-    } finally {
-      setLoading(false);
+      const tData = typeof t.data === 'string' ? JSON.parse(t.data) : t.data;
+      if (tData && tData.floors) {
+        setFormData(prev => ({ ...prev, data: { ...prev.data, floors: tData.floors } }));
+        toast.success(`Loaded template: ${t.name}`);
+      }
+    } catch (e) {
+      toast.error('Failed to parse template data');
     }
   };
 
+  const handleSaveTemplate = async () => {
+    const name = prompt("Enter template name:");
+    if (!name) return;
+    try {
+      await call('createTemplate', { name, data: { floors: formData.data.floors } });
+      toast.success("Template saved successfully!");
+      fetchTemplates();
+    } catch (err) {
+      toast.error("Failed to save template: " + err.message);
+    }
+  };
 
   const handlePhotoUpload = (e) => {
     const files = e.target.files;
@@ -113,7 +107,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
     
     Array.from(files).forEach(file => {
       if (file.size > 3.5 * 1024 * 1024) {
-        alert("File exceeds 3.5MB limit. Please select a smaller file.");
+        toast.error("File exceeds 3.5MB limit. Please select a smaller file.");
         return;
       }
       const reader = new FileReader();
@@ -139,7 +133,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
             }));
           }
         } catch (err) {
-          alert("Photo upload failed: " + err.message);
+          toast.error("Photo upload failed: " + err.message);
         } finally {
           setLoading(false);
         }
@@ -285,7 +279,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
       }
       onNavigate('history');
     } catch (err) {
-      alert('Failed to save DPR: ' + err.message);
+      toast.error('Failed to save DPR: ' + err.message);
     } finally {
       setLoading(false);
     }

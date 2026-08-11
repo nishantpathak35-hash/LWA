@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
 import { RefreshCw, Play, Save, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
+import { toast } from '../../../ui/Toast';
 
 export default function WPRForm({ onNavigate }) {
   const { call, projects } = useAppState();
@@ -22,7 +23,7 @@ export default function WPRForm({ onNavigate }) {
 
   const handleFetchAggregation = async () => {
     if (!formData.project || !formData.week_start || !formData.week_end) {
-      alert("Please select a project, start date, and end date.");
+      toast.error("Please select a project, start date, and end date.");
       return;
     }
 
@@ -45,7 +46,7 @@ export default function WPRForm({ onNavigate }) {
         }));
       }
     } catch (err) {
-      alert("Failed to aggregate data: " + err.message);
+      toast.error("Failed to aggregate data: " + err.message);
     } finally {
       setAggregating(false);
     }
@@ -56,7 +57,7 @@ export default function WPRForm({ onNavigate }) {
     if (!file) return;
 
     if (file.size > 3.5 * 1024 * 1024) {
-      alert("File exceeds 3.5MB limit.");
+      toast.error("File exceeds 3.5MB limit.");
       return;
     }
 
@@ -77,7 +78,7 @@ export default function WPRForm({ onNavigate }) {
           setFormData(prev => ({ ...prev, [field]: res.url }));
         }
       } catch (err) {
-        alert("Upload failed: " + err.message);
+        toast.error("Upload failed: " + err.message);
       } finally {
         setLoading(false);
       }
@@ -88,17 +89,17 @@ export default function WPRForm({ onNavigate }) {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.project || !formData.week_start || !formData.week_end) {
-      alert("Please fill in project, week start, and week end.");
+      toast.error("Please fill in project, week start, and week end.");
       return;
     }
 
     try {
       setLoading(true);
       await call('createWPRReport', formData);
-      alert("WPR saved successfully!");
+      toast.success("WPR saved successfully!");
       onNavigate('history');
     } catch (err) {
-      alert("Failed to save WPR: " + err.message);
+      toast.error("Failed to save WPR: " + err.message);
     } finally {
       setLoading(false);
     }

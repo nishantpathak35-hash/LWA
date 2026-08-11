@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
 import { ArrowLeft, Edit2, Trash2, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
+import { toast } from '../../../ui/Toast';
 
 export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
   const { user, call } = useAppState();
@@ -22,14 +23,13 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
           expected_updated_at: report.updated_at
         }
       });
-      // Fetch latest
       const fresh = await call('getDPR', { id: report.id });
       if (fresh) {
         setReport(fresh);
       }
-      alert(`DPR status updated to ${status}`);
+      toast.success(`DPR status updated to ${status}`);
     } catch (err) {
-      alert("Failed to update status: " + err.message);
+      toast.error("Failed to update status: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -40,10 +40,10 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
     setLoading(true);
     try {
       await call('deleteDPR', { id: report.id });
-      alert("DPR deleted successfully.");
+      toast.success("DPR deleted successfully.");
       onNavigate('history');
     } catch (err) {
-      alert("Failed to delete DPR: " + err.message);
+      toast.error("Failed to delete DPR: " + err.message);
     } finally {
       setLoading(false);
     }
