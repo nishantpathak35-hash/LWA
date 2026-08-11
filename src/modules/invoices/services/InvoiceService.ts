@@ -5,7 +5,7 @@ import { VendorRepository } from '../../vendors/repositories/VendorRepository.ts
 import { VendorPortalAuthService } from '../../vendor-portal/services/VendorPortalAuthService.ts';
 import { AuthService } from '../../core/services/AuthService.ts';
 import { logAudit } from '../../../../app/lib/api.js';
-import { uploadAttachment } from '../../../../app/lib/api/attachments.js';
+import { uploadAttachment, deleteEntityAttachments } from '../../../../app/lib/api/attachments.js';
 
 export class InvoiceService {
   /**
@@ -200,6 +200,15 @@ export class InvoiceService {
 
     await InvoiceRepository.update(invoice.invoice_id, updates);
 
+    // If rejected, supporting attachment is no longer needed: delete it from Cloudinary and DB
+    if (status === 'Rejected') {
+      try {
+        await deleteEntityAttachments('invoice', invoice.invoice_id);
+      } catch (err) {
+        console.warn(`Failed to clean up attachments for rejected invoice ${invoice.invoice_id}:`, err);
+      }
+    }
+
     if (userSession) {
       await logAudit(userSession.email, 'Invoice Status Updated', `Invoice ${invoice.invoice_number} status changed to ${status}${rejectionReason ? ` (Reason: ${rejectionReason})` : ''}`, 'Invoices');
     }
@@ -364,6 +373,13 @@ export class InvoiceService {
     if (!invoice) throw new Error("Invoice record not found");
 
     await InvoiceRepository.delete(invoice.invoice_id || invoiceId);
+
+    // Clean up all attachments of deleted invoice from Cloudinary & DB
+    try {
+      await deleteEntityAttachments('invoice', invoice.invoice_id || invoiceId);
+    } catch (err) {
+      console.warn(`Failed to clean up attachments for deleted invoice ${invoice.invoice_id}:`, err);
+    }
 
     if (session?.email) {
       await logAudit(session.email, 'Invoice Deleted', `Deleted invoice ${invoice.invoice_number} (${invoice.invoice_id})`, 'Invoices');

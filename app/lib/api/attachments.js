@@ -15,6 +15,58 @@ function requireAuth(session) {
   AuthService.requireAuth(session);
 }
 
+function extractCloudinaryPublicId(url) {
+  if (typeof url !== 'string' || !url.includes('cloudinary.com')) return null;
+  try {
+    const parts = url.split('/image/upload/');
+    if (parts.length < 2) return null;
+    const pathAfterUpload = parts[1]; // e.g. "v1234567/folder/public_id.pdf"
+    
+    let publicIdWithExt = pathAfterUpload;
+    if (pathAfterUpload.startsWith('v')) {
+      const match = pathAfterUpload.match(/^v\d+\/(.*)/);
+      if (match) {
+        publicIdWithExt = match[1];
+      }
+    }
+    
+    const dotIndex = publicIdWithExt.lastIndexOf('.');
+    if (dotIndex !== -1) {
+      return publicIdWithExt.substring(0, dotIndex);
+    }
+    return publicIdWithExt;
+  } catch (err) {
+    console.error('Failed to extract Cloudinary public ID:', err);
+    return null;
+  }
+}
+
+export async function deleteCloudinaryAsset(publicId) {
+  if (!publicId) return;
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+    try {
+      await cloudinary.uploader.destroy(publicId);
+    } catch (err) {
+      console.warn('Failed to delete asset from Cloudinary:', err.message);
+    }
+  }
+}
+
+export async function deleteEntityAttachments(entityType, entityId) {
+  await ensureAttachmentsTable();
+  const attachments = await queryAll(
+    `SELECT id, file_data, file_name FROM attachments WHERE entity_type = ? AND entity_id = ?`,
+    [entityType, entityId]
+  );
+  for (const att of attachments) {
+    const publicId = extractCloudinaryPublicId(att.file_data);
+    if (publicId) {
+      await deleteCloudinaryAsset(publicId);
+    }
+    await queryRun(`DELETE FROM attachments WHERE id = ?`, [att.id]);
+  }
+}
+
 /**
  * Ensure the attachments table exists before any DB operation.
  * Uses CREATE TABLE IF NOT EXISTS so it is safe to call on every request.
@@ -146,6 +198,12 @@ export async function deleteAttachment(attachmentId, session) {
   }
 
   await queryRun(`DELETE FROM attachments WHERE id = ?`, [attachmentId]);
+
+  const publicId = extractCloudinaryPublicId(existing.file_data);
+  if (publicId) {
+    await deleteCloudinaryAsset(publicId);
+  }
+
   await logAudit(
     session.email,
     'Attachment Deleted',
