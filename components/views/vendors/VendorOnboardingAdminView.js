@@ -390,8 +390,11 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
                   ) : (
                     <div className="space-y-2">
                       {reviewDetails.documents.map((doc, idx) => {
-                        const isCloudinary = doc.file_data && (doc.file_data.startsWith('http://') || doc.file_data.startsWith('https://'));
                         const fileSizeKB = doc.file_size ? `${Math.ceil(doc.file_size / 1024)} KB` : null;
+                        let fileUrl = doc.file_data;
+                        if (fileUrl && !fileUrl.startsWith('http://') && !fileUrl.startsWith('https://') && !fileUrl.startsWith('data:')) {
+                          fileUrl = `data:${doc.file_type || 'application/pdf'};base64,${fileUrl}`;
+                        }
                         return (
                           <div key={idx} className="flex items-center justify-between text-xs p-2.5 bg-muted/40 rounded-lg border border-border gap-3">
                             <div className="min-w-0">
@@ -400,11 +403,12 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
                                 {doc.file_type || 'File'}{fileSizeKB ? ` · ${fileSizeKB}` : ''}{doc.uploaded_by ? ` · by ${doc.uploaded_by}` : ''}
                               </div>
                             </div>
-                            {isCloudinary ? (
+                            {fileUrl ? (
                               <a
-                                href={doc.file_data}
+                                href={fileUrl}
                                 target="_blank"
                                 rel="noreferrer"
+                                download={doc.file_name || 'document'}
                                 className="flex-shrink-0 text-amber-500 hover:text-amber-400 hover:underline text-[11px] font-bold flex items-center gap-1 border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 rounded-lg transition-colors"
                               >
                                 <Download className="w-3 h-3" /> View / Download

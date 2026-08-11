@@ -93,7 +93,7 @@ export default function ProjectsSidebar({ projectsList, selectedProject, handleP
         {processedProjects.length === 0 ? (
           <div className="p-6 text-xs text-muted-foreground text-center font-medium">No projects found</div>
         ) : (
-          filteredProjects.map((p, idx) => {
+          processedProjects.map((p, idx) => {
             const isSelected = selectedProject?.project === p.project;
             return (
               <button

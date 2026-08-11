@@ -60,8 +60,8 @@ export class InvoiceRepository {
   }
 
   static async checkDuplicateInvoice(vendorCode: string, invoiceNumber: string, excludeInvoiceId?: string): Promise<IInvoice | null> {
-    const cleanVendor = vendorCode.trim().toLowerCase();
-    const cleanNum = invoiceNumber.trim().toLowerCase();
+    const cleanVendor = (vendorCode || '').trim().toLowerCase();
+    const cleanNum = (invoiceNumber || '').trim().toLowerCase();
 
     let sql = `SELECT * FROM invoices WHERE LOWER(TRIM(vendor_code)) = ? AND LOWER(TRIM(invoice_number)) = ?`;
     const params: any[] = [cleanVendor, cleanNum];

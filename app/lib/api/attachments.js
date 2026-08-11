@@ -52,11 +52,17 @@ export async function uploadAttachment(payload, session) {
 
   await ensureAttachmentsTable();
 
-  let dataToStore = fileData; // Default to legacy base64 if Cloudinary is not configured
+  // Strip redundant Data URI header (e.g. "data:application/pdf;base64,") if present
+  let cleanFileData = fileData;
+  if (typeof cleanFileData === 'string' && cleanFileData.includes(',')) {
+    cleanFileData = cleanFileData.split(',')[1];
+  }
+
+  let dataToStore = fileData; // Default to raw fileData if Cloudinary is not configured
 
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
     try {
-      const dataUri = `data:${fileType || 'application/octet-stream'};base64,${fileData}`;
+      const dataUri = `data:${fileType || 'application/octet-stream'};base64,${cleanFileData}`;
       const uploadResult = await cloudinary.uploader.upload(dataUri, {
         folder: `erp_attachments/${entityType}/${entityId}`,
         resource_type: 'auto'
