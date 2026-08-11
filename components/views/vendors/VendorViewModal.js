@@ -42,6 +42,9 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
                 <Badge variant={String(status).toLowerCase() === 'active' ? 'success' : 'default'}>
                   {status}
                 </Badge>
+                <Badge variant={String(viewVendor?.portal_access || viewVendor?.portalAccess || '').toLowerCase() === 'enabled' ? 'success' : 'outline'} className="text-[10px] font-bold">
+                  {String(viewVendor?.portal_access || viewVendor?.portalAccess || '').toLowerCase() === 'enabled' ? '● B2B Portal Enabled' : '○ B2B Portal Disabled'}
+                </Badge>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Legal Name: <strong className="text-slate-900 dark:text-slate-200 font-bold">{legalName}</strong></p>
             </div>

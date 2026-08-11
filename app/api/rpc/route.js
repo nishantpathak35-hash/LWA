@@ -178,7 +178,8 @@ const ALLOWED_METHODS = new Set([
   'approveVendorOnboarding',
   'rejectVendorOnboarding',
   'toggleVendorPortalAccess',
-  'deleteInvoice'
+  'deleteInvoice',
+  'listActiveInvitations'
 ]);
 
 export async function POST(request) {

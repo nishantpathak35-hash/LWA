@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Dialog, Input, Textarea } from '../../ui/core';
-import { UserCheck, ShieldAlert, CheckCircle2, XCircle, Eye, Loader2, Download, AlertTriangle, Send } from 'lucide-react';
+import { UserCheck, ShieldAlert, CheckCircle2, XCircle, Eye, Loader2, Download, AlertTriangle, Send, Mail, Copy, Check } from 'lucide-react';
+import { toast } from '../../ui/Toast';
 
 async function call(method, ...args) {
   const res = await fetch('/api/rpc', {
@@ -14,12 +15,17 @@ async function call(method, ...args) {
   if (!res.ok || data.error) {
     throw new Error(data.error || 'API call failed');
   }
-  return data.result;
+  return data.result !== undefined ? data.result : data;
 }
 
 export default function VendorOnboardingAdminView({ onVendorApproved }) {
   const [loading, setLoading] = useState(true);
   const [pendingList, setPendingList] = useState([]);
+  const [invitationsList, setInvitationsList] = useState([]);
+  const [subTab, setSubTab] = useState('submissions'); // 'submissions' | 'invitations'
+  const [copiedToken, setCopiedToken] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
+
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [reviewDetails, setReviewDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -31,21 +37,47 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  const loadPending = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const res = await call('listPendingOnboardings');
-      setPendingList(res || []);
+      const [subs, invs] = await Promise.all([
+        call('listPendingOnboardings'),
+        call('listActiveInvitations').catch(() => [])
+      ]);
+      setPendingList(subs || []);
+      setInvitationsList(invs || []);
     } catch (err) {
-      console.error('Failed to fetch pending onboardings:', err);
+      console.error('Failed to fetch onboarding admin data:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPending();
+    loadData();
   }, []);
+
+  const handleCopyLink = (token) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const link = `${origin}/vendor/onboarding/${token}`;
+    navigator.clipboard.writeText(link);
+    setCopiedToken(token);
+    toast.success('Onboarding link copied to clipboard!');
+    setTimeout(() => setCopiedToken(null), 2000);
+  };
+
+  const handleResendInvite = async (invitationId) => {
+    setResendingId(invitationId);
+    try {
+      await call('resendVendorInvitation', invitationId);
+      toast.success('Onboarding invitation re-sent successfully!');
+      await loadData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to resend invitation');
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   const handleOpenReview = async (sub) => {
     setSelectedSubmission(sub);
@@ -111,16 +143,38 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-border/40">
         <div>
           <h3 className="text-base font-bold text-foreground flex items-center gap-2 tracking-tight">
-            <UserCheck className="w-4 h-4 text-amber-500" /> Pending Vendor Onboardings
+            <UserCheck className="w-4 h-4 text-amber-500" /> Vendor Onboarding Management
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Review vendor self-registrations, tax proofs, banking details, and portal access settings.
+            Review vendor self-registrations, sent email invitations, and portal access configuration.
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={loadPending} className="text-xs font-semibold h-8 bg-card border-border hover:bg-muted text-foreground">
-          <Loader2 className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-amber-500' : 'text-muted-foreground'}`} />
-          Refresh List
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center p-1 bg-muted/60 border border-border rounded-xl">
+            <button
+              onClick={() => setSubTab('submissions')}
+              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                subTab === 'submissions' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Pending Submissions ({pendingList.length})
+            </button>
+            <button
+              onClick={() => setSubTab('invitations')}
+              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                subTab === 'invitations' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Mail className="w-3 h-3" /> Sent Invites ({invitationsList.length})
+            </button>
+          </div>
+
+          <Button size="sm" variant="outline" onClick={loadData} className="text-xs font-semibold h-8 bg-card border-border hover:bg-muted text-foreground">
+            <Loader2 className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-amber-500' : 'text-muted-foreground'}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <Card className="bg-card text-card-foreground border-border shadow-sm overflow-hidden">
@@ -130,31 +184,115 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
               <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500">
                 <Loader2 className="w-6 h-6 animate-spin" />
               </div>
-              <span className="font-medium">Fetching pending vendor self-registrations...</span>
+              <span className="font-medium">Loading onboarding data...</span>
             </div>
-          ) : pendingList.length === 0 ? (
-            <div className="py-16 px-6 text-center flex flex-col items-center justify-center max-w-md mx-auto">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-sm">
-                <UserCheck className="w-7 h-7" />
+          ) : subTab === 'invitations' ? (
+            /* Sent Invitations View */
+            invitationsList.length === 0 ? (
+              <div className="py-16 px-6 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-sm">
+                  <Mail className="w-7 h-7" />
+                </div>
+                <h4 className="text-sm font-bold text-foreground tracking-tight">No Active Sent Invitations</h4>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  No pending onboarding links have been sent yet. Click "+ Invite Vendor" to dispatch a secure tokenized link to a supplier.
+                </p>
               </div>
-              <h4 className="text-sm font-bold text-foreground tracking-tight">No Pending Vendor Onboardings</h4>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                All vendor self-registrations have been reviewed. Send a new onboarding invite link to suppliers to collect their GSTIN, banking, and tax documents directly.
-              </p>
-            </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border bg-muted/40">
+                    <TableHead className="text-xs font-bold text-muted-foreground">Recipient Email</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground">Token</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground">Status & Expiry</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground">Invited By</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invitationsList.map(inv => {
+                    const isExpired = inv.expires_at ? new Date(inv.expires_at) < new Date() : false;
+                    return (
+                      <TableRow key={inv.invitation_id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                        <TableCell className="text-xs font-semibold text-foreground">
+                          {inv.email}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">
+                          {inv.token ? `${inv.token.slice(0, 16)}...` : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant={isExpired ? 'inactive' : 'success'} className="text-[10px] font-bold">
+                              {isExpired ? 'Expired' : inv.status || 'Active'}
+                            </Badge>
+                            {inv.expires_at && !isExpired && (
+                              <span className="text-[10px] text-muted-foreground">
+                                Expires {new Date(inv.expires_at).toLocaleDateString('en-IN')}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {inv.invited_by || 'Admin'}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap space-x-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCopyLink(inv.token)}
+                            className="text-xs border-border text-foreground hover:bg-muted font-medium h-7"
+                            title="Copy onboarding link to clipboard"
+                          >
+                            {copiedToken === inv.token ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+                            {copiedToken === inv.token ? 'Copied!' : 'Copy Link'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleResendInvite(inv.invitation_id)}
+                            disabled={resendingId === inv.invitation_id}
+                            className="text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/10 font-semibold h-7"
+                            title="Re-send onboarding invitation email"
+                          >
+                            {resendingId === inv.invitation_id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1 text-amber-500" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5 mr-1" />
+                            )}
+                            {resendingId === inv.invitation_id ? 'Sending...' : 'Resend Email'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-border bg-muted/40">
-                  <TableHead className="text-xs font-bold text-muted-foreground">Company Name</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">Email & Contact</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">GSTIN / PAN</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">Docs</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">Submitted</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            /* Pending Submissions View */
+            pendingList.length === 0 ? (
+              <div className="py-16 px-6 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-sm">
+                  <UserCheck className="w-7 h-7" />
+                </div>
+                <h4 className="text-sm font-bold text-foreground tracking-tight">No Pending Vendor Onboardings</h4>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  All vendor self-registrations have been reviewed. Send a new onboarding invite link to suppliers to collect their GSTIN, banking, and tax documents directly.
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border bg-muted/40">
+                    <TableHead className="text-xs font-bold text-muted-foreground">Company Name</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground">Email & Contact</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground">GSTIN / PAN</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground">Docs</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground">Submitted</TableHead>
+                    <TableHead className="text-xs font-bold text-muted-foreground text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {pendingList.map(sub => (
                   <TableRow key={sub.submission_id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
                     <TableCell className="text-xs font-semibold text-foreground">
@@ -186,6 +324,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
                 ))}
               </TableBody>
             </Table>
+            )
           )}
         </CardContent>
       </Card>

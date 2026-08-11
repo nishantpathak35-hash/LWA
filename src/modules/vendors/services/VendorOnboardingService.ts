@@ -375,4 +375,11 @@ export class VendorOnboardingService {
 
     return { ok: true, portal_access: newStatus };
   }
+
+  /**
+   * Internal ERP — List active/pending vendor invitations.
+   */
+  static async listActiveInvitations(userSession?: any): Promise<any[]> {
+    return VendorOnboardingRepository.findAllActiveInvitations();
+  }
 }

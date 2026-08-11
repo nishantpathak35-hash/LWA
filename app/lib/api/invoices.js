@@ -95,3 +95,7 @@ export async function deleteInvoice(invoiceId, session) {
   return InvoiceService.deleteInvoice(invoiceId, session);
 }
 
+export async function listActiveInvitations(session) {
+  return VendorOnboardingService.listActiveInvitations(session);
+}
+

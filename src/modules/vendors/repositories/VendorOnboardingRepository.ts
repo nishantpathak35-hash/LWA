@@ -118,4 +118,10 @@ export class VendorOnboardingRepository {
   static async findAllSubmissions(): Promise<IVendorOnboardingSubmission[]> {
     return queryAll(`SELECT * FROM vendor_onboarding_submissions ORDER BY id DESC`);
   }
+
+  static async findAllActiveInvitations(): Promise<IVendorOnboardingInvitation[]> {
+    return queryAll(
+      `SELECT * FROM vendor_onboarding_invitations WHERE status IN ('Invited', 'Opened', 'Expired') ORDER BY id DESC LIMIT 50`
+    );
+  }
 }
