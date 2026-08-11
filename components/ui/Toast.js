@@ -43,20 +43,21 @@ export function Toaster() {
         <div 
           key={t.id} 
           className={cn(
-            "pointer-events-auto flex items-center gap-3 bg-slate-950/90 backdrop-blur-md border px-4 py-3 rounded-xl shadow-2xl min-w-[320px] transition-all transform animate-in slide-in-from-bottom-5 fade-in duration-300",
-            t.type === 'success' ? "border-emerald-500/30" : 
-            t.type === 'error' ? "border-red-500/30" : "border-slate-800"
+            "pointer-events-auto flex items-center gap-3 bg-card/95 text-card-foreground backdrop-blur-xl border px-4 py-3 rounded-2xl shadow-2xl min-w-[320px] transition-all transform animate-in slide-in-from-bottom-5 fade-in duration-300",
+            t.type === 'success' ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : 
+            t.type === 'error' ? "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400" : 
+            "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
           )}
         >
           {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />}
-          {t.type === 'error' && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
-          {t.type === 'info' && <Info className="w-5 h-5 text-sky-500 flex-shrink-0" />}
+          {t.type === 'error' && <XCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />}
+          {t.type === 'info' && <Info className="w-5 h-5 text-amber-500 flex-shrink-0" />}
           
-          <span className="text-sm font-medium text-slate-100">{t.message}</span>
+          <span className="text-sm font-semibold text-foreground">{t.message}</span>
           
           <button 
             onClick={() => setToasts(prev => prev.filter(i => i.id !== t.id))} 
-            className="ml-auto text-slate-500 hover:text-slate-300 transition-colors p-1"
+            className="ml-auto text-muted-foreground hover:text-foreground transition-colors p-1"
           >
              <X className="w-4 h-4" />
           </button>

@@ -64,22 +64,12 @@ export function useNotifications({ call, user, enabled = true }) {
     }
   }, []);
 
-  // Play notification sound chime (rich 2-note glass chime)
+  // Play single ultra-clean, elegant notification chime (zero double-tone overlap)
   const playSound = useCallback(() => {
-    try {
-      playSynthChime();
-      if (audioRef.current && hasInteractedRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.volume = 0.9;
-        const p = audioRef.current.play();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      }
-    } catch (e) {
-      playSynthChime();
-    }
+    playSynthChime();
   }, []);
 
-  // Web Audio synth crystal glass chime (C6 + G6 2-note harmony)
+  // Web Audio synth crystal glass chime (E5 -> B5 soft warm harmony)
   const playSynthChime = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -91,31 +81,31 @@ export function useNotifications({ call, user, enabled = true }) {
 
       const now = ctx.currentTime;
 
-      // Primary tone: C6 (1046.5 Hz) - bright glass ping
+      // Note 1: E5 (659.25 Hz) - warm gentle bell attack
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(1046.5, now);
-      gain1.gain.setValueAtTime(0.7, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.frequency.setValueAtTime(659.25, now);
+      gain1.gain.setValueAtTime(0.25, now);
+      gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
       osc1.connect(gain1);
       gain1.connect(ctx.destination);
 
-      // Resonant harmonic: G6 (1567.98 Hz) - elegant 2nd note (ting!)
+      // Note 2: B5 (987.77 Hz) - subtle glass chime harmonic (ting)
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(1567.98, now + 0.08);
-      gain2.gain.setValueAtTime(0.001, now);
-      gain2.gain.setValueAtTime(0.85, now + 0.08);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc2.frequency.setValueAtTime(987.77, now + 0.05);
+      gain2.gain.setValueAtTime(0.0001, now);
+      gain2.gain.setValueAtTime(0.3, now + 0.05);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
       osc2.connect(gain2);
       gain2.connect(ctx.destination);
 
       osc1.start(now);
       osc1.stop(now + 0.35);
-      osc2.start(now + 0.08);
-      osc2.stop(now + 0.55);
+      osc2.start(now + 0.05);
+      osc2.stop(now + 0.45);
     } catch (e) {}
   };
 
