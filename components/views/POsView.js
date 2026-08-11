@@ -467,7 +467,7 @@ export default function POsView() {
         result = await call('updatePOFull', editingPoNo, payload);
         let msg = `Purchase Order ${editingPoNo} updated.`;
         if (result?.newStatus && result.newStatus !== (editingPO?.approval_status || editingPO?.status)) {
-          msg += `\n\nNote: PO value changed — status reset to ${result.newStatus} and requires re-approval.`;
+          msg += `\n\nNote: Approved PO was modified — status set to ${result.newStatus} and sent for approval again.`;
         }
         toast(msg);
       } else {

@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../ui/core';
 import { Download, Plus, Loader2, Key, UserCheck, UserMinus, Shield, Search, Ban, Trash2 } from 'lucide-react';
 import { cn } from '../../../app/lib/utils';
+import SortableHeader from '../../ui/SortableHeader';
+import { sortData } from '../../../app/lib/exportUtils';
 
 export default function SettingsUsersTab({
   usersSearch, setUsersSearch,
@@ -16,6 +18,22 @@ export default function SettingsUsersTab({
   handleToggleUserActive, handleDeleteUser,
   newRoleName, setNewRoleName, handleAddCustomRole
 }) {
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const processedUsers = useMemo(() => {
+    return sortData(filteredUsers || [], sortField, sortDir);
+  }, [filteredUsers, sortField, sortDir]);
+
   const getRoleBadge = (role) => {
     const r = String(role).toLowerCase();
     let variantClass = "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
@@ -88,16 +106,16 @@ export default function SettingsUsersTab({
             <Table id="tblUsers">
               <TableHeader>
                 <TableRow className="border-b border-border bg-muted/40 hover:bg-transparent">
-                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">User Details</TableHead>
+                  <SortableHeader field="name" label="User Details" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
                   <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Access Roles</TableHead>
-                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Status</TableHead>
-                  <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Last Active</TableHead>
+                  <SortableHeader field="active" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                  <SortableHeader field="lastLogin" label="Last Active" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
                   <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((u, idx) => {
+                {processedUsers.length > 0 ? (
+                  processedUsers.map((u, idx) => {
                     const isUserActive = u.active !== false;
                     const statusBadge = u.locked ? (
                       <Badge variant="error">locked</Badge>

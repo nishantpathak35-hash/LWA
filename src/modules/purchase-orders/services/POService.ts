@@ -148,9 +148,6 @@ export class POService {
     }
 
     const st = String(existing.approval_status || existing.status || 'Draft').toLowerCase();
-    if (st === 'pending approval' || st === 'pending_approval') {
-      throw new Error(`Cannot edit a PO that is Pending Approval. Withdraw or wait for approval decision first.`);
-    }
 
     let totalVal = payload.grandTotal || payload.poValue || 0;
     let gstTotal = Number(payload.gst_total || (payload as any).gstTotal) || 0;
@@ -173,17 +170,15 @@ export class POService {
       totalVal = subt + gstSum - tdsAmt;
     }
 
-    // Financial edit logic - reset status if financial fields change and not Draft
+    // Changing an approved PO resets status to Pending Approval (sent for approval again)
     let newStatus = existing.status;
     let newApprovalStatus = existing.approval_status;
     const oldVal = Number(existing.po_value || 0);
-    const hasFinancialEdit = (totalVal !== oldVal) || 
-                             (existing.vendor_key !== (payload.vendorCode || payload.vendor_key));
 
-    if (hasFinancialEdit && (st === 'approved' || st === 'active')) {
-      newStatus = 'Draft';
-      newApprovalStatus = 'Draft';
-      await logAudit(userEmail, 'PO Reset to Draft', `PO#${originalPoNo} value changed from ${oldVal} to ${totalVal}`, 'Procurement');
+    if (st === 'approved' || st === 'active') {
+      newStatus = 'Pending Approval';
+      newApprovalStatus = 'Pending Approval';
+      await logAudit(userEmail, 'PO Re-submitted for Approval', `PO#${originalPoNo} edited after approval - status set to Pending Approval for re-approval`, 'Procurement');
     }
 
     await PORepository.update(originalPoNo, {

@@ -1,20 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
-import { Search, Eye, Edit2, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Eye, Edit2, Copy, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
+import SortableHeader from '../../../ui/SortableHeader';
+import { exportToCSV, sortData } from '../../../../app/lib/exportUtils';
 
 export default function DPRHistory({ onNavigate, onEdit, onView }) {
   const { call, projects } = useAppState();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Filters
+  // Filters & Sorting
   const [selectedProject, setSelectedProject] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [approvalStatus, setApprovalStatus] = useState('');
+  const [sortField, setSortField] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
   const [page, setPage] = useState(0);
   const limit = 10;
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const processedReports = useMemo(() => {
+    return sortData(reports || [], sortField, sortDir);
+  }, [reports, sortField, sortDir]);
+
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'Date', key: 'date', formatter: v => v ? new Date(v).toLocaleDateString() : '' },
+      { label: 'Project', key: 'project' },
+      { label: 'Site', key: 'site' },
+      { label: 'Status', key: 'status' },
+      { label: 'Approval Status', key: 'approval_status' }
+    ];
+    exportToCSV('Daily_Progress_Reports.csv', columns, processedReports);
+  };
 
   useEffect(() => {
     fetchHistory();
@@ -47,7 +75,12 @@ export default function DPRHistory({ onNavigate, onEdit, onView }) {
       <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-sm font-semibold text-slate-200">Filters</h3>
-          <Button variant="primary" size="sm" onClick={() => onNavigate('new')}>Create DPR</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="text-xs">
+              <Download className="w-3.5 h-3.5 mr-1" /> Export CSV
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => onNavigate('new')}>Create DPR</Button>
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {/* Project dropdown */}
@@ -101,11 +134,11 @@ export default function DPRHistory({ onNavigate, onEdit, onView }) {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase">
               <tr>
-                <th className="px-6 py-4 font-medium">Date</th>
-                <th className="px-6 py-4 font-medium">Project</th>
-                <th className="px-6 py-4 font-medium">Site</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Approval</th>
+                <SortableHeader field="date" label="Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="project" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="site" label="Site" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="approval_status" label="Approval" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
                 <th className="px-6 py-4 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -114,12 +147,12 @@ export default function DPRHistory({ onNavigate, onEdit, onView }) {
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-slate-500">Loading history...</td>
                 </tr>
-              ) : reports.length === 0 ? (
+              ) : processedReports.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-slate-500">No reports found.</td>
                 </tr>
               ) : (
-                reports.map((dpr) => (
+                processedReports.map((dpr) => (
                   <tr key={dpr.id} className="hover:bg-slate-800/20">
                     <td className="px-6 py-4 whitespace-nowrap text-slate-300">
                       {new Date(dpr.date).toLocaleDateString()}

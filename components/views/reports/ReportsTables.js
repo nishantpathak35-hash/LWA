@@ -1,13 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Loader2, Mail } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Card, CardHeader, CardTitle, CardContent } from '../../ui/core';
 import { fmtRupees, fmtLakhs, stageBadge, wfSteps } from './report-utils';
+import SortableHeader from '../../ui/SortableHeader';
+import { sortData } from '../../../app/lib/exportUtils';
 
 export default function ReportsTables({
   loading, data, reportType, isAdmin, isFinance, isDirector, canRemit,
   handleSendPaymentAdvice, sendingAdviceId, handleOpenRemitModal, handleDeleteRemittedPayment, handleOpenEditModal
 }) {
-    return (
+  const [sortField, setSortField] = useState('id');
+  const [sortDir, setSortDir] = useState('desc');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  return (
     <>
       {(() => {
         if (loading) {
@@ -28,7 +42,8 @@ export default function ReportsTables({
     }
 
     if (reportType === 'TDS_Register') {
-      const entries = data.entries || [];
+      const rawEntries = data.entries || [];
+      const entries = sortData(rawEntries, sortField, sortDir);
       const summary = data.summary || {};
       const summaryKeys = Object.keys(summary);
 
@@ -36,19 +51,19 @@ export default function ReportsTables({
         <div className="space-y-6">
           <Table id="tblReports">
             <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>PO</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead className="text-right">Req. Amount</TableHead>
-                <TableHead className="text-right">App. Amount</TableHead>
-                <TableHead className="text-right font-semibold text-violet-600 dark:text-violet-400">TDS Amount</TableHead>
-                <TableHead className="text-right">TDS %</TableHead>
-                <TableHead>TDS Section</TableHead>
-                <TableHead>Govt Status</TableHead>
-                <TableHead>Deducted At</TableHead>
+              <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
+                <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="transaction_date" label="Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="project_id" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="po_id" label="PO" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="vendor_id" label="Vendor" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="amount_requested" label="Req. Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" />
+                <SortableHeader field="approved_amount" label="App. Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" />
+                <SortableHeader field="tds_amount" label="TDS Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" />
+                <SortableHeader field="tds_percentage" label="TDS %" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" />
+                <SortableHeader field="tds_section" label="TDS Section" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="government_payment_status" label="Govt Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="deducted_at" label="Deducted At" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
               </TableRow>
             </TableHeader>
             <TableBody>

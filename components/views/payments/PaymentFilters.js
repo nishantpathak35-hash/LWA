@@ -1,9 +1,9 @@
 import React from 'react';
 import { Button, Input } from '../../ui/core';
-import { CreditCard, PlusCircle, Search } from 'lucide-react';
+import { CreditCard, PlusCircle, Search, Download } from 'lucide-react';
 
 export default function PaymentFilters({
-  canOnboard, handleOpenRequestModal, activeTab, setActiveTab, searchQuery, setSearchQuery
+  canOnboard, handleOpenRequestModal, activeTab, setActiveTab, searchQuery, setSearchQuery, onExportCSV
 }) {
   return (
     <>
@@ -19,14 +19,20 @@ export default function PaymentFilters({
           </div>
         </div>
 
-        {canOnboard && (
-          <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {onExportCSV && (
+            <Button variant="outline" size="sm" onClick={onExportCSV} className="font-medium text-xs">
+              <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+              Export CSV
+            </Button>
+          )}
+          {canOnboard && (
             <Button variant="primary" size="sm" onClick={handleOpenRequestModal} className="font-medium">
               <PlusCircle className="w-4 h-4 mr-1.5" />
               New Payment Request
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Tabs Menu */}

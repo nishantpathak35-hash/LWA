@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppState } from '../../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../ui/core';
 import { toast } from '../../ui/Toast';
-import { Edit } from 'lucide-react';
+import { Edit, Download, Search } from 'lucide-react';
+import SortableHeader from '../../ui/SortableHeader';
+import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 
 export default function SettingsNumberSeriesTab() {
   const { call } = useAppState();
@@ -12,6 +14,41 @@ export default function SettingsNumberSeriesTab() {
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ prefix: '', current_number: 0, padding_length: 3 });
+
+  // Search & Sorting State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState('module_type');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const processedConfigs = useMemo(() => {
+    let result = (configs || []).filter(cfg => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (cfg.module_type || '').toLowerCase().includes(q) ||
+             (cfg.prefix || '').toLowerCase().includes(q);
+    });
+    return sortData(result, sortField, sortDir);
+  }, [configs, searchQuery, sortField, sortDir]);
+
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'Module Type', key: 'module_type' },
+      { label: 'Prefix', key: 'prefix' },
+      { label: 'Current Number', key: 'current_number' },
+      { label: 'Padding Length', key: 'padding_length' },
+      { label: 'Sample Format', key: 'sample', formatter: (v, item) => `${item.prefix || ''}${String(item.current_number || 0).padStart(Number(item.padding_length || 3), '0')}` }
+    ];
+    exportToCSV('Number_Series_Configurations.csv', columns, processedConfigs);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -53,8 +90,24 @@ export default function SettingsNumberSeriesTab() {
 
   return (
     <Card className="bg-card border-border shadow-xs rounded-xl">
-      <CardHeader className="p-6 border-b border-border bg-muted/20">
-        <CardTitle className="text-amber-800 dark:text-gold font-bold text-sm uppercase tracking-wider">Number Series Configuration</CardTitle>
+      <CardHeader className="flex flex-col sm:flex-row items-center justify-between p-6 border-b border-border bg-muted/20 gap-4">
+        <CardTitle className="text-amber-800 dark:text-gold font-bold text-sm uppercase tracking-wider">
+          Number Series Configuration ({processedConfigs.length})
+        </CardTitle>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="h-8 text-xs font-medium">
+            <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Export CSV
+          </Button>
+          <div className="relative flex-1 sm:w-60">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search module or prefix..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-8 text-xs h-8 bg-background border-input"
+            />
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="p-6">
         {editingId && (
@@ -82,15 +135,15 @@ export default function SettingsNumberSeriesTab() {
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border bg-muted/40 hover:bg-transparent">
-                <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Module Type</TableHead>
-                <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Prefix</TableHead>
-                <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Current Number</TableHead>
+                <SortableHeader field="module_type" label="Module Type" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="prefix" label="Prefix" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="current_number" label="Current Number" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
                 <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Format Preview</TableHead>
                 <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {configs.map(cfg => (
+              {processedConfigs.map(cfg => (
                 <TableRow key={cfg.id} className="border-b border-border/70 hover:bg-muted/40 transition-colors">
                   <TableCell className="font-bold text-xs capitalize text-slate-900 dark:text-slate-100 py-3">{cfg.module_type.replace('_', ' ')}</TableCell>
                   <TableCell className="text-xs font-mono text-slate-800 dark:text-slate-200 py-3">{cfg.prefix || '—'}</TableCell>

@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button, Input } from '../../ui/core';
-import { Search, ChevronDown, ChevronUp, Eye, Send, Edit2, Clock, CheckCircle, XCircle, Copy, Trash2, Wallet, History, MessageSquare } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Eye, Send, Edit2, Clock, CheckCircle, XCircle, Copy, Trash2, Wallet, History, MessageSquare, Download } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
+import SortableHeader from '../../ui/SortableHeader';
+import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 
 export default function POListTable({
   filteredPOs,
@@ -16,7 +18,38 @@ export default function POListTable({
   getStatusBadge, getPaymentStatusBadge,
   hasMorePOs, loadMorePOs
 }) {
-  const [loadingMore, setLoadingMore] = React.useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [sortField, setSortField] = useState('po_date');
+  const [sortDir, setSortDir] = useState('desc');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedPOs = useMemo(() => {
+    return sortData(filteredPOs || [], sortField, sortDir);
+  }, [filteredPOs, sortField, sortDir]);
+
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'PO Number', key: 'po_no' },
+      { label: 'PO Date', key: 'po_date', formatter: (v) => formatDate(v) },
+      { label: 'Vendor', key: 'vendor_name', formatter: (v, r) => r.vendor_name || r.vendor_key },
+      { label: 'Project', key: 'project' },
+      { label: 'Status', key: 'status', formatter: (v, r) => r.status || r.approval_status },
+      { label: 'Payment Status', key: 'payment_status' },
+      { label: 'PO Value', key: 'po_value', formatter: (v) => Number(v || 0) },
+      { label: 'Paid Amount', key: 'paid', formatter: (v) => Number(v || 0) },
+      { label: 'Balance', key: 'balance', formatter: (v, r) => Math.max(0, Number(r.po_value || 0) - Number(r.paid || 0)) }
+    ];
+    exportToCSV('Purchase_Orders_Database.csv', columns, sortedPOs);
+  };
+
   const handleLoadMore = async () => {
     setLoadingMore(true);
     await loadMorePOs();
@@ -26,21 +59,29 @@ export default function POListTable({
   return (
     <Card>
       <CardHeader className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3.5 px-6">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">PO Database ({filteredPOs.length})</CardTitle>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input type="text" placeholder="Search PO, Project, Vendor..." value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)} className="pl-9 text-xs py-1.5 h-8 bg-card" />
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          PO Database ({sortedPOs.length})
+        </CardTitle>
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="h-8 text-xs font-medium">
+            <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+            Export CSV
+          </Button>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input type="text" placeholder="Search PO, Project, Vendor..." value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)} className="pl-9 text-xs py-1.5 h-8 bg-card" />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        {filteredPOs.length === 0 ? (
+        {sortedPOs.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground text-sm font-medium">No purchase orders found.</div>
         ) : (
           <>
             {/* ── Mobile View: Cards Layout ── */}
             <div className="block md:hidden p-3 space-y-3">
-              {filteredPOs.map((po, idx) => {
+              {sortedPOs.map((po, idx) => {
                 const st = String(po.status || po.approval_status || 'Draft').toLowerCase();
                 const isDraft    = st === 'draft';
                 const isPending  = st === 'pending approval' || st === 'pending_approval';
@@ -89,7 +130,7 @@ export default function POListTable({
                       <Button variant="ghost" size="sm" onClick={() => handleViewPOHistory(po)} className="h-7 text-[11px] text-slate-400 hover:text-slate-200">
                         <MessageSquare className="w-3 h-3 mr-1" /> History
                       </Button>
-                      {canCreate && (isDraft || isApproved || isRejected) && (
+                      {canCreate && (isDraft || isPending || isApproved || isRejected) && (
                         <Button variant="ghost" size="sm" onClick={() => handleOpenModal(po.po_no)} className="h-7 text-[11px]">
                           <Edit2 className="w-3 h-3 mr-1" /> Edit
                         </Button>
@@ -109,28 +150,20 @@ export default function POListTable({
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
-                    <TableHead className="w-32 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Number</TableHead>
-                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">
-                      <button
-                        type="button"
-                        onClick={() => setPoDateSortDir(dir => dir === 'desc' ? 'asc' : 'desc')}
-                        className="inline-flex items-center gap-1 text-left font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                      >
-                        PO Date {poDateSortDir === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
-                      </button>
-                    </TableHead>
-                    <TableHead className="min-w-[180px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Vendor</TableHead>
-                    <TableHead className="min-w-[140px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Project</TableHead>
-                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Status</TableHead>
-                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Payment</TableHead>
-                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Value</TableHead>
-                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Paid Amount</TableHead>
-                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Balance</TableHead>
+                    <SortableHeader field="po_no" label="PO Number" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-32" />
+                    <SortableHeader field="po_date" label="PO Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <SortableHeader field="vendor_name" label="Vendor" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
+                    <SortableHeader field="project" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[140px]" />
+                    <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <SortableHeader field="payment_status" label="Payment" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <SortableHeader field="po_value" label="PO Value" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="paid" label="Paid Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="balance" label="Balance" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <TableHead className="text-center w-24 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPOs.map((po, idx) => {
+                  {sortedPOs.map((po, idx) => {
                     const st = String(po.status || po.approval_status || 'Draft').toLowerCase();
                     const isDraft    = st === 'draft';
                     const isPending  = st === 'pending approval' || st === 'pending_approval';
@@ -203,18 +236,16 @@ export default function POListTable({
                                     >
                                       <Send className="w-3.5 h-3.5 text-muted-foreground" /> Email PO
                                     </button>
-                                    {!isPending && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenActionMenuPoNo(null);
-                                          handleOpenModal(po.po_no);
-                                        }}
-                                        className="flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors text-left font-medium"
-                                      >
-                                        <Edit2 className="w-3.5 h-3.5 text-muted-foreground" /> Edit PO
-                                      </button>
-                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenActionMenuPoNo(null);
+                                        handleOpenModal(po.po_no);
+                                      }}
+                                      className="flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors text-left font-medium"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5 text-muted-foreground" /> Edit PO
+                                    </button>
                                     {canCreate && (isDraft || isRejected) && (
                                       <button
                                         type="button"

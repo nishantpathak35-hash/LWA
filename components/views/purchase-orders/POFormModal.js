@@ -93,7 +93,15 @@ export default function POFormModal(props) {
           {editingPO && String(editingPO.approval_status || editingPO.status || '').toLowerCase() === 'approved' && (
             <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 text-amber-800 dark:text-amber-400 text-xs">
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>This PO is <strong>Approved</strong>. Editing financial fields (value, vendor, line items) will reset it to <strong>Draft</strong> and require re-approval.</span>
+              <span>This PO is <strong>Approved</strong>. Saving changes to an approved PO will re-submit it for approval again.</span>
+            </div>
+          )}
+
+          {/* Status info for pending approval PO edits */}
+          {editingPO && ['pending approval', 'pending_approval'].includes(String(editingPO.approval_status || editingPO.status || '').toLowerCase()) && (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 text-blue-800 dark:text-blue-400 text-xs">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>This PO is currently <strong>Under Approval</strong>. You can update details before approvers finalize their decision.</span>
             </div>
           )}
 

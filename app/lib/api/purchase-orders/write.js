@@ -6,6 +6,7 @@ import { AuthService } from '../../../../src/modules/core/services/AuthService';
 import { logAudit, requireAdminConsole, ensureSettingsTable } from '../core.js';
 import { SYSTEM_FALLBACK_EMAIL } from '../../config.js';
 import { emitBroadcast } from '../../broadcast.js';
+import { createNotification } from '../notifications.js';
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -59,15 +60,12 @@ export async function updatePOFull(poNo, payload, session) {
   const totalVal = subtotal + gstTotal;
   const tdsAmount = Math.round(subtotal * (tdsPct / 100));
 
-  // Determine if financial fields changed (requires re-approval)
+  // Determine if editing an approved PO (requires re-approval)
   const existingStatus = String(existing.approval_status || existing.status || 'Draft').toLowerCase();
-  const financiallyChanged = (
-    Math.abs(Number(existing.po_value) - totalVal) > 0.5 ||
-    existing.vendor_name !== vendorName
-  );
-  // If approved PO has financial changes, demote back to Draft
-  const newStatus = (existingStatus === 'approved' && financiallyChanged)
-    ? 'Draft'
+  const isApprovedEdit = existingStatus === 'approved';
+  // Changing an approved PO resets status to Pending Approval (sent for approval again)
+  const newStatus = isApprovedEdit
+    ? 'Pending Approval'
     : (existing.approval_status || existing.status || 'Draft');
 
   // Build audit diff
@@ -168,11 +166,21 @@ export async function updatePOFull(poNo, payload, session) {
     `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
     [nextPoNo, 'PO Edited', session?.email || 'unknown', changesSummary, new Date().toISOString()]
   );
-  if (financiallyChanged && existingStatus === 'approved') {
+  if (isApprovedEdit) {
     await queryRun(
       `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
-      [nextPoNo, 'Re-submitted to Draft (Financial Change)', session?.email || 'unknown', 'PO value or vendor changed - approval reset to Draft', new Date().toISOString()]
+      [nextPoNo, 'PO Re-submitted for Approval', session?.email || 'unknown', 'Approved PO was edited and re-submitted for approval', new Date().toISOString()]
     );
+    await createNotification({
+      recipientRole: 'director',
+      type: 'approval_needed',
+      title: `PO #${nextPoNo} Modified & Re-submitted for Approval`,
+      body: `${session?.name || session?.email?.split('@')[0] || 'User'} modified approved PO worth ₹${Number(totalVal).toLocaleString('en-IN')}`,
+      recordType: 'Purchase Order',
+      recordId: String(nextPoNo),
+      actorName: session?.name || session?.email?.split('@')[0] || '',
+      actorEmail: session?.email || ''
+    });
   }
   await logAudit(session?.email || SYSTEM_FALLBACK_EMAIL, 'PO Updated', `PO#${nextPoNo} edited. Changes: ${changesSummary}`, 'Procurement');
   await emitBroadcast('po', 'updated', nextPoNo);

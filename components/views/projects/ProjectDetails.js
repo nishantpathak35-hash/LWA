@@ -1,9 +1,11 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Dialog, Button, Input } from '../../ui/core';
 import { formatCurrency } from '../../../app/lib/utils';
-import { Folder, TrendingUp, IndianRupee, Wallet } from 'lucide-react';
+import { Folder, TrendingUp, IndianRupee, Wallet, Download } from 'lucide-react';
 import { useAppState } from '../../StateProvider';
+import SortableHeader from '../../ui/SortableHeader';
+import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 
 export default function ProjectDetails({ selectedProject, projectPOs, onUpdateProject }) {
   const { call } = useAppState();
@@ -12,6 +14,34 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
   const [editClient, setEditClient] = useState('');
   const [editSiteAddress, setEditSiteAddress] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Sorting state for project PO ledger
+  const [sortField, setSortField] = useState('po_no');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const processedPOs = useMemo(() => {
+    return sortData(projectPOs || [], sortField, sortDir);
+  }, [projectPOs, sortField, sortDir]);
+
+  const handleExportPOsCSV = () => {
+    const columns = [
+      { label: 'PO Number', key: 'po_no', formatter: (v, r) => r.po_no || r.poNo },
+      { label: 'Vendor Name', key: 'vendor_name', formatter: (v, r) => r.vendor_name || r.vendor },
+      { label: 'Status', key: 'status' },
+      { label: 'PO Value', key: 'po_value', formatter: (v, r) => r.po_value || r.poValue || r.amount }
+    ];
+    const projName = (selectedProject?.project || 'Project').replace(/\s+/g, '_');
+    exportToCSV(`${projName}_POs_Ledger.csv`, columns, processedPOs);
+  };
 
   useEffect(() => {
     if (selectedProject) {
@@ -121,14 +151,22 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
 
       {/* POs Table */}
       <Card className="bg-card border-border/80 shadow-2xs">
-        <CardHeader className="border-b border-border/80 py-3.5 px-6">
+        <CardHeader className="border-b border-border/80 py-3.5 px-6 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <Folder className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <CardTitle className="text-xs font-semibold text-foreground uppercase tracking-wider">POs Linked to {selectedProject.project}</CardTitle>
+            <CardTitle className="text-xs font-semibold text-foreground uppercase tracking-wider">
+              POs Linked to {selectedProject.project} ({processedPOs.length})
+            </CardTitle>
           </div>
+          {processedPOs.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handleExportPOsCSV} className="h-7 text-xs font-medium">
+              <Download className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+              Export POs
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
-          {projectPOs.length === 0 ? (
+          {processedPOs.length === 0 ? (
             <div className="p-10 text-muted-foreground text-center text-xs font-medium">
               No purchase orders registered under this project.
             </div>
@@ -136,14 +174,14 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
-                  <TableHead className="w-32 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Number</TableHead>
-                  <TableHead className="min-w-[180px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Vendor</TableHead>
-                  <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Status</TableHead>
-                  <TableHead className="text-right py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Value</TableHead>
+                  <SortableHeader field="po_no" label="PO Number" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-32" />
+                  <SortableHeader field="vendor_name" label="Vendor" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
+                  <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                  <SortableHeader field="po_value" label="PO Value" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-32" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {projectPOs.map((po, idx) => (
+                {processedPOs.map((po, idx) => (
                   <TableRow key={idx} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150">
                     <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
                       <a href={`/po/${encodeURIComponent(po.po_no || po.poNo)}`} target="_blank" rel="noreferrer" title={`Open PO ${po.po_no || po.poNo}`}>

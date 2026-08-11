@@ -1,57 +1,58 @@
-import { GlobalConfigRepository } from '../repositories/GlobalConfigRepository';
-import { TDSService } from './TDSService';
+import { SettingsRepository } from '../repositories/SettingsRepository';
 
-/**
- * Global Configuration Service.
- * Central access point for all cross-module configuration settings.
- */
 export class GlobalConfigService {
   /**
-   * Gets a configuration value by key.
+   * Retrieves a setting by key with an optional fallback.
    */
-  static async getConfig(key: string): Promise<string | null> {
-    const row = await GlobalConfigRepository.get(key);
-    return row?.config_value ?? null;
+  static async getSetting(key: string, defaultValue: string = ''): Promise<string> {
+    try {
+      const setting = await SettingsRepository.get(key);
+      return setting?.value ?? defaultValue;
+    } catch (err) {
+      console.error(`Failed to get setting "${key}":`, err);
+      return defaultValue;
+    }
   }
 
   /**
-   * Sets a configuration value.
+   * Sets or updates a setting by key.
    */
-  static async setConfig(key: string, value: string, options?: { type?: string; module?: string; description?: string }) {
-    await GlobalConfigRepository.set(key, value, options?.type || 'string', options?.module || 'global', options?.description || '');
-    return { ok: true };
+  static async setSetting(key: string, value: string): Promise<boolean> {
+    try {
+      await SettingsRepository.set(key, value);
+      return true;
+    } catch (err) {
+      console.error(`Failed to set setting "${key}":`, err);
+      return false;
+    }
   }
 
   /**
-   * Gets all configurations, optionally filtered by module.
+   * Gets the global default TDS section code.
    */
-  static async getAllConfigs(module?: string) {
-    return module ? GlobalConfigRepository.findByModule(module) : GlobalConfigRepository.findAll();
+  static async getDefaultTDS(): Promise<string> {
+    return this.getSetting('default_tds', '194C');
   }
 
   /**
-   * Gets the default TDS section code from global config.
-   * Falls back to '194C' if not configured.
+   * Sets the global default TDS section code.
    */
-  static async getDefaultTDSCode(): Promise<string> {
-    const config = await GlobalConfigRepository.get('default_tds_section');
-    return config?.config_value || '194C';
+  static async setDefaultTDS(sectionCode: string): Promise<{ ok: boolean; sectionCode: string }> {
+    const success = await this.setSetting('default_tds', sectionCode);
+    return { ok: success, sectionCode };
   }
 
   /**
-   * Gets the full default TDS section details.
+   * Gets the global PO prefix.
    */
-  static async getDefaultTDS(): Promise<any> {
-    const code = await this.getDefaultTDSCode();
-    const section = await TDSService.getSectionByCode(code);
-    return section || { section_code: code, rate: 2, description: 'Default' };
+  static async getPOPrefix(): Promise<string> {
+    return this.getSetting('po_prefix', 'PO-');
   }
 
   /**
-   * Sets the default TDS section in global config.
+   * Sets the global PO prefix.
    */
-  static async setDefaultTDS(sectionCode: string) {
-    await GlobalConfigRepository.set('default_tds_section', sectionCode, 'string', 'global', 'Default TDS section for new records');
-    return { ok: true };
+  static async setPOPrefix(prefix: string): Promise<boolean> {
+    return this.setSetting('po_prefix', prefix);
   }
 }

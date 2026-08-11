@@ -248,6 +248,22 @@ export default function PaymentsView() {
     return payments.filter(p => selectedPayments.includes(p.id));
   }, [payments, selectedPayments]);
 
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'PR ID', key: 'id' },
+      { label: 'Date', key: 'created_at', formatter: (v) => formatDate(v) },
+      { label: 'Vendor', key: 'vendor_name', formatter: (v, r) => r.vendor_name || r.vendor },
+      { label: 'Project', key: 'project' },
+      { label: 'PO Number', key: 'po_no' },
+      { label: 'Gross Amount', key: 'amount_requested', formatter: (v, r) => Number(r.amount_requested || r.gross_amount || 0) },
+      { label: 'TDS Amount', key: 'tds_amount', formatter: (v, r) => Number(r.tds_amount || 0) },
+      { label: 'Net Payable', key: 'net_amount', formatter: (v, r) => Number(r.net_amount || r.amount_requested || 0) },
+      { label: 'Status', key: 'status' },
+      { label: 'Current Stage', key: 'approval_stage', formatter: (v, r) => r.approval_stage || r.stage }
+    ];
+    exportToCSV('Payment_Requests.csv', columns, filteredRequests);
+  };
+
   const projectsForSelection = useMemo(() => {
     const projectsMap = new Map(); // Project Name -> [Requests]
     selectedRequestsData.forEach(req => {
@@ -630,7 +646,6 @@ export default function PaymentsView() {
     if (isDirector && stage.includes('director')) showActions = true;
     if (isFinance && stage.includes('remit')) { showActions = true; isRemit = true; }
 
-    // Admin can perform all actions
     if (isAdmin) {
       showActions = true;
       if (stage.includes('remit')) isRemit = true;
@@ -755,6 +770,7 @@ export default function PaymentsView() {
         handleOpenRequestModal={handleOpenRequestModal}
         activeTab={activeTab} setActiveTab={setActiveTab}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+        onExportCSV={handleExportCSV}
       />
       
       <MultiSelectActionBar
@@ -841,7 +857,7 @@ export default function PaymentsView() {
           editingPrId={editingPrId}
         />
       )}
-      
+
       <PaymentApprovalModal
         workflowModalOpen={workflowModalOpen} setWorkflowModalOpen={setWorkflowModalOpen}
         selectedRequest={selectedRequest} workflowAction={workflowAction}

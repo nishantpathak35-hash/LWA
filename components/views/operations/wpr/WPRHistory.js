@@ -1,20 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, Button } from '../../../ui/core';
-import { Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, Trash2, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useAppState } from '../../../StateProvider';
+import SortableHeader from '../../../ui/SortableHeader';
+import { exportToCSV, sortData } from '../../../../app/lib/exportUtils';
 
 export default function WPRHistory({ onNavigate, onView }) {
   const { call, projects, user } = useAppState();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters
+  // Filters & Sorting
   const [selectedProject, setSelectedProject] = useState('');
+  const [sortField, setSortField] = useState('week_start');
+  const [sortDir, setSortDir] = useState('desc');
   const [page, setPage] = useState(0);
   const limit = 10;
 
   const userRoles = Array.isArray(user?.roles) ? user.roles : (user?.role ? [user.role] : []);
   const isApprover = user?.is_admin || userRoles.some(r => ['admin', 'director', 'approver', 'manager', 'finance'].includes(String(r).toLowerCase()));
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const processedReports = useMemo(() => {
+    return sortData(reports || [], sortField, sortDir);
+  }, [reports, sortField, sortDir]);
+
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'Week Start', key: 'week_start' },
+      { label: 'Week End', key: 'week_end' },
+      { label: 'Project', key: 'project' },
+      { label: 'Planned Progress %', key: 'planned_progress' },
+      { label: 'Actual Progress %', key: 'actual_progress' },
+      { label: 'Variance %', key: 'variance' }
+    ];
+    exportToCSV('Weekly_Progress_Reports.csv', columns, processedReports);
+  };
 
   useEffect(() => {
     fetchHistory();
@@ -75,7 +104,12 @@ export default function WPRHistory({ onNavigate, onView }) {
             ))}
           </select>
         </div>
-        <Button variant="primary" size="sm" onClick={() => onNavigate('new')}>Generate WPR</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="text-xs">
+            <Download className="w-3.5 h-3.5 mr-1" /> Export CSV
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => onNavigate('new')}>Generate WPR</Button>
+        </div>
       </div>
 
       {/* List */}
@@ -84,11 +118,11 @@ export default function WPRHistory({ onNavigate, onView }) {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase">
               <tr>
-                <th className="px-6 py-4 font-medium">Period</th>
-                <th className="px-6 py-4 font-medium">Project</th>
-                <th className="px-6 py-4 font-medium">Planned</th>
-                <th className="px-6 py-4 font-medium">Actual</th>
-                <th className="px-6 py-4 font-medium">Variance</th>
+                <SortableHeader field="week_start" label="Period" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="project" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="planned_progress" label="Planned" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="actual_progress" label="Actual" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="variance" label="Variance" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
                 <th className="px-6 py-4 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -97,12 +131,12 @@ export default function WPRHistory({ onNavigate, onView }) {
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-slate-500">Loading history...</td>
                 </tr>
-              ) : reports.length === 0 ? (
+              ) : processedReports.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-slate-500">No WPR reports found.</td>
                 </tr>
               ) : (
-                reports.map((wpr) => (
+                processedReports.map((wpr) => (
                   <tr key={wpr.id} className="hover:bg-slate-800/20">
                     <td className="px-6 py-4 whitespace-nowrap text-slate-300">
                       {wpr.week_start} to {wpr.week_end}

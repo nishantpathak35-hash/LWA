@@ -1,10 +1,10 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppState } from '../../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
 import { toast } from '../../ui/Toast';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, Search } from 'lucide-react';
+import SortableHeader from '../../ui/SortableHeader';
+import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 
 export default function SettingsTDSTab() {
   const { call } = useAppState();
@@ -12,6 +12,41 @@ export default function SettingsTDSTab() {
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ section_code: '', rate: '', description: '' });
+
+  // Search & Sorting State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState('section_code');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const processedSections = useMemo(() => {
+    let result = (sections || []).filter(s => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (s.section_code || '').toLowerCase().includes(q) ||
+             (s.description || '').toLowerCase().includes(q);
+    });
+    return sortData(result, sortField, sortDir);
+  }, [sections, searchQuery, sortField, sortDir]);
+
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'Section Code', key: 'section_code' },
+      { label: 'Rate %', key: 'rate' },
+      { label: 'Description', key: 'description' },
+      { label: 'Is Active', key: 'is_active', formatter: v => v ? 'Active' : 'Inactive' },
+      { label: 'Is Default', key: 'is_default', formatter: v => v ? 'Yes' : 'No' }
+    ];
+    exportToCSV('TDS_Sections_Master.csv', columns, processedSections);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -95,8 +130,24 @@ export default function SettingsTDSTab() {
 
   return (
     <Card className="bg-card border-border shadow-xs rounded-xl">
-      <CardHeader className="flex flex-row items-center justify-between p-6 border-b border-border bg-muted/20">
-        <CardTitle className="text-amber-800 dark:text-gold font-bold text-sm uppercase tracking-wider">TDS Sections Configuration</CardTitle>
+      <CardHeader className="flex flex-col sm:flex-row items-center justify-between p-6 border-b border-border bg-muted/20 gap-4">
+        <CardTitle className="text-amber-800 dark:text-gold font-bold text-sm uppercase tracking-wider">
+          TDS Sections Configuration ({processedSections.length})
+        </CardTitle>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="h-8 text-xs font-medium">
+            <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Export CSV
+          </Button>
+          <div className="relative flex-1 sm:w-60">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search section..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-8 text-xs h-8 bg-background border-input"
+            />
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="p-6">
         <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-muted/30 rounded-xl border border-border items-end">
@@ -124,16 +175,16 @@ export default function SettingsTDSTab() {
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border bg-muted/40 hover:bg-transparent">
-                <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Section</TableHead>
-                <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Rate %</TableHead>
-                <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Description</TableHead>
-                <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Status</TableHead>
-                <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase">Default</TableHead>
+                <SortableHeader field="section_code" label="Section" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="rate" label="Rate %" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="description" label="Description" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="is_active" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="is_default" label="Default" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
                 <TableHead className="text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sections.map(sec => (
+              {processedSections.map(sec => (
                 <TableRow key={sec.id} className="border-b border-border/70 hover:bg-muted/40 transition-colors">
                   <TableCell className="font-bold text-xs font-mono text-amber-700 dark:text-gold py-3">{sec.section_code}</TableCell>
                   <TableCell className="text-xs font-bold text-slate-900 dark:text-slate-100 py-3">{sec.rate}%</TableCell>

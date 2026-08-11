@@ -1,16 +1,34 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
 import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail, MessageSquare } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import { getPaymentPriorityScore } from '../../../app/lib/paymentAI';
+import SortableHeader from '../../ui/SortableHeader';
+import { sortData } from '../../../app/lib/exportUtils';
 
 export default function PaymentListTable({
   displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector, pos, getWorkflowActionButton, handleSendPaymentAdvice,
   selectedPayments = [], onSelectPayment, onSelectAll, canActOnReq, onEditPayment,
   hasMorePayments, loadMorePayments
 }) {
-  const allSelected = displayedRequests.length > 0 && selectedPayments.length === displayedRequests.filter(canActOnReq).length;
-  const [loadingMore, setLoadingMore] = React.useState(false);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const processedRequests = useMemo(() => {
+    return sortData(displayedRequests || [], sortField, sortDir);
+  }, [displayedRequests, sortField, sortDir]);
+
+  const allSelected = processedRequests.length > 0 && selectedPayments.length === processedRequests.filter(canActOnReq).length;
+  const [loadingMore, setLoadingMore] = useState(false);
   const handleLoadMore = async () => {
     setLoadingMore(true);
     await loadMorePayments();
@@ -110,21 +128,21 @@ export default function PaymentListTable({
                         onChange={(e) => onSelectAll?.(e.target.checked)}
                       />
                     </TableHead>
-                    <TableHead className="w-16 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">ID</TableHead>
-                    <TableHead className="w-24 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Date</TableHead>
-                    <TableHead className="min-w-[140px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Vendor</TableHead>
-                    <TableHead className="min-w-[130px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Project</TableHead>
-                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Number</TableHead>
-                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">PO Amount</TableHead>
-                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Paid Amount</TableHead>
-                    <TableHead className="text-right py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Net Value</TableHead>
-                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Status</TableHead>
-                    <TableHead className="w-32 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Current Stage</TableHead>
+                    <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-16" />
+                    <SortableHeader field="created_at" label="Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-24" />
+                    <SortableHeader field="vendor_name" label="Vendor" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[140px]" />
+                    <SortableHeader field="project" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[130px]" />
+                    <SortableHeader field="po_no" label="PO Number" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <SortableHeader field="po_value" label="PO Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="paid" label="Paid Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="amount_requested" label="Net Value" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <SortableHeader field="approval_stage" label="Current Stage" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-32" />
                     <TableHead className="text-center w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayedRequests.map((req, idx) => {
+                  {processedRequests.map((req, idx) => {
                     const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
                     const poValue = Number(relatedPO ? (relatedPO.po_value || relatedPO.poValue) : (req.po_value || 0));
                     const paidAmount = Number(relatedPO ? (relatedPO.paid ?? relatedPO.legacy_paid ?? 0) : 0);

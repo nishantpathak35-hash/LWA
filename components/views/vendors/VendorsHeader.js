@@ -1,13 +1,61 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog } from '../../ui/core';
-import { PlusCircle, Search, Eye, Edit2, CreditCard, Trash2, AlertTriangle } from 'lucide-react';
-import { Users } from 'lucide-react';
+import { PlusCircle, Search, Eye, Edit2, CreditCard, Trash2, AlertTriangle, Download, Users } from 'lucide-react';
+import SortableHeader from '../../ui/SortableHeader';
+import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 
 export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVendors, searchQuery, setSearchQuery, handleOpenViewModal, handleOpenEditModal, setActiveView, hasMoreVendors, loadMoreVendors, handleDeleteVendor }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+
+  // Sorting & Filtering State
+  const [sortField, setSortField] = useState('code');
+  const [sortDir, setSortDir] = useState('asc');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [gstFilter, setGstFilter] = useState('all');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const processedVendors = useMemo(() => {
+    let result = filteredVendors.filter(v => {
+      if (statusFilter !== 'all') {
+        const st = String(v.status || 'Active').toLowerCase();
+        if (statusFilter === 'active' && st !== 'active') return false;
+        if (statusFilter === 'inactive' && st === 'active') return false;
+      }
+      if (gstFilter !== 'all') {
+        const hasGst = Boolean(v.gstin && v.gstin.trim());
+        if (gstFilter === 'registered' && !hasGst) return false;
+        if (gstFilter === 'unregistered' && hasGst) return false;
+      }
+      return true;
+    });
+
+    return sortData(result, sortField, sortDir);
+  }, [filteredVendors, statusFilter, gstFilter, sortField, sortDir]);
+
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'Vendor Code', key: 'code' },
+      { label: 'Display Name', key: 'name' },
+      { label: 'Legal Name', key: 'legalName' },
+      { label: 'GSTIN', key: 'gstin' },
+      { label: 'PAN', key: 'pan' },
+      { label: 'Status', key: 'status' },
+      { label: 'Email', key: 'email' },
+      { label: 'Address', key: 'address' }
+    ];
+    exportToCSV('Vendors_Directory.csv', columns, processedVendors);
+  };
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
@@ -43,30 +91,61 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
             <p className="text-xs text-muted-foreground mt-0.5 font-medium">Manage onboarded vendor files and profiles.</p>
           </div>
         </div>
- 
-        <Button variant="primary" size="sm" onClick={handleOpenModal} className="font-medium">
-          <PlusCircle className="w-4 h-4 mr-1.5" />
-          Onboard Vendor
-        </Button>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="font-medium text-xs">
+            <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+            Export CSV
+          </Button>
+          <Button variant="primary" size="sm" onClick={handleOpenModal} className="font-medium">
+            <PlusCircle className="w-4 h-4 mr-1.5" />
+            Onboard Vendor
+          </Button>
+        </div>
       </div>
  
-      {/* Search and Table Grid */}
+      {/* Search, Filter and Table Grid */}
       <Card>
-        <CardHeader className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3.5 px-6">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Registered Vendors ({filteredVendors.length})</CardTitle>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search name, code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs py-1.5 h-8 bg-card"
-            />
+        <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4 py-3.5 px-6">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Registered Vendors ({processedVendors.length})
+          </CardTitle>
+          
+          <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="px-3 py-1.5 bg-background border border-input rounded-lg text-xs font-semibold text-foreground focus:outline-none focus:border-gold/50 cursor-pointer"
+            >
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
+            <select
+              value={gstFilter}
+              onChange={e => setGstFilter(e.target.value)}
+              className="px-3 py-1.5 bg-background border border-input rounded-lg text-xs font-semibold text-foreground focus:outline-none focus:border-gold/50 cursor-pointer"
+            >
+              <option value="all">All GST Types</option>
+              <option value="registered">GST Registered</option>
+              <option value="unregistered">Unregistered</option>
+            </select>
+
+            <div className="relative w-full sm:w-60">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search name, code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 text-xs py-1.5 h-8 bg-card"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {filteredVendors.length === 0 ? (
+          {processedVendors.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground text-sm font-medium">
               No vendors found matching your filters.
             </div>
@@ -75,16 +154,16 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
-                    <TableHead className="w-28 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Code</TableHead>
-                    <TableHead className="min-w-[180px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Display Name</TableHead>
-                    <TableHead className="min-w-[180px] py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Legal Name</TableHead>
-                    <TableHead className="w-36 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">GSTIN</TableHead>
-                    <TableHead className="w-28 py-3 px-3 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Status</TableHead>
+                    <SortableHeader field="code" label="Code" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <SortableHeader field="name" label="Display Name" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
+                    <SortableHeader field="legalName" label="Legal Name" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
+                    <SortableHeader field="gstin" label="GSTIN" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-36" />
+                    <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
                     <TableHead className="text-center w-48 py-3 px-4 font-medium text-[11px] text-slate-500 dark:text-slate-400 tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVendors.map((v, idx) => (
+                  {processedVendors.map((v, idx) => (
                     <TableRow key={idx} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150">
                       <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">{v.code}</TableCell>
                       <TableCell className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[220px]" title={v.name}>{v.name}</TableCell>

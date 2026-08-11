@@ -83,6 +83,8 @@ export async function getAuditLogs(filters = {}, session) {
   };
 }
 
+export { getAuditLogs as listAuditLog };
+
 
 export async function getPaymentReportRows(filters = {}, session) {
   requireAuth(session);
