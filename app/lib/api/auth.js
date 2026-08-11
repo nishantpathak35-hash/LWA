@@ -147,6 +147,9 @@ export async function getMySession(token) {
   
   try {
     const payload = decryptToken(token);
+    if (!payload || payload.user_type === 'vendor') {
+      throw new Error('AUTH:Invalid internal token');
+    }
     if (payload.exp < Date.now()) {
       throw new Error('AUTH:Token expired');
     }
