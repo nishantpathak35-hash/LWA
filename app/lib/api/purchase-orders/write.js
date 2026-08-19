@@ -44,6 +44,10 @@ export async function updatePOFull(poNo, payload, session) {
   const tdsPct = Number(payload.tdsPct ?? payload.tds_pct ?? existing.tds_pct ?? 0);
   const gstMode = payload.gstMode || payload.gst_mode || existing.gst_mode || 'inter';
 
+  const paymentDeliveryTerms = payload.paymentDeliveryTerms ?? payload.payment_delivery_terms ?? existing.payment_delivery_terms ?? '';
+  const generalTerms = payload.generalTerms ?? payload.general_terms ?? existing.general_terms ?? '';
+  const terms = payload.terms ?? existing.terms ?? '';
+
   // Compute totals from line items (same logic as the frontend calcItem)
   let subtotal = 0;
   let gstTotal = 0;
@@ -51,7 +55,7 @@ export async function updatePOFull(poNo, payload, session) {
   for (const item of items) {
     const qty = Number(item.qty || item.quantity || 0);
     const rate = Number(item.rate || 0);
-    const gstPct = Number(item.tax_pct || item.gstPct || 0);
+    const gstPct = Number(item.tax_pct ?? item.gstPct ?? item.tax ?? 18);
     const gross = qty * rate;
     const gstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(gross * gstPct / 100);
     subtotal += gross;
@@ -76,7 +80,9 @@ export async function updatePOFull(poNo, payload, session) {
     ['project', 'Project', payload.project || ''],
     ['po_value', 'PO Value', totalVal],
     ['po_date', 'PO Date', payload.poDate || ''],
-    ['terms', 'Terms', payload.terms || ''],
+    ['terms', 'Terms', terms],
+    ['payment_delivery_terms', 'Payment & Delivery Terms', paymentDeliveryTerms],
+    ['general_terms', 'General Terms', generalTerms],
     ['expected_delivery_date', 'Expected Delivery', payload.expectedDeliveryDate || ''],
     ['notes', 'Notes', payload.notes || ''],
     ['tds_section', 'TDS Section', tdsSection],
@@ -95,7 +101,7 @@ export async function updatePOFull(poNo, payload, session) {
   if (expectedVersion !== undefined && expectedVersion !== null) {
     const result = await queryRun(
       `UPDATE purchase_orders SET
-        po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
+        po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
         approval_status = ?, status = ?,
         tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
         expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
@@ -104,7 +110,7 @@ export async function updatePOFull(poNo, payload, session) {
       [nextPoNo,
        payload.vendorCode || payload.vendor_key || existing.vendor_key || '',
        vendorName, payload.project || '', totalVal, totalVal,
-       payload.poDate || existing.po_date || '', payload.terms || '',
+       payload.poDate || existing.po_date || '', terms, paymentDeliveryTerms, generalTerms,
        newStatus, newStatus,
        tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
        payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
@@ -117,7 +123,7 @@ export async function updatePOFull(poNo, payload, session) {
   } else {
     await queryRun(
       `UPDATE purchase_orders SET
-        po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?,
+        po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
         approval_status = ?, status = ?,
         tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
         expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
@@ -126,7 +132,7 @@ export async function updatePOFull(poNo, payload, session) {
       [nextPoNo,
        payload.vendorCode || payload.vendor_key || existing.vendor_key || '',
        vendorName, payload.project || '', totalVal, totalVal,
-       payload.poDate || existing.po_date || '', payload.terms || '',
+       payload.poDate || existing.po_date || '', terms, paymentDeliveryTerms, generalTerms,
        newStatus, newStatus,
        tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
        payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
@@ -147,7 +153,7 @@ export async function updatePOFull(poNo, payload, session) {
   await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [nextPoNo]);
   if (items.length) {
     for (const item of items) {
-      const itemGstPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
+      const itemGstPct = Number(item.tax_pct ?? item.gstPct ?? item.tax ?? 18);
       const itemQty = Number(item.qty || item.quantity || 0);
       const itemRate = Number(item.rate || 0);
       const itemGross = itemQty * itemRate;

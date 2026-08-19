@@ -96,6 +96,9 @@ export default function POsView() {
   const [tdsSection, setTdsSection]     = useState('');
   const [tdsPct, setTdsPct]             = useState(0);
   const [terms, setTerms]               = useState('');
+  const [paymentDeliveryTerms, setPaymentDeliveryTerms] = useState('');
+  const [generalTerms, setGeneralTerms]                 = useState('');
+  const [savingGlobalTerms, setSavingGlobalTerms]       = useState(false);
   const [notes, setNotes]               = useState('');
   const [formError, setFormError]       = useState(null);
   const [submitting, setSubmitting]     = useState(false);
@@ -255,13 +258,15 @@ export default function POsView() {
                 quantity: it.quantity || it.qty || 1,
                 unit: it.unit || it.uom || 'Nos',
                 rate: it.rate || 0,
-                gstPct: Number(it.gstPct || it.tax_pct) || 18
+                gstPct: (it.gstPct !== undefined && it.gstPct !== null) ? Number(it.gstPct) : ((it.tax_pct !== undefined && it.tax_pct !== null) ? Number(it.tax_pct) : 18)
               }))
             : [{ description: '', hsnSac: '', quantity: 1, unit: 'Nos', rate: 0, gstPct: 18 }]
           );
           setTdsSection(poDetails.tds_section || '');
           setTdsPct(Number(poDetails.tds_pct) || 0);
           setTerms(poDetails.terms || '');
+          setPaymentDeliveryTerms(poDetails.payment_delivery_terms || poDetails.terms || '');
+          setGeneralTerms(poDetails.general_terms || '');
           setNotes(poDetails.notes || '');
           setPaymentData(paymentsRes || null);
           setShowPayments(false);
@@ -287,6 +292,10 @@ export default function POsView() {
       setTdsSection(defaultTds?.section_code || '');
       setTdsPct(defaultTds?.rate || 0);
       setTerms('');
+      setPaymentDeliveryTerms('');
+      call('getDefaultPOGeneralTerms')
+        .then(def => setGeneralTerms(def || ''))
+        .catch(() => setGeneralTerms(''));
       setNotes('');
       setPaymentData(null);
       setShowPayments(false);
@@ -297,7 +306,35 @@ export default function POsView() {
         .then(nextNo => setPoNo(nextNo || ''))
         .catch(() => setPoNo(''));
     }
-  }, [call, projects, vendors]);
+  }, [call, projects, vendors, tdsSections]);
+
+  const handleApplyDefaultGeneralTerms = async () => {
+    try {
+      const defTerms = await call('getDefaultPOGeneralTerms');
+      if (defTerms) {
+        setGeneralTerms(defTerms);
+        toast('Loaded global default General Terms & Conditions');
+      }
+    } catch (e) {
+      toast.error('Failed to load global default terms: ' + e.message);
+    }
+  };
+
+  const handleSaveGlobalGeneralTerms = async () => {
+    if (!generalTerms.trim()) {
+      toast.error('General terms cannot be empty');
+      return;
+    }
+    setSavingGlobalTerms(true);
+    try {
+      await call('setDefaultPOGeneralTerms', generalTerms.trim());
+      toast.success('Saved General Terms & Conditions as Global Default for all POs!');
+    } catch (e) {
+      toast.error('Failed to save global default terms: ' + e.message);
+    } finally {
+      setSavingGlobalTerms(false);
+    }
+  };
 
   // ── Keyboard shortcut: G → O → N opens New PO modal ──
   useEffect(() => {
@@ -446,7 +483,11 @@ export default function POsView() {
         tds_pct: tdsPct, tdsPct,
         tds_amount: tdsAmount,
         gst_mode: gstMode,
-        terms: terms.trim(),
+        terms: (paymentDeliveryTerms.trim() || terms.trim()),
+        paymentDeliveryTerms: paymentDeliveryTerms.trim(),
+        payment_delivery_terms: paymentDeliveryTerms.trim(),
+        generalTerms: generalTerms.trim(),
+        general_terms: generalTerms.trim(),
         notes: notes.trim(),
         status: 'Draft',
         expectedVersion: editingPO?.version,
@@ -456,7 +497,8 @@ export default function POsView() {
             description: item.description,
             hsn_sac: item.hsnSac,
             qty: Number(item.quantity), unit: item.unit || 'Nos', rate: Number(item.rate),
-            tax_pct: Number(item.gstPct), gst_amount: gstAmt, amount: total
+            tax_pct: (item.gstPct !== undefined && item.gstPct !== null) ? Number(item.gstPct) : 18,
+            gst_amount: gstAmt, amount: total
           };
         })
       };
@@ -546,6 +588,8 @@ export default function POsView() {
       setCategory(details.category || 'Goods');
       setGstMode(details.gst_mode || 'inter');
       setTerms(details.terms || '');
+      setPaymentDeliveryTerms(details.payment_delivery_terms || details.terms || '');
+      setGeneralTerms(details.general_terms || '');
       setNotes(details.notes || '');
       setItems(details.items.map(it => ({
         description: it.description || '',
@@ -553,7 +597,7 @@ export default function POsView() {
         quantity: it.qty || 1,
         unit: it.unit || 'Nos',
         rate: it.rate || 0,
-        gstPct: it.tax_pct || 18
+        gstPct: (it.tax_pct !== undefined && it.tax_pct !== null) ? Number(it.tax_pct) : 18
       })));
       setTdsSection(details.tds_section || '');
       setTdsPct(details.tds_pct || 0);
@@ -669,6 +713,11 @@ export default function POsView() {
         handleRemoveItemLine={handleRemoveItemLine} handleAddItemLine={handleAddItemLine}
         tdsSection={tdsSection} handleTdsSectionChange={handleTdsSectionChange}
         gstMode={gstMode} setGstMode={setGstMode} terms={terms} setTerms={setTerms}
+        paymentDeliveryTerms={paymentDeliveryTerms} setPaymentDeliveryTerms={setPaymentDeliveryTerms}
+        generalTerms={generalTerms} setGeneralTerms={setGeneralTerms}
+        handleApplyDefaultGeneralTerms={handleApplyDefaultGeneralTerms}
+        handleSaveGlobalGeneralTerms={handleSaveGlobalGeneralTerms}
+        savingGlobalTerms={savingGlobalTerms}
         notes={notes} setNotes={setNotes} formError={formError} submitting={submitting}
         handleSavePO={handleSavePO} summaryTotals={summaryTotals} tdsAmount={tdsAmount}
         netPayable={netPayable} showPayments={showPayments} setShowPayments={setShowPayments}

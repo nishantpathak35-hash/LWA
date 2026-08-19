@@ -529,6 +529,18 @@ export async function setSetting(key, value) {
   settingsCache.set(key, value);
 }
 
+export async function getDefaultPOGeneralTerms() {
+  return getSetting('default_po_general_terms', '');
+}
+
+export async function setDefaultPOGeneralTerms(terms, session) {
+  await setSetting('default_po_general_terms', terms || '');
+  if (session?.email) {
+    await logAudit(session.email, 'Updated Default PO General Terms', 'Updated global default terms and conditions template for all POs', 'Settings');
+  }
+  return { ok: true };
+}
+
 
 // --- AUTH ---
 

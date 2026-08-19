@@ -2,7 +2,7 @@
 // All domain functions are split into app/lib/api/<domain>.js
 // This file provides a unified import surface for backward compatibility.
 
-export { logAudit } from './api/core.js';
+export { logAudit, getDefaultPOGeneralTerms, setDefaultPOGeneralTerms } from './api/core.js';
 export { loginUser, getMySession, inviteUserAdmin, sendInvite, listUsersAdmin, listActiveUsers, deleteUserAdmin, setUserActiveAdmin, setUserRolesAdmin, resetUserPasswordAdmin, addCustomRole, logoutUser, acceptInvite } from './api/auth.js';
 export { getBootData, getBootBundle, clearCacheAndGetMaster, getDashboardKPIs, getMasterData, getFinancialDiagnostics, getSystemPaymentsDetail, deduplicateSystemPayments, getMasterHealth, getVendorsOnly, getPOsOnly, getPaymentsOnly } from './api/dashboard.js';
 export { getProjectDetails, updateProjectFinancials, getProjectFinancialSummary, mergeProjects } from './api/projects.js';

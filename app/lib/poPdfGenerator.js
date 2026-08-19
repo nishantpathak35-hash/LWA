@@ -236,33 +236,63 @@ export function generatePOPdf(
 
   currentY += 28;
 
-  // 5. Terms & Conditions Section
+  // 5. Terms & Conditions Sections (Dual Box Architecture)
+  const paymentDeliveryTermsText = po.payment_delivery_terms || po.terms || '';
+  if (paymentDeliveryTermsText) {
+    if (currentY > 240) {
+      doc.addPage();
+      currentY = 20;
+    }
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...darkColor);
+    doc.text("PAYMENT & DELIVERY TERMS", 14, currentY);
+    currentY += 4;
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...grayColor);
+    const splitPaymentTerms = doc.splitTextToSize(paymentDeliveryTermsText, 182);
+    doc.text(splitPaymentTerms, 14, currentY);
+    currentY += splitPaymentTerms.length * 3.2 + 4;
+  }
+
+  const defaultTerms = [
+    "1. Material & Quality: Material must match specifications exactly; any deviations require written approval prior to dispatch.",
+    "2. Delivery & Schedule: Delivery to be completed on or before the Expected Delivery Date. Timely delivery is of essence.",
+    "3. Invoicing & Billing: Invoices must reference this Purchase Order number and include proof of delivery.",
+    "4. Taxes & Compliance: Rates are inclusive of all statutory duties; GST is paid subject to filing on the GST portal.",
+    "5. Dispute Jurisdiction: All disputes are subject to Gurugram, Haryana jurisdiction."
+  ];
+
+  const generalTermsText = po.general_terms ? po.general_terms : defaultTerms.join("\n");
+  const splitGeneralTerms = doc.splitTextToSize(generalTermsText, 182);
+
+  // If general terms would overflow current page, add new page
+  if (currentY + splitGeneralTerms.length * 3.2 > 250) {
+    doc.addPage();
+    currentY = 20;
+  }
+
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...darkColor);
-  doc.text("TERMS & CONDITIONS", 14, currentY);
+  doc.text("GENERAL TERMS & CONDITIONS", 14, currentY);
   currentY += 4;
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grayColor);
+  doc.text(splitGeneralTerms, 14, currentY);
 
-  const defaultTerms = [
-    "1. Material must match specifications exactly; any deviations require written approval prior to dispatch.",
-    "2. Delivery to be completed on or before the Expected Delivery Date. Delays may attract penalty.",
-    "3. Invoice must reference this Purchase Order number and should be sent to billing.",
-    "4. Payment will be processed strictly as per the Payment Terms agreed in the Vendor master contract.",
-    "5. All disputes are subject to Gurugram jurisdiction."
-  ];
-
-  const termsText = po.terms ? po.terms : defaultTerms.join("\n");
-  const splitTerms = doc.splitTextToSize(termsText, 182);
-  doc.text(splitTerms, 14, currentY);
-
-  currentY += Math.max(14, splitTerms.length * 3.2);
+  currentY += splitGeneralTerms.length * 3.2 + 6;
 
   // 6. Signatures Block at Bottom
-  const sigY = currentY + 12;
+  if (currentY > 255) {
+    doc.addPage();
+    currentY = 30;
+  }
+  const sigY = currentY + 10;
   
   // Left: Vendor Acceptance
   doc.setDrawColor(148, 163, 184);

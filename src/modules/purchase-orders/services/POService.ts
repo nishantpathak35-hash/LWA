@@ -74,7 +74,9 @@ export class POService {
       approval_status: 'Draft',
       status: 'Draft',
       po_date: payload.poDate || new Date().toISOString().split('T')[0],
-      terms: payload.terms || '',
+      terms: payload.terms || payload.paymentDeliveryTerms || payload.generalTerms || '',
+      payment_delivery_terms: payload.payment_delivery_terms ?? payload.paymentDeliveryTerms ?? '',
+      general_terms: payload.general_terms ?? payload.generalTerms ?? '',
       tds_section: payload.tds_section || payload.tdsSection || '',
       tds_pct: Number(payload.tds_pct || payload.tdsPct || 0),
       tds_amount: Number(payload.tds_amount || 0),
@@ -89,7 +91,7 @@ export class POService {
 
     if (payload.items && payload.items.length) {
       for (const item of payload.items) {
-        const itemGstPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
+        const itemGstPct = Number(item.tax_pct ?? item.gstPct ?? item.tax ?? 18);
         const itemQty = Number(item.qty || item.quantity || 0);
         const itemRate = Number(item.rate || 0);
         const itemGross = itemQty * itemRate;
@@ -192,6 +194,8 @@ export class POService {
       status: newStatus,
       po_date: payload.poDate || existing.po_date,
       terms: payload.terms !== undefined ? payload.terms : existing.terms,
+      payment_delivery_terms: payload.payment_delivery_terms ?? payload.paymentDeliveryTerms ?? existing.payment_delivery_terms,
+      general_terms: payload.general_terms ?? payload.generalTerms ?? existing.general_terms,
       // P3-1: Fixed operator-precedence bug — `||` binds looser than `!==`,
       // causing tds_section/tds_pct to silently become undefined.
       // Now uses nullish coalescing (??) for correct fallback chain.
@@ -210,7 +214,7 @@ export class POService {
       await PORepository.deleteItemsByPoNo(originalPoNo);
       
       for (const item of payload.items) {
-        const itemGstPct = Number(item.tax_pct || item.gstPct || item.tax || 0);
+        const itemGstPct = Number(item.tax_pct ?? item.gstPct ?? item.tax ?? 18);
         const itemQty = Number(item.qty || item.quantity || 0);
         const itemRate = Number(item.rate || 0);
         const itemGross = itemQty * itemRate;

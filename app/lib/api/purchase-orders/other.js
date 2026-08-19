@@ -130,6 +130,8 @@ export async function sendPOToVendor(poNo, emailOverride, pdfAttachment, session
     items: items.map(it => ({ desc: it.description, qty: it.qty, unit: it.unit || 'Nos', rate: it.rate, amount: it.amount })),
     grandTotal: po.revised_po_value || po.po_value,
     terms: po.terms || '',
+    paymentDeliveryTerms: po.payment_delivery_terms || po.terms || '',
+    generalTerms: po.general_terms || '',
     attachments
   });
 

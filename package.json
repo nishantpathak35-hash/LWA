@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run",
+    "test": "node --experimental-default-type=module --test tests/unit/po-terms-and-gst.test.mjs tests/unit/poEligibility.test.js",
+    "test:unit": "node --experimental-default-type=module --test tests/unit/po-terms-and-gst.test.mjs tests/unit/poEligibility.test.js",
     "migrate": "drizzle-kit push",
     "migrate:cloudinary": "node scripts/migrate-to-cloudinary.js"
   },

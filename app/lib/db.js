@@ -19,8 +19,34 @@ if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
 
     // --- Optimistic concurrency & schema migrations ---
     const versionMigrations = [
+      `CREATE TABLE IF NOT EXISTS document_locks (
+        entity TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        locked_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        PRIMARY KEY (entity, entity_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS document_presence (
+        entity TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        last_active TEXT NOT NULL,
+        PRIMARY KEY (entity, entity_id, user_email)
+      )`,
+      `CREATE TABLE IF NOT EXISTS broadcast_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity TEXT NOT NULL,
+        action TEXT NOT NULL,
+        entity_id TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )`,
       `ALTER TABLE vendors ADD COLUMN version INTEGER DEFAULT 1`,
       `ALTER TABLE purchase_orders ADD COLUMN version INTEGER DEFAULT 1`,
+      `ALTER TABLE purchase_orders ADD COLUMN payment_delivery_terms TEXT`,
+      `ALTER TABLE purchase_orders ADD COLUMN general_terms TEXT`,
       `ALTER TABLE payment_requests ADD COLUMN version INTEGER DEFAULT 1`,
       `ALTER TABLE payment_requests ADD COLUMN invoice_id TEXT`,
       `CREATE TABLE IF NOT EXISTS invoices (

@@ -197,8 +197,16 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
     if (p.project) projectSet.add(p.project); 
   });
 
+  // Fetch default PO general terms
+  let defaultGeneralTerms = '';
+  try {
+    const dgtRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'default_po_general_terms'`);
+    if (dgtRow?.value) defaultGeneralTerms = dgtRow.value;
+  } catch (e) {}
+
   return {
     vendors: masterVendors,
+    defaultGeneralTerms,
     pos: pos.map(p => ({
       po_no: p.po_no,
       vendor_id: p.vendor_id,
@@ -216,6 +224,8 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
       payment_status: p.payment_status || 'Unpaid',
       payment_eligible: isPOEligibleForPayment(p),
       terms: p.terms || '',
+      payment_delivery_terms: p.payment_delivery_terms || '',
+      general_terms: p.general_terms || '',
       tds_section: p.tds_section || '',
       tds_pct: Number(p.tds_pct) || 0,
       tds_amount: Number(p.tds_amount) || 0,
@@ -394,6 +404,8 @@ export async function getPOsOnly(options, session) {
     payment_status: p.payment_status || 'Unpaid',
     payment_eligible: isPOEligibleForPayment(p),
     terms: p.terms || '',
+    payment_delivery_terms: p.payment_delivery_terms || '',
+    general_terms: p.general_terms || '',
     tds_section: p.tds_section || '',
     tds_pct: Number(p.tds_pct) || 0,
     tds_amount: Number(p.tds_amount) || 0,

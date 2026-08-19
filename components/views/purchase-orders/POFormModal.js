@@ -13,7 +13,10 @@ export default function POFormModal(props) {
     modalOpen, setModalOpen, editingPoNo, poNo, setPoNo, project, setProject,
     vendorCode, setVendorCode, vendors, poDate, setPoDate, expectedDelivery, setExpectedDelivery,
     category, setCategory, items, handleItemChange, handleRemoveItemLine, handleAddItemLine,
-    tdsSection, setTdsSection, gstMode, setGstMode, terms, setTerms, notes, setNotes,
+    tdsSection, setTdsSection, gstMode, setGstMode, terms, setTerms,
+    paymentDeliveryTerms, setPaymentDeliveryTerms, generalTerms, setGeneralTerms,
+    handleApplyDefaultGeneralTerms, handleSaveGlobalGeneralTerms, savingGlobalTerms,
+    notes, setNotes,
     formError, submitting, handleSavePO, summaryTotals, tdsAmount, netPayable,
     showPayments, setShowPayments, loadingPayments, paymentData, getVendorSelectValue,
     findVendorBySelection, projects, editingPO, calcItem, tdsPct, setTdsPct, getPaymentStatusBadge, tdsSections
@@ -158,27 +161,84 @@ export default function POFormModal(props) {
             </div>
           )}
 
+          {/* PO Terms Architecture: Box 1 (Payment & Delivery) + Internal Notes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">TERMS & CONDITIONS</label>
+            <div className="border border-border/80 rounded-xl p-3 bg-card/60 shadow-2xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
+                  1. PAYMENT &amp; DELIVERY TERMS
+                </label>
+                <span className="text-[9px] text-muted-foreground font-medium">PO-specific terms</span>
+              </div>
               <Textarea
-                value={terms}
-                onChange={e => setTerms(e.target.value)}
-                placeholder="e.g. 50% advance, balance on delivery"
-                className="bg-background text-foreground text-xs"
-                style={{ minHeight: '100px', height: '100px', resize: 'vertical' }}
+                value={paymentDeliveryTerms}
+                onChange={e => setPaymentDeliveryTerms(e.target.value)}
+                placeholder="e.g.&#10;• Payment: 50% advance against PO, 40% against dispatch inspection, 10% after site installation within 15 days.&#10;• Delivery: Site address as per PO. Delivery timeline: 2-3 weeks."
+                className="bg-background text-foreground text-xs leading-relaxed"
+                style={{ minHeight: '95px', height: '95px', resize: 'vertical' }}
               />
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">NOTES / REMARKS</label>
+            <div className="border border-border/80 rounded-xl p-3 bg-card/60 shadow-2xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
+                  INTERNAL NOTES / REMARKS
+                </label>
+                <span className="text-[9px] text-muted-foreground font-medium">Internal reference only</span>
+              </div>
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Internal notes or special instructions"
-                className="bg-background text-foreground text-xs"
-                style={{ minHeight: '100px', height: '100px', resize: 'vertical' }}
+                placeholder="Internal notes, approver remarks, or special instructions..."
+                className="bg-background text-foreground text-xs leading-relaxed"
+                style={{ minHeight: '95px', height: '95px', resize: 'vertical' }}
               />
             </div>
+          </div>
+
+          {/* PO Terms Architecture: Box 2 (General Terms & Conditions - Global 1-Pager Contract) */}
+          <div className="border border-border/80 rounded-xl p-3 bg-card/60 shadow-2xs space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
+                  2. GENERAL TERMS &amp; CONDITIONS (GLOBAL / 1-PAGER CONTRACT)
+                </label>
+                <p className="text-[10px] text-muted-foreground">
+                  Saved across all POs. Supports full 1-page detailed legal clauses, quality, warranty, and statutory compliance.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {handleApplyDefaultGeneralTerms && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleApplyDefaultGeneralTerms}
+                    className="h-7 text-[10px] font-semibold"
+                  >
+                    Load Global Default
+                  </Button>
+                )}
+                {handleSaveGlobalGeneralTerms && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={savingGlobalTerms}
+                    onClick={handleSaveGlobalGeneralTerms}
+                    className="h-7 text-[10px] font-semibold text-amber-700 dark:text-gold border border-amber-300/60"
+                  >
+                    {savingGlobalTerms ? 'Saving Default...' : 'Save as Global Default'}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <Textarea
+              value={generalTerms}
+              onChange={e => setGeneralTerms(e.target.value)}
+              placeholder="Enter standard contract clauses (1-page contract terms, quality specifications, inspection, rejection, warranty, dispute jurisdiction, etc.)"
+              className="bg-background text-foreground text-xs font-mono leading-relaxed"
+              style={{ minHeight: '120px', height: '140px', resize: 'vertical' }}
+            />
           </div>
 
           {/* Line Items */}

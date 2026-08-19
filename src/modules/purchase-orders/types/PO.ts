@@ -24,6 +24,8 @@ export interface IPO {
   status: string;
   po_date: string;
   terms?: string;
+  payment_delivery_terms?: string;
+  general_terms?: string;
   tds_section?: string;
   tds_pct?: number;
   tds_amount?: number;
@@ -51,6 +53,10 @@ export interface IPOInput {
   grandTotal?: number;
   poDate?: string;
   terms?: string;
+  payment_delivery_terms?: string;
+  paymentDeliveryTerms?: string;
+  general_terms?: string;
+  generalTerms?: string;
   tds_section?: string;
   tdsSection?: string;
   tds_pct?: number;

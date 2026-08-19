@@ -336,15 +336,28 @@ export default async function POPdfPage({ params }) {
         </div>
 
         {/* Terms & Conditions and Signatures Block */}
-        <div className="pt-1.5 border-t border-gray-300">
+        <div className="pt-2 border-t border-gray-300 space-y-2">
+          {(po.payment_delivery_terms || po.terms) && (
+            <div>
+              <h3 className="text-[10px] font-sans font-bold text-gray-800 uppercase tracking-wider mb-1">
+                Payment &amp; Delivery Terms
+              </h3>
+              <div className="text-[9px] text-gray-700 font-sans leading-relaxed whitespace-pre-wrap bg-gray-50/80 p-2 rounded border border-gray-200">
+                {po.payment_delivery_terms || po.terms}
+              </div>
+            </div>
+          )}
+
           <div className="mb-2">
-            <h3 className="text-[10px] font-sans font-bold text-gray-700 uppercase tracking-wider mb-1">Terms &amp; Conditions</h3>
-            {po.terms ? (
-              <div className="text-[9px] text-gray-700 font-sans leading-tight whitespace-pre-wrap">
-                {po.terms}
+            <h3 className="text-[10px] font-sans font-bold text-gray-800 uppercase tracking-wider mb-1">
+              General Terms &amp; Conditions
+            </h3>
+            {po.general_terms ? (
+              <div className="text-[8.5px] text-gray-700 font-sans leading-relaxed whitespace-pre-wrap">
+                {po.general_terms}
               </div>
             ) : (
-              <ol className="list-decimal list-inside text-[9px] text-gray-600 font-sans space-y-0.5 leading-tight">
+              <ol className="list-decimal list-inside text-[8.5px] text-gray-600 font-sans space-y-0.5 leading-tight">
                 <li>Material must match specifications exactly; any deviations require written approval prior to dispatch.</li>
                 <li>Delivery to be completed on or before the Expected Delivery Date. Delays may attract penalty.</li>
                 <li>Invoice must reference this Purchase Order number and should be sent to billing.</li>

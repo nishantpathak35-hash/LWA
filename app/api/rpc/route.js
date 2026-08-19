@@ -48,6 +48,8 @@ const ALLOWED_METHODS = new Set([
   'getPOPrefix',
   'getNextPONumber',
   'setPOPrefix',
+  'getDefaultPOGeneralTerms',
+  'setDefaultPOGeneralTerms',
   'getCompanySettings',
   'setCompanySettings',
   'getFeaturePermissions',
