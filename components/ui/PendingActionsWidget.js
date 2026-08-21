@@ -10,15 +10,20 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const userEmail = user?.email || '';
+
   useEffect(() => {
+    if (!userEmail) return;
     loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [userEmail]);
 
-  const loadTasks = async () => {
-    setLoading(true);
+  const loadTasks = async (showLoader = false) => {
+    if (showLoader || tasks.length === 0) {
+      setLoading(true);
+    }
     try {
-      const res = await call('getUserTasks', user);
+      const res = await call('getUserTasks', { email: userEmail, roles: user?.roles || [] });
       setTasks(res || []);
     } catch (e) {
       console.error('Failed to load user tasks:', e);
