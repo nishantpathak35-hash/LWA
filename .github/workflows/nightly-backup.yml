@@ -1,0 +1,61 @@
+name: Nightly Turso Database Vault Backup
+
+on:
+  schedule:
+    # Runs every day at 18:30 UTC (00:00 AM IST)
+    - cron: '30 18 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm install @libsql/client dotenv
+
+      - name: Extract Turso Database Snapshot
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          node -e '
+          const { createClient } = require("@libsql/client");
+          const fs = require("fs");
+          
+          async function backup() {
+            const url = process.env.TURSO_DATABASE_URL;
+            const authToken = process.env.TURSO_AUTH_TOKEN;
+            if (!url || !authToken) {
+              console.log("No Turso secrets found. Skipping automated cloud dump.");
+              return;
+            }
+            const db = createClient({ url, authToken });
+            const tablesRes = await db.execute("SELECT name FROM sqlite_master WHERE type=\"table\" AND name NOT LIKE \"sqlite_%\"");
+            const backupData = {};
+            for (const row of tablesRes.rows) {
+              const table = row.name;
+              const res = await db.execute(`SELECT * FROM "${table}"`);
+              backupData[table] = res.rows;
+            }
+            fs.mkdirSync("./backups", { recursive: true });
+            const filename = `./backups/backup-${new Date().toISOString().split("T")[0]}.json`;
+            fs.writeFileSync(filename, JSON.stringify(backupData, null, 2));
+            console.log("Successfully created backup: " + filename);
+          }
+          backup();
+          '
+
+      - name: Upload Backup Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: turso-nightly-backup
+          path: backups/
+          retention-days: 30

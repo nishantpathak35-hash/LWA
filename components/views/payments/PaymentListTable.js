@@ -99,16 +99,20 @@ export default function PaymentListTable({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/60">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-7 text-[11px] text-slate-400 hover:text-slate-200">
-                          <History className="w-3 h-3 mr-1" /> Trail
-                        </Button>
-                        {(String(reqStage).toLowerCase().includes('procurement') || String(reqStage).toLowerCase().includes('finance')) && onEditPayment && (
-                          <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-7 text-[11px]">
-                            Edit
+                      <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-800/60">
+                        <div className="flex items-center gap-1.5">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-7 px-2 text-[11px] text-slate-400 hover:text-slate-200">
+                            <History className="w-3 h-3 mr-1" /> Trail
                           </Button>
-                        )}
-                        {canAct && getWorkflowActionButton && getWorkflowActionButton(req)}
+                          {(String(reqStage).toLowerCase().includes('procurement') || String(reqStage).toLowerCase().includes('finance')) && onEditPayment && (
+                            <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-7 px-2 text-[11px]">
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {getWorkflowActionButton && getWorkflowActionButton(req)}
+                        </div>
                       </div>
                     </div>
                   );

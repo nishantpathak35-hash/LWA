@@ -126,20 +126,43 @@ export default function POListTable({
                     </div>
 
                     {/* Actions Row */}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/60">
-                      <Button variant="ghost" size="sm" onClick={() => handleViewPOHistory(po)} className="h-7 text-[11px] text-slate-400 hover:text-slate-200">
-                        <MessageSquare className="w-3 h-3 mr-1" /> History
-                      </Button>
-                      {canCreate && (isDraft || isPending || isApproved || isRejected) && (
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenModal(po.po_no)} className="h-7 text-[11px]">
-                          <Edit2 className="w-3 h-3 mr-1" /> Edit
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-800/60">
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewPOHistory(po)} className="h-7 px-2 text-[11px] text-slate-400 hover:text-slate-200">
+                          <MessageSquare className="w-3 h-3 mr-1" /> Trail
                         </Button>
-                      )}
-                      {isApproved && !isShortClosed && handleShortClosePO && (
-                        <Button variant="ghost" size="sm" onClick={() => handleShortClosePO(po.po_no)} className="h-7 text-[11px] text-amber-500 hover:text-amber-400">
-                          <XCircle className="w-3 h-3 mr-1" /> Close
-                        </Button>
-                      )}
+                        <a href={`/po/${encodeURIComponent(po.po_no)}`} target="_blank" rel="noreferrer" className="inline-flex items-center h-7 px-2 text-[11px] font-medium text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800/50">
+                          <Eye className="w-3 h-3 mr-1" /> View
+                        </a>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {canCreate && (isDraft || isRejected) && (
+                          <Button variant="primary" size="sm" onClick={() => handleSubmitForApproval(po.po_no)} className="h-7 px-2.5 text-[11px] bg-amber-600 hover:bg-amber-500 text-white font-medium">
+                            <Clock className="w-3 h-3 mr-1" /> Submit
+                          </Button>
+                        )}
+                        {canApprove && isPending && (
+                          <>
+                            <Button variant="primary" size="sm" onClick={() => handleOpenApproval(po, 'approve')} className="h-7 px-2.5 text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium">
+                              <CheckCircle className="w-3 h-3 mr-1" /> Approve
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleOpenApproval(po, 'reject')} className="h-7 px-2.5 text-[11px] bg-rose-600 hover:bg-rose-500 text-white font-medium">
+                              <XCircle className="w-3 h-3 mr-1" /> Reject
+                            </Button>
+                          </>
+                        )}
+                        {canCreate && (isDraft || isPending || isApproved || isRejected) && (
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenModal(po.po_no)} className="h-7 px-2 text-[11px]">
+                            <Edit2 className="w-3 h-3 mr-1" /> Edit
+                          </Button>
+                        )}
+                        {isApproved && !isShortClosed && handleShortClosePO && (
+                          <Button variant="ghost" size="sm" onClick={() => handleShortClosePO(po.po_no)} className="h-7 px-2 text-[11px] text-amber-500 hover:text-amber-400">
+                            <XCircle className="w-3 h-3 mr-1" /> Close
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
