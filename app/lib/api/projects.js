@@ -17,8 +17,15 @@ import fs from 'fs';
 import path from 'path';
 import { logAudit, getSetting, DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS } from './core.js';
 import { isSuperAdmin } from '../config.js';
-import { getJwtSecret, encryptToken, decryptToken } from './token.js';
 
+
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing!");
+  }
+  return secret;
+}
 
 function invalidateProjectCache(project) {
   return project;
@@ -30,6 +37,42 @@ const settingsCache = new Map();
 // A boolean flag is not concurrent-safe — two simultaneous requests would both
 // run the expensive v3 backfill before either sets the flag to true.
 let _settingsTablePromise = null;
+
+function encryptToken(data) {
+  const JWT_SECRET = getJwtSecret();
+  const iv = crypto.randomBytes(16);
+  const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + encrypted;
+}
+
+function decryptToken(token) {
+  const JWT_SECRET = getJwtSecret();
+  try {
+    const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
+    if (token && token.length >= 32) {
+      try {
+        const ivHex = token.slice(0, 32);
+        const ciphertext = token.slice(32);
+        const iv = Buffer.from(ivHex, 'hex');
+        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+        let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return JSON.parse(decrypted);
+      } catch (err) {
+        // Fall back to legacy format
+      }
+    }
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.alloc(16, 0));
+    let decrypted = decipher.update(token, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return JSON.parse(decrypted);
+  } catch (e) {
+    throw new Error('Invalid token');
+  }
+}
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -69,51 +112,6 @@ export async function getProjectDetails(session) {
         vendorInvoiceBooked: 0,
         tds: 0
       };
-    }
-    const val = Number(po.po_value) || 0;
-    projectsMap[name].poIssued += val;
-    projectsMap[name].projectValue += val;
-  });
-
-  // Apply outflow AFTER all POs are summed so pendingOutflow is correct
-  Object.keys(projectsMap).forEach(name => {
-    const projectOutflow = Number(outflowSnapshots[name]?.outflow) || 0;
-    projectsMap[name].outflow = projectOutflow;
-    projectsMap[name].pendingOutflow = Math.max(0, projectsMap[name].poIssued - projectOutflow);
-  });
-
-  try {
-    const overrides = await queryAll(`SELECT * FROM project_financials`);
-    overrides.forEach(row => {
-      const name = row.project;
-      if (!name) return;
-      if (!projectsMap[name]) {
-        projectsMap[name] = {
-          project: name,
-          name,
-          projectValue: 0,
-          inflow: 0,
-          pendingInflow: 0,
-          invoiceValue: 0,
-          pendingInvoice: 0,
-          bcs: 0,
-          plannedGM: 0,
-          plannedGMPct: 0,
-          poIssued: 0,
-          actualGM: 0,
-          actualGMPct: 0,
-          pendingOutflow: 0,
-          balanceAvailable: 0,
-          outflowLimit: 0,
-          outflow: 0,
-          vendorInvoiceBooked: 0,
-          tds: 0
-        };
-      }
-      const projectValue = Number(row.project_value) || projectsMap[name].projectValue;
-      const bcs = Number(row.bcs) || 0;
-      const inflow = Number(row.inflow) || 0;
-      const invoiceValue = Number(row.invoice_value) || 0;
       const tds = Number(row.tds) || 0;
       const outflow = Number(projectsMap[name].outflow) || 0;
       projectsMap[name] = {
@@ -342,4 +340,4 @@ export async function mergeProjects(targetProject, sourceProjects, session) {
     message: `Successfully merged ${sourcesToMerge.length} project(s) into ${targetProject}.` 
   };
 }
-
+
