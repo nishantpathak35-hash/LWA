@@ -443,32 +443,19 @@ export function StateProvider({ children }) {
     }
   }, [callDirect]);
 
-  // Periodic auto-refresh and focus-based sync
+  // Optimized periodic sync (replaces aggressive full DB scans on every window focus)
   useEffect(() => {
     if (!user) return;
     
-    // P2-2: Auto-refresh every 2 minutes as SSE fallback — SSE is the primary sync mechanism.
-    // Reduced from 30s to avoid doubling DB load since SSE already covers real-time changes.
+    // Auto-refresh fallback every 5 minutes when tab is visible
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         refreshData();
       }
-    }, 120000);
-
-    // Refresh immediately when window gains focus or tab becomes visible
-    const handleSync = () => {
-      if (document.visibilityState === 'visible') {
-        refreshData();
-      }
-    };
-
-    window.addEventListener('focus', handleSync);
-    document.addEventListener('visibilitychange', handleSync);
+    }, 300000);
 
     return () => {
       window.clearInterval(interval);
-      window.removeEventListener('focus', handleSync);
-      document.removeEventListener('visibilitychange', handleSync);
     };
   }, [user, refreshData]);
 
@@ -534,23 +521,12 @@ export function StateProvider({ children }) {
     // Initial check on mount
     checkForEvents();
 
-    // Poll every 30 seconds if tab is visible
-    intervalId = setInterval(checkForEvents, 30000);
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        checkForEvents();
-      }
-    };
-
-    window.addEventListener('focus', handleVisibility);
-    document.addEventListener('visibilitychange', handleVisibility);
+    // Poll every 60 seconds if tab is visible
+    intervalId = setInterval(checkForEvents, 60000);
 
     return () => {
       active = false;
       if (intervalId) clearInterval(intervalId);
-      window.removeEventListener('focus', handleVisibility);
-      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [user, token, refreshData, refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshActiveLocks, refreshActivePresence]);
 
