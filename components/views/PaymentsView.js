@@ -332,11 +332,12 @@ export default function PaymentsView() {
 
   const canActOnReq = (req) => {
     const stage = String(req.approval_stage || req.stage || '').toLowerCase();
-    const isPending = String(req.status || '').toLowerCase() === 'pending';
+    const status = String(req.status || '').toLowerCase();
     const isRemitStage = stage.includes('remit');
+    const isPending = status === 'pending' || stage.includes('pending') || stage.includes('proc') || stage.includes('finance') || stage.includes('director') || isRemitStage;
     if (!isPending && !isRemitStage) return false;
     if (isAdmin) return true;
-    if (isProcurement && stage.includes('proc')) return true;
+    if (isProcurement && (stage.includes('proc') || stage.includes('procurement'))) return true;
     if (isFinance && stage.includes('finance')) return true;
     if (isDirector && stage.includes('director')) return true;
     if (isFinance && stage.includes('remit')) return true;
@@ -634,14 +635,15 @@ export default function PaymentsView() {
 
   const getWorkflowActionButton = (req) => {
     const stage = String(req.approval_stage || req.stage || '').toLowerCase();
-    const isPending = String(req.status || '').toLowerCase() === 'pending';
+    const status = String(req.status || '').toLowerCase();
     const isRemitStage = stage.includes('remit');
+    const isPending = status === 'pending' || stage.includes('pending') || stage.includes('proc') || stage.includes('finance') || stage.includes('director') || isRemitStage;
     if (!isPending && !isRemitStage) return null;
 
     let showActions = false;
     let isRemit = false;
 
-    if (isProcurement && stage.includes('proc')) showActions = true;
+    if (isProcurement && (stage.includes('proc') || stage.includes('procurement'))) showActions = true;
     if (isFinance && stage.includes('finance')) showActions = true;
     if (isDirector && stage.includes('director')) showActions = true;
     if (isFinance && stage.includes('remit')) { showActions = true; isRemit = true; }

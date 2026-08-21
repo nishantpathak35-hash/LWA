@@ -84,7 +84,7 @@ export default function POListTable({
               {sortedPOs.map((po, idx) => {
                 const st = String(po.status || po.approval_status || 'Draft').toLowerCase();
                 const isDraft    = st === 'draft';
-                const isPending  = st === 'pending approval' || st === 'pending_approval';
+                const isPending  = st === 'pending approval' || st === 'pending_approval' || st === 'pending' || st.includes('pending') || st.includes('submitted') || st === 'under approval';
                 const isApproved = st === 'approved' || st === 'active';
                 const isRejected = st === 'rejected';
                 const isShortClosed = st === 'short closed' || st === 'short_closed' || st === 'closed';
@@ -189,7 +189,7 @@ export default function POListTable({
                   {sortedPOs.map((po, idx) => {
                     const st = String(po.status || po.approval_status || 'Draft').toLowerCase();
                     const isDraft    = st === 'draft';
-                    const isPending  = st === 'pending approval' || st === 'pending_approval';
+                    const isPending  = st === 'pending approval' || st === 'pending_approval' || st === 'pending' || st.includes('pending') || st.includes('submitted') || st === 'under approval';
                     const isApproved = st === 'approved' || st === 'active';
                     const isRejected = st === 'rejected';
                     const isShortClosed = st === 'short closed' || st === 'short_closed' || st === 'closed';

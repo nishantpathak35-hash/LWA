@@ -284,6 +284,22 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           </div>
         )}
 
+        {/* Install App Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (setMobileOpen) setMobileOpen(false);
+            window.dispatchEvent(new CustomEvent('lx:open-install-pwa'));
+          }}
+          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-semibold bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 text-gold hover:bg-amber-500/20 transition-all cursor-pointer shadow-xs"
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse" />
+            <span>Install Mobile App</span>
+          </div>
+          <span className="text-[9px] bg-amber-500/20 text-gold px-1.5 py-0.5 rounded font-mono font-bold">PWA</span>
+        </button>
+
         {/* Sign Out Button */}
         <button
           onClick={logout}

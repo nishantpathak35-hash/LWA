@@ -16,7 +16,8 @@ import SiteWPRView from './views/operations/wpr/SiteWPRView';
 import ErrorBoundary from './ErrorBoundary';
 import { NotificationsPanel } from './ui/NotificationsPanel';
 import ActivityStreamDrawer from './ui/ActivityStreamDrawer';
-import { Menu, Sun, Moon, AlertTriangle, X, Search, Activity, LayoutDashboard, ShoppingBag, CreditCard, HardHat, MoreHorizontal, Plus, FilePlus, Receipt } from 'lucide-react';
+import InstallPWA from './ui/InstallPWA';
+import { Menu, Sun, Moon, AlertTriangle, X, Search, Activity, LayoutDashboard, ShoppingBag, CreditCard, HardHat, MoreHorizontal, Plus, FilePlus, Receipt, ShieldCheck, Smartphone, Download } from 'lucide-react';
 import { Button } from './ui/core';
 import { CommandPalette } from './ui/CommandPalette';
 
@@ -100,7 +101,7 @@ function getSessionHoursRemaining() {
 
 // ─── Main Layout ──────────────────────────────────────────────────────────────
 export default function MainLayout() {
-  const { activeView, hasPermission, user, setActiveView } = useAppState();
+  const { activeView, hasPermission, user, setActiveView, payments, pos } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileQuickActionOpen, setMobileQuickActionOpen] = useState(false);
   const [activityDrawerOpen, setActivityDrawerOpen] = useState(false);
@@ -108,6 +109,21 @@ export default function MainLayout() {
   const [sessionHours, setSessionHours] = useState(null);
   const [sessionWarningDismissed, setSessionWarningDismissed] = useState(false);
   const [keySequence, setKeySequence] = useState([]); // tracks multi-key shortcut progress
+
+  const pendingPaymentsCount = useMemo(() => {
+    return (payments || []).filter(p => {
+      const stage = String(p.stage || p.approval_stage || '').toLowerCase().trim();
+      const status = String(p.status || '').toLowerCase().trim();
+      return status === 'pending' || stage.includes('pending') || stage.includes('proc') || stage.includes('finance') || stage.includes('director') || stage.includes('remit');
+    }).length;
+  }, [payments]);
+
+  const pendingPOsCount = useMemo(() => {
+    return (pos || []).filter(p => {
+      const st = String(p.status || p.approval_status || '').toLowerCase().trim();
+      return st === 'pending approval' || st === 'pending_approval' || st === 'pending' || st.includes('pending') || st.includes('submitted') || st === 'under approval';
+    }).length;
+  }, [pos]);
 
   // ── Theme ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -273,6 +289,7 @@ export default function MainLayout() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans transition-colors duration-200">
       <CommandPalette />
+      <InstallPWA />
 
       {/* Mobile overlay */}
       {mobileMenuOpen && (
@@ -309,6 +326,16 @@ export default function MainLayout() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Mobile Install App Button */}
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('lx:open-install-pwa'))}
+              className="flex md:hidden items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-gold text-[11px] font-bold shadow-xs active:scale-95 transition-transform"
+              title="Install App on Phone"
+            >
+              <Download className="w-3.5 h-3.5 text-gold" />
+              <span>App</span>
+            </button>
+
             {/* Search Trigger Button */}
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('lx:open-command-palette'))}
@@ -388,47 +415,71 @@ export default function MainLayout() {
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-3">
+                {/* 1-Tap Approvals Queue */}
+                <button
+                  onClick={() => {
+                    setMobileQuickActionOpen(false);
+                    setActiveView(pendingPaymentsCount > 0 ? 'payments' : 'pos');
+                  }}
+                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-all font-semibold text-xs gap-1.5 col-span-2 shadow-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                    <span className="text-xs font-bold text-slate-100">Approvals Queue</span>
+                    {(pendingPaymentsCount + pendingPOsCount) > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
+                        {pendingPaymentsCount + pendingPOsCount} Pending
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-emerald-400/80 font-normal">Review & Approve pending payments & POs</span>
+                </button>
+
                 <button
                   onClick={() => {
                     setMobileQuickActionOpen(false);
                     setActiveView('payments');
                     setTimeout(() => window.dispatchEvent(new CustomEvent('lx:new-payment-request')), 100);
                   }}
-                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-gold hover:bg-amber-500/20 transition-all font-semibold text-xs gap-2"
+                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-gold hover:bg-amber-500/20 transition-all font-semibold text-xs gap-1.5"
                 >
-                  <Receipt className="w-6 h-6 text-gold" />
+                  <Receipt className="w-5 h-5 text-gold" />
                   <span>Request Payment</span>
                 </button>
+
                 <button
                   onClick={() => {
                     setMobileQuickActionOpen(false);
                     setActiveView('pos');
                     setTimeout(() => window.dispatchEvent(new CustomEvent('lx:new-po')), 100);
                   }}
-                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all font-semibold text-xs gap-2"
+                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all font-semibold text-xs gap-1.5"
                 >
-                  <ShoppingBag className="w-6 h-6 text-blue-400" />
-                  <span>New Purchase Order</span>
+                  <ShoppingBag className="w-5 h-5 text-blue-400" />
+                  <span>New PO</span>
                 </button>
+
                 <button
                   onClick={() => {
                     setMobileQuickActionOpen(false);
                     setActiveView('site_dpr');
                   }}
-                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all font-semibold text-xs gap-2"
+                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all font-semibold text-xs gap-1.5"
                 >
-                  <HardHat className="w-6 h-6 text-emerald-400" />
+                  <HardHat className="w-5 h-5 text-emerald-400" />
                   <span>File Site DPR</span>
                 </button>
+
+                {/* Install App Quick Action */}
                 <button
                   onClick={() => {
                     setMobileQuickActionOpen(false);
-                    window.dispatchEvent(new CustomEvent('lx:open-command-palette'));
+                    window.dispatchEvent(new CustomEvent('lx:open-install-pwa'));
                   }}
-                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-all font-semibold text-xs gap-2"
+                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-all font-semibold text-xs gap-1.5"
                 >
-                  <Search className="w-6 h-6 text-purple-400" />
-                  <span>Search System</span>
+                  <Smartphone className="w-5 h-5 text-purple-400" />
+                  <span>Install App</span>
                 </button>
               </div>
             </div>
@@ -450,12 +501,15 @@ export default function MainLayout() {
 
             <button
               onClick={() => setActiveView('pos')}
-              className={`flex flex-col items-center justify-center py-1 px-3.5 rounded-full text-[10px] font-bold transition-all ${
+              className={`relative flex flex-col items-center justify-center py-1 px-3.5 rounded-full text-[10px] font-bold transition-all ${
                 activeView === 'pos' ? 'bg-gold/15 text-gold shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <ShoppingBag className="w-4 h-4" />
               <span className="mt-0.5">POs</span>
+              {pendingPOsCount > 0 && (
+                <span className="absolute -top-1 right-2 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-900" />
+              )}
             </button>
 
             {/* Central Floating Gold FAB (+) Button */}
@@ -469,12 +523,15 @@ export default function MainLayout() {
 
             <button
               onClick={() => setActiveView('payments')}
-              className={`flex flex-col items-center justify-center py-1 px-3.5 rounded-full text-[10px] font-bold transition-all ${
+              className={`relative flex flex-col items-center justify-center py-1 px-3.5 rounded-full text-[10px] font-bold transition-all ${
                 activeView === 'payments' ? 'bg-gold/15 text-gold shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <CreditCard className="w-4 h-4" />
               <span className="mt-0.5">Pay</span>
+              {pendingPaymentsCount > 0 && (
+                <span className="absolute -top-1 right-2 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
+              )}
             </button>
 
             <button
