@@ -8,9 +8,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   serverExternalPackages: ['@libsql/client'],
   allowedDevOrigins: ['armor-subcommittee-interpreted-sees.trycloudflare.com'],
   experimental: {

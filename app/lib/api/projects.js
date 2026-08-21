@@ -112,6 +112,51 @@ export async function getProjectDetails(session) {
         vendorInvoiceBooked: 0,
         tds: 0
       };
+    }
+    const val = Number(po.po_value) || 0;
+    projectsMap[name].poIssued += val;
+    projectsMap[name].projectValue += val;
+  });
+
+  // Apply outflow AFTER all POs are summed so pendingOutflow is correct
+  Object.keys(projectsMap).forEach(name => {
+    const projectOutflow = Number(outflowSnapshots[name]?.outflow) || 0;
+    projectsMap[name].outflow = projectOutflow;
+    projectsMap[name].pendingOutflow = Math.max(0, projectsMap[name].poIssued - projectOutflow);
+  });
+
+  try {
+    const overrides = await queryAll(`SELECT * FROM project_financials`);
+    overrides.forEach(row => {
+      const name = row.project;
+      if (!name) return;
+      if (!projectsMap[name]) {
+        projectsMap[name] = {
+          project: name,
+          name,
+          projectValue: 0,
+          inflow: 0,
+          pendingInflow: 0,
+          invoiceValue: 0,
+          pendingInvoice: 0,
+          bcs: 0,
+          plannedGM: 0,
+          plannedGMPct: 0,
+          poIssued: 0,
+          actualGM: 0,
+          actualGMPct: 0,
+          pendingOutflow: 0,
+          balanceAvailable: 0,
+          outflowLimit: 0,
+          outflow: 0,
+          vendorInvoiceBooked: 0,
+          tds: 0
+        };
+      }
+      const projectValue = Number(row.project_value) || projectsMap[name].projectValue;
+      const bcs = Number(row.bcs) || 0;
+      const inflow = Number(row.inflow) || 0;
+      const invoiceValue = Number(row.invoice_value) || 0;
       const tds = Number(row.tds) || 0;
       const outflow = Number(projectsMap[name].outflow) || 0;
       projectsMap[name] = {
