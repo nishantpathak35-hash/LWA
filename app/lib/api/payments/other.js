@@ -306,6 +306,13 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
         console.error('Notification error (remit):', nErr.message);
       }
     }
+
+    // Auto-dispatch free Payment Advice email to vendor via Brevo
+    for (const id of remittedIds) {
+      sendPaymentAdvice(id, null, session).catch(err => {
+        console.warn(`[Auto-Advice] Vendor email dispatch for PR #${id}:`, err.message);
+      });
+    }
   }
 
   return {
