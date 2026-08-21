@@ -2,20 +2,20 @@ import '../app/globals.css';
 import { Toaster } from '../components/ui/Toast';
 
 export const viewport = {
-  themeColor: '#080A0C',
+  themeColor: '#09090b',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
 };
 
 export const metadata = {
-  title: 'Construct-O-Genie | Interior & Fit-Out Management Software',
-  description: 'Construct-O-Genie connects design, BOQs, procurement, site execution, billing and finance in one operating system built for interior and fit-out companies.',
+  title: 'PTS · LUXEWORX ATELIER INTERIOR PRIVATE LIMITED',
+  description: 'PTS payment tracking system',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Construct-O-Genie'
+    title: 'LWA ERP'
   }
 };
 
