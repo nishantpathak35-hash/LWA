@@ -11,7 +11,7 @@ import { PaymentRepository } from '../../../src/modules/payments/repositories/Pa
 import { AuthService } from '../../../src/modules/core/services/AuthService.ts';
 import { SettingsService } from '../../../src/modules/core/services/SettingsService.ts';
 import { AuditService } from '../../../src/modules/core/services/AuditService.ts';
-import { ensureSettingsTable } from './core.js';
+import { ensureSettingsTable, getSetting } from './core.js';
 import { listPaymentRequests } from './payments.js';
 import { getFeaturePermissions } from './settings.js';
 import { encryptToken, decryptToken, getJwtSecret } from './token.js';
@@ -197,12 +197,8 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
     if (p.project) projectSet.add(p.project); 
   });
 
-  // Fetch default PO general terms
-  let defaultGeneralTerms = '';
-  try {
-    const dgtRow = await queryGet(`SELECT value FROM app_settings WHERE key = 'default_po_general_terms'`);
-    if (dgtRow?.value) defaultGeneralTerms = dgtRow.value;
-  } catch (e) {}
+  // Fetch default PO general terms from in-memory cache
+  const defaultGeneralTerms = await getSetting('default_po_general_terms', '');
 
   return {
     vendors: masterVendors,
