@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-default-type=module --test tests/unit/po-terms-and-gst.test.mjs tests/unit/poEligibility.test.js",

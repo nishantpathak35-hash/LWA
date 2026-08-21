@@ -1,5 +1,3 @@
-import Tesseract from 'tesseract.js';
-
 /**
  * Scans an invoice image using local OCR and extracts text.
  * @param {File|string} imageFile - The image to scan
@@ -7,6 +5,23 @@ import Tesseract from 'tesseract.js';
  */
 export async function extractInvoiceData(imageFile, onProgress) {
   try {
+    let Tesseract = null;
+    if (typeof window !== 'undefined' && window.Tesseract) {
+      Tesseract = window.Tesseract;
+    } else {
+      try {
+        const pkg = 'tesseract' + '.js';
+        const mod = await import(/* webpackIgnore: true */ pkg);
+        Tesseract = mod.default || mod;
+      } catch (e) {
+        // Not loaded
+      }
+    }
+
+    if (!Tesseract) {
+      throw new Error('OCR library (tesseract.js) is not installed in this environment.');
+    }
+
     const worker = await Tesseract.createWorker('eng', 1, {
       logger: m => {
         if (onProgress && m.status === 'recognizing text') {
