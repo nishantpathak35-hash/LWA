@@ -189,11 +189,15 @@ export function useNotifications({ call, user, enabled = true }) {
     }
   }, [call, user]);
 
-  // Initial load & 25s poll interval
+  // Initial load & lightweight 90s poll interval (visibility-aware)
   useEffect(() => {
     if (enabled && user) {
       refreshNotifications();
-      const interval = setInterval(refreshNotifications, 25000);
+      const interval = setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          refreshNotifications();
+        }
+      }, 90000);
       return () => clearInterval(interval);
     }
   }, [enabled, user, refreshNotifications]);
