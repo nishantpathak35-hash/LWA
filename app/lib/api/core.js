@@ -48,26 +48,6 @@ export async function ensureSettingsTable() {
 }
 
 async function _runMigrations() {
-  await queryRun(`
-    CREATE TABLE IF NOT EXISTS app_settings (
-      key TEXT PRIMARY KEY,
-      value TEXT,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // ── Idempotent system_payments column additions (Bug 3a) ──────────────────
-  // These must run BEFORE the migrations_applied_v1 gate so they always execute
-  // on any DB that was initialised before these columns existed.
-  // ALTER TABLE ADD COLUMN on an already-existing column fails harmlessly.
-  await Promise.allSettled([
-    queryRun(`ALTER TABLE system_payments ADD COLUMN utr_ref TEXT DEFAULT ''`),
-    queryRun(`ALTER TABLE system_payments ADD COLUMN bank_name TEXT DEFAULT ''`),
-    queryRun(`ALTER TABLE system_payments ADD COLUMN payment_mode TEXT DEFAULT 'Bank Transfer'`),
-    queryRun(`ALTER TABLE system_payments ADD COLUMN remarks TEXT DEFAULT ''`),
-    queryRun(`ALTER TABLE system_payments ADD COLUMN reference_no TEXT DEFAULT ''`),
-  ]);
-
   const migrationsAppliedKey = 'migrations_applied_v1';
   try {
     const check = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [migrationsAppliedKey]);
@@ -77,6 +57,22 @@ async function _runMigrations() {
   } catch (e) {
     // Table might not exist yet or other query error, safe to proceed
   }
+
+  await queryRun(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await Promise.allSettled([
+    queryRun(`ALTER TABLE system_payments ADD COLUMN utr_ref TEXT DEFAULT ''`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN bank_name TEXT DEFAULT ''`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN payment_mode TEXT DEFAULT 'Bank Transfer'`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN remarks TEXT DEFAULT ''`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN reference_no TEXT DEFAULT ''`),
+  ]);
   // Ensure all required columns exist (idempotent)
   const poColumns = [
     'terms', 'approval_status', 'submitted_by', 'submitted_at',

@@ -67,29 +67,29 @@ export async function deleteEntityAttachments(entityType, entityId) {
   }
 }
 
-/**
- * Ensure the attachments table exists before any DB operation.
- * Uses CREATE TABLE IF NOT EXISTS so it is safe to call on every request.
- */
+let _attachmentsTablePromise = null;
 async function ensureAttachmentsTable() {
-  try {
-    await queryRun(`
-      CREATE TABLE IF NOT EXISTS attachments (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        entity_type TEXT    NOT NULL,
-        entity_id   TEXT    NOT NULL,
-        file_name   TEXT    NOT NULL,
-        file_type   TEXT,
-        file_size   INTEGER DEFAULT 0,
-        file_data   TEXT,
-        uploaded_by TEXT,
-        created_at  TEXT    DEFAULT (datetime('now'))
-      )
-    `);
-  } catch (err) {
-    // Log but do not throw — table may already exist or DB may be read-only during build
-    console.warn('ensureAttachmentsTable warning:', err.message);
-  }
+  if (_attachmentsTablePromise) return _attachmentsTablePromise;
+  _attachmentsTablePromise = (async () => {
+    try {
+      await queryRun(`
+        CREATE TABLE IF NOT EXISTS attachments (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          entity_type TEXT    NOT NULL,
+          entity_id   TEXT    NOT NULL,
+          file_name   TEXT    NOT NULL,
+          file_type   TEXT,
+          file_size   INTEGER DEFAULT 0,
+          file_data   TEXT,
+          uploaded_by TEXT,
+          created_at  TEXT    DEFAULT (datetime('now'))
+        )
+      `);
+    } catch (err) {
+      // Table already exists or DB read-only
+    }
+  })();
+  return _attachmentsTablePromise;
 }
 
 export async function uploadAttachment(payload, session) {

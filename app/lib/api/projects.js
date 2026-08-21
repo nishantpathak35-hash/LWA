@@ -17,15 +17,8 @@ import fs from 'fs';
 import path from 'path';
 import { logAudit, getSetting, DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS } from './core.js';
 import { isSuperAdmin } from '../config.js';
+import { getJwtSecret, encryptToken, decryptToken } from './token.js';
 
-
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing!");
-  }
-  return secret;
-}
 
 function invalidateProjectCache(project) {
   return project;
@@ -37,42 +30,6 @@ const settingsCache = new Map();
 // A boolean flag is not concurrent-safe — two simultaneous requests would both
 // run the expensive v3 backfill before either sets the flag to true.
 let _settingsTablePromise = null;
-
-function encryptToken(data) {
-  const JWT_SECRET = getJwtSecret();
-  const iv = crypto.randomBytes(16);
-  const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + encrypted;
-}
-
-function decryptToken(token) {
-  const JWT_SECRET = getJwtSecret();
-  try {
-    const key = Buffer.from(JWT_SECRET.slice(0, 32).padEnd(32, '0'));
-    if (token && token.length >= 32) {
-      try {
-        const ivHex = token.slice(0, 32);
-        const ciphertext = token.slice(32);
-        const iv = Buffer.from(ivHex, 'hex');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return JSON.parse(decrypted);
-      } catch (err) {
-        // Fall back to legacy format
-      }
-    }
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.alloc(16, 0));
-    let decrypted = decipher.update(token, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return JSON.parse(decrypted);
-  } catch (e) {
-    throw new Error('Invalid token');
-  }
-}
 
 function requireAuth(session) {
   AuthService.requireAuth(session);
@@ -126,17 +83,6 @@ export async function getProjectDetails(session) {
   });
 
   try {
-    await queryRun(`
-      CREATE TABLE IF NOT EXISTS project_financials (
-        project TEXT PRIMARY KEY,
-        project_value REAL DEFAULT 0,
-        bcs REAL DEFAULT 0,
-        inflow REAL DEFAULT 0,
-        invoice_value REAL DEFAULT 0,
-        tds REAL DEFAULT 0,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
     const overrides = await queryAll(`SELECT * FROM project_financials`);
     overrides.forEach(row => {
       const name = row.project;
