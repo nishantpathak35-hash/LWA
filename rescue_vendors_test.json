@@ -1,0 +1,1 @@
+﻿{"baton":null,"base_url":null,"results":[{"type":"error","error":{"message":"SQL string could not be parsed: near STAR, \"None\": syntax error at (1, 145)","code":"SQL_PARSE_ERROR"}}]}

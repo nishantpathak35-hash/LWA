@@ -1,0 +1,15 @@
+﻿CREATE TABLE purchase_orders (
+        po_no TEXT PRIMARY KEY,
+        vendor_key TEXT NOT NULL,
+        vendor_name TEXT,
+        project TEXT,
+        po_value REAL DEFAULT 0,
+        revised_po_value REAL DEFAULT 0,
+        status TEXT DEFAULT 'Open',
+        po_date TEXT,
+        certified_value REAL DEFAULT 0,
+        legacy_paid REAL DEFAULT 0,
+        advance REAL DEFAULT 0,
+        final_payable REAL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      , terms TEXT, approval_status TEXT, submitted_by TEXT, submitted_at TEXT, approved_by TEXT, approved_at TEXT, approval_remarks TEXT, tds_section TEXT, tds_pct TEXT, tds_amount TEXT, gst_total TEXT, gst_mode TEXT, expected_delivery_date TEXT, notes TEXT, payment_status TEXT, category TEXT, version INTEGER DEFAULT 1, milestones TEXT, vendor_id INTEGER, vendor_code TEXT, general_terms TEXT, payment_delivery_terms TEXT)

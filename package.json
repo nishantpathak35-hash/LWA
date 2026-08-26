@@ -1,51 +1,25 @@
 {
-  "name": "frontend",
+  "name": "construct-o-genie",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "test": "node --experimental-default-type=module --test tests/unit/po-terms-and-gst.test.mjs tests/unit/poEligibility.test.js",
-    "test:unit": "node --experimental-default-type=module --test tests/unit/po-terms-and-gst.test.mjs tests/unit/poEligibility.test.js",
-    "migrate": "drizzle-kit push",
-    "migrate:cloudinary": "node scripts/migrate-to-cloudinary.js"
+    "start": "next start"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.4",
-    "bcryptjs": "^3.0.3",
-    "cloudinary": "^2.10.0",
-    "csv-parser": "^3.2.1",
-    "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2",
-    "html2pdf.js": "^0.14.0",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.18.0",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "recharts": "^3.10.1",
-    "resend": "^6.14.0"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@types/react": "19.2.17",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
-    "clsx": "^2.1.1",
-    "drizzle-kit": "^0.31.10",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.9",
-    "postcss": "^8.5.26",
-    "tailwind-merge": "^3.6.0",
+    "postcss": "^8.5.2",
     "tailwindcss": "^3.4.17",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
-  },
-  "overrides": {
-    "next": {
-      "postcss": "8.5.10"
-    }
+    "typescript": "^5"
   }
 }
