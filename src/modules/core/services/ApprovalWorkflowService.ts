@@ -1,4 +1,4 @@
-import { ApprovalWorkflowRepository } from '../repositories/ApprovalWorkflowRepository';
+import { ApprovalWorkflowRepository } from '../repositories/ApprovalWorkflowRepository.ts';
 
 /**
  * Database-driven Approval Workflow Service.
@@ -224,12 +224,17 @@ export class ApprovalWorkflowService {
    */
   static async getNextStage(moduleType: string, currentStage: string, userRoles: string[]): Promise<{ newStage: string; updates: Record<string, string> }> {
     const workflow = await this.getActiveWorkflowForModule(moduleType);
-    if (!workflow || !workflow.stages || workflow.stages.length === 0) {
-      // Fallback: no workflow configured — return current stage (no advancement)
-      return { newStage: currentStage, updates: {} };
+    let stages = workflow?.stages;
+    if (!stages || !Array.isArray(stages) || stages.length === 0) {
+      stages = moduleType === 'purchase_order'
+        ? [{ stage_name: 'Pending Approval', approver_role: 'director' }]
+        : [
+            { stage_name: 'Pending Procurement', approver_role: 'procurement' },
+            { stage_name: 'Pending Finance', approver_role: 'finance' },
+            { stage_name: 'Pending Director', approver_role: 'director' }
+          ];
     }
 
-    const stages = workflow.stages;
     let currentIdx = stages.findIndex((s: any) => s.stage_name === currentStage);
     if (currentIdx === -1) {
       // Unknown stage — treat as the first stage
@@ -290,11 +295,17 @@ export class ApprovalWorkflowService {
    */
   static async getRejectStage(moduleType: string, currentStage: string, userRoles: string[]): Promise<{ newStage: string; updates: Record<string, string> }> {
     const workflow = await this.getActiveWorkflowForModule(moduleType);
-    if (!workflow || !workflow.stages || workflow.stages.length === 0) {
-      return { newStage: 'Rejected', updates: {} };
+    let stages = workflow?.stages;
+    if (!stages || !Array.isArray(stages) || stages.length === 0) {
+      stages = moduleType === 'purchase_order'
+        ? [{ stage_name: 'Pending Approval', approver_role: 'director' }]
+        : [
+            { stage_name: 'Pending Procurement', approver_role: 'procurement' },
+            { stage_name: 'Pending Finance', approver_role: 'finance' },
+            { stage_name: 'Pending Director', approver_role: 'director' }
+          ];
     }
 
-    const stages = workflow.stages;
     let currentStageDef = stages.find((s: any) => s.stage_name === currentStage);
     if (!currentStageDef) {
       currentStageDef = stages[0];

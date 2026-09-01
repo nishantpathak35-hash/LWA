@@ -50,3 +50,19 @@ export async function queryRun(sql, params = []) {
   if (!tursoClient) throw new Error("Database not connected");
   return executeWithRetry(() => tursoClient.execute({ sql, args: params }));
 }
+
+/**
+ * Executes an array of SQL statements in a single atomic transaction.
+ * @param {Array<{sql: string, args?: any[]}>} statements
+ * @param {'write' | 'read' | 'deferred'} mode
+ */
+export async function queryBatch(statements, mode = 'write') {
+  if (!tursoClient) throw new Error("Database not connected");
+  if (!Array.isArray(statements) || statements.length === 0) return [];
+  const normalized = statements.map(st => {
+    if (typeof st === 'string') return { sql: st, args: [] };
+    return { sql: st.sql, args: st.args || st.params || [] };
+  });
+  return executeWithRetry(() => tursoClient.batch(normalized, mode));
+}
+

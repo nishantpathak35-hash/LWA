@@ -128,47 +128,48 @@ export async function bulkApprovePayments(ids, approvalData, session) {
 
   if (approvedIds.length > 0) {
     await emitBroadcast('payment', 'updated', approvedIds.join(','));
-    // Notify: payment approved — tell procurement creator + next-stage role
-    const actorName = session?.name || session?.email?.split('@')[0] || 'Approver';
-    const actorEmail = session?.email || '';
-    for (const id of approvedIds) {
-      try {
-        const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
-        if (pr) {
-          // Determine next stage from current stage
-          const stage = String(pr.stage || '').toLowerCase();
-          let nextRole = '';
-          if (stage.includes('finance')) nextRole = 'director';
-          else if (stage.includes('proc') || stage.includes('maker')) nextRole = 'finance';
-          // Notify requester/creator
-          await createNotification({
-            recipientRole: 'procurement',
-            type: 'approved',
-            title: `PR #${id} Approved`,
-            body: `${actorName} approved payment of ₹${Number(pr.approved_amount || pr.amount_requested || 0).toLocaleString('en-IN')} for ${pr.vendor_name || 'vendor'}`,
-            recordType: 'Payment Request',
-            recordId: String(id),
-            actorName,
-            actorEmail
-          });
-          // Notify next stage role if exists
-          if (nextRole) {
+    // Async non-blocking notifications
+    Promise.resolve().then(async () => {
+      const actorName = session?.name || session?.email?.split('@')[0] || 'Approver';
+      const actorEmail = session?.email || '';
+      for (const id of approvedIds) {
+        try {
+          const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
+          if (pr) {
+            const stage = String(pr.stage || '').toLowerCase();
+            let nextRole = '';
+            if (stage.includes('finance')) nextRole = 'director';
+            else if (stage.includes('proc') || stage.includes('maker')) nextRole = 'finance';
+            
             await createNotification({
-              recipientRole: nextRole,
-              type: 'approval_needed',
-              title: `PR #${id} Needs Your Approval`,
-              body: `₹${Number(pr.approved_amount || pr.amount_requested || 0).toLocaleString('en-IN')} for ${pr.vendor_name || 'vendor'} (${pr.po_no || 'N/A'})`,
+              recipientRole: 'procurement',
+              type: 'approved',
+              title: `PR #${id} Approved`,
+              body: `${actorName} approved payment of ₹${Number(pr.approved_amount || pr.amount_requested || 0).toLocaleString('en-IN')} for ${pr.vendor_name || 'vendor'}`,
               recordType: 'Payment Request',
               recordId: String(id),
               actorName,
               actorEmail
             });
+
+            if (nextRole) {
+              await createNotification({
+                recipientRole: nextRole,
+                type: 'approval_needed',
+                title: `PR #${id} Needs Your Approval`,
+                body: `₹${Number(pr.approved_amount || pr.amount_requested || 0).toLocaleString('en-IN')} for ${pr.vendor_name || 'vendor'} (${pr.po_no || 'N/A'})`,
+                recordType: 'Payment Request',
+                recordId: String(id),
+                actorName,
+                actorEmail
+              });
+            }
           }
+        } catch (nErr) {
+          console.warn('Notification error (approve):', nErr.message);
         }
-      } catch (nErr) {
-        console.error('Notification error (approve):', nErr.message);
       }
-    }
+    });
   }
 
   return {

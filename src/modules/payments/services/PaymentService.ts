@@ -1,6 +1,7 @@
 import { PaymentRepository } from '../repositories/PaymentRepository.ts';
 import { IPaymentInput, IPaymentRequestInput, IPaymentRequest } from '../types/Payment';
 import { ApprovalWorkflowService } from '../../core/services/ApprovalWorkflowService.ts';
+import { AuthService } from '../../core/services/AuthService.ts';
 import { POService } from '../../purchase-orders/services/POService.ts';
 import { logAudit } from '../../../../app/lib/api.js';
 
@@ -123,20 +124,16 @@ export class PaymentService {
     const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '');
 
     const oldStage = pr.stage || 'Pending Procurement';
-    const { newStage, updates } = await ApprovalWorkflowService.getNextStage('payment_request', oldStage, userRoles);
+    const isSuper = AuthService.isSuperAdmin(userEmail);
+    const effectiveRoles = isSuper
+      ? Array.from(new Set([...userRoles, 'admin', 'director', 'finance', 'procurement', 'proc', 'maker', 'accountant']))
+      : userRoles;
+
+    const { newStage, updates } = await ApprovalWorkflowService.getNextStage('payment_request', oldStage, effectiveRoles);
 
     if (oldStage === newStage) {
       throw new Error(`You do not have permission to approve this request, or it cannot be approved from its current stage (${oldStage}).`);
     }
-
-    await PaymentRepository.updateRequest(prId, {
-      ...updates,
-      stage: newStage,
-      approved_amount: approvedAmount,
-      tds_amount: tdsAmount,
-      tds_percentage: tdsPct,
-      tds_section: tdsSec
-    });
 
     const reqAmt = Number(pr.amount_requested || 0);
     const diffAmt = reqAmt - approvedAmount;
@@ -145,20 +142,30 @@ export class PaymentService {
 
     const auditDetailText = `Approved payment ID ${prId} (transitioned ${oldStage} → ${newStage}). Requested Amount: ₹${reqAmt.toLocaleString('en-IN')}, Approved Amount: ₹${approvedAmount.toLocaleString('en-IN')}, Difference: ₹${diffAmt.toLocaleString('en-IN')}, Approver: ${userEmail}, Timestamp: ${approvalTimestamp}${reasonText ? `, Reason: ${reasonText}` : ''}`;
 
-    await logAudit(
-      userEmail,
-      'Approve Payment',
-      auditDetailText,
-      oldStage
-    );
-
-    await ApprovalWorkflowService.recordApproval(
-      'payment_request', 
-      String(prId), 
-      oldStage, 
-      'Approved', 
-      userEmail, 
-      auditDetailText
+    await PaymentRepository.updateRequestWithAuditAndHistory(
+      prId,
+      {
+        ...updates,
+        stage: newStage,
+        approved_amount: approvedAmount,
+        tds_amount: tdsAmount,
+        tds_percentage: tdsPct,
+        tds_section: tdsSec
+      },
+      {
+        user: userEmail,
+        action_type: 'Approve Payment',
+        details: auditDetailText,
+        department: oldStage
+      },
+      {
+        entity_type: 'payment_request',
+        entity_id: String(prId),
+        stage_name: oldStage,
+        action: 'Approved',
+        performed_by: userEmail,
+        remarks: auditDetailText
+      }
     );
 
     return { ok: true };
@@ -172,28 +179,36 @@ export class PaymentService {
     if (!pr) throw new Error(`Payment request not found: ${prId}`);
 
     const oldStage = pr.stage;
-    const { newStage, updates } = await ApprovalWorkflowService.getRejectStage('payment_request', oldStage, userRoles);
+    const isSuper = AuthService.isSuperAdmin(userEmail);
+    const effectiveRoles = isSuper
+      ? Array.from(new Set([...userRoles, 'admin', 'director', 'finance', 'procurement', 'proc', 'maker', 'accountant']))
+      : userRoles;
 
-    await PaymentRepository.updateRequest(prId, {
-      ...updates,
-      stage: newStage,
-      remarks: rejectReason ? (pr.remarks ? pr.remarks + ' | Reject Reason: ' + rejectReason : 'Reject Reason: ' + rejectReason) : pr.remarks
-    });
+    const { newStage, updates } = await ApprovalWorkflowService.getRejectStage('payment_request', oldStage, effectiveRoles);
+    const rejectRemarks = rejectReason ? (pr.remarks ? pr.remarks + ' | Reject Reason: ' + rejectReason : 'Reject Reason: ' + rejectReason) : pr.remarks;
+    const auditDetailText = `Rejected payment ID ${prId} at stage ${oldStage}. Reason: ${rejectReason}`;
 
-    await logAudit(
-      userEmail,
-      'Reject Payment',
-      `Rejected payment ID ${prId} at stage ${oldStage}. Reason: ${rejectReason}`,
-      oldStage
-    );
-
-    await ApprovalWorkflowService.recordApproval(
-      'payment_request', 
-      String(prId), 
-      oldStage, 
-      'Rejected', 
-      userEmail, 
-      `Reason: ${rejectReason}`
+    await PaymentRepository.updateRequestWithAuditAndHistory(
+      prId,
+      {
+        ...updates,
+        stage: newStage,
+        remarks: rejectRemarks
+      },
+      {
+        user: userEmail,
+        action_type: 'Reject Payment',
+        details: auditDetailText,
+        department: oldStage
+      },
+      {
+        entity_type: 'payment_request',
+        entity_id: String(prId),
+        stage_name: oldStage,
+        action: 'Rejected',
+        performed_by: userEmail,
+        remarks: `Reason: ${rejectReason}`
+      }
     );
 
     return { ok: true };

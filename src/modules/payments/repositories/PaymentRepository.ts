@@ -97,6 +97,54 @@ export class PaymentRepository {
   }
 
   /**
+   * Atomically updates a payment request, records the audit log, and registers approval history in a single ACID transaction.
+   */
+  static async updateRequestWithAuditAndHistory(
+    prId: string | number,
+    updates: Partial<IPaymentRequest> & Record<string, any>,
+    auditEntry: { user: string; action_type: string; details: string; department?: string },
+    historyEntry: { entity_type: string; entity_id: string; stage_name: string; action: string; performed_by: string; remarks?: string }
+  ): Promise<void> {
+    const validColumns = new Set([
+      'po_no', 'vendor_id', 'vendor_code', 'vendor_name', 'project', 'category', 'amount_requested', 'approved_amount',
+      'stage', 'remittance', 'remarks', 'created_by',
+      'tds_amount', 'tds_percentage', 'tds_section', 'invoice_id',
+      'remittance_ref', 'remittance_date',
+      'proc_approval', 'finance_approval', 'director_approval'
+    ]);
+
+    const fields: string[] = [];
+    const values: any[] = [];
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && key !== 'version' && validColumns.has(key)) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+    if (fields.length === 0) return;
+
+    fields.push(`version = COALESCE(version, 1) + 1`);
+    const updateSql = `UPDATE payment_requests SET ${fields.join(', ')} WHERE pr_id = ?`;
+    values.push(prId);
+
+    const now = new Date().toISOString();
+    const batchStatements = [
+      { sql: updateSql, args: values },
+      {
+        sql: `INSERT INTO audit_logs (user, action_type, details, department, timestamp) VALUES (?, ?, ?, ?, ?)`,
+        args: [auditEntry.user || 'System', auditEntry.action_type, auditEntry.details, auditEntry.department || 'Finance', now]
+      },
+      {
+        sql: `INSERT INTO approval_history_v2 (workflow_id, entity_type, entity_id, stage_name, action, performed_by, remarks, stage_sequence, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [null, historyEntry.entity_type, historyEntry.entity_id, historyEntry.stage_name, historyEntry.action, historyEntry.performed_by, historyEntry.remarks || '', 0, '']
+      }
+    ];
+
+    const { queryBatch } = await import('../../../../app/lib/db.js');
+    await queryBatch(batchStatements, 'write');
+  }
+
+  /**
    * ----------------- PAYMENTS (REMITTANCES) -----------------
    */
 

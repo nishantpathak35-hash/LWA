@@ -361,11 +361,44 @@ export default function InvoicesView() {
 
   const getStatusBadge = (status) => {
     const s = String(status || '').toLowerCase();
-    if (s === 'approved') return <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold px-2 py-0.5 text-[11px]">Approved</Badge>;
-    if (s === 'paid') return <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold px-2 py-0.5 text-[11px]">Paid</Badge>;
-    if (s === 'rejected') return <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-bold px-2 py-0.5 text-[11px]">Rejected</Badge>;
-    if (s === 'under review') return <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold px-2 py-0.5 text-[11px]">Under Review</Badge>;
-    return <Badge className="bg-muted text-muted-foreground border border-border font-medium px-2 py-0.5 text-[11px]">Submitted</Badge>;
+    if (s === 'approved') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+          Approved
+        </span>
+      );
+    }
+    if (s === 'paid') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/25 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+          Paid
+        </span>
+      );
+    }
+    if (s === 'rejected') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/25 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+          Rejected
+        </span>
+      );
+    }
+    if (s === 'under review') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/25 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+          Under Review
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-500/10 text-slate-700 dark:text-slate-400 border border-slate-500/20 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+        Submitted
+      </span>
+    );
   };
 
   const selectedPOData = useMemo(() => {
@@ -416,18 +449,25 @@ export default function InvoicesView() {
     <div className="space-y-6 animate-fade-in pb-12">
 
       {/* ── 1. Header Card ── */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border p-5 rounded-xl shadow-2xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border border-border/80 p-5 rounded-2xl shadow-xs">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-gold border border-amber-500/20 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-gold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              Procurement & Finance
+            </span>
+            <span className="text-[10px] text-muted-foreground">•</span>
+            <span className="text-[10px] text-muted-foreground font-medium">Invoice Audit & Settlement</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-gold border border-amber-500/20 shrink-0">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-xl font-bold tracking-tight text-foreground">
-                Invoice Management Ledger
+                Invoices Ledger
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Vendor-grouped & financial detailed views for invoice processing and audit
+              <p className="text-xs text-muted-foreground">
+                Vendor-grouped billing reconciliation, tax tracking & payment pipeline
               </p>
             </div>
           </div>
@@ -438,7 +478,7 @@ export default function InvoicesView() {
             variant="outline"
             size="sm"
             onClick={fetchInvoices}
-            className="text-xs font-semibold h-9"
+            className="text-xs font-semibold h-9 rounded-lg border-border/80 hover:bg-muted/60"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-amber-600 dark:text-gold' : 'text-muted-foreground'}`} />
             Sync
@@ -448,7 +488,7 @@ export default function InvoicesView() {
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
-            className="text-xs font-semibold h-9"
+            className="text-xs font-semibold h-9 rounded-lg border-border/80 hover:bg-muted/60"
           >
             <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
             Export CSV
@@ -456,97 +496,102 @@ export default function InvoicesView() {
 
           <Button
             onClick={() => setUploadModalOpen(true)}
-            className="bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold text-xs h-9 px-4 flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+            className="bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold text-xs h-9 px-4 rounded-lg flex items-center gap-2 shadow-xs transition-all cursor-pointer"
           >
             <FilePlus className="w-4 h-4" /> Upload Internal Invoice
           </Button>
         </div>
       </div>
 
-      {/* ── 2. Metric KPI Cards Bar ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
+      {/* ── 2. Metric KPI Cards Bar (Zoho / Linear Minimalist) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Card 
           onClick={() => setStatusFilter('ALL')}
-          className={`cursor-pointer transition-all ${
-            statusFilter === 'ALL' ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
+          className={`cursor-pointer transition-all rounded-xl ${
+            statusFilter === 'ALL' ? 'border-amber-500/70 ring-1 ring-amber-500/30 bg-amber-500/5' : 'border-border/80 hover:border-border bg-card'
           }`}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total Invoices</span>
-              <div className="p-1.5 rounded bg-muted text-muted-foreground">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Invoices</span>
+              <div className="p-1.5 rounded-lg bg-muted text-muted-foreground">
                 <Receipt className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums mt-1.5">{kpis.total}</p>
-            <span className="text-[10px] text-muted-foreground mt-0.5 block truncate">Total Invoiced: {formatCurrency(kpis.totalVal)}</span>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <p className="text-2xl font-bold tracking-tight text-foreground font-mono tabular-nums">{kpis.total}</p>
+              <span className="text-xs font-semibold text-foreground font-mono tabular-nums">{formatCurrency(kpis.totalVal)}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground mt-1 block">Gross Invoiced Value</span>
           </CardContent>
         </Card>
 
         <Card 
           onClick={() => setStatusFilter('PENDING')}
-          className={`cursor-pointer transition-all ${
-            statusFilter === 'PENDING' ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
+          className={`cursor-pointer transition-all rounded-xl ${
+            statusFilter === 'PENDING' ? 'border-amber-500/70 ring-1 ring-amber-500/30 bg-amber-500/5' : 'border-border/80 hover:border-border bg-card'
           }`}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Action Needed</span>
-              <div className="p-1.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Requires Review</span>
+              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
                 <Clock className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400 tabular-nums mt-1.5">{kpis.pending}</p>
-            <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5 block font-medium">Requires Admin Audit</span>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <p className="text-2xl font-bold tracking-tight text-amber-700 dark:text-amber-400 font-mono tabular-nums">{kpis.pending}</p>
+              {kpis.pending > 0 && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Action Needed
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground mt-1 block">Pending Verification</span>
           </CardContent>
         </Card>
 
         <Card 
           onClick={() => setStatusFilter('APPROVED')}
-          className={`cursor-pointer transition-all ${
-            statusFilter === 'APPROVED' ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
+          className={`cursor-pointer transition-all rounded-xl ${
+            statusFilter === 'APPROVED' ? 'border-emerald-500/70 ring-1 ring-emerald-500/30 bg-emerald-500/5' : 'border-border/80 hover:border-border bg-card'
           }`}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Approved</span>
-              <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Approved & Ready</span>
+              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums mt-1.5">{kpis.approved}</p>
-            <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5 block font-medium">Ready for Payment</span>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <p className="text-2xl font-bold tracking-tight text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{kpis.approved}</p>
+              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(kpis.approvedVal)}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground mt-1 block">Ready for Payment Request</span>
           </CardContent>
         </Card>
 
         <Card 
           onClick={() => setStatusFilter('PAID')}
-          className={`cursor-pointer transition-all ${
-            statusFilter === 'PAID' ? 'border-blue-500/60 ring-1 ring-blue-500/30' : 'hover:border-slate-300 dark:hover:border-slate-700'
+          className={`cursor-pointer transition-all rounded-xl ${
+            statusFilter === 'PAID' ? 'border-blue-500/70 ring-1 ring-blue-500/30 bg-blue-500/5' : 'border-border/80 hover:border-border bg-card'
           }`}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Paid Invoices</span>
-              <div className="p-1.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Settled & Paid</span>
+              <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
                 <FileCheck className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400 tabular-nums mt-1.5">{kpis.paid}</p>
-            <span className="text-[10px] text-blue-600/80 dark:text-blue-400/80 mt-0.5 block font-medium">Settled Outflow</span>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border/80">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Approved Value</span>
-              <div className="p-1.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <IndianRupee className="w-4 h-4" />
-              </div>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <p className="text-2xl font-bold tracking-tight text-blue-700 dark:text-blue-400 font-mono tabular-nums">{kpis.paid}</p>
+              <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                Settled
+              </span>
             </div>
-            <p className="text-lg font-bold tracking-tight text-foreground tabular-nums mt-1.5 truncate">{formatCurrency(kpis.approvedVal)}</p>
-            <span className="text-[10px] text-muted-foreground mt-0.5 block">Committed Liability</span>
+            <span className="text-[10px] text-muted-foreground mt-1 block">Completed Remittances</span>
           </CardContent>
         </Card>
       </div>
@@ -785,63 +830,66 @@ export default function InvoicesView() {
                               {formatCurrency(tot)}
                             </TableCell>
                             <TableCell>{getStatusBadge(inv.status)}</TableCell>
-                            <TableCell className="text-right whitespace-nowrap space-x-1">
-                              <button
-                                type="button"
-                                onClick={() => setInspectInvoice(inv)}
-                                className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground p-1 hover:bg-muted rounded transition-colors cursor-pointer"
-                                title="Inspect Invoice"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-
-                              <a
-                                href={getAttachmentDownloadUrl(inv.invoice_id)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline p-1 hover:bg-amber-500/10 rounded transition-colors"
-                                title="Download PDF"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                              </a>
-
-                              {String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review' ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
-                                    className="inline-flex items-center text-[11px] text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
-                                    className="inline-flex items-center text-[11px] text-red-600 dark:text-red-400 font-bold px-1.5 py-0.5 rounded border border-red-500/30 hover:bg-red-500/10 cursor-pointer"
-                                  >
-                                    Reject
-                                  </button>
-                                </>
-                              ) : null}
-
-                              {String(inv.status).toLowerCase() === 'approved' ? (
+                            <TableCell className="text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => handleCreatePaymentRequest(inv)}
-                                  className="inline-flex items-center text-[11px] bg-amber-600 hover:bg-amber-700 dark:bg-gold text-slate-950 font-bold px-2 py-0.5 rounded cursor-pointer"
+                                  onClick={() => setInspectInvoice(inv)}
+                                  className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                                  title="Inspect Invoice"
                                 >
-                                  Pay
+                                  <Eye className="w-3.5 h-3.5" />
                                 </button>
-                              ) : null}
 
-                              <button
-                                type="button"
-                                onClick={() => setInvoiceToDelete(inv)}
-                                className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-500/10 rounded transition-colors cursor-pointer"
-                                title="Delete Invoice"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                                <a
+                                  href={getAttachmentDownloadUrl(inv.invoice_id)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors"
+                                  title="Download PDF"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </a>
+
+                                {(String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review') && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
+                                      className="inline-flex items-center text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-1 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                                    >
+                                      <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
+                                      className="inline-flex items-center text-[11px] text-rose-700 dark:text-rose-400 font-semibold px-2 py-1 rounded-lg border border-rose-500/30 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    >
+                                      <XCircle className="w-3 h-3 mr-1" /> Reject
+                                    </button>
+                                  </>
+                                )}
+
+                                {String(inv.status).toLowerCase() === 'approved' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCreatePaymentRequest(inv)}
+                                    className="inline-flex items-center text-[11px] bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-xs"
+                                    title="Create Payment Request"
+                                  >
+                                    <CreditCard className="w-3 h-3 mr-1" /> Pay Request
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => setInvoiceToDelete(inv)}
+                                  className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete Invoice"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -910,64 +958,66 @@ export default function InvoicesView() {
                       {formatCurrency(tot)}
                     </TableCell>
                     <TableCell>{getStatusBadge(inv.status)}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap space-x-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setInspectInvoice(inv)}
-                        className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground font-medium p-1.5 hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                        title="Inspect Invoice Details"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-
-                      <a
-                        href={getAttachmentDownloadUrl(inv.invoice_id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline font-medium p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors"
-                        title="Download Invoice PDF"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </a>
-
-                      {String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review' ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
-                            className="inline-flex items-center text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold px-2 py-1 rounded-md border border-emerald-500/30 transition-colors cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
-                            className="inline-flex items-center text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 font-bold px-2 py-1 rounded-md border border-red-500/30 transition-colors cursor-pointer"
-                          >
-                            <XCircle className="w-3 h-3 mr-1" /> Reject
-                          </button>
-                        </>
-                      ) : null}
-
-                      {String(inv.status).toLowerCase() === 'approved' ? (
+                    <TableCell className="text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handleCreatePaymentRequest(inv)}
-                          className="inline-flex items-center text-xs bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1 rounded-md transition-colors cursor-pointer shadow-2xs"
-                          title="Create Payment Request from Invoice"
+                          onClick={() => setInspectInvoice(inv)}
+                          className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground font-medium p-1.5 hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                          title="Inspect Invoice Details"
                         >
-                          <CreditCard className="w-3 h-3 mr-1" /> Pay Request
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
-                      ) : null}
 
-                      <button
-                        type="button"
-                        onClick={() => setInvoiceToDelete(inv)}
-                        className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                        title="Delete Invoice Line Item"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        <a
+                          href={getAttachmentDownloadUrl(inv.invoice_id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline font-medium p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors"
+                          title="Download Invoice PDF"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+
+                        {(String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review') && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
+                              className="inline-flex items-center text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold px-2 py-1 rounded-lg border border-emerald-500/30 transition-colors cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
+                              className="inline-flex items-center text-xs text-rose-700 dark:text-rose-400 hover:bg-rose-500/10 font-semibold px-2 py-1 rounded-lg border border-rose-500/30 transition-colors cursor-pointer"
+                            >
+                              <XCircle className="w-3 h-3 mr-1" /> Reject
+                            </button>
+                          </>
+                        )}
+
+                        {String(inv.status).toLowerCase() === 'approved' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCreatePaymentRequest(inv)}
+                            className="inline-flex items-center text-xs bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-xs"
+                            title="Create Payment Request from Invoice"
+                          >
+                            <CreditCard className="w-3 h-3 mr-1" /> Pay Request
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setInvoiceToDelete(inv)}
+                          className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Invoice Line Item"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
