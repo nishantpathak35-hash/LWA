@@ -443,23 +443,55 @@ export function StateProvider({ children }) {
     }
   }, [callDirect]);
 
-  // Optimized periodic sync (replaces aggressive full DB scans on every window focus)
+  // Track user activity to prevent background idle tabs from draining Vercel Serverless CPU
+  const lastActiveTimestampRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleUserActivity = () => {
+      const now = Date.now();
+      const wasIdle = now - lastActiveTimestampRef.current > 120000;
+      lastActiveTimestampRef.current = now;
+
+      // If user returned after being idle, do one quick refresh
+      if (wasIdle && user) {
+        refreshData();
+      }
+    };
+
+    window.addEventListener('mousemove', handleUserActivity, { passive: true });
+    window.addEventListener('keydown', handleUserActivity, { passive: true });
+    window.addEventListener('touchstart', handleUserActivity, { passive: true });
+    window.addEventListener('click', handleUserActivity, { passive: true });
+    window.addEventListener('scroll', handleUserActivity, { passive: true });
+
+    return () => {
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('touchstart', handleUserActivity);
+      window.removeEventListener('click', handleUserActivity);
+      window.removeEventListener('scroll', handleUserActivity);
+    };
+  }, [user, refreshData]);
+
+  // Optimized periodic sync (throttled to 10 mins when tab is active and visible)
   useEffect(() => {
     if (!user) return;
     
-    // Auto-refresh fallback every 5 minutes when tab is visible
     const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      const isIdle = Date.now() - lastActiveTimestampRef.current > 120000;
+      if (document.visibilityState === 'visible' && !isIdle) {
         refreshData();
       }
-    }, 300000);
+    }, 600000); // 10 minutes
 
     return () => {
       window.clearInterval(interval);
     };
   }, [user, refreshData]);
 
-  // BroadcastChannel multi-tab sync listener for instant same-browser updates
+  // BroadcastChannel multi-tab sync listener for instant same-browser updates (0 server calls)
   useEffect(() => {
     if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
     const channel = new BroadcastChannel('lwa_app_sync');
@@ -475,7 +507,7 @@ export function StateProvider({ children }) {
     return () => { channel.close(); };
   }, [refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshData]);
 
-  // Lightweight REST polling for background events (Vercel serverless optimized)
+  // Lightweight REST polling for background events (Vercel serverless CPU optimized)
   useEffect(() => {
     if (!user || !token) return;
 
@@ -484,7 +516,8 @@ export function StateProvider({ children }) {
     let lastEventId = 0;
 
     async function checkForEvents() {
-      if (!active || document.visibilityState !== 'visible') return;
+      const isIdle = Date.now() - lastActiveTimestampRef.current > 120000;
+      if (!active || document.visibilityState !== 'visible' || isIdle) return;
 
       const currentToken = token || localStorage.getItem('lx_auth_token');
       if (!currentToken) return;
@@ -521,8 +554,8 @@ export function StateProvider({ children }) {
     // Initial check on mount
     checkForEvents();
 
-    // Poll every 60 seconds if tab is visible
-    intervalId = setInterval(checkForEvents, 60000);
+    // Poll every 120 seconds ONLY if tab is visible and user is actively interacting
+    intervalId = setInterval(checkForEvents, 120000);
 
     return () => {
       active = false;

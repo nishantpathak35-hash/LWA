@@ -141,7 +141,7 @@ export async function getMySession(token) {
   if (!token) throw new Error('AUTH:No token provided');
   
   const cached = sessionCache.get(token);
-  if (cached && (Date.now() - cached.timestamp < 10000)) {
+  if (cached && (Date.now() - cached.timestamp < 120000)) {
     return cached.session;
   }
   

@@ -189,7 +189,7 @@ export function useNotifications({ call, user, enabled = true }) {
     }
   }, [call, user]);
 
-  // Initial load & lightweight 90s poll interval (visibility-aware)
+  // Initial load & lightweight 180s poll interval (visibility-aware)
   useEffect(() => {
     if (enabled && user) {
       refreshNotifications();
@@ -197,7 +197,7 @@ export function useNotifications({ call, user, enabled = true }) {
         if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
           refreshNotifications();
         }
-      }, 90000);
+      }, 180000);
       return () => clearInterval(interval);
     }
   }, [enabled, user, refreshNotifications]);
