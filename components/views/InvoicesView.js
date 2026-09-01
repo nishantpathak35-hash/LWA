@@ -37,6 +37,9 @@ export default function InvoicesView() {
   // Multi-Select State
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkRejectModalOpen, setBulkRejectModalOpen] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState('');
 
   // Filter States
   const [search, setSearch] = useState('');
@@ -539,6 +542,60 @@ export default function InvoicesView() {
       setSelectedInvoiceIds([]);
     } catch (err) {
       toast.error('Bulk approve failed: ' + (err.message || 'Error updating invoices'));
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkRejectSelectedConfirm = async () => {
+    if (selectedInvoiceIds.length === 0) return;
+    const pendingSelected = selectedInvoicesData.filter(inv => {
+      const s = String(inv.status || '').toLowerCase();
+      return s === 'submitted' || s === 'under review' || s === 'pending';
+    });
+    if (pendingSelected.length === 0) {
+      toast.info('None of the selected invoices are pending review.');
+      setBulkRejectModalOpen(false);
+      return;
+    }
+    if (!bulkRejectReason.trim()) {
+      toast.error('Please enter a rejection reason.');
+      return;
+    }
+    setBulkActionLoading(true);
+    try {
+      let count = 0;
+      for (const inv of pendingSelected) {
+        await call('updateInvoiceStatus', inv.invoice_id, 'Rejected', bulkRejectReason);
+        count++;
+      }
+      toast.success(`Successfully rejected ${count} invoice(s).`);
+      await fetchInvoices();
+      setSelectedInvoiceIds([]);
+      setBulkRejectModalOpen(false);
+      setBulkRejectReason('');
+    } catch (err) {
+      toast.error('Bulk reject failed: ' + (err.message || 'Error rejecting invoices'));
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkDeleteSelectedConfirm = async () => {
+    if (selectedInvoiceIds.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      let count = 0;
+      for (const id of selectedInvoiceIds) {
+        await call('deleteInvoice', id);
+        count++;
+      }
+      toast.success(`Successfully deleted ${count} invoice(s).`);
+      await fetchInvoices();
+      setSelectedInvoiceIds([]);
+      setBulkDeleteModalOpen(false);
+    } catch (err) {
+      toast.error('Bulk delete failed: ' + (err.message || 'Error deleting invoices'));
     } finally {
       setBulkActionLoading(false);
     }
@@ -1215,7 +1272,7 @@ export default function InvoicesView() {
 
       {/* ── 5. Sticky Floating Multi-Select Action Ribbon ── */}
       {selectedInvoiceIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-4 animate-slide-up">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-3xl px-4 animate-slide-up">
           <div className="bg-slate-900/95 dark:bg-slate-900/95 border border-amber-500/50 shadow-2xl backdrop-blur-xl rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 text-white">
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs border border-amber-500/30 flex items-center gap-1.5 shadow-inner">
@@ -1228,17 +1285,37 @@ export default function InvoicesView() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {pendingSelectedCount > 0 && (
-                <Button
-                  onClick={handleBulkApproveSelected}
-                  disabled={bulkActionLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-3.5 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                  Approve ({pendingSelectedCount})
-                </Button>
+                <>
+                  <Button
+                    onClick={handleBulkApproveSelected}
+                    disabled={bulkActionLoading}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-3.5 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                    Approve ({pendingSelectedCount})
+                  </Button>
+
+                  <Button
+                    onClick={() => setBulkRejectModalOpen(true)}
+                    disabled={bulkActionLoading}
+                    className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 font-bold text-xs h-9 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Reject ({pendingSelectedCount})
+                  </Button>
+                </>
               )}
+
+              <Button
+                onClick={() => setBulkDeleteModalOpen(true)}
+                disabled={bulkActionLoading}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs h-9 px-3.5 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete ({selectedInvoiceIds.length})
+              </Button>
 
               <Button
                 variant="outline"
@@ -1738,6 +1815,95 @@ export default function InvoicesView() {
               </Button>
             </div>
           </div>
+        </Dialog>
+      )}
+
+      {/* ── 9. Bulk Delete Invoices Confirmation Modal ── */}
+      {bulkDeleteModalOpen && (
+        <Dialog open={true} onClose={() => setBulkDeleteModalOpen(false)} title="Bulk Delete Invoices" maxWidth="max-w-md">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Bulk Delete {selectedInvoiceIds.length} Invoices</h3>
+                <p className="text-xs text-muted-foreground">Permanent deletion of selected invoice records</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-foreground space-y-1">
+              <p><strong className="text-muted-foreground">Selected Count:</strong> <span className="font-bold text-foreground">{selectedInvoiceIds.length} Invoices</span></p>
+              <p><strong className="text-muted-foreground">Total Value:</strong> <span className="text-amber-600 dark:text-amber-400 font-mono font-bold">{formatCurrency(selectedTotalAmount)}</span></p>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete all {selectedInvoiceIds.length} selected invoices? This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <Button type="button" variant="ghost" onClick={() => setBulkDeleteModalOpen(false)} disabled={bulkActionLoading} className="text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleBulkDeleteSelectedConfirm}
+                disabled={bulkActionLoading}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 rounded-xl shadow-xs"
+              >
+                {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {bulkActionLoading ? 'Deleting...' : `Confirm Delete (${selectedInvoiceIds.length})`}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* ── 10. Bulk Reject Invoices Modal ── */}
+      {bulkRejectModalOpen && (
+        <Dialog open={true} onClose={() => setBulkRejectModalOpen(false)} title="Bulk Reject Invoices" maxWidth="max-w-md">
+          <form onSubmit={(e) => { e.preventDefault(); handleBulkRejectSelectedConfirm(); }} className="space-y-4">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Reject {pendingSelectedCount} Pending Invoices</h3>
+                <p className="text-xs text-muted-foreground">Mark selected invoices as Rejected</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-muted/40 border border-border/80 rounded-2xl text-xs text-foreground space-y-1">
+              <p><strong className="text-muted-foreground">Pending Invoices:</strong> <span className="font-bold text-foreground">{pendingSelectedCount} Invoices</span></p>
+              <p><strong className="text-muted-foreground">Gross Value:</strong> <span className="text-amber-600 dark:text-amber-400 font-mono font-bold">{formatCurrency(selectedTotalAmount)}</span></p>
+            </div>
+
+            <div>
+              <label className="text-xs text-foreground font-bold block mb-1">Reason for Rejection *</label>
+              <Textarea
+                rows={3}
+                required
+                value={bulkRejectReason}
+                onChange={(e) => setBulkRejectReason(e.target.value)}
+                placeholder="Enter rejection remarks (e.g. Invalid PO reference, GST mismatch)..."
+                className="bg-background border-border text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <Button type="button" variant="ghost" onClick={() => setBulkRejectModalOpen(false)} disabled={bulkActionLoading} className="text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={bulkActionLoading || !bulkRejectReason.trim()}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 rounded-xl shadow-xs"
+              >
+                {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                {bulkActionLoading ? 'Rejecting...' : `Confirm Reject (${pendingSelectedCount})`}
+              </Button>
+            </div>
+          </form>
         </Dialog>
       )}
 
