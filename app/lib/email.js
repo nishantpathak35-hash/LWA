@@ -194,10 +194,12 @@ export async function sendPaymentAdviceEmail({ toEmail, cc, vendorName, poNo, pr
     </div>
   </div>`;
 
+  const totalPaidSubject = Number(grossAmount ?? (Number(amount || 0) + Number(tdsAmount || 0))).toLocaleString('en-IN');
+
   return sendEmailData({
     toEmail,
     cc,
-    subject: `Payment Advice — ${poNo || 'Payment'} — ₹${Number(amount || 0).toLocaleString('en-IN')}`,
+    subject: `Payment Advice — ${poNo || 'Payment'} — ₹${totalPaidSubject}`,
     html
   });
 }

@@ -278,11 +278,11 @@ export default function PaymentsView() {
     let totalProjects = projectsForSelection.length;
     let totalRequests = selectedRequestsData.length;
     let totalVendors = new Set(selectedRequestsData.map(r => r.vendor_name)).size;
-    let totalRequestedAmount = selectedRequestsData.reduce((sum, r) => sum + Number(r.amount_requested || r.gross_amount || 0), 0);
+    let totalRequestedAmount = selectedRequestsData.reduce((sum, r) => sum + Number(r.approved_amount ?? r.approvedAmount ?? r.gross_amount ?? r.amount_requested ?? 0), 0);
     let totalPendingApproval = selectedRequestsData.reduce((sum, r) => {
       const stage = String(r.approval_stage || r.stage || '').toLowerCase();
       // If it is pending or not fully remitted yet, count it as pending approval
-      if (!stage.includes('remitted')) return sum + Number(r.amount_requested || r.gross_amount || 0);
+      if (!stage.includes('remitted') && !stage.includes('reject')) return sum + Number(r.approved_amount ?? r.approvedAmount ?? r.gross_amount ?? r.amount_requested ?? 0);
       return sum;
     }, 0);
 
@@ -294,15 +294,15 @@ export default function PaymentsView() {
   const activeProjectMultiSelectSummary = useMemo(() => {
     if (!activeMultiSelectProject) return null;
     const requests = activeMultiSelectProject.requests;
-    const selectedAmount = requests.reduce((sum, r) => sum + Number(r.amount_requested || r.gross_amount || 0), 0);
-    // Find ALL requests for this project to calculate total requested, remaining, pending
+    const selectedAmount = requests.reduce((sum, r) => sum + Number(r.approved_amount ?? r.approvedAmount ?? r.gross_amount ?? r.amount_requested ?? 0), 0);
+    // Find ALL requests for this project to calculate total requested/approved, remaining, pending
     const allProjectRequests = payments.filter(p => p.project === activeMultiSelectProject.name);
-    const totalRequested = allProjectRequests.reduce((sum, r) => sum + Number(r.amount_requested || r.gross_amount || 0), 0);
+    const totalRequested = allProjectRequests.reduce((sum, r) => sum + Number(r.approved_amount ?? r.approvedAmount ?? r.gross_amount ?? r.amount_requested ?? 0), 0);
     const remainingOutstanding = totalRequested - selectedAmount;
     
     const pendingApproval = allProjectRequests.reduce((sum, r) => {
       const stage = String(r.approval_stage || r.stage || '').toLowerCase();
-      if (!stage.includes('remitted') && !stage.includes('reject')) return sum + Number(r.amount_requested || r.gross_amount || 0);
+      if (!stage.includes('remitted') && !stage.includes('reject')) return sum + Number(r.approved_amount ?? r.approvedAmount ?? r.gross_amount ?? r.amount_requested ?? 0);
       return sum;
     }, 0);
 

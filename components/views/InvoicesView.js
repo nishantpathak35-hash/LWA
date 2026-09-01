@@ -34,6 +34,10 @@ export default function InvoicesView() {
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Multi-Select State
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
   // Filter States
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'APPROVED' | 'PAID' | 'REJECTED'
@@ -481,6 +485,81 @@ export default function InvoicesView() {
     return name.slice(0, 2).toUpperCase();
   };
 
+  // Multi-Select Derived Data & Actions
+  const selectedInvoicesData = useMemo(() => {
+    return invoices.filter(inv => selectedInvoiceIds.includes(inv.invoice_id));
+  }, [invoices, selectedInvoiceIds]);
+
+  const selectedTotalAmount = useMemo(() => {
+    return selectedInvoicesData.reduce((sum, inv) => sum + Number(inv.invoice_total || 0), 0);
+  }, [selectedInvoicesData]);
+
+  const pendingSelectedCount = useMemo(() => {
+    return selectedInvoicesData.filter(inv => {
+      const s = String(inv.status || '').toLowerCase();
+      return s === 'submitted' || s === 'under review' || s === 'pending';
+    }).length;
+  }, [selectedInvoicesData]);
+
+  const allFilteredSelected = filteredInvoices.length > 0 && filteredInvoices.every(inv => selectedInvoiceIds.includes(inv.invoice_id));
+
+  const handleToggleSelectInvoice = (id) => {
+    setSelectedInvoiceIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllInvoices = (checked) => {
+    if (checked) {
+      setSelectedInvoiceIds(filteredInvoices.map(inv => inv.invoice_id));
+    } else {
+      setSelectedInvoiceIds([]);
+    }
+  };
+
+  const handleBulkApproveSelected = async () => {
+    if (selectedInvoiceIds.length === 0) return;
+    const pendingSelected = selectedInvoicesData.filter(inv => {
+      const s = String(inv.status || '').toLowerCase();
+      return s === 'submitted' || s === 'under review' || s === 'pending';
+    });
+    if (pendingSelected.length === 0) {
+      toast.info('None of the selected invoices are pending review.');
+      return;
+    }
+    setBulkActionLoading(true);
+    try {
+      let count = 0;
+      for (const inv of pendingSelected) {
+        await call('updateInvoiceStatus', inv.invoice_id, 'Approved');
+        count++;
+      }
+      toast.success(`Successfully approved ${count} invoice(s)!`);
+      await fetchInvoices();
+      setSelectedInvoiceIds([]);
+    } catch (err) {
+      toast.error('Bulk approve failed: ' + (err.message || 'Error updating invoices'));
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkExportSelected = () => {
+    if (selectedInvoicesData.length === 0) return;
+    const columns = [
+      { label: 'Invoice ID', key: 'invoice_id' },
+      { label: 'Vendor Name', key: 'vendor_name' },
+      { label: 'Invoice Number', key: 'invoice_number' },
+      { label: 'PO Number', key: 'po_no' },
+      { label: 'Invoice Date', key: 'invoice_date' },
+      { label: 'Basic Amount', key: 'subtotal', formatter: (v, r) => Number(r.subtotal || (Number(r.invoice_total || 0) - Number(r.tax_amount || 0))) },
+      { label: 'Tax Amount', key: 'tax_amount', formatter: (v) => Number(v || 0) },
+      { label: 'Total Amount', key: 'invoice_total', formatter: (v) => Number(v || 0) },
+      { label: 'Status', key: 'status' }
+    ];
+    exportToCSV('Selected_Invoices_Report.csv', columns, selectedInvoicesData);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in pb-16">
 
@@ -852,6 +931,9 @@ export default function InvoicesView() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b border-border bg-slate-50/50 dark:bg-slate-900/30 text-[11px] uppercase tracking-wider">
+                          <TableHead className="w-10 text-center py-3 px-2 font-semibold text-muted-foreground">
+                            <span className="sr-only">Select</span>
+                          </TableHead>
                           <TableHead className="font-semibold text-muted-foreground">Entered Date</TableHead>
                           <TableHead className="font-semibold text-muted-foreground">Invoice #</TableHead>
                           <TableHead className="font-semibold text-muted-foreground">PO Ref</TableHead>
@@ -868,9 +950,18 @@ export default function InvoicesView() {
                           const sub = Number(inv.subtotal || (Number(inv.invoice_total || 0) - Number(inv.tax_amount || 0)));
                           const tax = Number(inv.tax_amount || 0);
                           const tot = Number(inv.invoice_total || 0);
+                          const isSelected = selectedInvoiceIds.includes(inv.invoice_id);
 
                           return (
-                            <TableRow key={inv.invoice_id} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                            <TableRow key={inv.invoice_id} className={`border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-amber-500/5' : ''}`}>
+                              <TableCell className="w-10 text-center py-3 px-2" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleToggleSelectInvoice(inv.invoice_id)}
+                                  className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer"
+                                />
+                              </TableCell>
                               <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                                 {getEnteredDateString(inv)}
                               </TableCell>
@@ -980,6 +1071,15 @@ export default function InvoicesView() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border bg-slate-50/80 dark:bg-slate-900/50 text-[11px] uppercase tracking-wider">
+                  <TableHead className="w-10 text-center py-3 px-2 font-semibold text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      onChange={(e) => handleSelectAllInvoices(e.target.checked)}
+                      className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer"
+                      title="Select All Invoices"
+                    />
+                  </TableHead>
                   <TableHead className="font-semibold text-muted-foreground">Entered Date</TableHead>
                   <TableHead className="font-semibold text-muted-foreground">Vendor Name</TableHead>
                   <TableHead className="font-semibold text-muted-foreground">Invoice Date</TableHead>
@@ -997,9 +1097,18 @@ export default function InvoicesView() {
                   const sub = Number(inv.subtotal || (Number(inv.invoice_total || 0) - Number(inv.tax_amount || 0)));
                   const tax = Number(inv.tax_amount || 0);
                   const tot = Number(inv.invoice_total || 0);
+                  const isSelected = selectedInvoiceIds.includes(inv.invoice_id);
 
                   return (
-                    <TableRow key={inv.invoice_id} className="border-b border-border/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                    <TableRow key={inv.invoice_id} className={`border-b border-border/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-amber-500/5' : ''}`}>
+                      <TableCell className="w-10 text-center py-3 px-2" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectInvoice(inv.invoice_id)}
+                          className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer"
+                        />
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {getEnteredDateString(inv)}
                       </TableCell>
@@ -1104,7 +1213,55 @@ export default function InvoicesView() {
         </div>
       )}
 
-      {/* ── 5. Slide-Over Quick Inspection Panel (Zoho Books Style) ── */}
+      {/* ── 5. Sticky Floating Multi-Select Action Ribbon ── */}
+      {selectedInvoiceIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-4 animate-slide-up">
+          <div className="bg-slate-900/95 dark:bg-slate-900/95 border border-amber-500/50 shadow-2xl backdrop-blur-xl rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 text-white">
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs border border-amber-500/30 flex items-center gap-1.5 shadow-inner">
+                <Sparkles className="w-3.5 h-3.5" />
+                {selectedInvoiceIds.length} Selected
+              </span>
+              <div className="text-xs">
+                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Selected Gross</span>
+                <strong className="text-amber-400 font-mono font-bold">{formatCurrency(selectedTotalAmount)}</strong>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {pendingSelectedCount > 0 && (
+                <Button
+                  onClick={handleBulkApproveSelected}
+                  disabled={bulkActionLoading}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-3.5 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  {bulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  Approve ({pendingSelectedCount})
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkExportSelected}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs h-9 px-3.5 rounded-xl border-slate-700"
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+              </Button>
+
+              <button
+                onClick={() => setSelectedInvoiceIds([])}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Clear Selection"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 6. Slide-Over Quick Inspection Panel (Zoho Books Style) ── */}
       {inspectInvoice && (
         <div className="fixed inset-0 z-50 overflow-hidden flex justify-end bg-black/40 backdrop-blur-xs animate-fade-in">
           <div className="w-full max-w-2xl bg-card border-l border-border h-full flex flex-col shadow-2xl animate-slide-left">
