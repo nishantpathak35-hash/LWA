@@ -255,9 +255,9 @@ export default function PaymentsView() {
       { label: 'Vendor', key: 'vendor_name', formatter: (v, r) => r.vendor_name || r.vendor },
       { label: 'Project', key: 'project' },
       { label: 'PO Number', key: 'po_no' },
-      { label: 'Gross Amount', key: 'amount_requested', formatter: (v, r) => Number(r.amount_requested || r.gross_amount || 0) },
+      { label: 'Gross Amount', key: 'amount_requested', formatter: (v, r) => Number(r.approved_amount ?? r.approvedAmount ?? r.amount_requested ?? r.gross_amount ?? 0) },
       { label: 'TDS Amount', key: 'tds_amount', formatter: (v, r) => Number(r.tds_amount || 0) },
-      { label: 'Net Payable', key: 'net_amount', formatter: (v, r) => Number(r.net_amount || r.amount_requested || 0) },
+      { label: 'Net Payable', key: 'net_amount', formatter: (v, r) => Number(r.net_amount ?? (Number(r.approved_amount ?? r.approvedAmount ?? r.amount_requested ?? 0) - Number(r.tds_amount ?? 0))) },
       { label: 'Status', key: 'status' },
       { label: 'Current Stage', key: 'approval_stage', formatter: (v, r) => r.approval_stage || r.stage }
     ];

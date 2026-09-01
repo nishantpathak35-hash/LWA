@@ -54,8 +54,33 @@ export async function GET(request, { params }) {
       }
     }
 
+    // Check if caller requested download disposition
+    const disposition = searchParams.get('disposition') === 'attachment' ? 'attachment' : 'inline';
+
     if (typeof attachment.file_data === 'string' && attachment.file_data.trim().startsWith('http')) {
-      return NextResponse.redirect(attachment.file_data.trim());
+      // Proxy-fetch from remote URL (e.g. Cloudinary) to avoid CORS / X-Frame-Options issues
+      try {
+        const remoteUrl = attachment.file_data.trim();
+        const remoteRes = await fetch(remoteUrl);
+        if (!remoteRes.ok) {
+          return new NextResponse('Failed to fetch remote file', { status: 502 });
+        }
+        const remoteBuffer = Buffer.from(await remoteRes.arrayBuffer());
+        const contentType = remoteRes.headers.get('content-type') || attachment.file_type || 'application/octet-stream';
+        const safeFilename = encodeURIComponent(attachment.file_name || 'attachment');
+
+        const headers = new Headers();
+        headers.set('Content-Type', contentType);
+        headers.set('Content-Disposition', `${disposition}; filename="${attachment.file_name || 'attachment'}"; filename*=UTF-8''${safeFilename}`);
+        headers.set('Cache-Control', 'public, max-age=86400');
+        headers.set('Content-Length', String(remoteBuffer.length));
+
+        return new NextResponse(remoteBuffer, { status: 200, headers });
+      } catch (fetchErr) {
+        console.error('Remote file fetch error:', fetchErr);
+        // Fallback: redirect if proxy fails
+        return NextResponse.redirect(attachment.file_data.trim());
+      }
     }
 
     const cleanBase64 = typeof attachment.file_data === 'string' 
@@ -67,8 +92,9 @@ export async function GET(request, { params }) {
     const headers = new Headers();
     headers.set('Content-Type', attachment.file_type || 'application/octet-stream');
     const safeFilename = encodeURIComponent(attachment.file_name || 'attachment');
-    headers.set('Content-Disposition', `inline; filename="${attachment.file_name || 'attachment'}"; filename*=UTF-8''${safeFilename}`);
+    headers.set('Content-Disposition', `${disposition}; filename="${attachment.file_name || 'attachment'}"; filename*=UTF-8''${safeFilename}`);
     headers.set('Cache-Control', 'public, max-age=86400');
+    headers.set('Content-Length', String(buffer.length));
 
     return new NextResponse(buffer, {
       status: 200,

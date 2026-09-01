@@ -223,7 +223,7 @@ export default function ReportsView() {
         const poNo = r.po_no || '';
         const project = r.project || '';
         const vendor = r.vendor_name || r.vendor || '';
-        const gross = r.amount_requested || r.gross_amount || 0;
+        const gross = r.approved_amount || r.amount_requested || r.gross_amount || 0;
         const tds = r.tds_amount || 0;
         const net = r.net_amount || (gross - tds);
         const status = r.status || '';

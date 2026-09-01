@@ -11,13 +11,11 @@ import PaymentsView from './views/PaymentsView';
 import ReportsView from './views/ReportsView';
 import InvoicesView from './views/InvoicesView';
 import SettingsView from './views/SettingsView';
-import SiteDPRView from './views/operations/dpr/SiteDPRView';
-import SiteWPRView from './views/operations/wpr/SiteWPRView';
 import ErrorBoundary from './ErrorBoundary';
 import { NotificationsPanel } from './ui/NotificationsPanel';
 import ActivityStreamDrawer from './ui/ActivityStreamDrawer';
 import InstallPWA from './ui/InstallPWA';
-import { Menu, Sun, Moon, AlertTriangle, X, Search, Activity, LayoutDashboard, ShoppingBag, CreditCard, HardHat, MoreHorizontal, Plus, FilePlus, Receipt, ShieldCheck, Smartphone, Download } from 'lucide-react';
+import { Menu, Sun, Moon, AlertTriangle, X, Search, Activity, LayoutDashboard, ShoppingBag, CreditCard, HardHat, MoreHorizontal, Plus, FilePlus, Receipt, ShieldCheck, Smartphone, Download, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from './ui/core';
 import { CommandPalette } from './ui/CommandPalette';
 
@@ -33,9 +31,7 @@ const VIEW_FEATURE_MAP = {
   invoices: 'payments',
   payments: 'payments',
   reports: 'reports',
-  settings: 'settings',
-  site_dpr: 'operations',
-  site_wpr: 'operations'
+  settings: 'settings'
 };
 
 const VIEW_LABELS = {
@@ -46,9 +42,7 @@ const VIEW_LABELS = {
   invoices: 'Invoices',
   payments: 'Payments',
   reports: 'Reports',
-  settings: 'Settings',
-  site_dpr: 'Site DPR',
-  site_wpr: 'Site WPR'
+  settings: 'Settings'
 };
 
 // Shortcut map: first key → second key → { view, children? }
@@ -67,7 +61,7 @@ const SHORTCUT_MAP = {
 };
 
 
-const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'invoices', 'payments', 'reports', 'settings', 'site_dpr', 'site_wpr'];
+const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'invoices', 'payments', 'reports', 'settings'];
 
 function getFirstAllowedView(hasPermission) {
   return ORDERED_VIEWS.find((viewId) => {
@@ -109,6 +103,26 @@ export default function MainLayout() {
   const [sessionHours, setSessionHours] = useState(null);
   const [sessionWarningDismissed, setSessionWarningDismissed] = useState(false);
   const [keySequence, setKeySequence] = useState([]); // tracks multi-key shortcut progress
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('lx_sidebar_collapsed') === 'true';
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('lx_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const pendingPaymentsCount = useMemo(() => {
     return (payments || []).filter(p => {
@@ -182,10 +196,12 @@ export default function MainLayout() {
     };
 
     const handleKeyDown = (e) => {
-      // Don't fire while typing in inputs
-      const tag = document.activeElement?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-      if (document.activeElement?.contentEditable === 'true') return;
+      // Ctrl+B / Cmd+B to toggle sidebar retraction
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
 
       const key = e.key.toLowerCase();
       const seq = [...keySequence, key];
@@ -274,8 +290,6 @@ export default function MainLayout() {
       payments:  <PaymentsView />,
       reports:   <ReportsView />,
       settings:  <SettingsView />,
-      site_dpr:  <SiteDPRView />,
-      site_wpr:  <SiteWPRView />,
     };
 
     return (
@@ -299,13 +313,19 @@ export default function MainLayout() {
         />
       )}
 
-      <Sidebar mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
+      <Sidebar 
+        mobileOpen={mobileMenuOpen} 
+        setMobileOpen={setMobileMenuOpen} 
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
 
       {/* Main content */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* ── Header / Topbar ── */}
-        <header className="h-13 px-5 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 transition-colors duration-150 sticky top-0 z-20">
-          <div className="flex items-center gap-3">
+        <header className="h-13 px-4 md:px-5 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 transition-colors duration-150 sticky top-0 z-20">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Mobile menu trigger */}
             <Button
               variant="ghost"
               size="icon"
@@ -313,6 +333,21 @@ export default function MainLayout() {
               onClick={() => setMobileMenuOpen(true)}
             >
               <Menu className="w-4 h-4 text-muted-foreground" />
+            </Button>
+
+            {/* Desktop Sidebar Retract / Expand Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden md:flex h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
+              onClick={toggleSidebar}
+              title={sidebarCollapsed ? "Expand Sidebar (Ctrl+B)" : "Collapse Sidebar / Fuller View (Ctrl+B)"}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4 text-amber-500" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
             </Button>
             
             {/* Breadcrumb Navigation */}
@@ -457,17 +492,6 @@ export default function MainLayout() {
                 >
                   <ShoppingBag className="w-5 h-5 text-blue-400" />
                   <span>New PO</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMobileQuickActionOpen(false);
-                    setActiveView('site_dpr');
-                  }}
-                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all font-semibold text-xs gap-1.5"
-                >
-                  <HardHat className="w-5 h-5 text-emerald-400" />
-                  <span>File Site DPR</span>
                 </button>
 
                 {/* Install App Quick Action */}

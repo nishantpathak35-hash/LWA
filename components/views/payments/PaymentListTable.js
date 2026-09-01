@@ -95,7 +95,7 @@ export default function PaymentListTable({
                 const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
                 const poValue = Number(relatedPO ? (relatedPO.po_value || relatedPO.poValue) : (req.po_value || 0));
                 const paidAmount = Number(relatedPO ? (relatedPO.paid ?? relatedPO.legacy_paid ?? 0) : 0);
-                const requestedAmt = Number(req.amount_requested || req.gross_amount || req.amountRequested || 0);
+                const requestedAmt = Number(req.approved_amount ?? req.approvedAmount ?? req.amount_requested ?? req.gross_amount ?? req.amountRequested ?? 0);
                 const approvedAmt = Number(req.approved_amount ?? req.approvedAmount ?? requestedAmt);
                 const tdsAmt = Number(req.tds_amount || req.tdsAmount || 0);
                 const netValue = Math.max(0, approvedAmt - tdsAmt);
@@ -187,7 +187,7 @@ export default function PaymentListTable({
                     const poValue = Number(relatedPO ? (relatedPO.po_value || relatedPO.poValue) : (req.po_value || 0));
                     const paidAmount = Number(relatedPO ? (relatedPO.paid ?? relatedPO.legacy_paid ?? 0) : 0);
                     const paidPct = poValue > 0 ? ((paidAmount / poValue) * 100).toFixed(1) : '0.0';
-                    const netAmount = Number(req.net_amount ?? req.amount_requested ?? req.gross_amount ?? 0);
+                    const netAmount = Number(req.net_amount ?? req.approved_amount ?? req.approvedAmount ?? req.amount_requested ?? req.gross_amount ?? 0);
                     const reqPct = poValue > 0 ? ((netAmount / poValue) * 100).toFixed(1) : '0.0';
                     const isSelected = selectedPayments.includes(req.id);
                     const isActionable = canActOnReq(req);

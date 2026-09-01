@@ -14,16 +14,17 @@ import {
   Settings, 
   LogOut,
   Repeat,
-  HardHat,
   Package,
   Wallet,
   ChevronDown,
   Sparkles,
-  Receipt
+  Receipt,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { Badge } from './ui/core';
 
-export default function Sidebar({ mobileOpen, setMobileOpen }) {
+export default function Sidebar({ mobileOpen, setMobileOpen, collapsed = false, onToggleCollapse }) {
   const { user, activeView, setActiveView, logout, payments, hasPermission, activeRole, setActiveRole } = useAppState();
 
   const dbRoles = user?.roles || [];
@@ -59,8 +60,6 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     { id: 'vendors', label: 'Vendors', icon: Users, feature: 'vendors' },
     { id: 'pos', label: 'Purchase Orders', icon: ScrollText, feature: 'purchase_orders' },
     { id: 'invoices', label: 'Invoices', icon: Receipt, feature: 'payments' },
-    { id: 'site_dpr', label: 'Site DPR', icon: HardHat, feature: 'operations' },
-    { id: 'site_wpr', label: 'Site WPR', icon: HardHat, feature: 'operations' },
     { 
       id: 'payments', 
       label: 'Payments', 
@@ -98,12 +97,6 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
       items: ['dashboard', 'invoices', 'payments']
     },
     {
-      id: 'site_ops',
-      label: 'SITE OPS',
-      icon: HardHat,
-      items: ['site_dpr', 'site_wpr']
-    },
-    {
       id: 'admin',
       label: 'ADMIN',
       icon: Settings,
@@ -114,7 +107,6 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const [expandedGroups, setExpandedGroups] = useState({
     procurement: true,
     finance: true,
-    site_ops: true,
     admin: true
   });
 
@@ -151,163 +143,292 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
 
   return (
     <aside className={`
-      fixed inset-y-0 left-0 z-40 w-60 bg-slate-950 text-slate-300 border-r border-slate-800/80 p-3.5 flex flex-col justify-between transition-transform duration-200 md:translate-x-0 md:static md:h-screen select-none
-      ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+      fixed inset-y-0 left-0 z-40 bg-slate-950 text-slate-300 border-r border-slate-800/80 flex flex-col justify-between select-none
+      transition-all duration-300 ease-in-out
+      ${mobileOpen ? 'translate-x-0 w-60 p-3.5' : '-translate-x-full md:translate-x-0'}
+      ${collapsed ? 'md:w-16 md:p-2' : 'md:w-60 md:p-3.5'}
+      md:static md:h-screen
     `}>
       {/* Scrollable Navigation Wrapper */}
-      <div className="flex flex-col flex-1 min-h-0 space-y-3 overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 space-y-2.5 overflow-hidden">
         
         {/* Brand Header */}
-        <div className="px-3 py-2 bg-slate-900/40 border border-slate-800/80 rounded-xl">
-          <BrandIdentity
-            title="LWA PTS"
-            subtitle="LUXEWORX ATELIER"
-            size="sm"
-            showDivider={true}
-          />
+        <div className={`
+          border border-slate-800/80 rounded-xl bg-slate-900/40 flex items-center
+          ${collapsed ? 'p-1.5 justify-center' : 'px-3 py-2 justify-between'}
+        `}>
+          {collapsed ? (
+            <button 
+              onClick={onToggleCollapse}
+              title="Expand Sidebar (Ctrl+B)"
+              className="focus:outline-none hover:scale-105 transition-transform cursor-pointer"
+            >
+              <BrandIdentity
+                title=""
+                subtitle=""
+                size="sm"
+                showDivider={false}
+                className="justify-center"
+              />
+            </button>
+          ) : (
+            <>
+              <BrandIdentity
+                title="LWA PTS"
+                subtitle="LUXEWORX ATELIER"
+                size="sm"
+                showDivider={true}
+              />
+              {onToggleCollapse && (
+                <button
+                  onClick={onToggleCollapse}
+                  title="Collapse Sidebar (Fuller View - Ctrl+B)"
+                  className="hidden md:flex p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* User Card */}
         {user && (
-          <div className="px-3 py-2 bg-slate-900/30 border border-slate-800/60 rounded-lg flex items-center gap-2.5">
+          <div className={`
+            bg-slate-900/30 border border-slate-800/60 rounded-lg flex items-center
+            ${collapsed ? 'p-1.5 justify-center' : 'px-3 py-2 gap-2.5'}
+          `}
+          title={`${user.name || user.email} (${roles[0] || 'Member'})`}
+          >
             <div className="w-7 h-7 rounded-md bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/20 flex items-center justify-center text-[11px] shrink-0">
               {getUserInitials(user.name || user.email)}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-slate-200 truncate">{user.name || user.email}</p>
-              <p className="text-[10px] text-slate-400 font-medium capitalize truncate">
-                {roles[0] || 'Member'}
-              </p>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-slate-200 truncate">{user.name || user.email}</p>
+                <p className="text-[10px] text-slate-400 font-medium capitalize truncate">
+                  {roles[0] || 'Member'}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Navigation Accordion Menu */}
-        <nav className="flex-1 overflow-y-auto min-h-0 space-y-3 custom-scrollbar pr-0.5">
-          {GROUPS.map((group) => {
-            const GroupIcon = group.icon;
-            const isExpanded = !!expandedGroups[group.id];
-            
-            const visibleItems = group.items
-              .map(itemId => filteredMenuItems.find(i => i.id === itemId))
-              .filter(Boolean);
-
-            if (visibleItems.length === 0) return null;
-
-            const groupBadgeCount = getGroupBadgeCount(group);
-            const hasActiveChild = visibleItems.some(i => i.id === activeView);
-
-            return (
-              <div key={group.id} className="space-y-0.5">
-                {/* Group Header Button */}
-                <button
-                  onClick={() => toggleGroup(group.id)}
-                  aria-expanded={isExpanded}
-                  className="w-full flex items-center justify-between py-1 px-2 text-slate-400 hover:text-slate-200 transition-colors focus:outline-none rounded-md hover:bg-slate-900/30 cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <GroupIcon className={`w-3.5 h-3.5 ${hasActiveChild ? 'text-amber-400' : 'text-slate-500'}`} />
-                    <span className={`text-[10px] font-medium tracking-wider uppercase ${hasActiveChild ? 'text-slate-200' : 'text-slate-400'}`}>
-                      {group.label}
-                    </span>
-                    {!isExpanded && groupBadgeCount > 0 && (
-                      <span className="px-1.5 py-0.2 text-[9px] font-medium rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                        {groupBadgeCount}
-                      </span>
+        {/* Navigation Menu */}
+        <nav className="flex-1 overflow-y-auto min-h-0 space-y-2 custom-scrollbar pr-0.5">
+          {collapsed ? (
+            /* Collapsed Icon Rail */
+            <div className="space-y-1.5 py-1 flex flex-col items-center">
+              {filteredMenuItems.map(item => {
+                const ItemIcon = item.icon;
+                const isActive = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavClick(item.id)}
+                    title={item.label}
+                    className={`
+                      relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 cursor-pointer
+                      ${isActive 
+                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.2)]' 
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/70'
+                      }
+                    `}
+                  >
+                    <ItemIcon className="w-4 h-4" />
+                    {item.badge && (
+                      <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-slate-950 animate-pulse" />
                     )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            /* Expanded Accordion Menu */
+            GROUPS.map((group) => {
+              const GroupIcon = group.icon;
+              const isExpanded = !!expandedGroups[group.id];
+              
+              const visibleItems = group.items
+                .map(itemId => filteredMenuItems.find(i => i.id === itemId))
+                .filter(Boolean);
+
+              if (visibleItems.length === 0) return null;
+
+              const groupBadgeCount = getGroupBadgeCount(group);
+              const hasActiveChild = visibleItems.some(i => i.id === activeView);
+
+              return (
+                <div key={group.id} className="space-y-0.5">
+                  {/* Group Header Button */}
+                  <button
+                    onClick={() => toggleGroup(group.id)}
+                    aria-expanded={isExpanded}
+                    className="w-full flex items-center justify-between py-1 px-2 text-slate-400 hover:text-slate-200 transition-colors focus:outline-none rounded-md hover:bg-slate-900/30 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <GroupIcon className={`w-3.5 h-3.5 ${hasActiveChild ? 'text-amber-400' : 'text-slate-500'}`} />
+                      <span className={`text-[10px] font-medium tracking-wider uppercase ${hasActiveChild ? 'text-slate-200' : 'text-slate-400'}`}>
+                        {group.label}
+                      </span>
+                      {!isExpanded && groupBadgeCount > 0 && (
+                        <span className="px-1.5 py-0.2 text-[9px] font-medium rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          {groupBadgeCount}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Sub-Items Container */}
+                  <div
+                    id={`nav-group-${group.id}`}
+                    className={`overflow-hidden transition-all duration-150 ease-in-out pl-2 border-l border-slate-800/60 ml-2.5 space-y-0.5 ${
+                      isExpanded ? 'max-h-96 opacity-100 py-1' : 'max-h-0 opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    {visibleItems.map(item => {
+                      const ItemIcon = item.icon;
+                      const isActive = activeView === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => handleNavClick(item.id)}
+                          className={`
+                            w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors duration-150 focus:outline-none cursor-pointer
+                            ${isActive 
+                              ? 'bg-slate-800/80 text-slate-100 font-medium border-l-2 border-amber-500 pl-2' 
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                            }
+                          `}
+                        >
+                          <div className="flex items-center gap-2">
+                            <ItemIcon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
+                            <span>{item.label}</span>
+                          </div>
+
+                          {item.badge && (
+                            <span className={`px-1.5 py-0.2 text-[10px] font-medium rounded ${isActive ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Sub-Items Container */}
-                <div
-                  id={`nav-group-${group.id}`}
-                  className={`overflow-hidden transition-all duration-150 ease-in-out pl-2 border-l border-slate-800/60 ml-2.5 space-y-0.5 ${
-                    isExpanded ? 'max-h-96 opacity-100 py-1' : 'max-h-0 opacity-0 pointer-events-none'
-                  }`}
-                >
-                  {visibleItems.map(item => {
-                    const ItemIcon = item.icon;
-                    const isActive = activeView === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => handleNavClick(item.id)}
-                        className={`
-                          w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors duration-150 focus:outline-none cursor-pointer
-                          ${isActive 
-                            ? 'bg-slate-800/80 text-slate-100 font-medium border-l-2 border-amber-500 pl-2' 
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
-                          }
-                        `}
-                      >
-                        <div className="flex items-center gap-2">
-                          <ItemIcon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
-                          <span>{item.label}</span>
-                        </div>
-
-                        {item.badge && (
-                          <span className={`px-1.5 py-0.2 text-[10px] font-medium rounded ${isActive ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
-                            {item.badge}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </nav>
       </div>
 
       {/* Footer Area */}
-      <div className="mt-3 pt-2.5 border-t border-slate-800/60 space-y-2">
+      <div className={`mt-3 pt-2.5 border-t border-slate-800/60 space-y-2 ${collapsed ? 'flex flex-col items-center' : ''}`}>
         {/* Role Switcher for Super Admin */}
         {user && isSuperAdmin(user.email) && (
-          <div className="p-2 bg-slate-900/40 border border-slate-800/60 rounded-lg space-y-1">
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-              <Repeat className="w-3 h-3 text-slate-400" />
-              Role Impersonation
-            </div>
-            <select
-              value={activeRole || ''}
-              onChange={(e) => setActiveRole(e.target.value || null)}
-              className="w-full text-[11px] bg-slate-950 border border-slate-800 text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-slate-700 cursor-pointer"
+          collapsed ? (
+            <button
+              onClick={() => {
+                const rolesList = ['', 'procurement', 'finance', 'director', 'accountant'];
+                const nextIdx = (rolesList.indexOf(activeRole || '') + 1) % rolesList.length;
+                setActiveRole(rolesList[nextIdx] || null);
+              }}
+              title={`Switch Role (Current: ${activeRole || 'Super Admin'})`}
+              className="w-10 h-10 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
             >
-              <option value="">Super Admin (Full Access)</option>
-              <option value="procurement">Procurement</option>
-              <option value="finance">Finance</option>
-              <option value="director">Director</option>
-              <option value="accountant">Accountant</option>
-            </select>
-          </div>
+              <Repeat className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="p-2 bg-slate-900/40 border border-slate-800/60 rounded-lg space-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                <Repeat className="w-3 h-3 text-slate-400" />
+                Role Impersonation
+              </div>
+              <select
+                value={activeRole || ''}
+                onChange={(e) => setActiveRole(e.target.value || null)}
+                className="w-full text-[11px] bg-slate-950 border border-slate-800 text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-slate-700 cursor-pointer"
+              >
+                <option value="">Super Admin (Full Access)</option>
+                <option value="procurement">Procurement</option>
+                <option value="finance">Finance</option>
+                <option value="director">Director</option>
+                <option value="accountant">Accountant</option>
+              </select>
+            </div>
+          )
         )}
 
         {/* Install App Button */}
-        <button
-          type="button"
-          onClick={() => {
-            if (setMobileOpen) setMobileOpen(false);
-            window.dispatchEvent(new CustomEvent('lx:open-install-pwa'));
-          }}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-semibold bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 text-gold hover:bg-amber-500/20 transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse" />
-            <span>Install Mobile App</span>
-          </div>
-          <span className="text-[9px] bg-amber-500/20 text-gold px-1.5 py-0.5 rounded font-mono font-bold">PWA</span>
-        </button>
+        {collapsed ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (setMobileOpen) setMobileOpen(false);
+              window.dispatchEvent(new CustomEvent('lx:open-install-pwa'));
+            }}
+            title="Install Mobile App"
+            className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-gold flex items-center justify-center hover:bg-amber-500/20 transition-all cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-gold animate-pulse" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              if (setMobileOpen) setMobileOpen(false);
+              window.dispatchEvent(new CustomEvent('lx:open-install-pwa'));
+            }}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-semibold bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 text-gold hover:bg-amber-500/20 transition-all cursor-pointer shadow-xs"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse" />
+              <span>Install Mobile App</span>
+            </div>
+            <span className="text-[9px] bg-amber-500/20 text-gold px-1.5 py-0.5 rounded font-mono font-bold">PWA</span>
+          </button>
+        )}
 
         {/* Sign Out Button */}
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Sign out</span>
-        </button>
+        {collapsed ? (
+          <button
+            onClick={logout}
+            title="Sign out"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign out</span>
+          </button>
+        )}
+
+        {/* Collapse / Expand bottom toggle */}
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            title={collapsed ? "Expand Sidebar (Ctrl+B)" : "Collapse Sidebar (Fuller View - Ctrl+B)"}
+            className={`
+              hidden md:flex items-center justify-center rounded-lg text-slate-500 hover:text-amber-400 hover:bg-slate-900/60 transition-colors cursor-pointer
+              ${collapsed ? 'w-10 h-8 mt-1' : 'w-full py-1 text-[11px] gap-1.5'}
+            `}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="w-4 h-4" />
+            ) : (
+              <>
+                <PanelLeftClose className="w-3.5 h-3.5" />
+                <span>Retract Sidebar</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
     </aside>
   );
