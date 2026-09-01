@@ -252,16 +252,28 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
                     const code = v.code || v.vendorId || v.vendor_code;
                     return (
                       <TableRow key={idx} className="border-b border-border/40 hover:bg-muted/30 transition-colors duration-150">
-                        <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-muted-foreground">{v.code}</TableCell>
-                        <TableCell className="px-3 py-3 font-semibold text-foreground text-xs truncate max-w-[220px]" title={v.name}>{v.name}</TableCell>
-                        <TableCell className="px-3 py-3 text-muted-foreground font-normal text-xs truncate max-w-[220px]" title={v.legalName || ''}>{v.legalName || '—'}</TableCell>
-                        <TableCell className="px-3 py-3 font-mono text-[11px] text-muted-foreground font-medium">{v.gstin || '—'}</TableCell>
-                        <TableCell className="px-3 py-3 whitespace-nowrap">
-                          <Badge variant={String(v.status || '').toLowerCase() === 'active' ? 'success' : 'inactive'}>
-                            {v.status || 'Active'}
-                          </Badge>
+                        <TableCell className="px-4 py-3.5 font-mono text-xs font-bold text-foreground">{v.code}</TableCell>
+                        <TableCell className="px-3 py-3.5 font-semibold text-foreground text-xs truncate max-w-[220px]" title={v.name}>
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-700 dark:text-gold flex items-center justify-center text-[10px] font-bold border border-amber-500/20 shrink-0">
+                              {(v.name || 'V').substring(0, 2).toUpperCase()}
+                            </span>
+                            <span className="truncate">{v.name}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="px-3 py-3 whitespace-nowrap">
+                        <TableCell className="px-3 py-3.5 text-muted-foreground font-normal text-xs truncate max-w-[220px]" title={v.legalName || ''}>{v.legalName || '—'}</TableCell>
+                        <TableCell className="px-3 py-3.5 font-mono text-xs text-muted-foreground font-medium">{v.gstin || '—'}</TableCell>
+                        <TableCell className="px-3 py-3.5 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            String(v.status || '').toLowerCase() === 'active'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-muted text-muted-foreground border border-border'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${String(v.status || '').toLowerCase() === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            {v.status || 'Active'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-3 py-3.5 whitespace-nowrap">
                           <Badge variant={isPortalEnabled ? 'success' : 'outline'} className="text-[10px] font-bold">
                             {isPortalEnabled ? '● Enabled' : '○ Disabled'}
                           </Badge>

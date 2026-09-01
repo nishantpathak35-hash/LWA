@@ -675,6 +675,7 @@ export default function POsView() {
       {/* Header / Filters */}
 
       <POFilters
+        pos={pos}
         canCreate={canCreate}
         filteredPOs={filteredPOs}
         handleExportPOs={handleExportPOs}
@@ -699,6 +700,7 @@ export default function POsView() {
         handleSendPOEmail={handleSendPOEmail}
         getStatusBadge={getStatusBadge} getPaymentStatusBadge={getPaymentStatusBadge}
         hasMorePOs={hasMorePOs} loadMorePOs={loadMorePOs}
+        call={call}
       />
 
 

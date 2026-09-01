@@ -768,6 +768,7 @@ export default function PaymentsView() {
     <div className="space-y-6 animate-fade-in font-sans pb-32 relative">
 
       <PaymentFilters
+        payments={payments}
         canOnboard={canOnboard} 
         handleOpenRequestModal={handleOpenRequestModal}
         activeTab={activeTab} setActiveTab={setActiveTab}
