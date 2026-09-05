@@ -34,8 +34,8 @@ export async function submitPOForApproval(poNo, session) {
 
   await queryBatch([
     {
-      sql: `UPDATE purchase_orders SET approval_status = ?, status = ?, submitted_for_approval_at = ?, approval_remarks = NULL WHERE po_no = ?`,
-      args: [initialStage, initialStage, now, poNo]
+      sql: `UPDATE purchase_orders SET approval_status = ?, status = ?, submitted_at = ?, submitted_by = ?, approval_remarks = NULL WHERE po_no = ?`,
+      args: [initialStage, initialStage, now, session?.email || 'unknown', poNo]
     },
     {
       sql: `INSERT INTO approval_history_v2 (workflow_id, entity_type, entity_id, stage_name, action, performed_by, remarks, stage_sequence, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
