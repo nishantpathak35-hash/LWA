@@ -1,7 +1,38 @@
-import { queryAll, queryGet, queryRun } from '../../../../app/lib/db.js';
+import { queryAll, queryGet, queryRun, queryTransaction } from '../../../../app/lib/db.js';
 import { IPayment, IPaymentRequest } from '../types/Payment';
 
 export class PaymentRepository {
+  static async validateInvoiceLink(invoiceId: string, poNo: string): Promise<void> {
+    const invoice = await queryGet('SELECT * FROM invoices WHERE invoice_id = ? OR id = ?', [invoiceId, Number(invoiceId) || -1]);
+    if (!invoice || String(invoice.po_no).trim().toLowerCase() !== poNo.trim().toLowerCase()) {
+      throw new Error('Invoice must belong to the selected purchase order');
+    }
+  }
+
+  static async recomputePO(poNo: string, db: any): Promise<void> {
+    const po = await db.queryGet('SELECT po_value, revised_po_value FROM purchase_orders WHERE po_no = ?', [poNo]);
+    if (!po) throw new Error(`Purchase order not found: ${poNo}`);
+    const gross = await db.queryGet(`SELECT COALESCE(SUM(COALESCE(approved_amount, amount_requested, 0)), 0) total FROM payment_requests WHERE po_no = ? AND (LOWER(stage) = 'remitted' OR LOWER(remittance) = 'remitted')`, [poNo]);
+    const manual = await db.queryGet(`SELECT COALESCE(SUM(amount), 0) total FROM system_payments WHERE po_no = ? AND (pr_key IS NULL OR pr_key LIKE 'MANUAL-%')`, [poNo]);
+    const total = Number(gross.total) + Number(manual.total);
+    const value = Number(po.revised_po_value ?? po.po_value ?? 0);
+    await db.queryRun('UPDATE purchase_orders SET legacy_paid = ?, final_payable = ?, payment_status = ? WHERE po_no = ?',
+      [total, Math.max(0, value - total), value > 0 && total >= value ? 'Fully Paid' : total > 0 ? 'Partially Paid' : 'Unpaid', poNo]);
+  }
+
+  static async deleteRequestWithAudit(prId: string | number, reason: string, email: string): Promise<void> {
+    await queryTransaction(async (db: any) => {
+      const pr = await db.queryGet('SELECT * FROM payment_requests WHERE pr_id = ?', [prId]);
+      if (!pr) throw new Error('Payment request not found.');
+      const payments = await db.queryAll('SELECT * FROM system_payments WHERE CAST(pr_key AS TEXT) = ?', [String(prId)]);
+      const history = await db.queryAll("SELECT * FROM approval_history_v2 WHERE entity_type = 'payment_request' AND entity_id = ?", [String(prId)]);
+      await db.queryRun('INSERT INTO audit_logs (user, action_type, details, department, timestamp) VALUES (?, ?, ?, ?, ?)',
+        [email, 'DELETE_PAYMENT_REQUEST', JSON.stringify({ prId, reason, request: pr, payments, history }), 'Finance', new Date().toISOString()]);
+      await db.queryRun('DELETE FROM system_payments WHERE CAST(pr_key AS TEXT) = ?', [String(prId)]);
+      await db.queryRun('DELETE FROM payment_requests WHERE pr_id = ?', [prId]);
+      if (pr.po_no) await this.recomputePO(pr.po_no, db);
+    });
+  }
   /**
    * ----------------- PAYMENT REQUESTS -----------------
    */
@@ -103,7 +134,8 @@ export class PaymentRepository {
     prId: string | number,
     updates: Partial<IPaymentRequest> & Record<string, any>,
     auditEntry: { user: string; action_type: string; details: string; department?: string },
-    historyEntry: { entity_type: string; entity_id: string; stage_name: string; action: string; performed_by: string; remarks?: string }
+    historyEntry: { entity_type: string; entity_id: string; stage_name: string; action: string; performed_by: string; remarks?: string },
+    expectedVersion: number
   ): Promise<void> {
     const validColumns = new Set([
       'po_no', 'vendor_id', 'vendor_code', 'vendor_name', 'project', 'category', 'amount_requested', 'approved_amount',
@@ -124,8 +156,8 @@ export class PaymentRepository {
     if (fields.length === 0) return;
 
     fields.push(`version = COALESCE(version, 1) + 1`);
-    const updateSql = `UPDATE payment_requests SET ${fields.join(', ')} WHERE pr_id = ?`;
-    values.push(prId);
+    const updateSql = `UPDATE payment_requests SET ${fields.join(', ')} WHERE pr_id = ? AND COALESCE(version, 1) = ?`;
+    values.push(prId, expectedVersion);
 
     const now = new Date().toISOString();
     const batchStatements = [
@@ -140,15 +172,27 @@ export class PaymentRepository {
       }
     ];
 
-    const { queryBatch } = await import('../../../../app/lib/db.js');
-    await queryBatch(batchStatements, 'write');
+    await queryTransaction(async (db: any) => {
+      const result = await db.queryRun(batchStatements[0].sql, batchStatements[0].args);
+      if (result.rowsAffected !== 1) throw new Error('CONFLICT: This payment request changed. Reload and try again.');
+      for (const statement of batchStatements.slice(1)) await db.queryRun(statement.sql, statement.args);
+    });
   }
 
   /**
    * ----------------- PAYMENTS (REMITTANCES) -----------------
    */
 
-  static async createPayment(payment: Omit<IPayment, 'created_at' | 'id'>): Promise<void> {
+  static async createPayment(payment: Omit<IPayment, 'created_at' | 'id'>, scopedDb?: any): Promise<void> {
+    if (!scopedDb) {
+      return queryTransaction(async (db: any) => {
+        await this.createPayment(payment, db);
+        await this.recomputePO(payment.po_no, db);
+        await db.queryRun('INSERT INTO audit_logs (user, action_type, details, department, timestamp) VALUES (?, ?, ?, ?, ?)',
+          [payment.recorded_by, 'Manual Payment Added', JSON.stringify(payment), 'Finance', new Date().toISOString()]);
+      });
+    }
+    const queryRun = scopedDb.queryRun;
     const isManual = payment.payment_type === 'manual';
     if (isManual) {
       const sql = `
@@ -161,11 +205,11 @@ export class PaymentRepository {
         payment.bank_name || '', payment.reference_no || '', payment.remarks || '', payment.payment_type || 'manual',
         payment.recorded_by, new Date().toISOString()
       ];
-      await queryRun(sql, params);
+      const inserted = await queryRun(sql, params);
       
       await queryRun(
         `INSERT INTO system_payments (po_no, pr_key, amount, remitted_by, created_at) VALUES (?, ?, ?, ?, ?)`,
-        [payment.po_no, `MANUAL-${Date.now()}`, payment.amount, payment.recorded_by, new Date().toISOString()]
+        [payment.po_no, `MANUAL-${inserted.lastInsertRowid}`, payment.amount, payment.recorded_by, new Date().toISOString()]
       );
     } else {
       // Bug 3b: persist utr_ref + other fields added by Bug 3a migration
@@ -174,6 +218,31 @@ export class PaymentRepository {
         [payment.po_no, payment.reference_no || `SYS-${Date.now()}`, payment.amount, payment.recorded_by, new Date().toISOString(), payment.utr_ref || '', payment.bank_name || '', payment.payment_mode || 'Bank Transfer', payment.remarks || '', payment.reference_no || '']
       );
     }
+  }
+
+  static async remitRequest(prId: string | number, payload: any, email: string): Promise<void> {
+    await queryTransaction(async (db: any) => {
+      const pr = await db.queryGet('SELECT * FROM payment_requests WHERE pr_id = ?', [prId]);
+      if (!pr) throw new Error(`Payment request not found: ${prId}`);
+      const ref = String(payload.utrRef || payload.referenceNo || '').trim();
+      const date = payload.paymentDate || new Date().toISOString().split('T')[0];
+      const amount = Number(payload.amount);
+      const net = Number(pr.approved_amount ?? pr.amount_requested) - Number(pr.tds_amount || 0);
+      if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(net) || Math.abs(amount - net) > 0.005) {
+        throw new Error('Remittance amount must equal the approved net amount');
+      }
+      const existing = await db.queryGet('SELECT * FROM system_payments WHERE CAST(pr_key AS TEXT) = ?', [String(prId)]);
+      if (pr.stage === 'Remitted' && existing && Number(existing.amount) === amount && String(existing.utr_ref || '') === ref && String(pr.remittance_date || '') === date) return;
+      if (existing || pr.stage !== 'Ready to Remit') throw new Error('Payment already remitted or not Ready to Remit; reload before continuing.');
+      if (payload.expectedVersion != null && Number(payload.expectedVersion) !== Number(pr.version ?? 1)) throw new Error('CONFLICT: Payment request changed.');
+      const result = await db.queryRun(`UPDATE payment_requests SET remittance = 'Remitted', stage = 'Remitted', remittance_ref = ?, remittance_date = ?, remarks = ?, version = COALESCE(version, 1) + 1 WHERE pr_id = ? AND stage = 'Ready to Remit' AND COALESCE(version, 1) = ?`,
+        [ref, date, [pr.remarks, payload.remarks].filter(Boolean).join(' | '), prId, pr.version ?? 1]);
+      if (result.rowsAffected !== 1) throw new Error('CONFLICT: Payment request changed.');
+      await this.createPayment({ po_no: pr.po_no, payment_date: date, amount, payment_mode: payload.paymentMode || 'Bank Transfer', utr_ref: ref, bank_name: payload.bankName || '', reference_no: String(prId), remarks: payload.remarks || '', payment_type: 'system', recorded_by: email, status: 'paid' }, db);
+      await this.recomputePO(pr.po_no, db);
+      await db.queryRun('INSERT INTO audit_logs (user, action_type, details, department, timestamp) VALUES (?, ?, ?, ?, ?)',
+        [email, 'Remit Payment', `Remitted PR #${prId}; amount ${amount}; reference ${ref}`, 'Finance', new Date().toISOString()]);
+    });
   }
 
   static async findPaymentsByPO(poNo: string): Promise<any[]> {

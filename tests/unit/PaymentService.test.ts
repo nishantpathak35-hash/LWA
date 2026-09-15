@@ -48,7 +48,7 @@ describe('PaymentService unit tests', () => {
       capturedUpdates = updates;
     });
 
-    const res = await PaymentService.updatePaymentRequest(101, { amountRequested: 7500 }, 'user@luxe.com');
+    const res = await PaymentService.updatePaymentRequest(101, { amountRequested: 7500 }, { email: 'user@luxe.com', roles: ['maker'], active: true });
     expect(res.ok).toBe(true);
     expect(capturedUpdates.amount_requested).toBe(7500);
     expect(capturedUpdates.approved_amount).toBe(7500);

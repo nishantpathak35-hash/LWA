@@ -233,20 +233,61 @@ export function PriorityPill({ priority, className }) {
 }
 
 // --- DIALOG / MODAL ---
+const dialogStack = [];
+let bodyOverflowBeforeDialogs = '';
+const focusableSelector = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' }) {
+  const dialogRef = React.useRef(null);
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+  const titleId = React.useId();
   React.useEffect(() => {
+    if (!open || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+    const previouslyFocused = document.activeElement;
+    if (dialogStack.length === 0) {
+      bodyOverflowBeforeDialogs = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
+    dialogStack.push(dialog);
+    dialog.parentElement.style.zIndex = String(50 + dialogStack.length);
+    const focusable = () => Array.from(dialog.querySelectorAll(focusableSelector)).filter(el => el.getClientRects().length > 0 && !el.closest('[inert]'));
+    const focusFirst = () => (focusable()[0] || dialog).focus();
+    focusFirst();
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && open) {
-        onClose();
+      if (dialogStack.at(-1) !== dialog) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onCloseRef.current?.();
+      } else if (e.key === 'Tab') {
+        const elements = focusable();
+        const first = elements[0];
+        const last = elements.at(-1);
+        if (!first) { e.preventDefault(); dialog.focus(); }
+        else if (e.shiftKey && (document.activeElement === first || !elements.includes(document.activeElement))) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && (document.activeElement === last || !elements.includes(document.activeElement))) {
+          e.preventDefault(); first.focus();
+        }
       }
     };
-    
-    if (open) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+    const handleFocus = (e) => {
+      if (dialogStack.at(-1) === dialog && !dialog.contains(e.target)) focusFirst();
+    };
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('focusin', handleFocus);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('focusin', handleFocus);
+      const wasTop = dialogStack.at(-1) === dialog;
+      const index = dialogStack.indexOf(dialog);
+      if (index !== -1) dialogStack.splice(index, 1);
+      if (dialogStack.length === 0) document.body.style.overflow = bodyOverflowBeforeDialogs;
+      if (wasTop && previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
   if (typeof document === 'undefined') return null;
@@ -256,18 +297,26 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' 
       {/* Overlay */}
       <div 
         className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity" 
-        onClick={onClose}
+        onClick={() => { if (dialogStack.at(-1) === dialogRef.current) onClose?.(); }}
       />
       
       {/* Content wrapper */}
       <div 
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : 'Dialog'}
+        tabIndex={-1}
         className={cn("relative w-full bg-card border border-border/80 rounded-xl shadow-2xl overflow-hidden z-10 flex flex-col transition-colors duration-150 text-foreground", maxWidth)}
         style={{ maxHeight: '90vh' }}
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-border/80 bg-muted/20 flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">{title}</h3>
+          <h3 id={titleId} className="text-sm font-semibold tracking-tight text-foreground">{title}</h3>
           <button 
+            type="button"
+            aria-label="Close dialog"
             onClick={onClose} 
             className="text-muted-foreground hover:text-foreground p-1 hover:bg-muted rounded-lg transition-colors cursor-pointer"
           >
@@ -284,6 +333,5 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-2xl' 
     document.body
   );
 }
-
 
 

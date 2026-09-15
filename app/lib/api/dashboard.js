@@ -1,3 +1,4 @@
+import { aggregatePaymentStages } from '../paymentStatus.js';
 // Domain: dashboard
 // Auto-extracted from api.js
 import { queryAll, queryGet, queryRun } from '../db.js';
@@ -75,7 +76,7 @@ export async function clearCacheAndGetMaster(session) {
 export async function getDashboardKPIs(session) {
   requireAuth(session);
 
-  const [poResult, prResult, outflowRow, pendingRow] = await Promise.all([
+  const [poResult, prResult, outflowRow] = await Promise.all([
     queryAll(`SELECT po_no, po_value FROM purchase_orders`),
     queryAll(`SELECT pr_id, amount_requested, approved_amount, tds_amount, stage, remittance FROM payment_requests`),
     // Authoritative total outflow:
@@ -90,35 +91,18 @@ export async function getDashboardKPIs(session) {
        FROM system_payments sp
        LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)`
     ),
-    // Pending: non-remitted, non-rejected, non-cancelled payment requests
-    queryGet(
-      `SELECT COALESCE(SUM(COALESCE(approved_amount, amount_requested, 0)), 0) AS total
-       FROM payment_requests
-       WHERE LOWER(COALESCE(stage,'')) NOT LIKE '%remit%'
-         AND LOWER(COALESCE(stage,'')) NOT LIKE '%reject%'
-         AND LOWER(COALESCE(stage,'')) NOT LIKE '%cancel%'
-         AND LOWER(COALESCE(remittance,'')) NOT LIKE '%remit%'`
-    )
+
   ]);
 
   let totalPOValue = 0;
   poResult.forEach(p => { totalPOValue += Number(p.po_value) || 0; });
 
   const totalPaid   = Number(outflowRow?.total) || 0;
-  const pendingApproval = Number(pendingRow?.total) || 0;
+
 
   // Payment stage breakdown for the pipeline chart
-  const stageMap = { pendingProc: 0, pendingFinance: 0, pendingDirector: 0, readyToRemit: 0, remitted: 0, rejected: 0 };
-  prResult.forEach(pr => {
-    const stage = String(pr.stage || '').trim().toLowerCase();
-    const amt = Number(pr.approved_amount ?? pr.amount_requested) || 0;
-    if (stage.includes('remit')) stageMap.remitted += amt;
-    else if (stage.includes('ready')) stageMap.readyToRemit += amt;
-    else if (stage.includes('director')) stageMap.pendingDirector += amt;
-    else if (stage.includes('finance')) stageMap.pendingFinance += amt;
-    else if (stage.includes('reject') || stage.includes('cancel')) stageMap.rejected += amt;
-    else stageMap.pendingProc += amt;
-  });
+  const stageMap = aggregatePaymentStages(prResult);
+  const pendingApproval = stageMap.pendingProc + stageMap.pendingFinance + stageMap.pendingDirector + stageMap.readyToRemit;
 
   return {
     pos: poResult.length,
@@ -145,8 +129,7 @@ export async function getDashboardKPIs(session) {
 
 export async function getMasterData(session, options = { limit: 0, offset: 0 }) {
   requireAuth(session);
-  const vendors = await VendorService.getAllVendors(options);
-  const pos = await POService.getAllPOs(options);
+  const [vendors, pos] = await Promise.all([VendorService.getAllVendors(options), POService.getAllPOs(options)]);
   let tdsSections = [];
   try {
     tdsSections = await queryAll(`SELECT * FROM tds_sections WHERE is_active = 1 ORDER BY sort_order ASC, section_code ASC`);

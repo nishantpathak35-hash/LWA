@@ -1,6 +1,3 @@
-import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
-dotenv.config({ path: '.env' });
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -20,6 +17,8 @@ describe('VendorOnboardingService Unit & Security Tests', () => {
     queryGet = dbModule.queryGet;
     queryAll = dbModule.queryAll;
     queryRun = dbModule.queryRun;
+    vi.mocked(queryRun).mockResolvedValue({ rowsAffected: 1 });
+    vi.mocked(queryGet).mockResolvedValue(undefined);
 
     const serviceModule = await import('../../src/modules/vendors/services/VendorOnboardingService');
     VendorOnboardingService = serviceModule.VendorOnboardingService;
@@ -41,8 +40,8 @@ describe('VendorOnboardingService Unit & Security Tests', () => {
 
   it('creates onboarding invitation with email only and sends email with secure token', async () => {
     const emailSpy = vi.spyOn(emailApi, 'sendVendorOnboardingInviteEmail').mockResolvedValue({ sent: true, id: 'msg-1' });
-    const repoSpy = vi.spyOn(VendorOnboardingRepository, 'createInvitation').mockResolvedValue();
-    vi.spyOn(VendorOnboardingRepository, 'invalidatePreviousInvitations').mockResolvedValue();
+    const repoSpy = vi.spyOn(VendorOnboardingRepository, 'createInvitation').mockResolvedValue(undefined);
+    vi.spyOn(VendorOnboardingRepository, 'invalidatePreviousInvitations').mockResolvedValue(undefined);
 
     const userSession = { email: 'admin@luxeworx.com' };
     const res = await VendorOnboardingService.createInvitation('newsupplier@example.com', userSession);
@@ -83,7 +82,7 @@ describe('VendorOnboardingService Unit & Security Tests', () => {
     });
 
     vi.spyOn(VendorOnboardingRepository, 'findSubmissionByInvitationId').mockResolvedValue(null);
-    vi.spyOn(VendorOnboardingRepository, 'updateInvitationStatus').mockResolvedValue();
+    vi.spyOn(VendorOnboardingRepository, 'updateInvitationStatus').mockResolvedValue(undefined);
 
     const validRes = await VendorOnboardingService.getOnboardingByToken('VALID-TOK');
     expect(validRes.isValid).toBe(true);
@@ -115,8 +114,8 @@ describe('VendorOnboardingService Unit & Security Tests', () => {
       vendor_code: 'VEN-2026-999',
       legal_name: 'Test Supplier Logistics Pvt Ltd'
     } as any);
-    vi.spyOn(VendorOnboardingRepository, 'updateSubmissionStatus').mockResolvedValue();
-    vi.spyOn(VendorOnboardingRepository, 'updateInvitationStatus').mockResolvedValue();
+    vi.spyOn(VendorOnboardingRepository, 'updateSubmissionStatus').mockResolvedValue(undefined);
+    vi.spyOn(VendorOnboardingRepository, 'updateInvitationStatus').mockResolvedValue(undefined);
 
     const welcomeEmailSpy = vi.spyOn(emailApi, 'sendVendorPortalWelcomeEmail');
     const portalUserSpy = vi.spyOn(VendorPortalAuthService, 'inviteVendorUser');
@@ -151,8 +150,8 @@ describe('VendorOnboardingService Unit & Security Tests', () => {
       vendor_code: 'VEN-2026-1000',
       legal_name: 'Active Supplier Pvt Ltd'
     } as any);
-    vi.spyOn(VendorOnboardingRepository, 'updateSubmissionStatus').mockResolvedValue();
-    vi.spyOn(VendorOnboardingRepository, 'updateInvitationStatus').mockResolvedValue();
+    vi.spyOn(VendorOnboardingRepository, 'updateSubmissionStatus').mockResolvedValue(undefined);
+    vi.spyOn(VendorOnboardingRepository, 'updateInvitationStatus').mockResolvedValue(undefined);
 
     const welcomeEmailSpy = vi.spyOn(emailApi, 'sendVendorPortalWelcomeEmail').mockResolvedValue({ sent: true, id: 'm-2' });
     const portalUserSpy = vi.spyOn(VendorPortalAuthService, 'inviteVendorUser').mockResolvedValue({ ok: true });

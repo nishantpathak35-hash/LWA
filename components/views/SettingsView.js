@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Table, 
 import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loader2, ClipboardList, ChevronLeft, ChevronRight, Search, ArrowUpDown, Building2, Mail, IndianRupee, Wrench, RefreshCw, Sliders, Layers, Database } from 'lucide-react';
 import { cn } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
+import { DEFAULT_CONTROL_POLICIES } from '../../app/lib/paymentStatus.js';
 import dynamic from 'next/dynamic';
 
 const SettingsCompanyTab = dynamic(() => import('./settings/SettingsCompanyTab'), { ssr: false });
@@ -52,6 +53,8 @@ export default function SettingsView() {
 
   // System settings states
   const [poPrefix, setPoPrefix] = useState('');
+  const [controlPolicies, setControlPolicies] = useState({ ...DEFAULT_CONTROL_POLICIES });
+  const [savingControlPolicies, setSavingControlPolicies] = useState(false);
   // Raw permissions from DB (source of truth after load)
   const [permissions, setPermissions] = useState({});
   // Controlled local state for the matrix UI (what checkboxes actually reflect)
@@ -156,12 +159,24 @@ export default function SettingsView() {
   // Load System Tab Data
   const loadSystem = useCallback(async () => {
     try {
-      const prefix = await call('getPOPrefix');
+      const [prefix, policies] = await Promise.all([call('getPOPrefix'), call('getControlPolicies')]);
       setPoPrefix(prefix || '');
+      setControlPolicies({ ...DEFAULT_CONTROL_POLICIES, ...(policies || {}) });
     } catch (e) {
       console.error('Failed to load PO prefix:', e);
     }
   }, [call]);
+
+  const handleSaveControlPolicies = useCallback(async () => {
+    setSavingControlPolicies(true);
+    try {
+      const result = await call('setControlPolicies', controlPolicies);
+      if (result?.policies) setControlPolicies(result.policies);
+      toast.success('Control policies saved');
+    } catch (e) {
+      toast.error(e?.message || 'Failed to save control policies');
+    } finally { setSavingControlPolicies(false); }
+  }, [call, controlPolicies]);
 
   const [ccEmails, setCcEmails] = useState('');
   const [savingEmailConfig, setSavingEmailConfig] = useState(false);
@@ -760,6 +775,8 @@ export default function SettingsView() {
           activeTab={activeTab}
           poPrefix={poPrefix} setPoPrefix={setPoPrefix} handleSavePOPrefix={handleSavePOPrefix}
           handleClearServerCache={handleClearServerCache} handleReloadAll={handleReloadAll}
+          controlPolicies={controlPolicies} setControlPolicies={setControlPolicies}
+          handleSaveControlPolicies={handleSaveControlPolicies} savingControlPolicies={savingControlPolicies}
           legacyPONo={legacyPONo} setLegacyPONo={setLegacyPONo} legacyPO={legacyPO}
           legacyNewPaid={legacyNewPaid} setLegacyNewPaid={setLegacyNewPaid}
           legacyReason={legacyReason} setLegacyReason={setLegacyReason}

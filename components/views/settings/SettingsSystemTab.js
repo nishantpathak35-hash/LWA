@@ -8,6 +8,7 @@ export default function SettingsSystemTab({
   // System props
   poPrefix, setPoPrefix, handleSavePOPrefix,
   handleClearServerCache, handleReloadAll,
+  controlPolicies, setControlPolicies, handleSaveControlPolicies, savingControlPolicies,
   
   // Legacy Correction props
   legacyPONo, setLegacyPONo, legacyPO,
@@ -58,6 +59,35 @@ export default function SettingsSystemTab({
               <Button size="sm" variant="primary" onClick={handleClearServerCache} className="text-xs">
                 Clear Cache
               </Button>
+            </div>
+
+            <div className="p-4 rounded-xl bg-muted/30 border border-border space-y-4">
+              <div>
+                <div className="font-bold text-sm text-foreground">ERP Control Policies</div>
+                <div className="text-xs text-muted-foreground">Control the safeguards used during payment processing and approvals.</div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['block_payment_over_po_balance', 'Block payment above PO balance'],
+                  ['require_supporting_document', 'Require supporting document'],
+                  ['allow_payment_holds', 'Allow payment holds / queries'],
+                  ['overdue_approval_alerts', 'Show overdue approval alerts'],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-3 text-xs text-foreground cursor-pointer">
+                    <input type="checkbox" checked={Boolean(controlPolicies?.[key])} onChange={e => setControlPolicies(p => ({ ...p, [key]: e.target.checked }))} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 max-w-sm">
+                <label className="text-xs text-foreground flex-1">Approval SLA (days)</label>
+                <Input type="number" min="1" max="30" value={controlPolicies?.approval_sla_days || 3} onChange={e => setControlPolicies(p => ({ ...p, approval_sla_days: e.target.value }))} className="w-24 bg-background text-foreground text-xs" />
+              </div>
+              <div className="flex justify-end">
+                <Button size="sm" variant="primary" onClick={handleSaveControlPolicies} disabled={savingControlPolicies} className="text-xs">
+                  {savingControlPolicies ? 'Saving...' : 'Save Control Policies'}
+                </Button>
+              </div>
             </div>
 
             <div className="p-4 rounded-xl bg-muted/30 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">

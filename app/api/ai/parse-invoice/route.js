@@ -1,6 +1,25 @@
 import { NextResponse } from 'next/server';
-import { decryptToken } from '../../../lib/api/token.js';
 import * as api from '../../../lib/api.js';
+import { validateInvoiceFields } from '../../../../src/modules/invoices/services/invoiceValidation.js';
+
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
+async function readBody(request) {
+  if (Number(request.headers.get('content-length')) > MAX_BODY_BYTES) throw new Error('Invoice file is too large');
+  const reader = request.body?.getReader();
+  if (!reader) throw new Error('Missing invoice file');
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) { await reader.cancel(); throw new Error('Invoice file is too large'); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
 
 export async function POST(request) {
   try {
@@ -25,11 +44,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized: Invalid Token' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { fileData, fileType } = body;
-    if (!fileData) {
-      return NextResponse.json({ error: 'Missing fileData (base64 string)' }, { status: 400 });
-    }
+    let body;
+    try { body = await readBody(request); }
+    catch (error) { return NextResponse.json({ error: error.message === 'Invoice file is too large' ? error.message : 'Invalid invoice request' }, { status: error.message === 'Invoice file is too large' ? 413 : 400 }); }
+    const { fileData, fileType } = body || {};
+    if (typeof fileData !== 'string' || !fileData.length || fileData.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(fileData)) return NextResponse.json({ error: 'Valid base64 fileData is required' }, { status: 400 });
+    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(fileType || 'application/pdf')) return NextResponse.json({ error: 'Unsupported invoice file type' }, { status: 400 });
 
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) {
@@ -45,6 +65,7 @@ export async function POST(request) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(30000),
         body: JSON.stringify({
           contents: [
             {
@@ -69,8 +90,7 @@ export async function POST(request) {
     );
 
     if (!response.ok) {
-      const errText = await response.text();
-      return NextResponse.json({ error: `Gemini API call failed: ${errText}` }, { status: 502 });
+      return NextResponse.json({ error: 'Invoice extraction service is unavailable. Please enter the invoice details manually.' }, { status: 502 });
     }
 
     const data = await response.json();
@@ -80,11 +100,13 @@ export async function POST(request) {
     }
 
     const cleanedText = textResult.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-    const parsed = JSON.parse(cleanedText);
+    let parsed;
+    try { parsed = validateInvoiceFields(JSON.parse(cleanedText), { partial: true }); }
+    catch { return NextResponse.json({ error: 'Extracted invoice details could not be verified. Please enter them manually.' }, { status: 422 }); }
     return NextResponse.json({ ok: true, data: parsed });
 
   } catch (error) {
     console.error('Invoice parse error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: error.name === 'TimeoutError' ? 'Invoice extraction timed out. Please try again.' : 'Unable to extract this invoice. Please enter details manually.' }, { status: error.name === 'TimeoutError' ? 504 : 500 });
   }
 }

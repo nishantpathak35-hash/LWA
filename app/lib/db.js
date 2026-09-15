@@ -48,7 +48,8 @@ export async function queryGet(sql, params = []) {
 
 export async function queryRun(sql, params = []) {
   if (!tursoClient) throw new Error("Database not connected");
-  return executeWithRetry(() => tursoClient.execute({ sql, args: params }));
+  // A lost response does not mean a write failed. Retrying can duplicate money movements.
+  return tursoClient.execute({ sql, args: params });
 }
 
 /**
@@ -63,6 +64,28 @@ export async function queryBatch(statements, mode = 'write') {
     if (typeof st === 'string') return { sql: st, args: [] };
     return { sql: st.sql, args: st.args || st.params || [] };
   });
-  return executeWithRetry(() => tursoClient.batch(normalized, mode));
+  return mode === 'read'
+    ? executeWithRetry(() => tursoClient.batch(normalized, mode))
+    : tursoClient.batch(normalized, mode);
 }
 
+/** Run dependent reads and writes atomically. Never replay an uncertain commit. */
+export async function queryTransaction(work, mode = 'write') {
+  if (!tursoClient) throw new Error('Database not connected');
+  const tx = await tursoClient.transaction(mode);
+  const scoped = {
+    queryRun: (sql, params = []) => tx.execute({ sql, args: params }),
+    queryAll: async (sql, params = []) => (await tx.execute({ sql, args: params })).rows,
+    queryGet: async (sql, params = []) => (await tx.execute({ sql, args: params })).rows[0]
+  };
+  try {
+    const result = await work(scoped);
+    await tx.commit();
+    return result;
+  } catch (error) {
+    try { await tx.rollback(); } catch { /* Preserve the original failure. */ }
+    throw error;
+  } finally {
+    tx.close();
+  }
+}

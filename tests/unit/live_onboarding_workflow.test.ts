@@ -82,7 +82,7 @@ describe('Live Vendor Onboarding & Portal Access End-to-End Test', () => {
     const canonicalVendor = await VendorRepository.findByNameOrCode(approveRes.vendor_code);
     expect(canonicalVendor).toBeDefined();
     expect(canonicalVendor?.legal_name).toBe(testCompany);
-    expect(canonicalVendor?.portal_access).toBe('enabled');
+    expect(canonicalVendor && 'portal_access' in canonicalVendor ? canonicalVendor.portal_access : undefined).toBe('enabled');
     console.log(`✓ Verified in Canonical Vendor Master ('vendors' table): ID=${canonicalVendor?.id}, Code=${canonicalVendor?.vendor_code}, Status=${canonicalVendor?.status}`);
 
     // 7. Verify Legacy Vendor Portal Access Toggle

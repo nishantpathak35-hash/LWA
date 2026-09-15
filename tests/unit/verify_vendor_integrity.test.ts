@@ -45,7 +45,7 @@ describe('Systemic Vendor Data Integrity Verification', () => {
   it('Check 5: Verifies no duplicate vendor names exist in Vendor Master', async () => {
     const vendors = await queryAll(`SELECT id, vendor_code, legal_name FROM vendors`);
     const nameMap = new Map();
-    vendors.forEach(v => {
+    vendors.forEach((v: { legal_name?: string }) => {
       const norm = (v.legal_name || '').trim().toLowerCase();
       if (!nameMap.has(norm)) nameMap.set(norm, []);
       nameMap.get(norm).push(v);

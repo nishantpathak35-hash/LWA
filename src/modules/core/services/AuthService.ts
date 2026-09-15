@@ -15,7 +15,7 @@ export class AuthService {
    * Throws an error if unauthorized.
    */
   static requireAuth(session: any): void {
-    if (!session || !session.email) {
+    if (!session || !session.email || session.user_type === 'vendor' || session.active === false) {
       throw new Error('AUTH:Unauthenticated');
     }
   }

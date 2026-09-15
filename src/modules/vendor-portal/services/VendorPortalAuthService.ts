@@ -65,7 +65,7 @@ export class VendorPortalAuthService {
     if (!payload || payload.user_type !== 'vendor') {
       throw new Error('AUTH:Invalid vendor token');
     }
-    if (payload.exp < Date.now()) {
+    if (!Number.isFinite(Number(payload.exp)) || Number(payload.exp) <= Date.now()) {
       throw new Error('AUTH:Token expired');
     }
 

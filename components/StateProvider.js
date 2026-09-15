@@ -95,6 +95,7 @@ export function StateProvider({ children }) {
     const currentToken = token || localStorage.getItem('lx_auth_token');
     try {
       localStorage.removeItem('lx_auth_token');
+      localStorage.removeItem('lx_login_time');
       setToken('');
       setUser(null);
       setKpis(null);
@@ -109,7 +110,7 @@ export function StateProvider({ children }) {
         // Silent logout
         fetch('/api/rpc', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-lwa-token': currentToken },
           body: JSON.stringify({ method: 'logoutUser', args: [currentToken] })
         }).catch(() => {});
       }
@@ -241,8 +242,7 @@ export function StateProvider({ children }) {
           setFeaturePermissions(bundle.featurePermissions);
         }
         // Also refresh locks and presence
-        await refreshActiveLocks();
-        await refreshActivePresence();
+        await Promise.all([refreshActiveLocks(), refreshActivePresence()]);
       }
     } catch (e) {
       console.error('Data refresh failed:', e);
@@ -378,12 +378,12 @@ export function StateProvider({ children }) {
             setPos(loadedPOs);
             setProjects(bundle.master.projects || []);
             setTdsSections(bundle.master.tdsSections || []);
-            setHasMoreVendors(loadedVendors.length >= 100);
-            setHasMorePOs(loadedPOs.length >= 100);
+            setHasMoreVendors(false);
+            setHasMorePOs(false);
           }
           const loadedPayments = bundle.payments || [];
           setPayments(loadedPayments);
-          setHasMorePayments(loadedPayments.length >= 100);
+          setHasMorePayments(false);
           if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
             setFeaturePermissions(bundle.featurePermissions);
           }
@@ -491,21 +491,32 @@ export function StateProvider({ children }) {
     };
   }, [user, refreshData]);
 
+  // Refresh each affected dataset once per batch; payment changes also update PO balances.
+  const refreshEntities = useCallback(async (entities) => {
+    const jobs = new Set();
+    for (const entity of entities) {
+      if (entity === 'vendor') jobs.add(refreshVendors);
+      else if (entity === 'po' || entity === 'payment') {
+        jobs.add(refreshPOs); jobs.add(refreshPayments); jobs.add(refreshKPIs);
+      } else if (String(entity).endsWith('_lock')) jobs.add(refreshActiveLocks);
+      else if (String(entity).endsWith('_presence')) jobs.add(refreshActivePresence);
+      else { await refreshData(); return; }
+    }
+    await Promise.all(Array.from(jobs, refresh => refresh()));
+  }, [refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshActiveLocks, refreshActivePresence, refreshData]);
+
   // BroadcastChannel multi-tab sync listener for instant same-browser updates (0 server calls)
   useEffect(() => {
     if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
     const channel = new BroadcastChannel('lwa_app_sync');
-    channel.onmessage = (event) => {
+    channel.onmessage = async (event) => {
       const { entity } = event.data || {};
       setSyncStatus('syncing');
-      if (entity === 'vendor') refreshVendors();
-      else if (entity === 'po') { refreshPOs(); refreshKPIs(); }
-      else if (entity === 'payment') { refreshPayments(); refreshKPIs(); }
-      else refreshData();
-      setTimeout(() => setSyncStatus('connected'), 500);
+      try { await refreshEntities([entity]); }
+      finally { setSyncStatus('connected'); }
     };
     return () => { channel.close(); };
-  }, [refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshData]);
+  }, [refreshEntities]);
 
   // Lightweight REST polling for background events (Vercel serverless CPU optimized)
   useEffect(() => {
@@ -523,27 +534,15 @@ export function StateProvider({ children }) {
       if (!currentToken) return;
 
       try {
-        const res = await window.fetch(`/api/events?token=${encodeURIComponent(currentToken)}&since=${lastEventId}`);
+        const res = await window.fetch(`/api/events?since=${lastEventId}`, { headers: { 'x-lwa-token': currentToken } });
         if (!res.ok) return;
         const data = await res.json();
         if (!active || !data || !Array.isArray(data.events) || data.events.length === 0) return;
 
         setSyncStatus('syncing');
-        for (const evt of data.events) {
-          if (evt.id > lastEventId) {
-            lastEventId = evt.id;
-          }
-          if (evt.entity) {
-            if (evt.entity === 'vendor') await refreshVendors();
-            else if (evt.entity === 'po') await Promise.all([refreshPOs(), refreshKPIs()]);
-            else if (evt.entity === 'payment') await Promise.all([refreshPayments(), refreshKPIs()]);
-            else if (evt.entity.endsWith('_lock')) await refreshActiveLocks();
-            else if (evt.entity.endsWith('_presence')) await refreshActivePresence();
-            else await refreshData();
-          } else {
-            await refreshData();
-          }
-        }
+        const entities = new Set(data.events.map(evt => evt.entity || 'general'));
+        await refreshEntities(entities);
+        for (const evt of data.events) lastEventId = Math.max(lastEventId, Number(evt.id) || 0);
       } catch (e) {
         // Silent catch for background poll
       } finally {
@@ -561,7 +560,7 @@ export function StateProvider({ children }) {
       active = false;
       if (intervalId) clearInterval(intervalId);
     };
-  }, [user, token, refreshData, refreshVendors, refreshPOs, refreshPayments, refreshKPIs, refreshActiveLocks, refreshActivePresence]);
+  }, [user, token, refreshEntities]);
 
   const hasPermission = useCallback((feature) => {
     if (!user) return false;

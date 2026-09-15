@@ -6,6 +6,7 @@ import { useAppState } from '../StateProvider';
 import { Bell, CheckCircle2, Clock, AlertTriangle, CreditCard, X, Volume2, Smartphone, ShieldAlert } from 'lucide-react';
 import { formatTimeAgo } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
+import { DEFAULT_CONTROL_POLICIES } from '../../app/lib/paymentStatus.js';
 
 /**
  * NotificationsPanel
@@ -28,7 +29,8 @@ function getPRStatus(stage, remittance) {
 }
 
 export function NotificationsPanel() {
-  const { payments, user, notificationState } = useAppState();
+  const { payments, user, notificationState, call } = useAppState();
+  const [controlPolicies, setControlPolicies] = useState(DEFAULT_CONTROL_POLICIES);
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(new Set());
   const [mounted, setMounted] = useState(false);
@@ -36,6 +38,11 @@ export function NotificationsPanel() {
   const panelRef = useRef(null);
 
   useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    let active = true;
+    call('getControlPolicies').then(value => { if (active && value) setControlPolicies(value); }).catch(() => {});
+    return () => { active = false; };
+  }, [call]);
 
   // Close on outside click
   useEffect(() => {
@@ -86,7 +93,7 @@ export function NotificationsPanel() {
           title: `PR #${p.id || p.pr_id} awaits finance approval`,
           subtitle: `${p.vendor_name || 'Vendor'} · ₹${Number(p.approved_amount || p.amount_requested || 0).toLocaleString('en-IN')}`,
           time: createdAt,
-          urgent: age > 3 * 24 * 60 * 60 * 1000,
+          urgent: controlPolicies.overdue_approval_alerts && age > Number(controlPolicies.approval_sla_days || 3) * 24 * 60 * 60 * 1000,
         });
       }
       if ((isAdmin || isDirector) && (status === 'pending_director' || status === 'ready')) {
@@ -132,7 +139,7 @@ export function NotificationsPanel() {
 
     return filtered.slice(0, 20);
 
-  }, [payments, dismissed, isAdmin, isDirector, isFinance, isProcurement]);
+  }, [payments, dismissed, isAdmin, isDirector, isFinance, isProcurement, controlPolicies]);
 
   const actionCount = notifications.filter(n => n.type === 'action').length;
   const unreadDbCount = notificationState?.unreadCount || 0;

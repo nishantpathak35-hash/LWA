@@ -230,7 +230,7 @@ export async function bulkRejectPayments(ids, rejectionData, session) {
 
 
 export async function bulkRemitPayments(requestIds, remittanceData, session) {
-  requireAuth(session);
+  PaymentService.requireFinance(session);
   const remittedIds = [];
   const failedIds = [];
   const errors = [];
@@ -253,24 +253,16 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
         amount: paidAmount,
         utrRef: utrRef,
         paymentDate: today,
-        paymentMode: 'Bank Transfer'
-      }, session?.email || SYSTEM_FALLBACK_EMAIL);
+        paymentMode: 'Bank Transfer',
+        remarks: remittanceData?.remarks || '',
+        expectedVersion: pr.version ?? 1
+      }, session);
 
       remittedIds.push(id);
       invalidateProjectCache(pr.project);
     } catch (e) {
       failedIds.push(id);
       errors.push(e.message);
-    }
-  }
-
-  // Trigger reconciliation automatically for affected POs only
-  const uniquePoNos = Array.from(new Set(affectedPoNos));
-  for (const poNo of uniquePoNos) {
-    try {
-      await reconcileRemittedPaymentsToPOLedger(session, poNo);
-    } catch (reconcileErr) {
-      console.error(`Reconciliation error for PO# ${poNo} during bulk remittance:`, reconcileErr.message);
     }
   }
 
@@ -379,7 +371,7 @@ export async function setPaymentHold(payload, session) {
 
 
 export async function reconcileRemittedPaymentsToPOLedger(session, targetPoNo = null) {
-  requireAuth(session);
+  PaymentService.requireFinance(session);
   // Fetch all or specific purchase orders
   let pos = [];
   if (targetPoNo) {

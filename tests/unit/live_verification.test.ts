@@ -41,6 +41,7 @@ describe('Live End-to-End Workflow Verification', () => {
       vendor = await VendorRepository.findByNameOrCode(testVendorCode);
     }
     expect(vendor).toBeDefined();
+    if (!vendor) throw new Error("Test vendor was not created");
     console.log(`✓ Vendor verified in DB: ID ${vendor?.id}, Code: ${vendor?.vendor_code}, Name: ${vendor?.legal_name}`);
 
     // 3. Create or invite Vendor Portal User

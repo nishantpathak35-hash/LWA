@@ -17,6 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import { logAudit, getSetting, setSetting, DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS, requireAdminConsole } from './core.js';
 import { emitBroadcast } from '../broadcast.js';
+import { DEFAULT_CONTROL_POLICIES, normalizeControlPolicies } from '../paymentStatus.js';
 
 
 import { requireAuth } from './shared.js';
@@ -87,4 +88,20 @@ export async function setDefaultCCRecipients(emails, session) {
   await logAudit(session.email, 'Email CC Settings Updated', JSON.stringify(validEmails), 'Settings');
   await emitBroadcast('settings', 'updated', 'cc_recipients');
   return { ok: true, cc: validEmails };
+}
+
+export async function getControlPolicies(session) {
+  requireAuth(session);
+  const raw = await getSetting('erp_control_policies', null);
+  if (!raw) return { ...DEFAULT_CONTROL_POLICIES };
+  try { return normalizeControlPolicies(JSON.parse(raw)); } catch { return { ...DEFAULT_CONTROL_POLICIES }; }
+}
+
+export async function setControlPolicies(payload, session) {
+  requireAdminConsole(session);
+  const policies = normalizeControlPolicies(payload);
+  await setSetting('erp_control_policies', JSON.stringify(policies));
+  await logAudit(session.email, 'ERP Control Policies Updated', JSON.stringify(policies), 'Settings');
+  await emitBroadcast('settings', 'updated', 'erp_control_policies');
+  return { ok: true, policies };
 }

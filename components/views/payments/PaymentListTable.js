@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import { getPaymentPriorityScore } from '../../../app/lib/paymentAI';
 import SortableHeader from '../../ui/SortableHeader';
 import { sortData } from '../../../app/lib/exportUtils';
+import { getPaymentStageKey, isPaymentSettled } from '../../../app/lib/paymentStatus';
 
 export default function PaymentListTable({
   displayedRequests, handleViewHistory, handleOpenWorkflowModal, user, isAdmin, isFinance, isDirector, pos, getWorkflowActionButton, handleSendPaymentAdvice,
@@ -27,48 +28,51 @@ export default function PaymentListTable({
     return sortData(displayedRequests || [], sortField, sortDir);
   }, [displayedRequests, sortField, sortDir]);
 
-  const allSelected = processedRequests.length > 0 && selectedPayments.length === processedRequests.filter(canActOnReq).length;
+  const poByNumber = useMemo(() => new Map((pos || []).map(po => [po.po_no, po])), [pos]);
+  const selectedIds = useMemo(() => new Set(selectedPayments), [selectedPayments]);
+  const actionableRequests = processedRequests.filter(canActOnReq);
+  const allSelected = actionableRequests.length > 0 && actionableRequests.every(req => selectedIds.has(req.id || req.pr_id));
   const [loadingMore, setLoadingMore] = useState(false);
   const handleLoadMore = async () => {
     setLoadingMore(true);
-    await loadMorePayments();
-    setLoadingMore(false);
+    try { await loadMorePayments(); }
+    finally { setLoadingMore(false); }
   };
 
   const getStageBadge = (stage) => {
-    const s = String(stage || '').toLowerCase();
-    if (s.includes('remit') || s.includes('paid')) {
+    const s = getPaymentStageKey(stage);
+    if (s === 'remitted') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Settled / Remitted
         </span>
       );
     }
-    if (s.includes('director')) {
+    if (s === 'pendingDirector') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" /> Director Sign-off
         </span>
       );
     }
-    if (s.includes('finance')) {
+    if (s === 'pendingFinance') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Finance Review
         </span>
       );
     }
-    if (s.includes('procurement') || s.includes('maker')) {
+    if (['pending procurement', 'pending maker'].includes(String(stage || '').trim().toLowerCase())) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Procurement Check
         </span>
       );
     }
-    if (s.includes('reject')) {
+    if (s === 'rejected') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Rejected
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> {stage}
         </span>
       );
     }
@@ -91,25 +95,26 @@ export default function PaymentListTable({
           <>
             {/* ── Mobile View: Payment Cards ── */}
             <div className="block md:hidden p-3 space-y-3">
-              {displayedRequests.map((req, idx) => {
-                const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
+              {processedRequests.map((req, idx) => {
+                const relatedPO = poByNumber.get(req.po_no || req.poNo || req.po_number);
                 const poValue = Number(relatedPO ? (relatedPO.po_value || relatedPO.poValue) : (req.po_value || 0));
                 const paidAmount = Number(relatedPO ? (relatedPO.paid ?? relatedPO.legacy_paid ?? 0) : 0);
                 const requestedAmt = Number(req.approved_amount ?? req.approvedAmount ?? req.amount_requested ?? req.gross_amount ?? req.amountRequested ?? 0);
                 const approvedAmt = Number(req.approved_amount ?? req.approvedAmount ?? requestedAmt);
                 const tdsAmt = Number(req.tds_amount || req.tdsAmount || 0);
-                const netValue = Math.max(0, approvedAmt - tdsAmt);
-                const isChecked = selectedPayments.includes(req.id || req.pr_id);
+                const netValue = Number(req.net_amount ?? req.net_payment_amount ?? Math.max(0, approvedAmt - tdsAmt));
+                const isChecked = selectedIds.has(req.id || req.pr_id);
                 const canAct = canActOnReq(req);
-                const reqStage = req.approval_stage || req.stage || 'Pending';
+                const reqStage = isPaymentSettled(req) ? 'Remitted' : req.stage || req.approval_stage || 'Pending';
 
                 return (
-                  <div key={idx} className={`rounded-xl border ${isChecked ? 'border-amber-500 bg-amber-500/5' : 'border-border bg-card'} p-4 space-y-3 shadow-xs transition-colors`}>
+                  <div key={req.id || req.pr_id || idx} className={`rounded-xl border ${isChecked ? 'border-amber-500 bg-amber-500/5' : 'border-border bg-card'} p-4 space-y-3 shadow-xs transition-colors`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {canAct && (
                           <input
                             type="checkbox"
+                            aria-label={`Select payment ${req.id || req.pr_id}`}
                             checked={isChecked}
                             onChange={() => onSelectPayment?.(req.id || req.pr_id)}
                             className="rounded border-border text-amber-500 focus:ring-amber-500/30"
@@ -165,6 +170,8 @@ export default function PaymentListTable({
                       <input 
                         type="checkbox" 
                         className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer disabled:opacity-30"
+                        aria-label="Select all actionable payments"
+                        disabled={actionableRequests.length === 0}
                         checked={allSelected}
                         onChange={(e) => onSelectAll?.(e.target.checked)}
                       />
@@ -183,25 +190,26 @@ export default function PaymentListTable({
                 </TableHeader>
                 <TableBody>
                   {processedRequests.map((req, idx) => {
-                    const relatedPO = pos.find(p => p.po_no === req.po_no || p.po_no === req.poNo || p.po_no === req.po_number);
+                    const relatedPO = poByNumber.get(req.po_no || req.poNo || req.po_number);
                     const poValue = Number(relatedPO ? (relatedPO.po_value || relatedPO.poValue) : (req.po_value || 0));
                     const paidAmount = Number(relatedPO ? (relatedPO.paid ?? relatedPO.legacy_paid ?? 0) : 0);
                     const paidPct = poValue > 0 ? ((paidAmount / poValue) * 100).toFixed(1) : '0.0';
                     const netAmount = Number(req.net_amount ?? req.approved_amount ?? req.approvedAmount ?? req.amount_requested ?? req.gross_amount ?? 0);
                     const reqPct = poValue > 0 ? ((netAmount / poValue) * 100).toFixed(1) : '0.0';
-                    const isSelected = selectedPayments.includes(req.id);
+                    const isSelected = selectedIds.has(req.id);
                     const isActionable = canActOnReq(req);
-                    const reqStage = req.approval_stage || req.stage || 'Pending';
+                    const reqStage = isPaymentSettled(req) ? 'Remitted' : req.stage || req.approval_stage || 'Pending';
 
                     return (
                       <TableRow
-                        key={idx}
+                        key={req.id || req.pr_id || idx}
                         className={`border-b border-border/40 hover:bg-muted/30 transition-colors duration-150 ${isSelected ? 'bg-amber-500/5 border-l-2 border-l-amber-500' : ''} ${!isActionable ? 'opacity-70' : ''}`}
                       >
                         <TableCell className="text-center py-3.5 px-3">
                           <input 
                             type="checkbox" 
                             className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer disabled:opacity-30"
+                            aria-label={`Select payment ${req.id || req.pr_id}`}
                             checked={isSelected}
                             onChange={() => isActionable && onSelectPayment?.(req.id)}
                             disabled={!isActionable}

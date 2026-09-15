@@ -85,7 +85,7 @@ export class VendorOnboardingService {
     }
 
     const isExpired = new Date(invitation.expires_at).getTime() < Date.now();
-    const isCompleted = invitation.status === 'Completed' || invitation.status === 'Approved';
+    const isCompleted = invitation.status === 'Approved';
 
     let submission = await VendorOnboardingRepository.findSubmissionByInvitationId(invitation.invitation_id);
 
@@ -214,7 +214,7 @@ export class VendorOnboardingService {
     const dupCheck = await VendorService.checkVendorDuplicate({
       legalName: sub.legal_name,
       tradeName: sub.trade_name,
-      gstin: sub.gstin,
+      gstin: sub.gstin || '',
       pan: sub.pan
     });
 
@@ -252,7 +252,7 @@ export class VendorOnboardingService {
       legalName: sub.legal_name,
       tradeName: sub.trade_name,
       vendorType: sub.vendor_type,
-      gstin: sub.gstin,
+      gstin: sub.gstin || '',
       pan: sub.pan,
       status: 'Active',
       address: fullAddress,

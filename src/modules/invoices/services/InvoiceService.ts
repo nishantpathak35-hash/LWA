@@ -6,6 +6,7 @@ import { VendorPortalAuthService } from '../../vendor-portal/services/VendorPort
 import { AuthService } from '../../core/services/AuthService.ts';
 import { logAudit } from '../../../../app/lib/api.js';
 import { uploadAttachment, deleteEntityAttachments } from '../../../../app/lib/api/attachments.js';
+import { validateInvoiceFields, belongsToVendor } from './invoiceValidation.js';
 
 export class InvoiceService {
   /**
@@ -24,6 +25,7 @@ export class InvoiceService {
   static async submitVendorInvoice(payload: IInvoiceInput, vendorSession: any): Promise<{ ok: boolean; invoice_id: string }> {
     const vendorAuth = VendorPortalAuthService.requireVendorAuth(vendorSession);
     const { vendor_code, vendor_name, vendor_id, email } = vendorAuth;
+    validateInvoiceFields(payload);
 
     const { invoiceNumber, invoiceDate, poNo, subtotal, taxAmount, invoiceTotal, remarks, fileName, fileData, fileType, fileSize } = payload;
 
@@ -43,7 +45,7 @@ export class InvoiceService {
     const poVendorCode = (po.vendor_code || po.vendor_key || '').trim().toLowerCase();
     const currentVendorCode = vendor_code.trim().toLowerCase();
 
-    if (poVendorCode !== currentVendorCode && po.vendor_id !== vendor_id) {
+    if (!belongsToVendor(po, currentVendorCode, vendor_id)) {
       throw new Error(`AUTH: Unauthorized. Purchase Order "${cleanPoNo}" does not belong to your vendor account.`);
     }
 
@@ -114,6 +116,7 @@ export class InvoiceService {
   static async submitInternalInvoice(payload: IInvoiceInput, userSession: any): Promise<{ ok: boolean; invoice_id: string }> {
     AuthService.requireAuth(userSession);
     const { email } = userSession;
+    validateInvoiceFields(payload);
 
     const { invoiceNumber, invoiceDate, poNo, vendorCode, subtotal, taxAmount, invoiceTotal, remarks, fileName, fileData, fileType, fileSize } = payload;
 
@@ -127,6 +130,9 @@ export class InvoiceService {
     const po = await PORepository.findById(cleanPoNo);
     if (!po) throw new Error(`Purchase Order "${cleanPoNo}" not found.`);
 
+    const status = String(po.approval_status || po.status || '').trim().toLowerCase();
+    if (!['approved', 'active'].includes(status)) throw new Error('Invoices can only be uploaded against Approved Purchase Orders.');
+
     let targetVendor = null;
     const vQuery = vendorCode || po.vendor_code || po.vendor_key;
     if (vQuery) {
@@ -135,6 +141,7 @@ export class InvoiceService {
 
     const resolvedVendorCode = targetVendor ? targetVendor.vendor_code : (po.vendor_code || po.vendor_key);
     const resolvedVendorName = targetVendor ? targetVendor.legal_name : po.vendor_name;
+    if (!resolvedVendorCode || !belongsToVendor(po, resolvedVendorCode, targetVendor?.id)) throw new Error('Invoice vendor must match the Purchase Order vendor.');
 
     const duplicate = await InvoiceRepository.checkDuplicateInvoice(resolvedVendorCode, invoiceNumber);
     if (duplicate) {
@@ -185,7 +192,8 @@ export class InvoiceService {
    * Internal ERP — Update invoice status (e.g. Approved, Rejected, Under Review).
    */
   static async updateInvoiceStatus(invoiceId: string, status: 'Submitted' | 'Under Review' | 'Approved' | 'Rejected' | 'Paid', rejectionReason?: string, userSession?: any): Promise<{ ok: boolean }> {
-    if (userSession) AuthService.requireAuth(userSession);
+    AuthService.requireAuth(userSession);
+    if (!['Submitted', 'Under Review', 'Approved', 'Rejected', 'Paid'].includes(status)) throw new Error('Invalid invoice status');
 
     const invoice = await InvoiceRepository.findById(invoiceId);
     if (!invoice) throw new Error(`Invoice not found: ${invoiceId}`);
@@ -200,14 +208,7 @@ export class InvoiceService {
 
     await InvoiceRepository.update(invoice.invoice_id, updates);
 
-    // If rejected, supporting attachment is no longer needed: delete it from Cloudinary and DB
-    if (status === 'Rejected') {
-      try {
-        await deleteEntityAttachments('invoice', invoice.invoice_id);
-      } catch (err) {
-        console.warn(`Failed to clean up attachments for rejected invoice ${invoice.invoice_id}:`, err);
-      }
-    }
+    // Rejected invoices retain their supporting documents for review and audit.
 
     if (userSession) {
       await logAudit(userSession.email, 'Invoice Status Updated', `Invoice ${invoice.invoice_number} status changed to ${status}${rejectionReason ? ` (Reason: ${rejectionReason})` : ''}`, 'Invoices');
@@ -229,7 +230,7 @@ export class InvoiceService {
     // Filter to Approved POs belonging to vendor
     const vendorPOs = allPOs.filter(po => {
       const vCode = (po.vendor_code || po.vendor_key || '').trim().toLowerCase();
-      const belongs = vCode === cleanVendorCode || po.vendor_id === vendor_id;
+      const belongs = belongsToVendor(po, cleanVendorCode, vendor_id);
       const st = (po.approval_status || po.status || '').trim().toLowerCase();
       const isApproved = st === 'approved' || st === 'active';
       return belongs && isApproved;
@@ -262,7 +263,7 @@ export class InvoiceService {
     if (!po) throw new Error(`PO not found: ${poNo}`);
 
     const vCode = (po.vendor_code || po.vendor_key || '').trim().toLowerCase();
-    if (vCode !== vendor_code.trim().toLowerCase() && po.vendor_id !== vendor_id) {
+    if (!belongsToVendor(po, vendor_code, vendor_id)) {
       throw new Error('AUTH: Unauthorized access to PO');
     }
 
@@ -322,6 +323,7 @@ export class InvoiceService {
    * Get single invoice details with attachments.
    */
   static async getInvoice(invoiceId: string, session: any): Promise<any> {
+    if (!session) throw new Error('AUTH:Unauthenticated');
     const inv = await InvoiceRepository.findById(invoiceId);
     if (!inv) throw new Error(`Invoice not found: ${invoiceId}`);
 

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Button, Input, Card, CardContent } from '../../ui/core';
 import { CreditCard, PlusCircle, Search, Download, AlertTriangle, CheckCircle2, Clock, ShieldCheck, IndianRupee, Layers } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
+import { getPaymentStageKey, isPaymentPending, isPaymentSettled } from '../../../app/lib/paymentStatus';
 
 export default function PaymentFilters({
   canOnboard,
@@ -15,27 +16,16 @@ export default function PaymentFilters({
 }) {
   const kpis = useMemo(() => {
     const total = payments.length;
-    const pending = payments.filter(p => {
-      const s = String(p.status || '').toLowerCase();
-      const stage = String(p.stage || '').toLowerCase();
-      return (s === 'pending' || s.includes('pending')) && !stage.includes('remit') && !stage.includes('reject');
-    });
+    const pending = payments.filter(isPaymentPending);
     const overBudget = payments.filter(p => p.is_overbudget_approval || p.overbudget === 1);
-    const approved = payments.filter(p => {
-      const s = String(p.status || '').toLowerCase();
-      const stage = String(p.stage || '').toLowerCase();
-      return (s === 'approved' || stage.includes('approved') || stage.includes('ready')) && !stage.includes('remit');
-    });
-    const remitted = payments.filter(p => {
-      const s = String(p.status || '').toLowerCase();
-      const stage = String(p.stage || '').toLowerCase();
-      return s === 'paid' || s === 'remitted' || stage.includes('remit') || stage.includes('paid');
-    });
+    const approved = payments.filter(p => getPaymentStageKey(p) === 'readyToRemit');
+    const remitted = payments.filter(isPaymentSettled);
 
-    const pendingVal = pending.reduce((acc, p) => acc + Number(p.gross_amount || p.amount || 0), 0);
-    const approvedVal = approved.reduce((acc, p) => acc + Number(p.gross_amount || p.amount || 0), 0);
-    const remittedVal = remitted.reduce((acc, p) => acc + Number(p.gross_amount || p.amount || 0), 0);
-    const totalVal = payments.reduce((acc, p) => acc + Number(p.gross_amount || p.amount || 0), 0);
+    const amount = p => Number(p.approved_amount ?? p.gross_amount ?? p.amount_requested ?? p.amount ?? 0) || 0;
+    const pendingVal = pending.reduce((acc, p) => acc + amount(p), 0);
+    const approvedVal = approved.reduce((acc, p) => acc + amount(p), 0);
+    const remittedVal = remitted.reduce((acc, p) => acc + amount(p), 0);
+    const totalVal = payments.reduce((acc, p) => acc + amount(p), 0);
 
     return {
       total,

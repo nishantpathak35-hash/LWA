@@ -128,6 +128,7 @@ export async function loginUser(email, password, meta = {}) {
 
   const tokenPayload = {
     email: user.email,
+    credentialVersion: crypto.createHash('sha256').update(String(user.password_hash || '')).digest('hex'),
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
   };
   const token = encryptToken(tokenPayload);
@@ -136,21 +137,18 @@ export async function loginUser(email, password, meta = {}) {
 }
 
 const sessionCache = new Map();
+const revokedTokens = new Set();
 
 export async function getMySession(token) {
   if (!token) throw new Error('AUTH:No token provided');
-  
-  const cached = sessionCache.get(token);
-  if (cached && (Date.now() - cached.timestamp < 120000)) {
-    return cached.session;
-  }
+  if (revokedTokens.has(token)) throw new Error('AUTH:Token revoked');
   
   try {
     const payload = decryptToken(token);
     if (!payload || payload.user_type === 'vendor') {
       throw new Error('AUTH:Invalid internal token');
     }
-    if (payload.exp < Date.now()) {
+    if (!Number.isFinite(Number(payload.exp)) || Number(payload.exp) <= Date.now()) {
       throw new Error('AUTH:Token expired');
     }
     
@@ -161,6 +159,8 @@ export async function getMySession(token) {
     if (!user.active) {
       throw new Error('AUTH:User inactive');
     }
+    const credentialVersion = crypto.createHash('sha256').update(String(user.password_hash || '')).digest('hex');
+    if (payload.credentialVersion && payload.credentialVersion !== credentialVersion) throw new Error('AUTH:Credentials changed');
 
     const rawRoles = JSON.parse(user.roles || '[]');
     const superAdmin = isSuperAdmin(user.email);
@@ -333,6 +333,11 @@ export async function addCustomRole(roleName, session) {
 }
 
 export async function logoutUser(token, session) {
+  if (token) {
+    revokedTokens.add(token);
+    sessionCache.delete(token);
+    if (revokedTokens.size > 5000) revokedTokens.delete(revokedTokens.values().next().value);
+  }
   if (session?.email) {
     await logAudit(session.email, 'Logout', 'User logged out', 'Auth');
   }
@@ -340,6 +345,7 @@ export async function logoutUser(token, session) {
 }
 
 export async function acceptInvite(token, password) {
+  if (!password || String(password).length < 8) throw new Error('Password must be at least 8 characters');
   const user = await queryGet(`SELECT * FROM users WHERE invite_token = ?`, [token]);
   if (!user) throw new Error("Invalid or expired invite token");
   

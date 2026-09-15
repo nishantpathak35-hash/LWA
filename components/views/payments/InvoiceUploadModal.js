@@ -2,10 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Dialog, Button } from '../../ui/core';
 import { UploadCloud, FileJson, CheckCircle, Loader2, Server } from 'lucide-react';
 import { extractInvoiceData, generateTallyXML } from '../../../app/lib/ai/invoiceParser';
-import { useAppState } from '../../StateProvider';
 
 export default function InvoiceUploadModal({ open, onClose }) {
-  const { call, refreshData, user } = useAppState();
   const [file, setFile] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -32,18 +30,9 @@ export default function InvoiceUploadModal({ open, onClose }) {
       setExtractedData(data);
       setTallyXml(generateTallyXML(data));
       
-      // Save to database
-      await call('saveInvoice', 
-        data.vendorName || '', 
-        data.invoiceNo || '', 
-        data.date || '', 
-        data.totalAmount || 0, 
-        data.rawText || '', 
-        user?.name || user?.email || 'System'
-      );
-      
-      // Refresh global state so it shows up in InvoicesView
-      await refreshData();
+      // This legacy scanner produces a Tally import document. Persisting here
+      // used a removed `saveInvoice` RPC and could report a false scan failure.
+      // The governed invoice workflow remains available through the invoice upload screen.
     } catch (err) {
       setError(err.message || 'Failed to scan invoice.');
     } finally {

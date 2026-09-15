@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const token = searchParams.get('token');
+  const token = request.headers.get('x-lwa-token') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   let lastEventId = Number(searchParams.get('since')) || 0;
 
   if (!token) {
@@ -19,7 +19,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
     }
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

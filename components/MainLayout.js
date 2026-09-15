@@ -1,16 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
+import { isPaymentPending } from '../app/lib/paymentStatus';
 import { useAppState } from './StateProvider';
 import Sidebar from './Sidebar';
-import DashboardView from './views/DashboardView';
-import ProjectsView from './views/ProjectsView';
-import VendorsView from './views/VendorsView';
 import POsView from './views/POsView';
 import PaymentsView from './views/PaymentsView';
-import ReportsView from './views/ReportsView';
-import InvoicesView from './views/InvoicesView';
-import SettingsView from './views/SettingsView';
 import ErrorBoundary from './ErrorBoundary';
 import { NotificationsPanel } from './ui/NotificationsPanel';
 import ActivityStreamDrawer from './ui/ActivityStreamDrawer';
@@ -20,6 +16,13 @@ import { Button } from './ui/core';
 import { CommandPalette } from './ui/CommandPalette';
 
 // Detect Mac for keyboard shortcut display
+const viewLoading = () => <div role="status" className="p-6 text-muted-foreground">Loading…</div>;
+const DashboardView = dynamic(() => import('./views/DashboardView'), { loading: viewLoading });
+const ProjectsView = dynamic(() => import('./views/ProjectsView'), { loading: viewLoading });
+const VendorsView = dynamic(() => import('./views/VendorsView'), { loading: viewLoading });
+const ReportsView = dynamic(() => import('./views/ReportsView'), { loading: viewLoading });
+const InvoicesView = dynamic(() => import('./views/InvoicesView'), { loading: viewLoading });
+const SettingsView = dynamic(() => import('./views/SettingsView'), { loading: viewLoading });
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -125,11 +128,7 @@ export default function MainLayout() {
   }, []);
 
   const pendingPaymentsCount = useMemo(() => {
-    return (payments || []).filter(p => {
-      const stage = String(p.stage || p.approval_stage || '').toLowerCase().trim();
-      const status = String(p.status || '').toLowerCase().trim();
-      return status === 'pending' || stage.includes('pending') || stage.includes('proc') || stage.includes('finance') || stage.includes('director') || stage.includes('remit');
-    }).length;
+    return (payments || []).filter(isPaymentPending).length;
   }, [payments]);
 
   const pendingPOsCount = useMemo(() => {

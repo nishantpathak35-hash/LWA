@@ -4,8 +4,30 @@ import { ApprovalWorkflowService } from '../../core/services/ApprovalWorkflowSer
 import { AuthService } from '../../core/services/AuthService.ts';
 import { POService } from '../../purchase-orders/services/POService.ts';
 import { logAudit } from '../../../../app/lib/api.js';
+import { queryGet } from '../../../../app/lib/db.js';
+import { DEFAULT_CONTROL_POLICIES, normalizeControlPolicies } from '../../../../app/lib/paymentStatus.js';
+
+async function loadControlPolicies() {
+  try {
+    const row = await queryGet('SELECT value FROM app_settings WHERE key = ?', ['erp_control_policies']);
+    return row?.value ? normalizeControlPolicies(JSON.parse(row.value)) : DEFAULT_CONTROL_POLICIES;
+  } catch { return DEFAULT_CONTROL_POLICIES; }
+}
+
+function validateAmounts(gross: number, tds: number, percentage: number) {
+  if (!Number.isFinite(gross) || gross <= 0) throw new Error('Amount must be finite and greater than zero');
+  if (!Number.isFinite(tds) || tds < 0 || tds > gross) throw new Error('TDS amount must be between zero and the approved amount');
+  if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) throw new Error('TDS percentage must be between zero and 100');
+}
 
 export class PaymentService {
+  static requireFinance(session: any): void {
+    AuthService.requireAuth(session);
+    if (!AuthService.isSuperAdmin(session.email) && !(session.roles || []).some((role: string) => ['admin', 'director', 'finance', 'accountant'].includes(role))) {
+      throw new Error('AUTH:Unauthorized - Finance permission required');
+    }
+  }
+
   /**
    * Creates a new Payment Request, linking it to a PO.
    */
@@ -19,8 +41,18 @@ export class PaymentService {
     }
 
     const reqAmt = Number(payload.amountRequested || payload.gross_amount);
-    if (isNaN(reqAmt) || reqAmt <= 0) {
+    if (!Number.isFinite(reqAmt) || reqAmt <= 0) {
       throw new Error("Amount Requested must be greater than zero");
+    }
+
+    const controlPolicies = await loadControlPolicies();
+    const poValue = Number(linkedPO.revised_po_value || linkedPO.po_value || 0);
+    const paidValue = Number((linkedPO as any).legacy_paid || 0);
+    if (controlPolicies.block_payment_over_po_balance && poValue > 0 && reqAmt > Math.max(0, poValue - paidValue)) {
+      throw new Error('Payment amount exceeds the remaining PO balance');
+    }
+    if (controlPolicies.require_supporting_document && !(payload.invoice_id || payload.invoiceId)) {
+      throw new Error('A supporting invoice/document is required for this payment request');
     }
 
     // Duplicate check
@@ -37,12 +69,17 @@ export class PaymentService {
     const tdsPct = Number(payload.tds_percentage || payload.tds_pct || 0);
     const tdsSection = payload.tds_section || payload.tdsSection || '';
 
+    validateAmounts(reqAmt, tdsAmount, tdsPct);
+    const invoiceId = payload.invoice_id || payload.invoiceId;
+    if (invoiceId) await PaymentRepository.validateInvoiceLink(invoiceId, payload.poNo);
+    if (payload.vendorCode && linkedPO.vendor_code && payload.vendorCode !== linkedPO.vendor_code) throw new Error('Vendor must match the purchase order');
+
     await PaymentRepository.createRequest({
       po_no: payload.poNo,
       vendor_id: linkedPO.vendor_id || undefined,
-      vendor_code: payload.vendorCode || linkedPO.vendor_code || linkedPO.vendor_key || '',
-      vendor_name: payload.vendor || linkedPO.vendor_name,
-      project: payload.project || linkedPO.project || '',
+      vendor_code: linkedPO.vendor_code || linkedPO.vendor_key || payload.vendorCode || '',
+      vendor_name: linkedPO.vendor_name || payload.vendor,
+      project: linkedPO.project || '',
       category: payload.category || linkedPO.category || '',
       amount_requested: reqAmt,
       approved_amount: reqAmt, // Initially same
@@ -64,12 +101,16 @@ export class PaymentService {
   /**
    * Updates an existing Payment Request (if not yet approved).
    */
-  static async updatePaymentRequest(prId: string | number, payload: any, userEmail: string): Promise<{ ok: boolean }> {
+  static async updatePaymentRequest(prId: string | number, payload: any, session: any): Promise<{ ok: boolean }> {
+    AuthService.requireAuth(session);
+    const userEmail = session.email;
+    if (payload.adminOverride) AuthService.requireAdminConsole(session);
     const pr = await PaymentRepository.findRequestById(prId);
     if (!pr) throw new Error(`Payment request not found: ${prId}`);
     
     // Check if editable (allow adminOverride for admin/director edits at any stage)
     const editableStages = ['Pending Procurement', 'Pending Finance'];
+    if (pr.stage === 'Remitted' || pr.remittance === 'Remitted') throw new Error('Remitted payment amounts cannot be edited');
     if (!payload.adminOverride && !editableStages.includes(pr.stage)) {
       throw new Error(`Payment request cannot be edited in stage: ${pr.stage}`);
     }
@@ -82,7 +123,7 @@ export class PaymentService {
         : (pr.approved_amount !== undefined && pr.approved_amount !== null && Number(pr.approved_amount) !== Number(pr.amount_requested)
           ? Number(pr.approved_amount)
           : reqAmt));
-    if (approvedAmt <= 0) approvedAmt = reqAmt;
+
     
     const tdsSec = payload.tds_section !== undefined ? payload.tds_section : (payload.tdsSection !== undefined ? payload.tdsSection : (pr.tds_section || ''));
     const tdsPct = payload.tds_percentage !== undefined ? Number(payload.tds_percentage) : (payload.tdsPct !== undefined ? Number(payload.tdsPct) : Number(pr.tds_percentage || 0));
@@ -92,6 +133,8 @@ export class PaymentService {
       tdsAmt = Math.round(approvedAmt * (tdsPct / 100));
     }
 
+    validateAmounts(reqAmt, 0, 0);
+    validateAmounts(approvedAmt, tdsAmt, tdsPct);
     const remarks = payload.remarks !== undefined ? payload.remarks : (pr.remarks || '');
 
     const updates: Record<string, any> = {
@@ -103,7 +146,7 @@ export class PaymentService {
       remarks: remarks
     };
 
-    await PaymentRepository.updateRequest(prId, updates, payload.expectedVersion);
+    await PaymentRepository.updateRequest(prId, updates, payload.expectedVersion ?? (pr as any).version ?? 1);
 
     const changeDesc = `Edited PR #${prId}. Req: ${reqAmt}, App: ${approvedAmt}, TDS: ${tdsSec} (${tdsAmt}).`;
     await logAudit(userEmail, 'Update Payment Request', changeDesc, pr.stage);
@@ -123,6 +166,7 @@ export class PaymentService {
     const tdsPct = tdsConfig.percentage !== undefined ? Number(tdsConfig.percentage) : (pr.tds_percentage || 0);
     const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '');
 
+    validateAmounts(Number(approvedAmount), Number(tdsAmount), Number(tdsPct));
     const oldStage = pr.stage || 'Pending Procurement';
     const isSuper = AuthService.isSuperAdmin(userEmail);
     const effectiveRoles = isSuper
@@ -165,7 +209,8 @@ export class PaymentService {
         action: 'Approved',
         performed_by: userEmail,
         remarks: auditDetailText
-      }
+      },
+      tdsConfig.expectedVersion ?? (pr as any).version ?? 1
     );
 
     return { ok: true };
@@ -208,7 +253,8 @@ export class PaymentService {
         action: 'Rejected',
         performed_by: userEmail,
         remarks: `Reason: ${rejectReason}`
-      }
+      },
+      (pr as any).version ?? 1
     );
 
     return { ok: true };
@@ -217,46 +263,9 @@ export class PaymentService {
   /**
    * Marks a Payment Request as Remitted and records the actual Payment.
    */
-  static async remitPaymentRequest(prId: string | number, payload: any, userEmail: string): Promise<{ ok: boolean }> {
-    const pr = await PaymentRepository.findRequestById(prId);
-    if (!pr) throw new Error(`Payment request not found: ${prId}`);
-    if (pr.stage !== 'Ready to Remit') {
-      throw new Error(`Payment request must be 'Ready to Remit'. Current stage: ${pr.stage}`);
-    }
-
-    const paidAmt = Number(payload.amount);
-    if (isNaN(paidAmt) || paidAmt <= 0) throw new Error("Invalid remittance amount");
-
-    await PaymentRepository.createPayment({
-      po_no: pr.po_no,
-      payment_date: payload.paymentDate || new Date().toISOString().split('T')[0],
-      amount: paidAmt,
-      payment_mode: payload.paymentMode || 'Bank Transfer',
-      utr_ref: payload.utrRef || payload.referenceNo || '',
-      bank_name: payload.bankName || '',
-      reference_no: prId.toString(),
-      remarks: payload.remarks || '',
-      payment_type: 'system',
-      recorded_by: userEmail,
-      status: 'paid'
-    });
-
-    await PaymentRepository.updateRequest(prId, {
-      remittance: 'Remitted',
-      stage: 'Remitted',
-      // Bug 3c: persist UTR/date back onto the PR row so Payment Advice can display them
-      remittance_ref: payload.utrRef || payload.referenceNo || '',
-      remittance_date: payload.paymentDate || new Date().toISOString().split('T')[0],
-      remarks: pr.remarks ? pr.remarks + ' | ' + (payload.remarks || '') : (payload.remarks || '')
-    });
-
-    await logAudit(
-      userEmail,
-      'Remit Payment',
-      `Remitted payment ID ${prId} (₹${paidAmt}) via ${payload.paymentMode || 'Bank Transfer'}. Ref: ${payload.utrRef || payload.referenceNo || ''}`,
-      'Ready to Remit'
-    );
-
+  static async remitPaymentRequest(prId: string | number, payload: any, session: any): Promise<{ ok: boolean }> {
+    this.requireFinance(session);
+    await PaymentRepository.remitRequest(prId, payload, session.email);
     return { ok: true };
   }
 
@@ -265,7 +274,7 @@ export class PaymentService {
    */
   static async createManualPayment(payload: IPaymentInput, userEmail: string): Promise<{ ok: boolean }> {
     const amt = Number(payload.amount);
-    if (isNaN(amt) || amt <= 0) throw new Error("Valid amount is required for manual payment");
+    if (!Number.isFinite(amt) || amt <= 0) throw new Error("Valid amount is required for manual payment");
 
     await PaymentRepository.createPayment({
       po_no: payload.poNo,
@@ -281,7 +290,7 @@ export class PaymentService {
       status: 'paid'
     });
 
-    await logAudit(userEmail, 'Manual Payment Added', `Added ${amt} for PO#${payload.poNo}`, 'Finance');
+
     return { ok: true };
   }
 }

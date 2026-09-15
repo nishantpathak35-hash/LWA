@@ -1,5 +1,6 @@
 import { queryAll, queryGet, queryRun } from '../db.js';
 import { createNotification } from './notifications.js';
+import { DEFAULT_CONTROL_POLICIES, normalizeControlPolicies } from '../paymentStatus.js';
 
 let _collaborationTablePromise = null;
 
@@ -123,6 +124,13 @@ export async function getComments(recordType, recordId) {
 // Query Hold API
 export async function requestPaymentClarification(user, paymentId, queryText) {
   await ensureCollaborationTables();
+  try {
+    const policyRow = await queryGet('SELECT value FROM app_settings WHERE key = ?', ['erp_control_policies']);
+    const policies = policyRow?.value ? normalizeControlPolicies(JSON.parse(policyRow.value)) : DEFAULT_CONTROL_POLICIES;
+    if (!policies.allow_payment_holds) throw new Error('Payment holds are disabled in ERP control policies');
+  } catch (error) {
+    if (error?.message === 'Payment holds are disabled in ERP control policies') throw error;
+  }
   const uEmail = user?.email || 'approver@luxeworx.com';
   const uName = user?.name || user?.email?.split('@')[0] || 'Approver';
   const now = new Date().toISOString();

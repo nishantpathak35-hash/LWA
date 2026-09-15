@@ -1,6 +1,3 @@
-import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
-dotenv.config({ path: '.env' });
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -31,7 +28,7 @@ describe('Invoice Deletion Unit & Security Tests', () => {
       invoice_total: 50000
     } as any);
 
-    const deleteSpy = vi.spyOn(InvoiceRepository, 'delete').mockResolvedValue();
+    const deleteSpy = vi.spyOn(InvoiceRepository, 'delete').mockResolvedValue(undefined);
 
     const userSession = { email: 'finance@luxeworx.com' };
     const res = await InvoiceService.deleteInvoice('INV-2026-9999', userSession);

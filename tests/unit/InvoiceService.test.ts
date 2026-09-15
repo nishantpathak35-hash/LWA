@@ -6,6 +6,19 @@ import { VendorPortalAuthService } from '../../src/modules/vendor-portal/service
 import * as attachmentsApi from '../../app/lib/api/attachments';
 
 describe('InvoiceService Unit & Security Tests', () => {
+  it('rejects nonfinite totals before querying a PO', async () => {
+    const find = vi.spyOn(PORepository, 'findById');
+    await expect(InvoiceService.submitInternalInvoice({ invoiceNumber: 'I1', invoiceDate: '2026-09-15', poNo: 'P1', invoiceTotal: Infinity, fileName: 'a.pdf', fileData: 'abc' }, { email: 'finance@test.com' })).rejects.toThrow(/finite/);
+    expect(find).not.toHaveBeenCalled();
+  });
+
+  it('keeps supporting evidence when an invoice is rejected', async () => {
+    vi.spyOn(InvoiceRepository, 'findById').mockResolvedValue({ invoice_id: 'I1', status: 'Submitted' } as any);
+    vi.spyOn(InvoiceRepository, 'update').mockResolvedValue(undefined);
+    const remove = vi.spyOn(attachmentsApi, 'deleteEntityAttachments').mockResolvedValue({ ok: true, deleted: 1 } as any);
+    await InvoiceService.updateInvoiceStatus('I1', 'Rejected', 'Wrong amount', { email: 'finance@test.com' });
+    expect(remove).not.toHaveBeenCalled();
+  });
   const mockVendorSession = {
     user_type: 'vendor',
     vendor_id: 101,
@@ -137,7 +150,7 @@ describe('InvoiceService Unit & Security Tests', () => {
       updatedFields = updates;
     });
 
-    const res = await InvoiceService.updateInvoiceStatus('INV-2026-001', 'Approved');
+    const res = await InvoiceService.updateInvoiceStatus('INV-2026-001', 'Approved', undefined, { email: 'finance@test.com' });
     expect(res.ok).toBe(true);
     expect(updatedFields.status).toBe('Approved');
     expect(updatedFields.approved_at).toBeDefined();
