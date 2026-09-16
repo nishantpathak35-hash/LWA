@@ -3,6 +3,7 @@ const settled = new Set(['remitted', 'paid', 'settled']);
 const rejected = new Set(['rejected', 'cancelled', 'canceled']);
 
 export const DEFAULT_CONTROL_POLICIES = Object.freeze({
+  show_payment_attention: true,
   block_payment_over_po_balance: true,
   require_supporting_document: false,
   allow_payment_holds: true,
@@ -15,6 +16,7 @@ export function normalizeControlPolicies(raw = {}) {
   const days = Number(value.approval_sla_days);
   return {
     ...DEFAULT_CONTROL_POLICIES,
+    show_payment_attention: value.show_payment_attention !== false,
     block_payment_over_po_balance: value.block_payment_over_po_balance !== false,
     require_supporting_document: value.require_supporting_document === true,
     allow_payment_holds: value.allow_payment_holds !== false,
@@ -52,6 +54,16 @@ export function getPaymentStageKey(value) {
 export function isPaymentPending(payment) {
   const key = getPaymentStageKey(payment);
   return key !== 'remitted' && key !== 'rejected';
+}
+
+// Mutually exclusive queues: a held payout must not appear ready for release.
+export function getPaymentAttention(payment, policies = {}, now = Date.now()) {
+  if (!isPaymentPending(payment)) return null;
+  if (normalize(payment.query_status) === 'hold') return 'hold';
+  if (getPaymentStageKey(payment) === 'readyToRemit') return 'ready';
+  const controls = normalizeControlPolicies(policies);
+  if (controls.overdue_approval_alerts && isApprovalOverdue(payment, controls, now)) return 'overdue';
+  return null;
 }
 
 export function aggregatePaymentStages(payments) {

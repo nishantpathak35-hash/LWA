@@ -87,6 +87,9 @@ export async function listPaymentRequests(filters = {}, session) {
       remittance_date: r.remittance_date || null,
       utr: r.remittance_ref || '',
       created_at: r.created_at,
+      query_status: r.query_status || '',
+      query_text: r.query_text || '',
+      query_asked_at: r.query_asked_at || null,
       remarks: r.remarks || '',
       created_by: r.created_by || '',
       vendor_code: r.vendor_code || ''
@@ -193,4 +196,3 @@ export async function getApprovalHistory(requestId, session) {
   }
   return history;
 }
-

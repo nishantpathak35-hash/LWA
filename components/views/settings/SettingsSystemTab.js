@@ -68,6 +68,7 @@ export default function SettingsSystemTab({
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
+                  ['show_payment_attention', 'Show Needs Attention panel in Payments'],
                   ['block_payment_over_po_balance', 'Block payment above PO balance'],
                   ['require_supporting_document', 'Require supporting document'],
                   ['allow_payment_holds', 'Allow payment holds / queries'],

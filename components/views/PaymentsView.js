@@ -10,6 +10,8 @@ import { isSuperAdmin } from '../../app/lib/config';
 import { PlusCircle, Search, CreditCard, ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail, AlertTriangle } from 'lucide-react';
 
 import PaymentFilters from './payments/PaymentFilters';
+import PaymentAttentionPanel from './payments/PaymentAttentionPanel';
+import { DEFAULT_CONTROL_POLICIES, normalizeControlPolicies, getPaymentAttention, isPaymentPending } from '../../app/lib/paymentStatus';
 import PaymentListTable from './payments/PaymentListTable';
 import dynamic from 'next/dynamic';
 import PaymentApprovalModal from './payments/PaymentApprovalModal';
@@ -25,6 +27,35 @@ export default function PaymentsView() {
   const { payments, setPayments, vendors, pos, user, call, refreshData, tdsSections, hasMorePayments, loadMorePayments } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('active'); // active, pending
+  const [attentionFilter, setAttentionFilter] = useState(null);
+  const [controlPolicies, setControlPolicies] = useState(DEFAULT_CONTROL_POLICIES);
+  const [loadingPolicies, setLoadingPolicies] = useState(true);
+  const [policyError, setPolicyError] = useState(false);
+  const [policyRefresh, setPolicyRefresh] = useState(0);
+  const [attentionNow, setAttentionNow] = useState(() => Date.now());
+  useEffect(() => {
+    let active = true;
+    setLoadingPolicies(true);
+    call('getControlPolicies').then(value => {
+      if (!active) return;
+      const policies = normalizeControlPolicies(value);
+      setControlPolicies(policies);
+      setPolicyError(false);
+      if (!policies.show_payment_attention) setAttentionFilter(null);
+      if (!policies.overdue_approval_alerts) setAttentionFilter(current => current === 'overdue' ? null : current);
+    }).catch(() => { if (active) setPolicyError(true); })
+      .finally(() => { if (active) setLoadingPolicies(false); });
+    return () => { active = false; };
+  }, [call, policyRefresh]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setAttentionNow(Date.now()), 60000);
+    const refresh = () => { setAttentionNow(Date.now()); setPolicyRefresh(value => value + 1); };
+    window.addEventListener('focus', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, []);
+  const attentionItems = useMemo(() => payments.map(payment => ({
+    payment, queue: getPaymentAttention(payment, controlPolicies, attentionNow),
+  })), [payments, controlPolicies, attentionNow]);
   
   // Query Modal state
   const [queryModalOpen, setQueryModalOpen] = useState(false);
@@ -211,6 +242,13 @@ export default function PaymentsView() {
 
   // Filter requests
   const filteredRequests = useMemo(() => {
+    if (attentionFilter) {
+      const q = searchQuery.trim().toLowerCase();
+      return attentionItems.filter(item => item.queue === attentionFilter)
+        .map(item => item.payment)
+        .filter(p => [p.vendor_name, p.po_no, p.id, p.project].some(value => String(value || '').toLowerCase().includes(q)))
+        .sort((a, b) => (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0));
+    }
     return payments.filter(p => {
       const q = searchQuery.toLowerCase();
       const matchesSearch = (p.vendor_name || '').toLowerCase().includes(q) || 
@@ -219,12 +257,9 @@ export default function PaymentsView() {
       
       if (!matchesSearch) return false;
 
-      const status = String(p.status || '').toLowerCase();
       const stage = String(p.approval_stage || p.stage || '').toLowerCase();
-      const isPending = status === 'pending';
-      const isCompleted = status === 'approved' || status === 'rejected' || stage.includes('remitted');
-
-      if (isCompleted) return false;
+      const isPending = isPaymentPending(p);
+      if (!isPending) return false;
 
       if (activeTab === 'active') {
         return isPending;
@@ -241,7 +276,7 @@ export default function PaymentsView() {
       if (isFinance && stage.includes('remit')) return true;
       return false;
     });
-  }, [payments, searchQuery, activeTab, isAdmin, isProcurement, isFinance, isDirector]);
+  }, [payments, searchQuery, activeTab, isAdmin, isProcurement, isFinance, isDirector, attentionFilter, attentionItems]);
 
   // Multi-Select Computation Logic
   const selectedRequestsData = useMemo(() => {
@@ -771,11 +806,19 @@ export default function PaymentsView() {
         payments={payments}
         canOnboard={canOnboard} 
         handleOpenRequestModal={handleOpenRequestModal}
-        activeTab={activeTab} setActiveTab={setActiveTab}
+        activeTab={activeTab} setActiveTab={tab => { setActiveTab(tab); setAttentionFilter(null); setSelectedPayments([]); }}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
         onExportCSV={handleExportCSV}
       />
-      
+      {controlPolicies.show_payment_attention && <PaymentAttentionPanel
+        items={attentionItems} activeFilter={attentionFilter} policies={controlPolicies}
+        loadingPolicies={loadingPolicies} policyError={policyError}
+        onRetry={() => setPolicyRefresh(value => value + 1)}
+        hasMore={hasMorePayments} onLoadMore={loadMorePayments}
+        onFilter={queue => { setAttentionFilter(queue); setSearchQuery(''); setActiveTab('active'); setSelectedPayments([]); }}
+      />}
+      {attentionFilter && <p role="status" className="text-sm text-muted-foreground">{filteredRequests.length} matching requests · oldest first · use the existing row actions to continue.</p>}
+
       <MultiSelectActionBar
         selectedRequests={selectedRequestsData}
         overallSummary={overallSelectionSummary}
