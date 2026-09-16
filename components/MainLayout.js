@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { isPaymentPending } from '../app/lib/paymentStatus';
+import { shouldIgnoreNavigationShortcut } from '../app/lib/navigationShortcuts';
 import { useAppState } from './StateProvider';
 import Sidebar from './Sidebar';
 import POsView from './views/POsView';
@@ -195,6 +196,10 @@ export default function MainLayout() {
     };
 
     const handleKeyDown = (e) => {
+      if (shouldIgnoreNavigationShortcut(e)) {
+        if (keySequence.length) clearSeq();
+        return;
+      }
       // Ctrl+B / Cmd+B to toggle sidebar retraction
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
