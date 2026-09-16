@@ -3,6 +3,7 @@ import { Dialog, Button, Input, Select, Textarea } from '../../ui/core';
 import { ShieldCheck, Ban, CheckSquare, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import ProjectFinancialSummaryCard from './ProjectFinancialSummaryCard';
+import { buildFinancialPreview } from '../../../app/lib/financialPreview';
 
 export default function PaymentApprovalModal({
   workflowModalOpen, setWorkflowModalOpen, selectedRequest, workflowAction,
@@ -12,6 +13,10 @@ export default function PaymentApprovalModal({
   loadingSummary, projectSummary, getHealthTheme, selectedRequestGross, progressWidths, formError,
   tdsSections, onOpenQueryModal
 }) {
+  const preview = workflowAction === 'approve'
+    ? buildFinancialPreview(projectSummary, { gross: displayedApprovedAmount, tds: displayedTdsHold })
+    : projectSummary;
+  if (preview && workflowAction === 'approve' && canEditApprovalTds) preview.tdsHoldSection = approvalTdsSec;
   return (
     <>
       {/* Workflow Actions Dialog (Approve / Reject / Remit) */}
@@ -29,16 +34,16 @@ export default function PaymentApprovalModal({
             </div>
           )}
 
-          <ProjectFinancialSummaryCard
-            projectSummary={projectSummary}
+          {!loadingSummary && <ProjectFinancialSummaryCard
+            projectSummary={preview}
             getHealthTheme={getHealthTheme}
             progressWidths={progressWidths}
-          />
+          />}
 
           <div className="p-4 bg-muted/40 border border-border rounded-xl space-y-1.5 text-sm font-medium">
             <p className="text-muted-foreground">Request: <strong className="text-foreground font-bold">#{selectedRequest?.id}</strong></p>
             <p className="text-muted-foreground">Vendor: <strong className="text-foreground font-bold">{selectedRequest?.vendor_name}</strong></p>
-            <p className="text-muted-foreground">Net Payable: <strong className="text-amber-700 dark:text-gold font-bold text-base tabular-nums">{formatCurrency(selectedRequest?.net_amount)}</strong></p>
+            <p className="text-muted-foreground">PO: <strong className="text-foreground font-bold">{selectedRequest?.po_no || '—'}</strong></p>
           </div>
 
           {workflowAction === 'remit' && (
