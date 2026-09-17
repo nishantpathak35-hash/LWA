@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Building2, ShoppingBag, Receipt, LogOut, Download, FilePlus, Loader2, CheckCircle2, Clock, XCircle, Eye, ShieldCheck, UserCheck, Search, Sparkles } from 'lucide-react';
 import { Button, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge } from '../ui/core';
+import { toast } from '../ui/Toast';
 
 export default function VendorPortalApp() {
   const [token, setToken] = useState(() => {
@@ -21,6 +22,7 @@ export default function VendorPortalApp() {
   const [pos, setPos] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
+  const [downloadingInvId, setDownloadingInvId] = useState(null);
 
   // Selected PO Modal
   const [selectedPO, setSelectedPO] = useState(null);
@@ -73,16 +75,16 @@ export default function VendorPortalApp() {
             taxAmount: data.taxAmount ? String(data.taxAmount) : prev.taxAmount,
             invoiceTotal: data.invoiceTotal ? String(data.invoiceTotal) : prev.invoiceTotal
           }));
-          alert("AI auto-filled invoice details successfully!");
+          toast.success("AI auto-filled invoice details successfully!");
         } catch (err) {
-          alert("AI parsing failed: " + err.message);
+          toast.error("AI parsing failed: " + (err.message || 'Unknown error'));
         } finally {
           setAiLoading(false);
         }
       };
       reader.readAsDataURL(selectedFile);
     } catch (err) {
-      alert("Error reading file: " + err.message);
+      toast.error("Error reading file: " + (err.message || 'Unknown error'));
       setAiLoading(false);
     }
   };
@@ -201,7 +203,7 @@ export default function VendorPortalApp() {
   const handleInvoiceUploadSubmit = async (e) => {
     e.preventDefault();
     if (!targetPO || !uploadForm.invoiceNumber || !uploadForm.invoiceTotal || !selectedFile) {
-      alert("Invoice Number, Total Amount, and PDF Document are required.");
+      toast.error("Invoice Number, Total Amount, and PDF Document are required.");
       return;
     }
 
@@ -226,25 +228,43 @@ export default function VendorPortalApp() {
           });
           setUploadModalOpen(false);
           await loadPortalData();
-          alert("Invoice submitted successfully!");
+          toast.success("Invoice submitted successfully!");
         } catch (err) {
-          alert("Submission failed: " + (err.message || err));
+          toast.error("Submission failed: " + (err.message || err));
         } finally {
           setUploadSubmitting(false);
         }
       };
       reader.readAsDataURL(selectedFile);
     } catch (err) {
-      alert("Error reading file: " + err.message);
+      toast.error("Error reading file: " + (err.message || 'Unknown error'));
       setUploadSubmitting(false);
     }
   };
 
-  const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
-
-  const getAttachmentDownloadUrl = (invoiceId) => {
-    return `/api/attachments/${invoiceId}?token=${encodeURIComponent(token)}`;
+  const handleDownloadInvoice = async (inv) => {
+    setDownloadingInvId(inv.invoice_id);
+    try {
+      const url = `/api/attachments/${inv.invoice_id}?token=${encodeURIComponent(token)}&disposition=attachment`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Download failed (${res.status}): ${res.statusText}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${inv.invoice_number || 'invoice'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (err) {
+      toast.error('Download failed: ' + (err.message || 'Network error'));
+    } finally {
+      setDownloadingInvId(null);
+    }
   };
+
+  const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
   const getStatusBadge = (status) => {
     const s = String(status || '').toLowerCase();
@@ -549,14 +569,19 @@ export default function VendorPortalApp() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <a
-                            href={getAttachmentDownloadUrl(inv.invoice_id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium"
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadInvoice(inv)}
+                            disabled={downloadingInvId === inv.invoice_id}
+                            className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50 transition-colors"
                           >
-                            <Download className="w-3.5 h-3.5" /> PDF
-                          </a>
+                            {downloadingInvId === inv.invoice_id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Download className="w-3.5 h-3.5" />
+                            )}
+                            PDF
+                          </button>
                         </TableCell>
                       </TableRow>
                     ))

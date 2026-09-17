@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody
 import { formatCurrency } from '../../../app/lib/utils';
 import { Folder, TrendingUp, IndianRupee, Wallet, Download } from 'lucide-react';
 import { useAppState } from '../../StateProvider';
+import { toast } from '../../ui/Toast';
 import SortableHeader from '../../ui/SortableHeader';
 import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 
@@ -67,8 +68,9 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
       });
       setShowEditModal(false);
       if (onUpdateProject) onUpdateProject();
+      toast.success("Project settings updated.");
     } catch (e) {
-      alert("Failed to update settings: " + e.message);
+      toast.error("Failed to update settings: " + (e.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }

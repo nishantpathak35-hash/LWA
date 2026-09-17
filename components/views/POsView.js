@@ -23,6 +23,12 @@ import dynamic from 'next/dynamic';
 import POApprovalModal from './purchase-orders/POApprovalModal';
 import POHistoryModal from './purchase-orders/POHistoryModal';
 import POManualPaymentModal from './purchase-orders/POManualPaymentModal';
+import {
+  EmailPOModal,
+  ShortClosePOModal,
+  DeletePOModal,
+  SubmitForApprovalModal
+} from './purchase-orders/POActionModals';
 
 const POFormModal = dynamic(() => import('./purchase-orders/POFormModal'), { ssr: false });
 import { GST_RATES, PAYMENT_MODES, UOM_OPTIONS } from './purchase-orders/po-constants';
@@ -133,6 +139,20 @@ export default function POsView() {
   const [mpRef, setMpRef]       = useState('');
   const [mpRemarks, setMpRemarks] = useState('');
   const [mpError, setMpError]   = useState(null);
+
+  // ── PO Action Modals (replaces native alert/confirm/prompt) ──
+  const [emailModalPO, setEmailModalPO]         = useState(null);
+  const [defaultEmail, setDefaultEmail]         = useState('');
+  const [sendingPOEmail, setSendingPOEmail]     = useState(false);
+
+  const [shortClosePO, setShortClosePO]         = useState(null);
+  const [shortClosingPO, setShortClosingPO]     = useState(false);
+
+  const [deletePO, setDeletePO]                 = useState(null);
+  const [deletingPO, setDeletingPO]             = useState(false);
+
+  const [submitApprovalPO, setSubmitApprovalPO] = useState(null);
+  const [submittingApprovalPO, setSubmittingApprovalPO] = useState(false);
   const [mpSubmitting, setMpSubmitting] = useState(false);
 
   // ── User Roles ──
@@ -426,32 +446,29 @@ export default function POsView() {
 
 
   const handleSendPOEmail = (poNumber) => {
-    const poObj = pos.find(p => p.po_no === poNumber);
+    const poObj = pos.find(p => p.po_no === poNumber) || { po_no: poNumber };
     const vendorCode = poObj?.vendor_key || poObj?.vendor_code;
     const vendor = vendors.find(v => v.code === vendorCode || (v.name && v.name === poObj?.vendor_name));
-    const masterEmail = vendor?.email || poObj?.vendor_email;
+    const masterEmail = vendor?.email || poObj?.vendor_email || '';
+    setDefaultEmail(masterEmail);
+    setEmailModalPO(poObj);
+  };
 
-    let email = '';
-    if (masterEmail) {
-      if (!window.confirm(`Email PO ${poNumber} to vendor master email (${masterEmail}) with the latest PDF attached?\n\n(Default CCs will also be included)`)) return;
-      email = masterEmail;
-    } else {
-      email = window.prompt(`Vendor master email not found. Please enter vendor email address for PO ${poNumber}:`, '');
-      if (!email) return;
-      if (!window.confirm(`Email PO ${poNumber} to ${email} with the latest PDF attached?\n\n(Default CCs will also be included)`)) return;
+  const handleConfirmSendPOEmail = async (email) => {
+    if (!emailModalPO) return;
+    const poNumber = emailModalPO.po_no;
+    setSendingPOEmail(true);
+    try {
+      toast(`Rendering PO ${poNumber} HTML to PDF & sending email...`);
+      const clientPdfAttachment = await generatePOPdfFromHtml(poNumber);
+      const res = await call('sendPOToVendor', poNumber, email, clientPdfAttachment);
+      toast.success(`PO ${poNumber} emailed successfully to ${res?.email || email}.`);
+      setEmailModalPO(null);
+    } catch (e) {
+      toast.error('Failed to send PO via email: ' + (e.message || 'Unknown error'));
+    } finally {
+      setSendingPOEmail(false);
     }
-
-    toast(`Rendering PO ${poNumber} HTML to PDF & sending email...`);
-    
-    setTimeout(async () => {
-      try {
-        const clientPdfAttachment = await generatePOPdfFromHtml(poNumber);
-        const res = await call('sendPOToVendor', poNumber, email, clientPdfAttachment);
-        toast.success(`PO ${poNumber} emailed successfully to ${res?.email || email}.`);
-      } catch (e) {
-        toast.error('Failed to send PO via email: ' + (e.message || 'Unknown error'));
-      }
-    }, 100);
   };
 
   // ─── Save PO ──────────────────────────────────────────────────────────────
@@ -546,33 +563,60 @@ export default function POsView() {
     finally { setApprovingPO(false); }
   };
 
-  const handleSubmitForApproval = async (poNumber) => {
-    if (!window.confirm(`Submit PO ${poNumber} for approval?`)) return;
+  const handleSubmitForApproval = (poNumber) => {
+    const poObj = pos.find(p => p.po_no === poNumber) || { po_no: poNumber };
+    setSubmitApprovalPO(poObj);
+  };
+
+  const handleConfirmSubmitForApproval = async () => {
+    if (!submitApprovalPO) return;
+    const poNumber = submitApprovalPO.po_no;
+    setSubmittingApprovalPO(true);
     try {
       await call('submitPOForApproval', poNumber);
       await refreshData();
-      toast(`PO ${poNumber} submitted for approval.`);
+      toast.success(`PO ${poNumber} submitted for approval.`);
+      setSubmitApprovalPO(null);
     } catch (err) { toast.error('Failed: ' + err.message); }
+    finally { setSubmittingApprovalPO(false); }
   };
 
-  const handleDeletePO = async (poNumber) => {
-    if (!window.confirm(`Are you sure you want to delete PO ${poNumber}? This action is irreversible.`)) return;
+  const handleDeletePO = (poNumber) => {
+    const poObj = pos.find(p => p.po_no === poNumber) || { po_no: poNumber };
+    setDeletePO(poObj);
+  };
+
+  const handleConfirmDeletePO = async () => {
+    if (!deletePO) return;
+    const poNumber = deletePO.po_no;
+    setDeletingPO(true);
     try {
       await call('deletePOFull', poNumber);
       await refreshData();
-      toast(`PO ${poNumber} deleted.`);
+      toast.success(`PO ${poNumber} deleted.`);
+      setDeletePO(null);
     } catch (err) { toast.error('Failed: ' + err.message); }
+    finally { setDeletingPO(false); }
   };
 
-  const handleShortClosePO = async (poNumber) => {
-    const remarks = window.prompt(`Short Close PO #${poNumber}? Please enter reason / remarks:`, "Delivery complete - short close remaining balance");
-    if (remarks === null) return;
+  const handleShortClosePO = (poNumber) => {
+    const poObj = pos.find(p => p.po_no === poNumber) || { po_no: poNumber };
+    setShortClosePO(poObj);
+  };
+
+  const handleConfirmShortClosePO = async (remarks) => {
+    if (!shortClosePO) return;
+    const poNumber = shortClosePO.po_no;
+    setShortClosingPO(true);
     try {
       await call('shortClosePO', poNumber, remarks);
       await refreshData();
       toast.success(`PO #${poNumber} short closed successfully.`);
+      setShortClosePO(null);
     } catch (err) {
       toast.error('Failed to short close PO: ' + err.message);
+    } finally {
+      setShortClosingPO(false);
     }
   };
 
@@ -749,6 +793,40 @@ export default function POsView() {
         mpUtr={mpUtr} setMpUtr={setMpUtr} mpBank={mpBank} setMpBank={setMpBank}
         mpRef={mpRef} setMpRef={setMpRef} mpRemarks={mpRemarks} setMpRemarks={setMpRemarks}
         mpError={mpError} mpSubmitting={mpSubmitting} handleAddManualPayment={handleManualPaySubmit}
+      />
+
+      {/* Action Modals replacing native browser confirm/prompt */}
+      <EmailPOModal
+        open={Boolean(emailModalPO)}
+        po={emailModalPO}
+        defaultEmail={defaultEmail}
+        onClose={() => setEmailModalPO(null)}
+        onConfirm={handleConfirmSendPOEmail}
+        sending={sendingPOEmail}
+      />
+
+      <ShortClosePOModal
+        open={Boolean(shortClosePO)}
+        po={shortClosePO}
+        onClose={() => setShortClosePO(null)}
+        onConfirm={handleConfirmShortClosePO}
+        loading={shortClosingPO}
+      />
+
+      <DeletePOModal
+        open={Boolean(deletePO)}
+        po={deletePO}
+        onClose={() => setDeletePO(null)}
+        onConfirm={handleConfirmDeletePO}
+        loading={deletingPO}
+      />
+
+      <SubmitForApprovalModal
+        open={Boolean(submitApprovalPO)}
+        po={submitApprovalPO}
+        onClose={() => setSubmitApprovalPO(null)}
+        onConfirm={handleConfirmSubmitForApproval}
+        loading={submittingApprovalPO}
       />
 
     </div>

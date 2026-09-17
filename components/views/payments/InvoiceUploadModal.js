@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Dialog, Button } from '../../ui/core';
 import { UploadCloud, FileJson, CheckCircle, Loader2, Server } from 'lucide-react';
 import { extractInvoiceData, generateTallyXML } from '../../../app/lib/ai/invoiceParser';
+import { toast } from '../../ui/Toast';
 
 export default function InvoiceUploadModal({ open, onClose }) {
   const [file, setFile] = useState(null);
@@ -62,12 +63,12 @@ export default function InvoiceUploadModal({ open, onClose }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert('🎉 Successfully pushed to Tally! The invoice is now in your ledger.');
+        toast.success('Successfully pushed to Tally! The invoice is now in your ledger.');
       } else {
-        alert('Failed to push: ' + data.error);
+        toast.error('Failed to push: ' + (data.error || 'Unknown error'));
       }
     } catch (err) {
-      alert('Error pushing to Tally: ' + err.message);
+      toast.error('Error pushing to Tally: ' + (err.message || 'Unknown error'));
     } finally {
       setIsPushing(false);
     }
