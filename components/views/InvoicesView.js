@@ -402,9 +402,37 @@ export default function InvoicesView() {
 
   const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
-  const getAttachmentDownloadUrl = (invoiceId) => {
+  const getAttachmentUrl = (invoiceId, disposition = 'inline') => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('lx_auth_token') : '';
-    return `/api/attachments/${invoiceId}?token=${encodeURIComponent(token || '')}`;
+    return `/api/attachments/${encodeURIComponent(invoiceId)}?token=${encodeURIComponent(token || '')}&disposition=${disposition}`;
+  };
+
+  // Fetch attachment as blob and trigger a real browser download
+  const [downloadingId, setDownloadingId] = useState(null);
+  const handleDownloadAttachment = async (invoiceId, fileName) => {
+    if (!invoiceId) { toast.error('No attachment found for this invoice.'); return; }
+    setDownloadingId(invoiceId);
+    try {
+      const url = getAttachmentUrl(invoiceId, 'attachment');
+      const res = await fetch(url);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Server error ${res.status}`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = fileName || `invoice-${invoiceId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      toast.error('Download failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -852,15 +880,15 @@ export default function InvoicesView() {
                                     <Eye className="w-3.5 h-3.5" />
                                   </button>
 
-                                  <a
-                                    href={getAttachmentDownloadUrl(inv.invoice_id)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors"
-                                    title="Download PDF"
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadAttachment(inv.invoice_id, inv.file_name || `invoice-${inv.invoice_id}.pdf`)}
+                                    disabled={downloadingId === inv.invoice_id}
+                                    className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors disabled:opacity-50"
+                                    title="Download Invoice PDF"
                                   >
-                                    <Download className="w-3.5 h-3.5" />
-                                  </a>
+                                    <Download className={`w-3.5 h-3.5 ${downloadingId === inv.invoice_id ? 'animate-pulse' : ''}`} />
+                                  </button>
 
                                   {(String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review') && (
                                     <>
@@ -1050,14 +1078,15 @@ export default function InvoicesView() {
               </div>
 
               <div className="flex items-center gap-2">
-                <a
-                  href={getAttachmentDownloadUrl(inspectInvoice.invoice_id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 text-xs text-amber-600 dark:text-gold hover:bg-amber-500/10 font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => handleDownloadAttachment(inspectInvoice.invoice_id, inspectInvoice.file_name || `invoice-${inspectInvoice.invoice_id}.pdf`)}
+                  disabled={downloadingId === inspectInvoice.invoice_id}
+                  className="px-3 py-1.5 text-xs text-amber-600 dark:text-gold hover:bg-amber-500/10 font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 transition-colors disabled:opacity-50"
                 >
-                  <Download className="w-3.5 h-3.5" /> PDF
-                </a>
+                  <Download className={`w-3.5 h-3.5 ${downloadingId === inspectInvoice.invoice_id ? 'animate-pulse' : ''}`} />
+                  {downloadingId === inspectInvoice.invoice_id ? 'Downloading...' : 'Download PDF'}
+                </button>
                 <button
                   onClick={() => setInspectInvoice(null)}
                   aria-label="Close invoice details"
@@ -1215,8 +1244,8 @@ export default function InvoicesView() {
 
               {drawerTab === 'pdf' && (
                 <div className="h-[480px] rounded-2xl overflow-hidden border border-border bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
-                  <iframe 
-                    src={getAttachmentDownloadUrl(inspectInvoice.invoice_id)} 
+              <iframe 
+                    src={getAttachmentUrl(inspectInvoice.invoice_id, 'inline')} 
                     className="w-full h-full rounded-xl"
                     title="Invoice PDF Preview"
                   />
