@@ -30,10 +30,12 @@ import { GST_RATES, PAYMENT_MODES, UOM_OPTIONS } from './purchase-orders/po-cons
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getStatusBadge(status) {
   const s = String(status || '').toLowerCase();
-  if (s === 'approved' || s === 'active')        return <Badge variant="success">Approved</Badge>;
+  if (s === 'approved' || s === 'active') return <Badge variant="success">Approved</Badge>;
+  if (s === 'open') return <Badge variant="info">Open</Badge>;
+  if (s === 'billed' || s === 'partially billed') return <Badge variant="info">{status}</Badge>;
   if (s === 'short closed' || s === 'short_closed' || s === 'closed') return <Badge variant="warning">Short Closed</Badge>;
-  if (s === 'pending approval' || s === 'pending_approval') return <Badge variant="warning">Pending Approval</Badge>;
-  if (s === 'rejected')                          return <Badge variant="error">Rejected</Badge>;
+  if (s === 'pending approval' || s === 'pending_approval' || s.includes('pending') || s.includes('submitted')) return <Badge variant="warning">Pending Approval</Badge>;
+  if (s === 'rejected') return <Badge variant="error">Rejected</Badge>;
   return <Badge variant="default">{status || 'Draft'}</Badge>;
 }
 

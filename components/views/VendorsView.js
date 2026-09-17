@@ -168,8 +168,9 @@ export default function VendorsView() {
     setViewModalOpen(false);
   };
 
-  const canDelete = true;
-  const canOnboardPermission = canOnboard || true;
+  // Permissions
+  const canDelete = isAdmin || isSuper;
+  const canOnboardPermission = canOnboard;
 
   const handleTogglePortalAccess = async (vendorCode, enable) => {
     try {

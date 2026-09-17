@@ -40,13 +40,16 @@ export default function POListTable({
     let list = filteredPOs || [];
     if (statusFilter === 'pending') {
       list = list.filter(p => {
-        const s = String(p.status || p.approval_status || '').toLowerCase();
-        return s === 'pending approval' || s === 'pending_approval' || s === 'pending' || s.includes('pending') || s === 'under approval';
+        const s = String(p.status || '').toLowerCase();
+        const as = String(p.approval_status || '').toLowerCase();
+        return s.includes('pending') || s.includes('submitted') || s === 'under approval' ||
+               as.includes('pending') || as.includes('submitted') || as === 'under approval';
       });
     } else if (statusFilter === 'approved') {
       list = list.filter(p => {
-        const s = String(p.status || p.approval_status || '').toLowerCase();
-        return s === 'approved' || s === 'active';
+        const s = String(p.status || '').toLowerCase();
+        const as = String(p.approval_status || '').toLowerCase();
+        return as === 'approved' || s === 'approved' || s === 'active' || s === 'open' || s === 'partially billed' || s === 'billed';
       });
     } else if (statusFilter === 'paid') {
       list = list.filter(p => {
@@ -55,8 +58,9 @@ export default function POListTable({
       });
     } else if (statusFilter === 'closed') {
       list = list.filter(p => {
-        const s = String(p.status || p.approval_status || '').toLowerCase();
-        return s === 'short closed' || s === 'short_closed' || s === 'closed';
+        const s = String(p.status || '').toLowerCase();
+        const as = String(p.approval_status || '').toLowerCase();
+        return s === 'short closed' || s === 'short_closed' || s === 'closed' || as === 'short closed' || as === 'short_closed' || as === 'closed';
       });
     }
     return sortData(list, sortField, sortDir);
@@ -184,12 +188,20 @@ export default function POListTable({
             {/* ── Mobile View: Cards Layout ── */}
             <div className="block md:hidden p-3 space-y-3">
               {displayPOs.map((po, idx) => {
-                const st = String(po.status || po.approval_status || 'Draft').toLowerCase();
-                const isDraft    = st === 'draft';
-                const isPending  = st === 'pending approval' || st === 'pending_approval' || st === 'pending' || st.includes('pending') || st.includes('submitted') || st === 'under approval';
-                const isApproved = st === 'approved' || st === 'active';
-                const isRejected = st === 'rejected';
-                const isShortClosed = st === 'short closed' || st === 'short_closed' || st === 'closed';
+                const approvalSt = String(po.approval_status || '').trim().toLowerCase();
+                const statusSt   = String(po.status || '').trim().toLowerCase();
+                const rawSt      = approvalSt || statusSt || 'draft';
+
+                const isDraft    = rawSt === 'draft' || statusSt === 'draft' || approvalSt === 'draft';
+                const isPending  = statusSt.includes('pending') || statusSt.includes('submitted') || statusSt === 'under approval' ||
+                                   approvalSt.includes('pending') || approvalSt.includes('submitted') || approvalSt === 'under approval';
+                const isRejected = statusSt === 'rejected' || approvalSt === 'rejected';
+                const isCancelled = statusSt === 'cancelled' || approvalSt === 'cancelled';
+                const isShortClosed = statusSt === 'short closed' || statusSt === 'short_closed' || statusSt === 'closed' ||
+                                      approvalSt === 'short closed' || approvalSt === 'short_closed' || approvalSt === 'closed';
+                const isApproved = approvalSt === 'approved' || statusSt === 'approved' || statusSt === 'open' || statusSt === 'active' || statusSt === 'partially billed' || statusSt === 'billed';
+                const canShortClose = (isApproved || (!isDraft && !isPending && !isRejected && !isCancelled)) && !isShortClosed;
+
                 const poValue = Number(po.po_value || 0);
                 const paid = Number(po.paid || 0);
                 const calcBalance = isShortClosed ? 0 : Math.max(0, poValue - paid);
@@ -253,6 +265,17 @@ export default function POListTable({
                             <CheckCircle className="w-3 h-3 mr-1" /> Approve
                           </Button>
                         )}
+                        {canShortClose && handleShortClosePO && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleShortClosePO(po.po_no)}
+                            className="h-7 px-2 text-[11px] text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 font-medium"
+                            title="Short Close PO"
+                          >
+                            <XCircle className="w-3 h-3 mr-1 text-amber-600 dark:text-amber-400" /> Short Close
+                          </Button>
+                        )}
                         {canCreate && (
                           <Button
                             variant="ghost"
@@ -289,12 +312,19 @@ export default function POListTable({
                 </TableHeader>
                 <TableBody>
                   {displayPOs.map((po, idx) => {
-                    const st = String(po.status || po.approval_status || 'Draft').toLowerCase();
-                    const isDraft    = st === 'draft';
-                    const isPending  = st === 'pending approval' || st === 'pending_approval' || st === 'pending' || st.includes('pending') || st.includes('submitted') || st === 'under approval';
-                    const isApproved = st === 'approved' || st === 'active';
-                    const isRejected = st === 'rejected';
-                    const isShortClosed = st === 'short closed' || st === 'short_closed' || st === 'closed';
+                    const approvalSt = String(po.approval_status || '').trim().toLowerCase();
+                    const statusSt   = String(po.status || '').trim().toLowerCase();
+                    const rawSt      = approvalSt || statusSt || 'draft';
+
+                    const isDraft    = rawSt === 'draft' || statusSt === 'draft' || approvalSt === 'draft';
+                    const isPending  = statusSt.includes('pending') || statusSt.includes('submitted') || statusSt === 'under approval' ||
+                                       approvalSt.includes('pending') || approvalSt.includes('submitted') || approvalSt === 'under approval';
+                    const isRejected = statusSt === 'rejected' || approvalSt === 'rejected';
+                    const isCancelled = statusSt === 'cancelled' || approvalSt === 'cancelled';
+                    const isShortClosed = statusSt === 'short closed' || statusSt === 'short_closed' || statusSt === 'closed' ||
+                                          approvalSt === 'short closed' || approvalSt === 'short_closed' || approvalSt === 'closed';
+                    const isApproved = approvalSt === 'approved' || statusSt === 'approved' || statusSt === 'open' || statusSt === 'active' || statusSt === 'partially billed' || statusSt === 'billed';
+                    const canShortClose = (isApproved || (!isDraft && !isPending && !isRejected && !isCancelled)) && !isShortClosed;
                     const calcBalance  = isShortClosed ? 0 : Math.max(0, Number(po.po_value || 0) - Number(po.paid || 0));
 
                     return (
@@ -482,7 +512,7 @@ export default function POListTable({
                                         <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Add Manual Payment
                                       </button>
                                     )}
-                                    {isApproved && !isShortClosed && handleShortClosePO && (
+                                    {canShortClose && handleShortClosePO && (
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -541,6 +571,7 @@ export default function POListTable({
         handleOpenModal={handleOpenModal}
         handleViewPOHistory={handleViewPOHistory}
         handleSendPOEmail={handleSendPOEmail}
+        handleShortClosePO={handleShortClosePO}
       />
     </Card>
   );

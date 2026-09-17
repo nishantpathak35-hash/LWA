@@ -1,9 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../StateProvider';
+import { toast } from '../ui/Toast';
 
-import ProjectsSidebar from './projects/ProjectsSidebar';
-import ProjectDetails from './projects/ProjectDetails';
+import ProjectCommandCenter from './projects/ProjectCommandCenter';
 import NewProjectModal from './projects/NewProjectModal';
 
 export default function ProjectsView() {
@@ -24,12 +24,9 @@ export default function ProjectsView() {
     try {
       const details = await call('getProjectDetails');
       setProjectsList(details || []);
-      if (details && details.length > 0 && !selectedProject) {
-        setSelectedProject(details[0]);
-      }
+      // Do NOT auto-select first — let user choose which project to inspect
     } catch (e) {
       console.error(e);
-      // Fall back to state projects list
       setProjectsList(stateProjects.map(p => ({
         project: p.name,
         name: p.name,
@@ -58,16 +55,12 @@ export default function ProjectsView() {
       })
     : [];
 
-  const handleProjectSelect = (p) => {
-    setSelectedProject(p);
-  };
-
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return;
     setCreating(true);
     try {
-      await call('updateProjectFinancials', { 
-        project: newProjectName.trim(), 
+      await call('updateProjectFinancials', {
+        project: newProjectName.trim(),
         projectValue: 0,
         project_ref: newProjectRef.trim(),
         client: newClient.trim(),
@@ -78,41 +71,28 @@ export default function ProjectsView() {
       setNewClient('');
       setNewSiteAddress('');
       setShowNewProjectModal(false);
+      toast.success('Project created successfully!');
       await loadDetails();
-      if (refresh) refresh(); // Trigger global state refresh if available
+      if (refresh) refresh();
     } catch (e) {
-      alert("Failed to create project: " + e.message);
+      toast.error('Failed to create project: ' + e.message);
     } finally {
       setCreating(false);
     }
   };
 
-  if (loading && projectsList.length === 0) {
-    return (
-      <div className="flex items-center justify-center p-20 text-sm text-slate-500">
-        Loading projects ledger...
-      </div>
-    );
-  }
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start animate-fade-in">
-      {/* Projects selection list (Left column) */}
-      <ProjectsSidebar
+    <>
+      <ProjectCommandCenter
         projectsList={projectsList}
         selectedProject={selectedProject}
-        handleProjectSelect={handleProjectSelect}
+        setSelectedProject={setSelectedProject}
+        projectPOs={projectPOs}
         setShowNewProjectModal={setShowNewProjectModal}
+        onUpdateProject={() => { loadDetails(); if (refresh) refresh(); }}
+        loading={loading}
+        pos={pos}
       />
-
-      {/* Selected project details (Right columns) */}
-      <div className="col-span-1 lg:col-span-3 space-y-8">
-        <ProjectDetails
-          selectedProject={selectedProject}
-          projectPOs={projectPOs}
-          onUpdateProject={() => { loadDetails(); if (refresh) refresh(); }}
-        />
-      </div>
 
       <NewProjectModal
         showNewProjectModal={showNewProjectModal}
@@ -128,6 +108,6 @@ export default function ProjectsView() {
         creating={creating}
         handleCreateProject={handleCreateProject}
       />
-    </div>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Input, Dialog } from '../../ui/core';
 import { PlusCircle, Search, Eye, Edit2, CreditCard, Trash2, AlertTriangle, Download, Users, Mail, UserCheck, ShieldCheck, Key } from 'lucide-react';
 import SortableHeader from '../../ui/SortableHeader';
@@ -13,6 +13,32 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
   const [deleteError, setDeleteError] = useState(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('directory'); // 'directory' | 'pending'
+  const [pendingCount, setPendingCount] = useState(null); // null = loading, number = fetched
+
+  // Fetch pending onboarding count for KPI card
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchPendingCount() {
+      try {
+        const token = typeof window !== 'undefined' ? (localStorage.getItem('lx_auth_token') || '') : '';
+        const res = await fetch('/api/rpc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-lwa-token': token },
+          body: JSON.stringify({ method: 'getVendorOnboardingSubmissions', args: [] })
+        });
+        const data = await res.json();
+        if (!cancelled) {
+          const list = data.result || data || [];
+          const pending = Array.isArray(list) ? list.filter(s => String(s.status || '').toLowerCase() === 'pending').length : 0;
+          setPendingCount(pending);
+        }
+      } catch (e) {
+        if (!cancelled) setPendingCount(0);
+      }
+    }
+    fetchPendingCount();
+    return () => { cancelled = true; };
+  }, []);
 
   // Sorting & Filtering State
   const [sortField, setSortField] = useState('code');
@@ -168,8 +194,24 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           </div>
           <div>
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pending Review</div>
-            <div className="text-lg font-bold text-amber-500 tracking-tight mt-0.5 flex items-center gap-1.5">
-              <span>Review Queue</span>
+            <div className={`text-lg font-bold tracking-tight mt-0.5 flex items-center gap-1.5 ${
+              pendingCount > 0 ? 'text-amber-500' : 'text-foreground'
+            }`}>
+              {pendingCount === null ? (
+                <span className="text-muted-foreground animate-pulse">—</span>
+              ) : (
+                <>
+                  <span>{pendingCount}</span>
+                  {pendingCount > 0 && (
+                    <button
+                      onClick={() => setActiveTab('pending')}
+                      className="text-[10px] font-bold text-amber-600 hover:underline cursor-pointer"
+                    >
+                      View →
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

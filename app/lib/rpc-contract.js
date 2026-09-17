@@ -149,6 +149,7 @@ export const RPC_CONTRACT = Object.freeze({
   answerPaymentClarification: {"args":3,"sessionIndex":0,"access":"internal","replaceUser":true},
   getActivityStream: {"args":1,"sessionIndex":-1,"access":"internal"},
   createTask: {"args":6,"sessionIndex":0,"access":"internal","replaceUser":true},
+  allocateTask: {"args":1,"sessionIndex":0,"access":"internal"},
   getUserTasks: {"args":1,"sessionIndex":0,"access":"internal","replaceUser":true},
   updateTaskStatus: {"args":2,"sessionIndex":-1,"access":"internal"},
   createWPRReport: {"args":1,"sessionIndex":1,"access":"internal"},

@@ -278,12 +278,13 @@ export async function listUsersAdmin(session) {
 
 export async function listActiveUsers(session) {
   requireAuth(session);
-  const users = await queryAll(`SELECT email, name, department, mobile_number FROM users WHERE active = 1`);
+  const users = await queryAll(`SELECT email, name, department, mobile_number, roles FROM users WHERE active = 1`);
   return users.map(u => ({
     email: u.email,
     name: u.name,
     department: u.department || null,
     mobile_number: u.mobile_number || null,
+    roles: (() => { try { return JSON.parse(u.roles || '[]'); } catch { return []; } })(),
     active: true
   }));
 }

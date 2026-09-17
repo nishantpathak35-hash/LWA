@@ -13,7 +13,7 @@ import DashboardProjectLedger from './dashboard/DashboardProjectLedger';
 import DashboardEditFinancialsModal from './dashboard/DashboardEditFinancialsModal';
 
 export default function DashboardView() {
-  const { pos, vendors, payments, kpis, user, setActiveView, call } = useAppState();
+  const { pos, vendors, payments, kpis, user, setActiveView, setTargetPo, call } = useAppState();
 
   const [projectsList, setProjectsList] = useState([]);
 
@@ -219,8 +219,15 @@ export default function DashboardView() {
 
       <PendingActionsWidget
         onSelectRecord={(type, id) => {
-          if (type.toLowerCase().includes('payment')) setActiveView('payments');
-          if (type.toLowerCase().includes('po')) setActiveView('pos');
+          const t = String(type || '').toLowerCase();
+          if (t.includes('payment')) {
+            setActiveView('payments');
+          } else if (t.includes('po') || t.includes('purchase')) {
+            if (setTargetPo && id) setTargetPo(id);
+            setActiveView('pos');
+          } else if (t.includes('invoice')) {
+            setActiveView('invoices');
+          }
         }}
       />
 

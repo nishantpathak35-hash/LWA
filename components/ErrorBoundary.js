@@ -49,11 +49,16 @@ export default class ErrorBoundary extends React.Component {
           <p className="text-sm text-muted-foreground max-w-sm">
             An unexpected error occurred. Your data is safe — try refreshing this section.
           </p>
-          {process.env.NODE_ENV === 'development' && this.state.error && (
-            <pre className="mt-3 text-left text-xs bg-slate-900 border border-slate-800 rounded-lg p-4 max-w-lg overflow-auto text-red-300 whitespace-pre-wrap">
-              {this.state.error.toString()}
-              {this.state.errorInfo?.componentStack}
-            </pre>
+          {this.state.error && (
+            <details className="mt-3 text-left text-xs bg-slate-900/90 border border-slate-800 rounded-lg p-3 max-w-lg overflow-auto text-slate-400">
+              <summary className="font-mono text-[11px] text-amber-500/90 hover:text-amber-400 cursor-pointer select-none">
+                Show technical error details
+              </summary>
+              <pre className="mt-2 text-[11px] font-mono whitespace-pre-wrap text-rose-300">
+                {this.state.error.toString()}
+                {this.state.errorInfo?.componentStack}
+              </pre>
+            </details>
           )}
         </div>
         <button

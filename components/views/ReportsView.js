@@ -9,8 +9,8 @@ import { cn } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
 
 import TDSTrackerSection from './reports/TDSTrackerSection';
-
-// Helper to format values as Indian Rupees / Lakhs
+import ReportsSummaryStrip from './reports/ReportsSummaryStrip';
+import ReportsDeleteModal from './reports/ReportsDeleteModal';
 
 import ReportsHeader from './reports/ReportsHeader';
 import ReportsTables from './reports/ReportsTables';
@@ -61,6 +61,11 @@ export default function ReportsView() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
   const [submittingEdit, setSubmittingEdit] = useState(false);
+
+  // Delete confirmation modal (replaces native confirm/prompt)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTargetPayment, setDeleteTargetPayment] = useState(null);
+  const [deletingPayment, setDeletingPayment] = useState(false);
 
   const handleOpenEditModal = (payment) => {
     setEditingPayment(payment);
@@ -363,23 +368,28 @@ export default function ReportsView() {
     }
   };
 
-  const handleDeleteRemittedPayment = async (payment) => {
+  const handleDeleteRemittedPayment = (payment) => {
     if (!isAdmin && !isDirector && !isFinance) {
       toast.error('Only Admin, Director, or Finance users can delete payment requests.');
       return;
     }
-    if (!confirm(`Are you sure you want to delete payment #${payment.id} for ${payment.vendor_name}? This action is irreversible.`)) {
-      return;
-    }
-    const reason = prompt('Please enter a reason for deleting this payment request (at least 5 characters):', 'Deleted via Reports UI');
-    if (reason === null) return;
+    setDeleteTargetPayment(payment);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async (payment, reason) => {
+    setDeletingPayment(true);
     try {
-      await call('deleteRemittedPayment', payment.id, reason || 'Deleted via Reports UI');
+      await call('deleteRemittedPayment', payment.id, reason);
       toast.success('Payment deleted successfully');
+      setDeleteModalOpen(false);
+      setDeleteTargetPayment(null);
       loadReport();
       await refreshData();
     } catch (err) {
       toast.error(err.message || 'Failed to delete payment');
+    } finally {
+      setDeletingPayment(false);
     }
   };
 
@@ -399,7 +409,12 @@ export default function ReportsView() {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      {/* Always-visible KPI strip — no query needed */}
+      <ReportsSummaryStrip
+        payments={payments || []}
+        onTabClick={(tab) => setReportType(tab)}
+      />
       <ReportsHeader
         handleExport={handleExport} loading={loading} data={data} rTypes={rTypes}
         reportType={reportType} setReportType={setReportType}
@@ -438,6 +453,15 @@ export default function ReportsView() {
         tdsSections={tdsSections || []}
         onSavePayment={handleSaveEditedPayment}
         submitting={submittingEdit}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ReportsDeleteModal
+        open={deleteModalOpen}
+        payment={deleteTargetPayment}
+        onClose={() => { setDeleteModalOpen(false); setDeleteTargetPayment(null); }}
+        onConfirm={handleConfirmDelete}
+        loading={deletingPayment}
       />
 
       <Dialog open={adviceModalOpen} onClose={() => setAdviceModalOpen(false)} title="Send Payment Advice">

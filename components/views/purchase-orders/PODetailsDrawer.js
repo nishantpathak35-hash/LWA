@@ -22,7 +22,8 @@ export default function PODetailsDrawer({
   handleSubmitForApproval,
   handleOpenModal,
   handleViewPOHistory,
-  handleSendPOEmail
+  handleSendPOEmail,
+  handleShortClosePO
 }) {
   const [activeTab, setActiveTab] = useState('items'); // 'items' | 'financials' | 'terms' | 'pdf'
   const [poDetails, setPoDetails] = useState(null);
@@ -59,12 +60,19 @@ export default function PODetailsDrawer({
   if (!isOpen || !po) return null;
 
   const data = poDetails || po;
-  const status = String(data.status || data.approval_status || 'Draft').toLowerCase();
-  const isDraft = status === 'draft';
-  const isPending = status === 'pending approval' || status === 'pending_approval' || status === 'pending' || status.includes('pending') || status === 'under approval';
-  const isApproved = status === 'approved' || status === 'active';
-  const isRejected = status === 'rejected';
-  const isShortClosed = status === 'short closed' || status === 'short_closed' || status === 'closed';
+  const approvalSt = String(data.approval_status || '').trim().toLowerCase();
+  const statusSt   = String(data.status || '').trim().toLowerCase();
+  const rawSt      = approvalSt || statusSt || 'draft';
+
+  const isDraft    = rawSt === 'draft' || statusSt === 'draft' || approvalSt === 'draft';
+  const isPending  = statusSt.includes('pending') || statusSt.includes('submitted') || statusSt === 'under approval' ||
+                     approvalSt.includes('pending') || approvalSt.includes('submitted') || approvalSt === 'under approval';
+  const isRejected = statusSt === 'rejected' || approvalSt === 'rejected';
+  const isCancelled = statusSt === 'cancelled' || approvalSt === 'cancelled';
+  const isShortClosed = statusSt === 'short closed' || statusSt === 'short_closed' || statusSt === 'closed' ||
+                        approvalSt === 'short closed' || approvalSt === 'short_closed' || approvalSt === 'closed';
+  const isApproved = approvalSt === 'approved' || statusSt === 'approved' || statusSt === 'open' || statusSt === 'active' || statusSt === 'partially billed' || statusSt === 'billed';
+  const canShortClose = (isApproved || (!isDraft && !isPending && !isRejected && !isCancelled)) && !isShortClosed;
 
   const poValue = Number(data.po_value || 0);
   const paidAmount = Number(data.paid || 0);
@@ -94,9 +102,9 @@ export default function PODetailsDrawer({
                   </span>
                   
                   {/* Status Badge */}
-                  {isApproved && (
+                  {isApproved && !isShortClosed && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Approved
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {data.status || data.approval_status || 'Approved'}
                     </span>
                   )}
                   {isPending && (
@@ -117,6 +125,11 @@ export default function PODetailsDrawer({
                   {isDraft && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
                       Draft
+                    </span>
+                  )}
+                  {!isApproved && !isPending && !isShortClosed && !isRejected && !isDraft && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                      {data.status || data.approval_status || 'Active'}
                     </span>
                   )}
 
@@ -486,6 +499,20 @@ export default function PODetailsDrawer({
                     <XCircle className="w-3.5 h-3.5" /> Reject
                   </Button>
                 </>
+              )}
+
+              {canShortClose && handleShortClosePO && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    onClose();
+                    handleShortClosePO(data.po_no);
+                  }}
+                  className="border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 text-xs font-medium h-9 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                >
+                  <XCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Short Close PO
+                </Button>
               )}
 
               {canCreate && (
