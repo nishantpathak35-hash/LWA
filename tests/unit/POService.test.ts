@@ -40,4 +40,32 @@ describe('POService unit tests', () => {
     expect(updatedPayload.status).toBe('Short Closed');
     expect(updatedPayload.approval_status).toBe('Short Closed');
   });
+
+  it('updates po_value and revised_po_value to paid amount or custom final value on short close', async () => {
+    vi.spyOn(PORepository, 'findById').mockResolvedValue({
+      po_no: 'PO-102',
+      status: 'Approved',
+      po_value: 100000,
+      legacy_paid: 60000,
+      paid: 60000,
+      notes: ''
+    } as any);
+
+    let updatedPayload: any = null;
+    vi.spyOn(PORepository, 'update').mockImplementation(async (poNo, updates) => {
+      updatedPayload = updates;
+    });
+
+    // Case 1: with explicit final value
+    await POService.shortClosePO('PO-102', 'user@luxe.com', 'Closed with extra settlement', 65000);
+    expect(updatedPayload.po_value).toBe(65000);
+    expect(updatedPayload.revised_po_value).toBe(65000);
+    expect(updatedPayload.notes).toContain('PO Value revised from ₹1,00,000 to ₹65,000');
+
+    // Case 2: default to paid amount when final value not explicitly passed
+    await POService.shortClosePO('PO-102', 'user@luxe.com', 'Closed at paid amount');
+    expect(updatedPayload.po_value).toBe(60000);
+    expect(updatedPayload.revised_po_value).toBe(60000);
+    expect(updatedPayload.notes).toContain('PO Value revised from ₹1,00,000 to ₹60,000');
+  });
 });

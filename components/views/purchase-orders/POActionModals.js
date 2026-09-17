@@ -70,28 +70,121 @@ export function EmailPOModal({ open, po, defaultEmail, onClose, onConfirm, sendi
 
 // ─── 2. Short Close PO Modal ──────────────────────────────────────────────────
 export function ShortClosePOModal({ open, po, onClose, onConfirm, loading }) {
+  const origPoValue = Math.round(Number(po?.po_value || 0));
+  const paidAmount = Math.round(Number(po?.paid ?? po?.legacy_paid ?? 0));
+
+  const [finalValue, setFinalValue] = useState(String(paidAmount));
   const [remarks, setRemarks] = useState('Delivery complete – short close remaining balance');
-  const isValid = remarks.trim().length >= 5;
 
   React.useEffect(() => {
-    if (open) setRemarks('Delivery complete – short close remaining balance');
-  }, [open]);
+    if (open) {
+      setFinalValue(String(paidAmount));
+      setRemarks('Delivery complete – short close remaining balance');
+    }
+  }, [open, paidAmount]);
+
+  const numVal = Number(finalValue);
+  const isNumValid = !isNaN(numVal) && numVal >= 0 && finalValue.trim() !== '';
+  const isRemarksValid = remarks.trim().length >= 3;
+  const isValid = isNumValid && isRemarksValid;
+
+  const releasedAmount = Math.max(0, origPoValue - numVal);
+  const remainingPayable = Math.max(0, numVal - paidAmount);
+  const isBelowPaid = isNumValid && numVal < paidAmount;
+  const isExceedingOriginal = isNumValid && origPoValue > 0 && numVal > origPoValue;
 
   return (
     <Dialog open={open} onClose={onClose} title={
       <span className="flex items-center gap-2 text-amber-600 dark:text-gold">
-        <Scissors className="w-4 h-4" /> Short Close PO
+        <Scissors className="w-4 h-4" /> Short Close Purchase Order
       </span>
     }>
       <div className="space-y-4">
-        <div className="p-3.5 bg-amber-950/30 border border-amber-800/40 rounded-xl text-xs text-amber-200/80 space-y-1 leading-relaxed">
-          <div className="font-bold text-amber-100 text-sm">
-            PO <span className="font-mono">{po?.po_no}</span> will be short closed.
+        <div className="p-3.5 bg-amber-950/30 border border-amber-800/40 rounded-xl text-xs text-amber-200/80 space-y-1.5 leading-relaxed">
+          <div className="font-bold text-amber-100 text-sm flex items-center justify-between">
+            <span>PO: <span className="font-mono">{po?.po_no}</span></span>
+            {po?.vendor_name && <span className="text-amber-300 font-normal text-xs">{po.vendor_name}</span>}
           </div>
-          <p>The remaining uncommitted balance will be released and the PO will be marked as closed. This cannot be undone.</p>
-          {po?.vendor_name && <p className="text-amber-300">Vendor: <span className="font-bold">{po.vendor_name}</span></p>}
+          <p>
+            Short closing updates the official PO value, releases the uncommitted balance, and marks the order closed.
+          </p>
         </div>
 
+        {/* Financial Overview Grid */}
+        <div className="grid grid-cols-3 gap-2 p-3 bg-muted/40 rounded-xl border border-border text-center">
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase font-semibold">Original PO</div>
+            <div className="text-xs font-bold text-foreground font-mono mt-0.5">
+              ₹{origPoValue.toLocaleString('en-IN')}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase font-semibold">Paid So Far</div>
+            <div className="text-xs font-bold text-emerald-500 font-mono mt-0.5">
+              ₹{paidAmount.toLocaleString('en-IN')}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase font-semibold">Current Balance</div>
+            <div className="text-xs font-bold text-amber-500 font-mono mt-0.5">
+              ₹{Math.max(0, origPoValue - paidAmount).toLocaleString('en-IN')}
+            </div>
+          </div>
+        </div>
+
+        {/* Final PO Value Input */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+              Revised Final PO Value (₹) <span className="text-rose-500">*</span>
+            </label>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFinalValue(String(paidAmount))}
+                className="text-[11px] text-amber-500 hover:text-amber-400 font-medium underline cursor-pointer"
+              >
+                Set to Paid (₹{paidAmount.toLocaleString('en-IN')})
+              </button>
+            </div>
+          </div>
+          <Input
+            type="number"
+            min="0"
+            step="1"
+            placeholder="Enter final PO value"
+            value={finalValue}
+            onChange={e => setFinalValue(e.target.value)}
+            className={`text-sm font-mono ${!isNumValid ? 'border-rose-500/50' : ''}`}
+            autoFocus
+          />
+
+          {/* Real-time Calculation Breakdown */}
+          {isNumValid && (
+            <div className="text-[11px] rounded-lg p-2.5 bg-slate-900/60 border border-slate-800 space-y-1">
+              <div className="flex justify-between text-slate-300">
+                <span>Commitment Released (Savings):</span>
+                <span className="font-mono font-semibold text-emerald-400">₹{releasedAmount.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Outstanding Payable After Close:</span>
+                <span className="font-mono font-semibold text-amber-400">₹{remainingPayable.toLocaleString('en-IN')}</span>
+              </div>
+              {isBelowPaid && (
+                <div className="text-[10px] text-rose-400 font-medium mt-1">
+                  ⚠️ Note: New value is ₹{(paidAmount - numVal).toLocaleString('en-IN')} less than total amount already paid.
+                </div>
+              )}
+              {isExceedingOriginal && (
+                <div className="text-[10px] text-amber-400 font-medium mt-1">
+                  ⚠️ Note: New value is higher than the original PO value.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Remarks Input */}
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
             Remarks / Reason <span className="text-rose-500">*</span>
@@ -100,21 +193,20 @@ export function ShortClosePOModal({ open, po, onClose, onConfirm, loading }) {
             placeholder="Enter reason for short closing this PO..."
             value={remarks}
             onChange={e => setRemarks(e.target.value)}
-            rows={3}
+            rows={2}
             className="text-sm resize-none"
-            autoFocus
           />
         </div>
 
         <div className="flex justify-end gap-3 pt-2 border-t border-border">
           <Button variant="ghost" onClick={onClose} disabled={loading} className="text-xs">Cancel</Button>
           <Button
-            onClick={() => onConfirm(remarks.trim())}
+            onClick={() => onConfirm({ remarks: remarks.trim(), finalPoValue: numVal })}
             disabled={!isValid || loading}
             className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-40 flex items-center gap-1.5"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Scissors className="w-3.5 h-3.5" />}
-            {loading ? 'Closing...' : 'Confirm Short Close'}
+            {loading ? 'Short Closing...' : `Confirm Short Close at ₹${isNumValid ? numVal.toLocaleString('en-IN') : '0'}`}
           </Button>
         </div>
       </div>

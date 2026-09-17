@@ -193,9 +193,21 @@ export async function updatePOFull(poNo, payload, session) {
   return { ok: true, poNo: nextPoNo, oldPoNo: originalPoNo, newStatus, changesLogged: auditChanges };
 }
 
-export async function shortClosePO(poNo, remarks, session) {
+export async function shortClosePO(poNo, remarksOrOptions, session) {
   requireAuth(session);
-  const result = await POService.shortClosePO(poNo, session?.email || SYSTEM_FALLBACK_EMAIL, remarks);
+  let remarks = '';
+  let finalPoValue = undefined;
+
+  if (typeof remarksOrOptions === 'object' && remarksOrOptions !== null) {
+    remarks = remarksOrOptions.remarks || '';
+    if (remarksOrOptions.finalPoValue !== undefined && remarksOrOptions.finalPoValue !== null && remarksOrOptions.finalPoValue !== '') {
+      finalPoValue = Number(remarksOrOptions.finalPoValue);
+    }
+  } else {
+    remarks = remarksOrOptions || '';
+  }
+
+  const result = await POService.shortClosePO(poNo, session?.email || SYSTEM_FALLBACK_EMAIL, remarks, finalPoValue);
   await emitBroadcast('po', 'updated', poNo);
   return result;
 }

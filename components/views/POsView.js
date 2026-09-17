@@ -599,19 +599,24 @@ export default function POsView() {
     finally { setDeletingPO(false); }
   };
 
-  const handleShortClosePO = (poNumber) => {
-    const poObj = pos.find(p => p.po_no === poNumber) || { po_no: poNumber };
+  const handleShortClosePO = (poNumberOrObj) => {
+    const poNumber = typeof poNumberOrObj === 'object' ? poNumberOrObj.po_no : poNumberOrObj;
+    const poObj = pos.find(p => p.po_no === poNumber) || (typeof poNumberOrObj === 'object' ? poNumberOrObj : { po_no: poNumber });
     setShortClosePO(poObj);
   };
 
-  const handleConfirmShortClosePO = async (remarks) => {
+  const handleConfirmShortClosePO = async (optionsOrRemarks) => {
     if (!shortClosePO) return;
     const poNumber = shortClosePO.po_no;
     setShortClosingPO(true);
     try {
-      await call('shortClosePO', poNumber, remarks);
+      await call('shortClosePO', poNumber, optionsOrRemarks);
       await refreshData();
-      toast.success(`PO #${poNumber} short closed successfully.`);
+      const revisedVal = typeof optionsOrRemarks === 'object' ? optionsOrRemarks.finalPoValue : undefined;
+      const msg = revisedVal !== undefined
+        ? `PO #${poNumber} short closed successfully at ₹${Number(revisedVal).toLocaleString('en-IN')}.`
+        : `PO #${poNumber} short closed successfully.`;
+      toast.success(msg);
       setShortClosePO(null);
     } catch (err) {
       toast.error('Failed to short close PO: ' + err.message);

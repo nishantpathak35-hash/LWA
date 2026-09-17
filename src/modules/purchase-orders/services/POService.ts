@@ -239,18 +239,34 @@ export class POService {
     return { ok: true, poNo: nextPoNo };
   }
 
-  static async shortClosePO(poNo: string, userEmail: string, remarks?: string): Promise<{ ok: boolean }> {
+  static async shortClosePO(poNo: string, userEmail: string, remarks?: string, finalPoValue?: number): Promise<{ ok: boolean }> {
     if (!poNo) throw new Error("PO Number is required");
     const existing = await PORepository.findById(poNo);
     if (!existing) throw new Error(`Purchase Order not found: ${poNo}`);
 
+    const oldPoValue = Number(existing.po_value || 0);
+    const paidAmount = Number(existing.paid ?? (existing as any).legacy_paid ?? 0);
+
+    // If finalPoValue is provided, use it; otherwise default to paid amount so po_value matches paid
+    let newPoValue = oldPoValue;
+    if (finalPoValue !== undefined && !isNaN(Number(finalPoValue)) && Number(finalPoValue) >= 0) {
+      newPoValue = Number(finalPoValue);
+    } else if (paidAmount !== undefined && !isNaN(paidAmount) && paidAmount >= 0) {
+      newPoValue = paidAmount;
+    }
+
+    const valueChanged = newPoValue !== oldPoValue;
+    const valueNote = valueChanged ? ` (PO Value revised from ₹${oldPoValue.toLocaleString('en-IN')} to ₹${newPoValue.toLocaleString('en-IN')})` : '';
+
     await PORepository.update(poNo, {
       status: 'Short Closed',
       approval_status: 'Short Closed',
-      notes: (existing.notes ? `${existing.notes}\n` : '') + `[Short Closed by ${userEmail}]: ${remarks || 'Manual PO Short Close'}`
+      po_value: newPoValue,
+      revised_po_value: newPoValue,
+      notes: (existing.notes ? `${existing.notes}\n` : '') + `[Short Closed by ${userEmail}]: ${remarks || 'Manual PO Short Close'}${valueNote}`
     });
 
-    await logAudit(userEmail, 'PO Short Closed', `PO#${poNo} marked Short Closed. Remarks: ${remarks || 'N/A'}`, 'Procurement');
+    await logAudit(userEmail, 'PO Short Closed', `PO#${poNo} marked Short Closed at ₹${newPoValue}. Remarks: ${remarks || 'N/A'}`, 'Procurement');
     return { ok: true };
   }
 }
