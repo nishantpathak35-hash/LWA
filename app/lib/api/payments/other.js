@@ -277,35 +277,37 @@ export async function bulkRemitPayments(requestIds, remittanceData, session) {
 
   if (remittedIds.length > 0) {
     await emitBroadcast('payment', 'updated', remittedIds.join(','));
-    // Notify procurement that payment was remitted
-    const actorName = session?.name || session?.email?.split('@')[0] || 'Finance';
-    const actorEmail = session?.email || '';
-    for (const id of remittedIds) {
-      try {
-        const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
-        if (pr) {
-          await createNotification({
-            recipientRole: 'procurement',
-            type: 'remitted',
-            title: `Payment Remitted — PR #${id}`,
-            body: `₹${Number((pr.approved_amount ?? pr.amount_requested) || 0).toLocaleString('en-IN')} to ${pr.vendor_name || 'vendor'} has been remitted`,
-            recordType: 'Payment Request',
-            recordId: String(id),
-            actorName,
-            actorEmail
-          });
+    // Async non-blocking notifications & auto-dispatch
+    Promise.resolve().then(async () => {
+      const actorName = session?.name || session?.email?.split('@')[0] || 'Finance';
+      const actorEmail = session?.email || '';
+      for (const id of remittedIds) {
+        try {
+          const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [id]);
+          if (pr) {
+            await createNotification({
+              recipientRole: 'procurement',
+              type: 'remitted',
+              title: `Payment Remitted — PR #${id}`,
+              body: `₹${Number((pr.approved_amount ?? pr.amount_requested) || 0).toLocaleString('en-IN')} to ${pr.vendor_name || 'vendor'} has been remitted`,
+              recordType: 'Payment Request',
+              recordId: String(id),
+              actorName,
+              actorEmail
+            });
+          }
+        } catch (nErr) {
+          console.error('Notification error (remit):', nErr.message);
         }
-      } catch (nErr) {
-        console.error('Notification error (remit):', nErr.message);
       }
-    }
 
-    // Auto-dispatch free Payment Advice email to vendor via Brevo
-    for (const id of remittedIds) {
-      sendPaymentAdvice(id, null, session).catch(err => {
-        console.warn(`[Auto-Advice] Vendor email dispatch for PR #${id}:`, err.message);
-      });
-    }
+      // Auto-dispatch free Payment Advice email to vendor via Brevo
+      for (const id of remittedIds) {
+        sendPaymentAdvice(id, null, session).catch(err => {
+          console.warn(`[Auto-Advice] Vendor email dispatch for PR #${id}:`, err.message);
+        });
+      }
+    });
   }
 
   return {

@@ -26,7 +26,7 @@ const PaymentFormModal = dynamic(() => import('./payments/PaymentFormModal'), { 
 export default function PaymentsView() {
   const { payments, setPayments, vendors, pos, user, call, refreshData, tdsSections, hasMorePayments, loadMorePayments } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('active'); // active, pending
+  const [activeTab, setActiveTab] = useState('pending'); // pending (awaiting approval), approved (ready to remit), all
   const [attentionFilter, setAttentionFilter] = useState(null);
   const [controlPolicies, setControlPolicies] = useState(DEFAULT_CONTROL_POLICIES);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
@@ -68,7 +68,7 @@ export default function PaymentsView() {
   const [editPrVersion, setEditPrVersion] = useState(null);
   const [vendorCode, setVendorCode] = useState('');
   const [poNo, setPoNo] = useState('');
-  const [grossAmount, setGrossAmount] = useState(0);
+  const [grossAmount, setGrossAmount] = useState('');
   const [tdsAmount, setTdsAmount] = useState(0);
   const [invoiceRef, setInvoiceRef] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -206,14 +206,15 @@ export default function PaymentsView() {
 
   const handleGrossAmountChange = (val) => {
     setGrossAmount(val);
+    const numVal = Number(val) || 0;
     const selectedPO = pos.find(p => p.po_no === poNo);
     if (selectedPO) {
       const tdsPct = Number(selectedPO.tds_pct) || 0;
-      setTdsAmount(Math.round(val * (tdsPct / 100)));
+      setTdsAmount(Math.round(numVal * (tdsPct / 100)));
     }
   };
 
-  const netAmount = Math.max(grossAmount - tdsAmount, 0);
+  const netAmount = Math.max((Number(grossAmount) || 0) - (Number(tdsAmount) || 0), 0);
   const selectedRequestStage = String(selectedRequest?.approval_stage || selectedRequest?.stage || '').toLowerCase();
   const selectedRequestGross = Number(selectedRequest?.amount_requested || selectedRequest?.gross_amount || selectedRequest?.amountRequested || 0);
   const selectedRequestStoredTds = Number(selectedRequest?.tds_amount || 0);
@@ -253,28 +254,30 @@ export default function PaymentsView() {
       const q = searchQuery.toLowerCase();
       const matchesSearch = (p.vendor_name || '').toLowerCase().includes(q) || 
                             (p.po_no || '').toLowerCase().includes(q) || 
+                            (p.project || '').toLowerCase().includes(q) ||
                             String(p.id).includes(q);
       
       if (!matchesSearch) return false;
 
-      const stage = String(p.approval_stage || p.stage || '').toLowerCase();
-      const isPending = isPaymentPending(p);
-      if (!isPending) return false;
+      const stageKey = getPaymentStageKey(p);
+      const isSettled = isPaymentSettled(p);
 
-      if (activeTab === 'active') {
-        return isPending;
+      if (activeTab === 'pending') {
+        // Only payments actively awaiting approval (exclude settled, readyToRemit, rejected)
+        if (isSettled || stageKey === 'readyToRemit' || stageKey === 'rejected') return false;
+        return true;
       }
 
-      // Filter pending for active user's roles
-      const isRemitStage = stage.includes('remit');
-      if (!isPending && !isRemitStage) return false;
-      
-      if (isAdmin) return true;
-      if (isProcurement && stage.includes('proc')) return true;
-      if (isFinance && stage.includes('finance')) return true;
-      if (isDirector && stage.includes('director')) return true;
-      if (isFinance && stage.includes('remit')) return true;
-      return false;
+      if (activeTab === 'approved') {
+        // Payments approved and ready for remittance
+        return stageKey === 'readyToRemit' && !isSettled;
+      }
+
+      if (activeTab === 'all' || activeTab === 'active') {
+        return true;
+      }
+
+      return true;
     });
   }, [payments, searchQuery, activeTab, isAdmin, isProcurement, isFinance, isDirector, attentionFilter, attentionItems]);
 
@@ -394,30 +397,39 @@ export default function PaymentsView() {
     }
   };
 
-  const handleOpenRequestModal = () => {
-    const defaultVendor = vendors[0]?.code || '';
+  const handleOpenRequestModal = (initialData = null) => {
+    const defaultVendor = initialData?.vendorCode || initialData?.vendor_code || vendors[0]?.code || '';
     setVendorCode(defaultVendor);
     const validPOs = getVendorPOs(defaultVendor);
-    setPoNo(validPOs[0]?.po_no || '');
-    setGrossAmount(0);
-    setTdsAmount(0);
-    setInvoiceRef('');
-    setRemarks('');
+    const targetPoNo = initialData?.poNo || initialData?.po_no || validPOs[0]?.po_no || '';
+    setPoNo(targetPoNo);
+    const initGross = initialData?.gross_amount ?? initialData?.amountRequested ?? '';
+    setGrossAmount(initGross !== '' ? Number(initGross) : '');
+    const poObj = pos.find(p => p.po_no === targetPoNo);
+    const tdsPct = Number(poObj?.tds_pct) || 0;
+    const numGross = Number(initGross) || 0;
+    setTdsAmount(Number(initialData?.tds_amount || (numGross > 0 ? Math.round(numGross * (tdsPct / 100)) : 0)));
+    setInvoiceRef(initialData?.invoice_number || initialData?.invoiceRef || '');
+    setRemarks(initialData?.remarks || '');
     setFormError(null);
+    setEditingPrId(null);
     setRequestModalOpen(true);
   };
 
   // ── Keyboard shortcut: G → P → N opens New Payment Request modal ──
   useEffect(() => {
-    const handler = () => { if (canOnboard) handleOpenRequestModal(); };
+    const handler = (e) => {
+      if (canOnboard) handleOpenRequestModal(e?.detail || null);
+    };
     window.addEventListener('lx:new-payment-request', handler);
     return () => window.removeEventListener('lx:new-payment-request', handler);
   }, [canOnboard, vendors, pos]);
 
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
-    if (!vendorCode || !poNo || !grossAmount) {
-      setFormError('Please fill all required fields');
+    const numGross = Number(grossAmount) || 0;
+    if (!vendorCode || !poNo || numGross <= 0) {
+      setFormError('Please fill all required fields and enter a valid amount');
       return;
     }
     setFormError(null);
@@ -430,10 +442,10 @@ export default function PaymentsView() {
         vendorCode: v.code || vendorCode,
         poNo: poNo,
         project: selectedPO ? selectedPO.project : '',
-        amountRequested: grossAmount,
-        gross_amount: grossAmount,
-        approved_amount: grossAmount,
-        approvedAmount: grossAmount,
+        amountRequested: numGross,
+        gross_amount: numGross,
+        approved_amount: numGross,
+        approvedAmount: numGross,
         tds_deducted: tdsAmount,
         tds_amount: tdsAmount,
         tds_percentage: Number(selectedPO?.tds_pct || 0),
@@ -458,7 +470,7 @@ export default function PaymentsView() {
         setEditingPrId(null);
         setVendorCode('');
         setPoNo('');
-        setGrossAmount(0);
+        setGrossAmount('');
         setTdsAmount(0);
         setInvoiceRef('');
         setRemarks('');
@@ -488,9 +500,8 @@ export default function PaymentsView() {
     setWorkflowModalOpen(true);
     setProjectSummary(null);
 
-    const isApprover = isAdmin || isDirector || isFinance;
-    const isCreator = req && user && req.created_by === user.email;
-    if (isApprover && (!isCreator || isAdmin || isDirector) && req?.id) {
+    const canViewProjectSummary = isAdmin || isDirector || isFinance || isProcurement || canActOnReq(req);
+    if (canViewProjectSummary && req?.id) {
       setLoadingSummary(true);
       call('getProjectFinancialSummary', req.id)
         .then(res => {
@@ -527,6 +538,7 @@ export default function PaymentsView() {
         }
         const result = await call('bulkApprovePayments', [selectedRequest.id], payload);
         assertWorkflowResult(result, 'Payment approval failed.');
+        toast.success('Payment approved successfully');
       } else if (workflowAction === 'reject') {
         const payload = {
           comments: comment.trim()
@@ -534,6 +546,7 @@ export default function PaymentsView() {
         setPayments(prev => prev.map(p => p.id === selectedRequest.id ? { ...p, status: 'rejected', approval_stage: 'Rejected', stage: 'Rejected' } : p));
         const result = await call('bulkRejectPayments', [selectedRequest.id], payload);
         assertWorkflowResult(result, 'Payment rejection failed.');
+        toast.success('Payment rejected');
       } else if (workflowAction === 'remit') {
         if (!utr) {
           throw new Error('UTR / Reference is required for remittance.');
@@ -545,9 +558,10 @@ export default function PaymentsView() {
         };
         const result = await call('bulkRemitPayments', [selectedRequest.id], payload);
         assertWorkflowResult(result, 'Payment remittance failed.');
+        toast.success('Payment remitted successfully');
       }
-      await refreshData();
       setWorkflowModalOpen(false);
+      refreshData().catch(err => console.error("Background refresh failed:", err));
     } catch (err) {
       setFormError(err.message || 'Workflow transition failed.');
     } finally {
@@ -770,8 +784,8 @@ export default function PaymentsView() {
         toast.success(`Successfully approved ${result.total_approved} payments!`);
         setSelectedPayments([]);
       }
-      await refreshData();
       setBulkApproveModalOpen(false);
+      refreshData().catch(err => console.error("Background refresh failed:", err));
     } catch (err) {
       toast.error(err.message || 'Bulk approve failed.');
     } finally {
@@ -789,9 +803,9 @@ export default function PaymentsView() {
         toast.success(`Successfully rejected ${result.total_rejected} payments.`);
         setSelectedPayments([]);
       }
-      await refreshData();
       setBulkRejectModalOpen(false);
       setBulkRejectComment('');
+      refreshData().catch(err => console.error("Background refresh failed:", err));
     } catch (err) {
       toast.error(err.message || 'Bulk reject failed.');
     } finally {

@@ -351,7 +351,8 @@ export default function ReportsView() {
       if (res && res.ok) {
         toast.success('Payment remitted successfully!');
         setRemitModalOpen(false);
-        loadReport();
+        setData(prev => Array.isArray(prev) ? prev.map(p => p.id === selectedRemitPayment.id ? { ...p, stage: 'Remitted', remittance: 'Remitted', remittance_ref: utr.trim(), remittance_date: new Date().toISOString().split('T')[0] } : p) : prev);
+        loadReport().catch(() => {});
       } else {
         toast.error(res?.error || 'Failed to remit payment');
       }

@@ -130,14 +130,15 @@ export default function PaymentFormModal({
                 type="number"
                 min="1"
                 required
-                value={grossAmount}
-                onChange={(e) => handleGrossAmountChange(Number(e.target.value))}
+                placeholder="Enter amount (e.g. 50,000)"
+                value={grossAmount === 0 || grossAmount === '' || grossAmount == null ? '' : grossAmount}
+                onChange={(e) => handleGrossAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
               />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">NET AMOUNT PAYABLE</label>
               <div className="w-full px-3.5 py-2 bg-muted/60 border border-border rounded-lg text-amber-700 dark:text-gold text-base font-bold tabular-nums">
-                {formatCurrency(netAmount)}
+                {formatCurrency(netAmount || 0)}
               </div>
             </div>
           </div>

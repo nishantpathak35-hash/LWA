@@ -249,16 +249,17 @@ export async function getProjectFinancialSummary(requestId, session) {
     throw new Error('Payment request not found');
   }
 
-  // Check if the user is a super admin or director, or has 'approve_payment' or 'reject_payment' permissions
+  // Check if the user is authorized to approve payments or review requests
   const roles = session.roles || [];
   const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || isSuperAdmin(session.email);
+  const isApproverRole = isDirOrAdmin || roles.some(r => ['finance', 'accountant', 'proc', 'procurement', 'maker'].includes(r));
 
-  // 2. Authorization check: Creator of the payment request must NOT be allowed to view the summary (unless Director/Admin)
-  if (!isDirOrAdmin && session.email === pr.created_by) {
+  // 2. Authorization check: Creator of the payment request must NOT view if purely requester (unless approver/admin/director)
+  if (!isDirOrAdmin && !isApproverRole && session.email === pr.created_by) {
     throw new Error('AUTH:Unauthorized - Requester cannot view project financial summary');
   }
   
-  let hasApprovalPermission = isDirOrAdmin;
+  let hasApprovalPermission = isDirOrAdmin || isApproverRole;
   if (!hasApprovalPermission) {
     const raw = await getSetting('feature_permissions', null);
     let perms = { ...DEFAULT_FEATURE_PERMISSIONS };
@@ -273,7 +274,7 @@ export async function getProjectFinancialSummary(requestId, session) {
       } catch (e) {}
     }
     for (const role of roles) {
-      if (perms[role] && (perms[role].includes('approve_payment') || perms[role].includes('reject_payment'))) {
+      if (perms[role] && (perms[role].includes('approve_payment') || perms[role].includes('reject_payment') || perms[role].includes('payments'))) {
         hasApprovalPermission = true;
         break;
       }

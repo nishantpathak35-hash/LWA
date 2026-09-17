@@ -16,7 +16,7 @@ export default function PaymentFilters({
 }) {
   const kpis = useMemo(() => {
     const total = payments.length;
-    const pending = payments.filter(isPaymentPending);
+    const pending = payments.filter(p => !isPaymentSettled(p) && getPaymentStageKey(p) !== 'readyToRemit' && getPaymentStageKey(p) !== 'rejected');
     const overBudget = payments.filter(p => p.is_overbudget_approval || p.overbudget === 1);
     const approved = payments.filter(p => getPaymentStageKey(p) === 'readyToRemit');
     const remitted = payments.filter(isPaymentSettled);
@@ -182,17 +182,7 @@ export default function PaymentFilters({
 
       {/* ── 3. Tabs Navigation & Search Bar ── */}
       <div className="p-3 bg-card rounded-2xl border border-border/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shadow-xs">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab('active')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'active' 
-                ? 'bg-foreground text-background shadow-xs' 
-                : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
-            }`}
-          >
-            All Active Requests ({payments.length})
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setActiveTab('pending')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -202,7 +192,28 @@ export default function PaymentFilters({
             }`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            My Pending Approvals
+            Awaiting Approval ({kpis.pendingCount})
+          </button>
+          <button
+            onClick={() => setActiveTab('approved')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'approved' 
+                ? 'bg-purple-600 text-white shadow-xs' 
+                : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+            Approved / Ready to Remit ({kpis.approvedCount})
+          </button>
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'all' 
+                ? 'bg-foreground text-background shadow-xs' 
+                : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
+          >
+            All Requests ({payments.length})
           </button>
         </div>
 

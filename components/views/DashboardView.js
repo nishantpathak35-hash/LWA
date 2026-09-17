@@ -7,9 +7,9 @@ import { useAppState } from '../StateProvider';
 import { num, pct100, paginateItems } from './dashboard/dashboard-utils';
 import DashboardWelcomeHeader from './dashboard/DashboardWelcomeHeader';
 import PendingActionsWidget from '../ui/PendingActionsWidget';
-import DashboardCashflowSection from './dashboard/DashboardCashflowSection';
+import DashboardExecutiveKpiStrip from './dashboard/DashboardExecutiveKpiStrip';
 import DashboardChartsSection from './dashboard/DashboardChartsSection';
-import DashboardFinancialSection from './dashboard/DashboardFinancialSection';
+import DashboardProjectLedger from './dashboard/DashboardProjectLedger';
 import DashboardEditFinancialsModal from './dashboard/DashboardEditFinancialsModal';
 
 export default function DashboardView() {
@@ -34,10 +34,6 @@ export default function DashboardView() {
 
   const vendorsList = useMemo(() => vendors, [vendors]);
 
-  const [cashflowSearchQ, setCashflowSearchQ] = useState('');
-  const [financialSearchQ, setFinancialSearchQ] = useState('');
-  const [cashflowPage, setCashflowPage] = useState(1);
-  const [financialPage, setFinancialPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
   // Edit financials state
@@ -67,31 +63,15 @@ export default function DashboardView() {
     loadDashboardData();
   }, [loadDashboardData, payments.length, pos.length]);
 
-  const filterProjects = (query) => projectsList.filter(r => {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    const haystack = [r.project, r.projectName, r.clientName, r.category].join(' ').toLowerCase();
-    return haystack.includes(q);
-  });
-
-  const filteredCashflowProjects = useMemo(() => filterProjects(cashflowSearchQ), [projectsList, cashflowSearchQ]);
-  const filteredFinancialProjects = useMemo(() => filterProjects(financialSearchQ), [projectsList, financialSearchQ]);
-
-  const cashflowPagination = paginateItems(filteredCashflowProjects, cashflowPage);
-  const financialPagination = paginateItems(filteredFinancialProjects, financialPage);
-
-  // Calculate Totals
+  // Calculate Global Executive Totals from all active projects
   let totPV = 0, totInflow = 0, totPendInflow = 0;
   let totBCS = 0, totPGM = 0, totPO = 0, totAGM = 0, totPendOut = 0, totBal = 0, totOut = 0;
 
-  filteredCashflowProjects.forEach(r => {
-    totPV += num(r.projectValue);
+  projectsList.forEach(r => {
+    totPV += num(r.projectValueTax || r.projectValue);
     totInflow += num(r.inflow);
     totPendInflow += num(r.pendingInflow);
     totOut += num(r.outflow);
-  });
-
-  filteredFinancialProjects.forEach(r => {
     totBCS += num(r.bcs);
     totPGM += num(r.plannedGM);
     totPO += num(r.poIssued);
@@ -101,17 +81,17 @@ export default function DashboardView() {
   });
 
   // Sparkline datasets
-  const spPV   = filteredCashflowProjects.map(r => num(r.projectValueTax || r.projectValue));
-  const spIn   = filteredCashflowProjects.map(r => num(r.inflow));
-  const spPin  = filteredCashflowProjects.map(r => num(r.pendingInflow));
-  const spOutCF = filteredCashflowProjects.map(r => num(r.outflow));
-  const spBCS = filteredFinancialProjects.map(r => num(r.bcs));
-  const spPGM = filteredFinancialProjects.map(r => num(r.plannedGM));
-  const spPO = filteredFinancialProjects.map(r => num(r.poIssued));
-  const spAGM = filteredFinancialProjects.map(r => num(r.actualGM));
-  const spOut = filteredFinancialProjects.map(r => num(r.outflow));
-  const spPendOut = filteredFinancialProjects.map(r => num(r.pendingOutflow));
-  const spBal = filteredFinancialProjects.map(r => num(r.balanceAvailable));
+  const spPV   = projectsList.map(r => num(r.projectValueTax || r.projectValue));
+  const spIn   = projectsList.map(r => num(r.inflow));
+  const spPin  = projectsList.map(r => num(r.pendingInflow));
+  const spOutCF = projectsList.map(r => num(r.outflow));
+  const spBCS = projectsList.map(r => num(r.bcs));
+  const spPGM = projectsList.map(r => num(r.plannedGM));
+  const spPO = projectsList.map(r => num(r.poIssued));
+  const spAGM = projectsList.map(r => num(r.actualGM));
+  const spOut = projectsList.map(r => num(r.outflow));
+  const spPendOut = projectsList.map(r => num(r.pendingOutflow));
+  const spBal = projectsList.map(r => num(r.balanceAvailable));
 
   // Payment pipeline segments
   const p = kpis?.payments || {};
@@ -244,17 +224,24 @@ export default function DashboardView() {
         }}
       />
 
-      <DashboardCashflowSection
-        filteredCashflowProjects={filteredCashflowProjects}
-        cashflowSearchQ={cashflowSearchQ}
-        setCashflowSearchQ={setCashflowSearchQ}
-        setCashflowPage={setCashflowPage}
-        cashflowPagination={cashflowPagination}
-        handleOpenEditModal={handleOpenEditModal}
-        totPV={totPV} totInflow={totInflow} totOut={totOut} totPendInflow={totPendInflow}
-        spPV={spPV} spIn={spIn} spOutCF={spOutCF} spPin={spPin}
+      {/* ── Executive Financial KPI Strip ── */}
+      <DashboardExecutiveKpiStrip
+        totPV={totPV}
+        totInflow={totInflow}
+        totOut={totOut}
+        totPendInflow={totPendInflow}
+        totBCS={totBCS}
+        totPO={totPO}
+        totAGM={totAGM}
+        totPGM={totPGM}
+        totBal={totBal}
+        spPV={spPV}
+        spIn={spIn}
+        spOutCF={spOutCF}
+        projectsCount={projectsList.length}
       />
 
+      {/* ── Visual Analytics: Pipeline Flow & Vendor Exposure ── */}
       <DashboardChartsSection
         stageParts={stageParts}
         stageTotal={stageTotal}
@@ -262,17 +249,31 @@ export default function DashboardView() {
         totalVendorPayable={totalVendorPayable}
       />
 
-      <DashboardFinancialSection
-        filteredFinancialProjects={filteredFinancialProjects}
-        financialSearchQ={financialSearchQ}
-        setFinancialSearchQ={setFinancialSearchQ}
-        setFinancialPage={setFinancialPage}
-        financialPagination={financialPagination}
+      {/* ── Reimagined Unified Project Financial Ledger ── */}
+      <DashboardProjectLedger
+        projectsList={projectsList}
         handleOpenEditModal={handleOpenEditModal}
-        totBCS={totBCS} totPGM={totPGM} totPO={totPO} totAGM={totAGM}
-        totOut={totOut} totPendOut={totPendOut} totBal={totBal}
-        spBCS={spBCS} spPGM={spPGM} spPO={spPO} spAGM={spAGM}
-        spOut={spOut} spPendOut={spPendOut} spBal={spBal}
+        totPV={totPV}
+        totInflow={totInflow}
+        totOut={totOut}
+        totPendInflow={totPendInflow}
+        totBCS={totBCS}
+        totPGM={totPGM}
+        totPO={totPO}
+        totAGM={totAGM}
+        totPendOut={totPendOut}
+        totBal={totBal}
+        spPV={spPV}
+        spIn={spIn}
+        spOutCF={spOutCF}
+        spPin={spPin}
+        spBCS={spBCS}
+        spPGM={spPGM}
+        spPO={spPO}
+        spAGM={spAGM}
+        spOut={spOut}
+        spPendOut={spPendOut}
+        spBal={spBal}
       />
 
       <DashboardEditFinancialsModal
