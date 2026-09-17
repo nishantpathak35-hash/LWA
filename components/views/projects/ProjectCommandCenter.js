@@ -243,6 +243,7 @@ export default function ProjectCommandCenter({
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('name-asc');
 
   const filteredProjects = useMemo(() => {
     return (projectsList || []).filter(p => {
@@ -258,6 +259,25 @@ export default function ProjectCommandCenter({
       return h.status === statusFilter;
     });
   }, [projectsList, searchTerm, statusFilter]);
+
+  const sortedProjects = useMemo(() => {
+    const list = [...filteredProjects];
+    return list.sort((a, b) => {
+      if (sortBy === 'name-asc') return (a.project || '').localeCompare(b.project || '');
+      if (sortBy === 'name-desc') return (b.project || '').localeCompare(a.project || '');
+      if (sortBy === 'budget-desc') return num(b.bcs) - num(a.bcs);
+      if (sortBy === 'budget-asc') return num(a.bcs) - num(b.bcs);
+      if (sortBy === 'po-desc') return num(b.poIssued) - num(a.poIssued);
+      if (sortBy === 'outflow-desc') return num(b.outflow) - num(a.outflow);
+      if (sortBy === 'pending-desc') return num(b.pendingOutflow) - num(a.pendingOutflow);
+      if (sortBy === 'util-desc') {
+        const utilA = num(a.bcs) > 0 ? (num(a.poIssued) / num(a.bcs)) : 0;
+        const utilB = num(b.bcs) > 0 ? (num(b.poIssued) / num(b.bcs)) : 0;
+        return utilB - utilA;
+      }
+      return 0;
+    });
+  }, [filteredProjects, sortBy]);
 
   // compute per-project POs for all cards
   const getProjectPOs = (project) => {
@@ -280,7 +300,7 @@ export default function ProjectCommandCenter({
       { label: 'Paid Outflow', key: 'outflow' },
       { label: 'Pending Outflow', key: 'pendingOutflow' },
     ];
-    exportToCSV('Projects_Command_Center.csv', columns, filteredProjects);
+    exportToCSV('Projects_Command_Center.csv', columns, sortedProjects);
   };
 
   const statusCounts = useMemo(() => {
@@ -365,6 +385,21 @@ export default function ProjectCommandCenter({
             />
           </div>
 
+          {/* Sort Selector */}
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            className="h-8 px-2.5 py-1 text-xs font-medium rounded-lg bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+          >
+            <option value="name-asc">Sort: Name (A–Z)</option>
+            <option value="name-desc">Sort: Name (Z–A)</option>
+            <option value="budget-desc">Sort: Budget (High to Low)</option>
+            <option value="po-desc">Sort: PO Committed (High to Low)</option>
+            <option value="outflow-desc">Sort: Paid Outflow (High to Low)</option>
+            <option value="util-desc">Sort: Budget Utilized %</option>
+            <option value="pending-desc">Sort: Pending Outflow</option>
+          </select>
+
           {/* View Toggle */}
           <div className="flex items-center p-0.5 bg-muted/50 border border-border rounded-lg">
             <button
@@ -386,7 +421,7 @@ export default function ProjectCommandCenter({
       </div>
 
       {/* ── Main Content: Cards + Drill-Down ── */}
-      {filteredProjects.length === 0 ? (
+      {sortedProjects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 border border-dashed border-border rounded-2xl bg-muted/20">
           <Wallet className="w-10 h-10 text-muted-foreground/30" />
           <p className="text-sm font-semibold text-muted-foreground">No projects match your filters</p>
@@ -405,7 +440,7 @@ export default function ProjectCommandCenter({
                 ? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
                 : 'flex flex-col gap-2'
             }>
-              {filteredProjects.map((p, idx) => (
+              {sortedProjects.map((p, idx) => (
                 <ProjectCard
                   key={idx}
                   project={p}

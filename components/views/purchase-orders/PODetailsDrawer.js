@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Badge, Button } from '../../ui/core';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
+import CopyButton from '../../ui/CopyButton';
 
 export default function PODetailsDrawer({
   po,
@@ -99,6 +100,7 @@ export default function PODetailsDrawer({
                   <span className="font-mono text-base font-bold text-foreground flex items-center gap-1.5">
                     <Receipt className="w-4 h-4 text-amber-500" />
                     {data.po_no}
+                    <CopyButton text={data.po_no} label="PO Number" />
                   </span>
                   
                   {/* Status Badge */}

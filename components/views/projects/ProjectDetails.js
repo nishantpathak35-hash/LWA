@@ -7,6 +7,7 @@ import { useAppState } from '../../StateProvider';
 import { toast } from '../../ui/Toast';
 import SortableHeader from '../../ui/SortableHeader';
 import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
+import CopyButton from '../../ui/CopyButton';
 
 export default function ProjectDetails({ selectedProject, projectPOs, onUpdateProject }) {
   const { call } = useAppState();
@@ -29,16 +30,35 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
     }
   };
 
+  const enrichedPOs = useMemo(() => {
+    return (projectPOs || []).map(po => {
+      const poVal = Number(po.po_value || po.poValue || po.amount || 0);
+      const paidVal = Number(po.paid ?? po.legacy_paid ?? po.amountPaid ?? 0);
+      const rawStatus = String(po.status || '').toLowerCase();
+      const isShortClosed = rawStatus.includes('short closed') || rawStatus.includes('short_closed') || rawStatus.includes('closed');
+      const balVal = isShortClosed ? 0 : Math.max(0, poVal - paidVal);
+      return {
+        ...po,
+        po_value: poVal,
+        paid: paidVal,
+        balance: balVal,
+        isShortClosed
+      };
+    });
+  }, [projectPOs]);
+
   const processedPOs = useMemo(() => {
-    return sortData(projectPOs || [], sortField, sortDir);
-  }, [projectPOs, sortField, sortDir]);
+    return sortData(enrichedPOs, sortField, sortDir);
+  }, [enrichedPOs, sortField, sortDir]);
 
   const handleExportPOsCSV = () => {
     const columns = [
       { label: 'PO Number', key: 'po_no', formatter: (v, r) => r.po_no || r.poNo },
       { label: 'Vendor Name', key: 'vendor_name', formatter: (v, r) => r.vendor_name || r.vendor },
       { label: 'Status', key: 'status' },
-      { label: 'PO Value', key: 'po_value', formatter: (v, r) => r.po_value || r.poValue || r.amount }
+      { label: 'PO Value', key: 'po_value', formatter: (v, r) => r.po_value },
+      { label: 'Paid Outflow', key: 'paid', formatter: (v, r) => r.paid },
+      { label: 'Balance Remaining', key: 'balance', formatter: (v, r) => r.balance }
     ];
     const projName = (selectedProject?.project || 'Project').replace(/\s+/g, '_');
     exportToCSV(`${projName}_POs_Ledger.csv`, columns, processedPOs);
@@ -176,36 +196,53 @@ export default function ProjectDetails({ selectedProject, projectPOs, onUpdatePr
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
-                  <SortableHeader field="po_no" label="PO Number" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-32" />
-                  <SortableHeader field="vendor_name" label="Vendor" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
+                  <SortableHeader field="po_no" label="PO Number" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-36" />
+                  <SortableHeader field="vendor_name" label="Vendor" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[160px]" />
                   <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
-                  <SortableHeader field="po_value" label="PO Value" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-32" />
+                  <SortableHeader field="po_value" label="PO Value" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                  <SortableHeader field="paid" label="Paid" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                  <SortableHeader field="balance" label="Balance" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {processedPOs.map((po, idx) => (
                   <TableRow key={idx} className="border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150">
-                    <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
-                      <a href={`/po/${encodeURIComponent(po.po_no || po.poNo)}`} target="_blank" rel="noreferrer" title={`Open PO ${po.po_no || po.poNo}`}>
-                        {po.po_no || po.poNo}
-                      </a>
+                    <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                        <a href={`/po/${encodeURIComponent(po.po_no || po.poNo)}`} target="_blank" rel="noreferrer" className="hover:text-slate-900 dark:hover:text-slate-100 hover:underline" title={`Open PO ${po.po_no || po.poNo}`}>
+                          {po.po_no || po.poNo}
+                        </a>
+                        <CopyButton text={po.po_no || po.poNo} label="PO Number" />
+                      </div>
                     </TableCell>
-                    <TableCell className="px-3 py-3 font-semibold text-xs text-slate-900 dark:text-slate-100 truncate max-w-[220px]" title={po.vendor_name || po.vendor || ''}>{po.vendor_name || po.vendor || 'Vendor'}</TableCell>
+                    <TableCell className="px-3 py-3 font-semibold text-xs text-slate-900 dark:text-slate-100 truncate max-w-[200px]" title={po.vendor_name || po.vendor || ''}>{po.vendor_name || po.vendor || 'Vendor'}</TableCell>
                     <TableCell className="px-3 py-3 whitespace-nowrap">
-                      <Badge 
-                        variant={
-                          String(po.status || '').toLowerCase().includes('approved') || String(po.status || '').toLowerCase().includes('active')
-                            ? 'success'
-                            : String(po.status || '').toLowerCase().includes('draft')
-                            ? 'default'
-                            : 'pending'
-                        }
-                      >
-                        {po.status || 'Active'}
-                      </Badge>
+                      {po.isShortClosed ? (
+                        <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px]">
+                          Short Closed
+                        </Badge>
+                      ) : (
+                        <Badge 
+                          variant={
+                            String(po.status || '').toLowerCase().includes('approved') || String(po.status || '').toLowerCase().includes('active')
+                              ? 'success'
+                              : String(po.status || '').toLowerCase().includes('draft')
+                              ? 'default'
+                              : 'pending'
+                          }
+                        >
+                          {po.status || 'Active'}
+                        </Badge>
+                      )}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-right font-semibold text-xs text-slate-900 dark:text-slate-100 tabular-nums">
-                      {formatCurrency(po.po_value || po.poValue || po.amount)}
+                    <TableCell className="px-3 py-3 text-right font-semibold text-xs text-slate-900 dark:text-slate-100 tabular-nums">
+                      {formatCurrency(po.po_value)}
+                    </TableCell>
+                    <TableCell className="px-3 py-3 text-right font-semibold text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      {formatCurrency(po.paid)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right font-semibold text-xs text-amber-600 dark:text-amber-400 tabular-nums">
+                      {formatCurrency(po.balance)}
                     </TableCell>
                   </TableRow>
                 ))}

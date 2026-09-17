@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import SortableHeader from '../../ui/SortableHeader';
 import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 import PODetailsDrawer from './PODetailsDrawer';
+import CopyButton from '../../ui/CopyButton';
 
 export default function POListTable({
   filteredPOs,
@@ -214,8 +215,9 @@ export default function POListTable({
                     className="rounded-xl border border-border bg-card p-4 space-y-3 cursor-pointer hover:border-amber-500/50 transition-all shadow-xs"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
+                      <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
                         {po.po_no}
+                        <CopyButton text={po.po_no} label="PO Number" />
                       </span>
                       <div className="flex items-center gap-1.5">
                         {getStatusBadge(po.status || po.approval_status)}
@@ -336,6 +338,7 @@ export default function POListTable({
                         <TableCell className="pl-5 py-3.5 font-mono text-xs font-bold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                           <span className="flex items-center gap-1.5">
                             {po.po_no}
+                            <CopyButton text={po.po_no} label="PO Number" />
                           </span>
                         </TableCell>
                         <TableCell className="px-3 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
