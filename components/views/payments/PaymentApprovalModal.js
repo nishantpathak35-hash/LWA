@@ -26,25 +26,24 @@ export default function PaymentApprovalModal({
         title={workflowAction === 'approve' ? 'Approve Payment Request' : workflowAction === 'remit' ? 'Remit Payment Request' : 'Reject Payment Request'}
         maxWidth="max-w-4xl"
       >
-        <form onSubmit={handleWorkflowAction} className="space-y-6">
-          {loadingSummary && (
-            <div className="bg-muted/40 border border-border rounded-2xl p-8 text-center text-xs text-muted-foreground font-medium flex flex-col items-center justify-center gap-2 mb-5">
+        <form onSubmit={handleWorkflowAction} className="space-y-4">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>Request <strong className="text-foreground">#{selectedRequest?.id}</strong></span>
+            <span className="text-foreground font-medium">{selectedRequest?.vendor_name}</span>
+            <span>PO {selectedRequest?.po_no || '—'}</span>
+          </div>
+          {loadingSummary && workflowAction !== 'reject' && (
+            <div className="bg-muted/40 border border-border rounded-xl p-3 text-xs text-muted-foreground flex items-center justify-center gap-2">
               <div className="w-5 h-5 border-2 border-amber-600/40 border-t-amber-600 dark:border-t-gold rounded-full animate-spin" />
               <span>Fetching project financials...</span>
             </div>
           )}
 
-          {!loadingSummary && <ProjectFinancialSummaryCard
+          {!loadingSummary && workflowAction !== 'reject' && <ProjectFinancialSummaryCard
             projectSummary={preview}
             getHealthTheme={getHealthTheme}
             progressWidths={progressWidths}
           />}
-
-          <div className="p-4 bg-muted/40 border border-border rounded-xl space-y-1.5 text-sm font-medium">
-            <p className="text-muted-foreground">Request: <strong className="text-foreground font-bold">#{selectedRequest?.id}</strong></p>
-            <p className="text-muted-foreground">Vendor: <strong className="text-foreground font-bold">{selectedRequest?.vendor_name}</strong></p>
-            <p className="text-muted-foreground">PO: <strong className="text-foreground font-bold">{selectedRequest?.po_no || '—'}</strong></p>
-          </div>
 
           {workflowAction === 'remit' && (
             <div>
