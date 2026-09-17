@@ -24,7 +24,13 @@ export default function ProjectsView() {
     try {
       const details = await call('getProjectDetails');
       setProjectsList(details || []);
-      // Do NOT auto-select first — let user choose which project to inspect
+      // Sync selectedProject if one is already open so edits reflect in real time
+      setSelectedProject(prev => {
+        if (!prev) return null;
+        const targetName = String(prev.project || prev.name || '').trim().toLowerCase();
+        const updated = (details || []).find(p => String(p.project || p.name || '').trim().toLowerCase() === targetName);
+        return updated || prev;
+      });
     } catch (e) {
       console.error(e);
       setProjectsList(stateProjects.map(p => ({

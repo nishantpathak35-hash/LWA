@@ -326,6 +326,18 @@ export default function ProjectCommandCenter({
     );
   }
 
+  // When a project card is clicked, open dedicated 360-degree project intelligence view
+  if (selectedProject) {
+    return (
+      <ProjectDetails
+        selectedProject={selectedProject}
+        projectPOs={projectPOs}
+        onBack={() => setSelectedProject(null)}
+        onUpdateProject={onUpdateProject}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ── Page Header ── */}
@@ -420,7 +432,7 @@ export default function ProjectCommandCenter({
         </div>
       </div>
 
-      {/* ── Main Content: Cards + Drill-Down ── */}
+      {/* ── Main Content: Project Cards Grid / List ── */}
       {sortedProjects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 border border-dashed border-border rounded-2xl bg-muted/20">
           <Wallet className="w-10 h-10 text-muted-foreground/30" />
@@ -430,47 +442,20 @@ export default function ProjectCommandCenter({
           </button>
         </div>
       ) : (
-        <div className={`${selectedProject ? 'grid grid-cols-1 lg:grid-cols-12 gap-6 items-start' : ''}`}>
-          {/* Project Grid / List */}
-          <div className={selectedProject ? 'lg:col-span-5' : ''}>
-            <div className={
-              viewMode === 'grid' && !selectedProject
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                : viewMode === 'grid' && selectedProject
-                ? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
-                : 'flex flex-col gap-2'
-            }>
-              {sortedProjects.map((p, idx) => (
-                <ProjectCard
-                  key={idx}
-                  project={p}
-                  isSelected={selectedProject?.project === p.project}
-                  onClick={() => setSelectedProject(prev => prev?.project === p.project ? null : p)}
-                  projectPOs={getProjectPOs(p)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Drill-Down Detail Panel */}
-          {selectedProject && (
-            <div className="lg:col-span-7 relative">
-              {/* Close button */}
-              <button
-                onClick={() => setSelectedProject(null)}
-                className="absolute -top-1 right-0 z-10 p-1.5 rounded-lg bg-muted/80 border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer"
-                title="Close panel"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-
-              <ProjectDetails
-                selectedProject={selectedProject}
-                projectPOs={projectPOs}
-                onUpdateProject={onUpdateProject}
-              />
-            </div>
-          )}
+        <div className={
+          viewMode === 'grid'
+            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+            : 'flex flex-col gap-2'
+        }>
+          {sortedProjects.map((p, idx) => (
+            <ProjectCard
+              key={idx}
+              project={p}
+              isSelected={false}
+              onClick={() => setSelectedProject(p)}
+              projectPOs={getProjectPOs(p)}
+            />
+          ))}
         </div>
       )}
     </div>
