@@ -6,6 +6,8 @@ import LoginScreen from '../components/LoginScreen';
 import MainLayout from '../components/MainLayout';
 import { Loader2 } from 'lucide-react';
 
+import Image from 'next/image';
+
 function readInviteToken() {
   if (typeof window === 'undefined') return '';
   const params = new URLSearchParams(window.location.search);
@@ -28,9 +30,24 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-950 text-slate-400 gap-3">
-        <Loader2 className="w-10 h-10 animate-spin text-gold" />
-        <span className="text-sm font-light uppercase tracking-widest text-gold/80 animate-pulse">Booting up system...</span>
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-background text-foreground select-none">
+        <div className="flex flex-col items-center gap-4 animate-logo-beat">
+          <div className="relative flex items-center justify-center w-16 h-16 rounded-2xl bg-card border border-border shadow-sm overflow-hidden p-2.5">
+            <Image
+              src="/api/brand-logo"
+              alt="Luxeworx Atelier"
+              width={64}
+              height={64}
+              unoptimized
+              priority
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-xs font-semibold tracking-wider text-primary font-display">LUXEWORX ATELIER</span>
+            <span className="text-[11px] text-muted-foreground font-medium">Project Tracking System</span>
+          </div>
+        </div>
       </div>
     );
   }

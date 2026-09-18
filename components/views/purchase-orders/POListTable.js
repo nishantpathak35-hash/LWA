@@ -9,6 +9,8 @@ import CopyButton from '../../ui/CopyButton';
 
 export default function POListTable({
   filteredPOs,
+  statusFilter: propStatusFilter,
+  setStatusFilter: propSetStatusFilter,
   searchQuery, setSearchQuery,
   poDateSortDir, setPoDateSortDir,
   openActionMenuPoNo, setOpenActionMenuPoNo,
@@ -24,7 +26,9 @@ export default function POListTable({
   const [loadingMore, setLoadingMore] = useState(false);
   const [sortField, setSortField] = useState('po_date');
   const [sortDir, setSortDir] = useState('desc');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'paid' | 'closed'
+  const [internalStatusFilter, setInternalStatusFilter] = useState('all');
+  const statusFilter = propStatusFilter !== undefined ? propStatusFilter : internalStatusFilter;
+  const setStatusFilter = propSetStatusFilter || setInternalStatusFilter;
   const [selectedPOForDrawer, setSelectedPOForDrawer] = useState(null);
 
   const handleSort = (field) => {
@@ -91,65 +95,30 @@ export default function POListTable({
   return (
     <Card className="rounded-lg border-border shadow-xs overflow-hidden">
       {/* ── Toolbar & Segmented Filters ── */}
-      <div className="p-4 border-b border-border bg-card/60 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      <div className="p-4 border-b border-border bg-card flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         
-        {/* Status Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          <button
-            type="button"
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-              statusFilter === 'all'
-                ? 'bg-foreground text-background shadow-xs'
-                : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
-            }`}
-          >
-            All POs ({filteredPOs.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('pending')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-              statusFilter === 'pending'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Needs Approval
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('approved')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-              statusFilter === 'approved'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20'
-            }`}
-          >
-            Active Approved
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('paid')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-              statusFilter === 'paid'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20'
-            }`}
-          >
-            Fully Paid
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('closed')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-              statusFilter === 'closed'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20'
-            }`}
-          >
-            Short Closed
-          </button>
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1 p-1 bg-muted/50 border border-border rounded-xl flex-shrink-0 overflow-x-auto no-scrollbar">
+          {[
+            { id: 'all', label: `All (${filteredPOs.length})` },
+            { id: 'pending', label: 'Needs Approval' },
+            { id: 'approved', label: 'Active Approved' },
+            { id: 'paid', label: 'Fully Paid' },
+            { id: 'closed', label: 'Short Closed' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setStatusFilter(tab.id)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                statusFilter === tab.id
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Search and Export Bar */}
@@ -161,7 +130,7 @@ export default function POListTable({
               placeholder="Search PO, Vendor, Project..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs py-1.5 h-9 bg-background rounded-xl border-border"
+              className="pl-9 text-xs py-1.5 h-8 bg-card rounded-lg border-border"
             />
           </div>
 
@@ -169,7 +138,7 @@ export default function POListTable({
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
-            className="h-9 px-3 text-xs font-semibold rounded-xl border-border shrink-0"
+            className="h-8 px-3 text-xs font-semibold rounded-lg border-border shrink-0"
           >
             <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
             Export
@@ -212,10 +181,10 @@ export default function POListTable({
                   <div
                     key={idx}
                     onClick={() => setSelectedPOForDrawer(po)}
-                    className="rounded-xl border border-border bg-card p-4 space-y-3 cursor-pointer hover:border-amber-500/50 transition-all shadow-xs"
+                    className="rounded-lg border border-border bg-card p-3.5 space-y-3 cursor-pointer hover:border-border-hover transition-all shadow-xs"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <span className="font-mono text-xs font-bold text-foreground flex items-center gap-1">
                         {po.po_no}
                         <CopyButton text={po.po_no} label="PO Number" />
                       </span>
@@ -226,12 +195,12 @@ export default function POListTable({
                     </div>
 
                     <div>
-                      <h4 className="font-bold text-foreground text-xs">{po.vendor_name || po.vendor_key}</h4>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{po.project || 'General Project'} • {formatDate(po.po_date)}</p>
+                      <h4 className="font-semibold text-foreground text-xs">{po.vendor_name || po.vendor_key}</h4>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{po.project || 'General'} • {formatDate(po.po_date)}</p>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="space-y-1.5 bg-muted/40 p-2.5 rounded-xl border border-border">
+                    <div className="space-y-1.5 bg-muted/40 p-2.5 rounded-lg border border-border/70">
                       <div className="flex justify-between text-[11px] font-medium tabular-nums">
                         <span className="text-muted-foreground">PO: {formatCurrency(poValue)}</span>
                         <span className="text-emerald-600 dark:text-emerald-400 font-bold">Paid: {formatCurrency(paid)} ({paidPct}%)</span>
@@ -335,7 +304,7 @@ export default function POListTable({
                         onClick={() => setSelectedPOForDrawer(po)}
                         className="border-b border-border/50 hover:bg-muted/30 transition-colors duration-150 cursor-pointer group"
                       >
-                        <TableCell className="pl-5 py-3.5 font-mono text-xs font-bold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                        <TableCell className="pl-5 py-3.5 font-mono text-xs font-bold text-foreground group-hover:text-primary transition-colors">
                           <span className="flex items-center gap-1.5">
                             {po.po_no}
                             <CopyButton text={po.po_no} label="PO Number" />
@@ -344,13 +313,8 @@ export default function POListTable({
                         <TableCell className="px-3 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
                           {formatDate(po.po_date)}
                         </TableCell>
-                        <TableCell className="px-3 py-3.5 text-xs font-semibold text-foreground truncate max-w-[220px]" title={po.vendor_name || po.vendor_key}>
-                          <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold border border-amber-500/20 shrink-0">
-                              {(po.vendor_name || po.vendor_key || 'V').substring(0, 2).toUpperCase()}
-                            </span>
-                            <span className="truncate">{po.vendor_name || po.vendor_key}</span>
-                          </div>
+                        <TableCell className="px-3 py-3.5 text-xs font-medium text-foreground truncate max-w-[220px]" title={po.vendor_name || po.vendor_key}>
+                          <span className="truncate block">{po.vendor_name || po.vendor_key}</span>
                         </TableCell>
                         <TableCell className="px-3 py-3.5 text-xs text-muted-foreground truncate max-w-[160px]" title={po.project || ''}>
                           {po.project || 'General'}

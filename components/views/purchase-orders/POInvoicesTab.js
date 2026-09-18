@@ -385,10 +385,10 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
                     type="button"
                     onClick={handleAiAutoFill}
                     disabled={aiLoading}
-                    className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
                   >
-                    {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                    {aiLoading ? 'AI Reading Document...' : '✨ AI Auto-Fill Invoice Details'}
+                    {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                    {aiLoading ? 'Reading Document...' : 'Auto-fill from Invoice'}
                   </Button>
                 </div>
               )}

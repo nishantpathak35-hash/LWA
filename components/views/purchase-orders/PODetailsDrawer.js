@@ -5,7 +5,7 @@ import {
   X, Receipt, Clock, CheckCircle2, XCircle, AlertCircle, Eye,
   Download, Send, ExternalLink, Calendar, Building2, User,
   FileText, ShieldCheck, CreditCard, ChevronRight, Hash, Layers,
-  IndianRupee, Sparkles, MessageSquare
+  IndianRupee, MessageSquare
 } from 'lucide-react';
 import { Badge, Button } from '../../ui/core';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
@@ -93,12 +93,12 @@ export default function PODetailsDrawer({
         <div className="w-screen max-w-2xl bg-card border-l border-border shadow-2xl flex flex-col transform transition-transform duration-300 ease-out animate-slide-left">
           
           {/* Header */}
-          <div className="p-5 border-b border-border bg-gradient-to-b from-muted/50 to-card">
+          <div className="p-5 border-b border-border bg-card">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-base font-bold text-foreground flex items-center gap-1.5">
-                    <Receipt className="w-4 h-4 text-amber-500" />
+                    <Receipt className="w-4 h-4 text-primary" />
                     {data.po_no}
                     <CopyButton text={data.po_no} label="PO Number" />
                   </span>
@@ -111,7 +111,7 @@ export default function PODetailsDrawer({
                   )}
                   {isPending && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Pending Approval
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Pending Approval
                     </span>
                   )}
                   {isShortClosed && (

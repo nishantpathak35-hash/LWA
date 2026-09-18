@@ -1,10 +1,18 @@
 import React, { useMemo } from 'react';
-import { Receipt, Download, PlusCircle, CheckCircle2, Clock, FileCheck, IndianRupee, ShieldCheck } from 'lucide-react';
-import { Card, CardContent, Button } from '../../ui/core';
+import { Download, Plus, CheckCircle2, Clock, FileCheck, Layers } from 'lucide-react';
+import { Card, Button } from '../../ui/core';
 import { formatCurrency } from '../../../app/lib/utils';
 
-export default function POFilters({ canCreate, filteredPOs, handleExportPOs, handleOpenModal, pos = [] }) {
-  const allPOs = pos && pos.length > 0 ? pos : (filteredPOs || []);
+export default function POFilters({
+  canCreate,
+  filteredPOs = [],
+  handleExportPOs,
+  handleOpenModal,
+  pos = [],
+  statusFilter = 'all',
+  setStatusFilter
+}) {
+  const allPOs = pos && pos.length > 0 ? pos : filteredPOs;
 
   const kpis = useMemo(() => {
     const total = allPOs.length;
@@ -41,148 +49,128 @@ export default function POFilters({ canCreate, filteredPOs, handleExportPOs, han
     };
   }, [allPOs]);
 
-  return (
-    <div className="space-y-5">
-      {/* ── 1. Header Command Banner ── */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-card via-card to-amber-500/5 border border-border p-6 rounded-lg shadow-xs">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-primary bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1.5">
-                <ShieldCheck className="w-3 h-3" /> Procurement Lifecycle
-              </span>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground font-medium">Purchase Orders Registry</span>
-            </div>
-            <div className="flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-primary border border-amber-500/30 shrink-0 shadow-inner">
-                <Receipt className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                  Purchase Orders
-                </h1>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Issue, authorize, track deliveries, and manage stage-wise billing pipelines
-                </p>
-              </div>
-            </div>
-          </div>
+  const cards = [
+    {
+      id: 'all',
+      label: 'Total POs',
+      value: kpis.total,
+      sub: `Committed: ${formatCurrency(kpis.totalVal)}`,
+      subColor: 'text-muted-foreground',
+      icon: <Layers className="w-4 h-4" />,
+      iconBg: 'bg-muted text-muted-foreground border-border',
+      hover: 'hover:border-foreground/30',
+      activeRing: 'ring-2 ring-foreground/30 border-foreground/50 bg-foreground/[0.03]',
+      isActive: statusFilter === 'all',
+      onClick: () => setStatusFilter && setStatusFilter('all'),
+      hint: 'Click to show all purchase orders'
+    },
+    {
+      id: 'pending',
+      label: 'Needs Approval',
+      value: kpis.pendingCount,
+      sub: `Pending: ${formatCurrency(kpis.pendingVal)}`,
+      subColor: kpis.pendingCount > 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-muted-foreground',
+      icon: <Clock className="w-4 h-4" />,
+      iconBg: 'bg-amber-500/10 text-amber-600 dark:text-primary border-amber-500/20',
+      hover: 'hover:border-amber-500/40',
+      activeRing: 'ring-2 ring-amber-500/50 border-amber-500/60 bg-amber-500/[0.04]',
+      isActive: statusFilter === 'pending',
+      onClick: () => setStatusFilter && setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending'),
+      hint: 'Click to filter orders needing approval'
+    },
+    {
+      id: 'approved',
+      label: 'Active Approved',
+      value: kpis.approvedCount,
+      sub: `Approved: ${formatCurrency(kpis.approvedVal)}`,
+      subColor: 'text-emerald-600 dark:text-emerald-400 font-semibold',
+      icon: <CheckCircle2 className="w-4 h-4" />,
+      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+      hover: 'hover:border-emerald-500/40',
+      activeRing: 'ring-2 ring-emerald-500/50 border-emerald-500/60 bg-emerald-500/[0.04]',
+      isActive: statusFilter === 'approved',
+      onClick: () => setStatusFilter && setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved'),
+      hint: 'Click to filter approved orders'
+    },
+    {
+      id: 'paid',
+      label: 'Disbursed Paid',
+      value: kpis.paidCount,
+      sub: `Paid: ${formatCurrency(kpis.paidVal)} (${kpis.paidPercent}%)`,
+      subColor: 'text-sky-600 dark:text-sky-400 font-semibold',
+      icon: <FileCheck className="w-4 h-4" />,
+      iconBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
+      hover: 'hover:border-sky-500/40',
+      activeRing: 'ring-2 ring-sky-500/50 border-sky-500/60 bg-sky-500/[0.04]',
+      isActive: statusFilter === 'paid',
+      onClick: () => setStatusFilter && setStatusFilter(statusFilter === 'paid' ? 'all' : 'paid'),
+      hint: 'Click to filter fully paid orders'
+    }
+  ];
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full lg:w-auto">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleExportPOs} 
-              disabled={filteredPOs.length === 0} 
-              className="text-xs font-semibold h-9 rounded-xl border-border hover:bg-muted/80 transition-all"
-            >
-              <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Export Report
-            </Button>
-            {canCreate && (
-              <Button 
-                onClick={() => handleOpenModal()} 
-                className="bg-amber-600 hover:bg-amber-700 dark:bg-gold dark:hover:bg-amber-400 text-slate-950 font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4" /> Create Purchase Order
-              </Button>
-            )}
-          </div>
+  return (
+    <div className="space-y-4">
+      {/* ── Page Header ── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Purchase Orders</h1>
+          <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+            {allPOs.length} order{allPOs.length !== 1 ? 's' : ''} · Issue, authorize, track deliveries, and manage vendor commitments
+          </p>
         </div>
 
-        {/* Treasury Settlement Progress Bar */}
-        <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3 w-full sm:w-2/3">
-            <span className="text-muted-foreground font-medium whitespace-nowrap text-[11px]">Paid Outflow Rate:</span>
-            <div className="w-full bg-muted rounded-full h-2 overflow-hidden flex">
-              <div 
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                style={{ width: `${kpis.paidPercent}%` }}
-                title={`Settled: ${kpis.paidPercent}%`}
-              />
-            </div>
-            <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono text-[11px] whitespace-nowrap">
-              {kpis.paidPercent}% Disbursed
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-            <span>Committed: <strong className="text-foreground font-mono font-semibold">{formatCurrency(kpis.totalVal)}</strong></span>
-            <span>•</span>
-            <span>Paid: <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold">{formatCurrency(kpis.paidVal)}</strong></span>
-          </div>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPOs}
+            disabled={filteredPOs.length === 0}
+            className="h-8 text-xs font-semibold border-border"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Export
+          </Button>
+          {canCreate && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleOpenModal()}
+              className="h-8 text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> New Purchase Order
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* ── 2. Metric KPI Cards Bar ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="rounded-lg border-border bg-card shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total PO Registry</span>
-              <div className="p-2 rounded-xl bg-muted text-muted-foreground">
-                <Receipt className="w-4 h-4" />
+      {/* ── KPI Metric Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {cards.map(c => (
+          <button
+            key={c.id}
+            type="button"
+            title={c.hint}
+            onClick={c.onClick}
+            className={`text-left p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 cursor-pointer overflow-hidden ${c.hover} ${c.isActive ? c.activeRing : ''}`}
+          >
+            <div className="flex items-start justify-between w-full">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block truncate">
+                    {c.label}
+                  </span>
+                  {c.isActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Active Filter" />
+                  )}
+                </div>
+                <div className="text-xl font-bold text-foreground font-mono mt-1 tabular-nums">{c.value}</div>
               </div>
+              <div className={`p-2 rounded-xl border shrink-0 ml-2 ${c.iconBg}`}>{c.icon}</div>
             </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-foreground font-mono tabular-nums">{kpis.total}</p>
-              <span className="text-xs font-semibold text-foreground font-mono tabular-nums">{formatCurrency(kpis.totalVal)}</span>
+            <div className="mt-3 pt-3 border-t border-border w-full flex items-center justify-between">
+              <span className={`text-[11px] truncate ${c.subColor}`}>{c.sub}</span>
             </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Total Contract Value</span>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-lg border-border bg-card shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Needs Approval</span>
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <Clock className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-amber-700 dark:text-amber-400 font-mono tabular-nums">{kpis.pendingCount}</p>
-              {kpis.pendingCount > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Pending Director
-                </span>
-              )}
-            </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Value: {formatCurrency(kpis.pendingVal)}</span>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-lg border-border bg-card shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Active Approved</span>
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{kpis.approvedCount}</p>
-              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(kpis.approvedVal)}</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">In Execution / Invoicing</span>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-lg border-border bg-card shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Disbursed Paid</span>
-              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                <FileCheck className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-blue-700 dark:text-blue-400 font-mono tabular-nums">{kpis.paidCount}</p>
-              <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 font-mono tabular-nums">{formatCurrency(kpis.paidVal)}</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Completed Payments</span>
-          </CardContent>
-        </Card>
+          </button>
+        ))}
       </div>
     </div>
   );

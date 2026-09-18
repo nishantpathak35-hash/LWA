@@ -86,6 +86,7 @@ export default function POsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [openActionMenuPoNo, setOpenActionMenuPoNo] = useState(null);
   const [poDateSortDir, setPoDateSortDir] = useState('desc');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // ── PO Form Modal ──
   const [modalOpen, setModalOpen]       = useState(false);
@@ -731,11 +732,15 @@ export default function POsView() {
         filteredPOs={filteredPOs}
         handleExportPOs={handleExportPOs}
         handleOpenModal={handleOpenModal}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
       />
 
       {/* PO Table */}
       <POListTable
         filteredPOs={filteredPOs}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
         poDateSortDir={poDateSortDir} setPoDateSortDir={setPoDateSortDir}
         openActionMenuPoNo={openActionMenuPoNo} setOpenActionMenuPoNo={setOpenActionMenuPoNo}
