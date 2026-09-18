@@ -84,7 +84,7 @@ export function Sparkline({ data = [], color = 'rgba(197, 168, 106, 0.95)' }) {
   }
   if (min === max) { min -= 1; max += 1; }
 
-  const w = 92, h = 34, pad = 2;
+  const w = 92, h = 34, pad = 3;
   const pts = [];
   for (let i = 0; i < cleanData.length; i++) {
     const x = pad + (i * (w - 2 * pad)) / (cleanData.length - 1);
@@ -94,17 +94,31 @@ export function Sparkline({ data = [], color = 'rgba(197, 168, 106, 0.95)' }) {
   const pointsStr = pts.join(' ');
 
   return (
-    <svg className="overflow-visible" viewBox={`0 0 ${w} ${h}`} width={w} height={h}>
+    <svg
+      className="w-full h-full block overflow-hidden"
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+    >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity={0.35} />
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
       </defs>
-      <polyline points={pointsStr} fill="none" stroke={color} strokeWidth="1.8"
-        strokeLinecap="round" strokeLinejoin="round" opacity={0.95} />
-      <path d={`M ${pts[0]} L ${pts.join(' L ')} L ${w - pad},${h - pad} L ${pad},${h - pad} Z`}
-        fill={`url(#${gradId})`} opacity={0.9} />
+      <polyline
+        points={pointsStr}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={0.95}
+      />
+      <path
+        d={`M ${pts[0]} L ${pts.join(' L ')} L ${w - pad},${h - pad} L ${pad},${h - pad} Z`}
+        fill={`url(#${gradId})`}
+        opacity={0.9}
+      />
     </svg>
   );
 }

@@ -34,42 +34,42 @@ export default function DashboardFinancialSection({
 
       {/* Financial KPI Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs">
+        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs overflow-hidden">
           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">BCS</div>
           <div className="text-lg font-bold text-foreground tabular-nums">{fmtLakhs(totBCS)}</div>
-          <div className="h-5"><Sparkline data={spBCS} color="rgba(34,211,238,.95)" /></div>
+          <div className="h-5 overflow-hidden"><Sparkline data={spBCS} color="rgba(34,211,238,.95)" /></div>
         </Card>
-        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs">
+        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs overflow-hidden">
           <div className="text-[10px] font-bold text-violet-700 dark:text-violet-400 uppercase tracking-wider">Planned GM</div>
           <div className="text-lg font-bold text-violet-700 dark:text-violet-400 tabular-nums">{fmtLakhs(totPGM)}</div>
-          <div className="h-5"><Sparkline data={spPGM} color="rgba(155,114,248,.95)" /></div>
+          <div className="h-5 overflow-hidden"><Sparkline data={spPGM} color="rgba(155,114,248,.95)" /></div>
         </Card>
-        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs">
+        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs overflow-hidden">
           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">PO Issued</div>
           <div className="text-lg font-bold text-foreground tabular-nums">{fmtLakhs(totPO)}</div>
-          <div className="h-5"><Sparkline data={spPO} color="rgba(200,164,90,.95)" /></div>
+          <div className="h-5 overflow-hidden"><Sparkline data={spPO} color="rgba(200,164,90,.95)" /></div>
         </Card>
-        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs">
+        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs overflow-hidden">
           <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Actual GM</div>
           <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">{fmtLakhs(totAGM)}</div>
-          <div className="h-5"><Sparkline data={spAGM} color="rgba(61,214,140,.95)" /></div>
+          <div className="h-5 overflow-hidden"><Sparkline data={spAGM} color="rgba(61,214,140,.95)" /></div>
         </Card>
-        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs">
+        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs overflow-hidden">
           <div className="text-[10px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Outflow (Paid)</div>
           <div className="text-lg font-bold text-rose-700 dark:text-rose-400 tabular-nums">{fmtLakhs(totOut)}</div>
-          <div className="h-5"><Sparkline data={spOut} color="rgba(239,68,68,.95)" /></div>
+          <div className="h-5 overflow-hidden"><Sparkline data={spOut} color="rgba(239,68,68,.95)" /></div>
         </Card>
-        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs">
+        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs overflow-hidden">
           <div className="text-[10px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">Pending Outflow</div>
           <div className="text-lg font-bold text-amber-700 dark:text-amber-500 tabular-nums">{fmtLakhs(totPendOut)}</div>
-          <div className="h-5"><Sparkline data={spPendOut} color="rgba(245,158,11,.95)" /></div>
+          <div className="h-5 overflow-hidden"><Sparkline data={spPendOut} color="rgba(245,158,11,.95)" /></div>
         </Card>
-        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs">
+        <Card className="p-3.5 flex flex-col justify-between h-24 shadow-xs overflow-hidden">
           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Balance Available</div>
           <div className={cn("text-lg font-bold tabular-nums", totBal < 0 ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400")}>
             {fmtLakhs(totBal)}
           </div>
-          <div className="h-5">
+          <div className="h-5 overflow-hidden">
             <Sparkline data={spBal} color={totBal < 0 ? "rgba(241,86,106,.95)" : "rgba(61,214,140,.95)"} />
           </div>
         </Card>

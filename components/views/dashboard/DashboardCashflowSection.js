@@ -33,39 +33,39 @@ export default function DashboardCashflowSection({
 
       {/* Project Cashflow Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="flex items-center justify-between p-4 shadow-xs">
+        <Card className="flex items-center justify-between p-4 shadow-xs overflow-hidden">
           <div>
             <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Project Value</div>
             <div className="text-xl font-bold text-foreground mt-1.5 tabular-nums">{fmtLakhs(totPV)}</div>
           </div>
-          <div className="w-20 h-10">
+          <div className="w-20 h-10 shrink-0 overflow-hidden relative">
             <Sparkline data={spPV} color="rgba(200,164,90,.95)" />
           </div>
         </Card>
-        <Card className="flex items-center justify-between p-4 shadow-xs">
+        <Card className="flex items-center justify-between p-4 shadow-xs overflow-hidden">
           <div>
             <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Inflow</div>
             <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400 mt-1.5 tabular-nums">{fmtLakhs(totInflow)}</div>
           </div>
-          <div className="w-20 h-10">
+          <div className="w-20 h-10 shrink-0 overflow-hidden relative">
             <Sparkline data={spIn} color="rgba(61,214,140,.95)" />
           </div>
         </Card>
-        <Card className="flex items-center justify-between p-4 shadow-xs">
+        <Card className="flex items-center justify-between p-4 shadow-xs overflow-hidden">
           <div>
             <div className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Outflow (Paid)</div>
             <div className="text-xl font-bold text-rose-700 dark:text-rose-400 mt-1.5 tabular-nums">{fmtLakhs(totOut)}</div>
           </div>
-          <div className="w-20 h-10">
+          <div className="w-20 h-10 shrink-0 overflow-hidden relative">
             <Sparkline data={spOutCF} color="rgba(239,68,68,.95)" />
           </div>
         </Card>
-        <Card className="flex items-center justify-between p-4 shadow-xs">
+        <Card className="flex items-center justify-between p-4 shadow-xs overflow-hidden">
           <div>
             <div className="text-[11px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">Pending Inflow</div>
             <div className="text-xl font-bold text-amber-700 dark:text-amber-500 mt-1.5 tabular-nums">{fmtLakhs(totPendInflow)}</div>
           </div>
-          <div className="w-20 h-10">
+          <div className="w-20 h-10 shrink-0 overflow-hidden relative">
             <Sparkline data={spPin} color="rgba(245,158,11,.95)" />
           </div>
         </Card>

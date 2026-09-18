@@ -41,7 +41,7 @@ const STATUS_CONFIG = {
 };
 
 // ─── Summary KPI Strip ─────────────────────────────────────────────────────────
-function ProjectsKpiStrip({ projectsList }) {
+function ProjectsKpiStrip({ projectsList, sortBy, setSortBy, statusFilter, setStatusFilter }) {
   const totals = useMemo(() => {
     let totPO = 0, totOutflow = 0, totPending = 0, totBCS = 0, totPV = 0;
     projectsList.forEach(p => {
@@ -63,6 +63,7 @@ function ProjectsKpiStrip({ projectsList }) {
 
   const kpis = [
     {
+      id: 'po',
       label: 'Total PO Committed',
       value: fmtLakhs(totPO),
       sub: `${budgetUsedPct}% of BCS Budget`,
@@ -71,8 +72,15 @@ function ProjectsKpiStrip({ projectsList }) {
       accent: 'amber',
       spark: projectsList.map(p => num(p.poIssued)),
       sparkColor: 'rgba(200,164,90,.95)',
+      isActive: statusFilter !== 'overrun' && sortBy === 'po-desc',
+      hint: 'Click to sort by PO Committed',
+      onClick: () => {
+        if (statusFilter === 'overrun' && setStatusFilter) setStatusFilter('all');
+        if (setSortBy) setSortBy('po-desc');
+      },
     },
     {
+      id: 'outflow',
       label: 'Total Paid Outflow',
       value: fmtLakhs(totOutflow),
       sub: `${totPO > 0 ? Math.round((totOutflow / totPO) * 100) : 0}% of Committed Spent`,
@@ -81,8 +89,15 @@ function ProjectsKpiStrip({ projectsList }) {
       accent: 'emerald',
       spark: projectsList.map(p => num(p.outflow)),
       sparkColor: 'rgba(61,214,140,.95)',
+      isActive: statusFilter !== 'overrun' && sortBy === 'outflow-desc',
+      hint: 'Click to sort by Paid Outflow',
+      onClick: () => {
+        if (statusFilter === 'overrun' && setStatusFilter) setStatusFilter('all');
+        if (setSortBy) setSortBy('outflow-desc');
+      },
     },
     {
+      id: 'pending',
       label: 'Pending Outflow',
       value: fmtLakhs(totPending),
       sub: 'Approved, Not Yet Remitted',
@@ -91,8 +106,15 @@ function ProjectsKpiStrip({ projectsList }) {
       accent: 'sky',
       spark: projectsList.map(p => num(p.pendingOutflow)),
       sparkColor: 'rgba(56,189,248,.95)',
+      isActive: statusFilter !== 'overrun' && sortBy === 'pending-desc',
+      hint: 'Click to sort by Pending Outflow',
+      onClick: () => {
+        if (statusFilter === 'overrun' && setStatusFilter) setStatusFilter('all');
+        if (setSortBy) setSortBy('pending-desc');
+      },
     },
     {
+      id: 'budget',
       label: 'Budget (BCS)',
       value: fmtLakhs(totBCS),
       sub: `Contract Value: ${fmtLakhs(totPV)}`,
@@ -101,8 +123,15 @@ function ProjectsKpiStrip({ projectsList }) {
       accent: 'violet',
       spark: projectsList.map(p => num(p.bcs)),
       sparkColor: 'rgba(167,139,250,.95)',
+      isActive: statusFilter !== 'overrun' && sortBy === 'budget-desc',
+      hint: 'Click to sort by BCS Budget',
+      onClick: () => {
+        if (statusFilter === 'overrun' && setStatusFilter) setStatusFilter('all');
+        if (setSortBy) setSortBy('budget-desc');
+      },
     },
     {
+      id: 'overrun',
       label: 'Projects at Risk',
       value: overrun,
       sub: overrun > 0 ? `${overrun} Budget Overrun${overrun > 1 ? 's' : ''}` : 'All Projects Healthy',
@@ -110,35 +139,76 @@ function ProjectsKpiStrip({ projectsList }) {
       icon: overrun > 0 ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />,
       accent: overrun > 0 ? 'rose' : 'emerald',
       spark: null,
+      isActive: statusFilter === 'overrun',
+      hint: overrun > 0 ? (statusFilter === 'overrun' ? 'Click to show all projects' : 'Click to filter projects at risk') : 'All projects are within budget',
+      onClick: () => {
+        if (!setStatusFilter) return;
+        setStatusFilter(statusFilter === 'overrun' ? 'all' : 'overrun');
+      },
     },
   ];
 
   const accentMap = {
-    amber:   { iconBg: 'bg-amber-500/10 text-amber-600 dark:text-primary border-amber-500/20', hover: 'hover:border-amber-500/40' },
-    emerald: { iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', hover: 'hover:border-emerald-500/40' },
-    sky:     { iconBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20', hover: 'hover:border-sky-500/40' },
-    violet:  { iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20', hover: 'hover:border-violet-500/40' },
-    rose:    { iconBg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20', hover: 'hover:border-rose-500/40' },
+    amber:   {
+      iconBg: 'bg-amber-500/10 text-amber-600 dark:text-primary border-amber-500/20',
+      hover: 'hover:border-amber-500/40',
+      activeRing: 'ring-2 ring-amber-500/50 border-amber-500/60 bg-amber-500/[0.04]',
+    },
+    emerald: {
+      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+      hover: 'hover:border-emerald-500/40',
+      activeRing: 'ring-2 ring-emerald-500/50 border-emerald-500/60 bg-emerald-500/[0.04]',
+    },
+    sky:     {
+      iconBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
+      hover: 'hover:border-sky-500/40',
+      activeRing: 'ring-2 ring-sky-500/50 border-sky-500/60 bg-sky-500/[0.04]',
+    },
+    violet:  {
+      iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
+      hover: 'hover:border-violet-500/40',
+      activeRing: 'ring-2 ring-violet-500/50 border-violet-500/60 bg-violet-500/[0.04]',
+    },
+    rose:    {
+      iconBg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+      hover: 'hover:border-rose-500/40',
+      activeRing: 'ring-2 ring-rose-500/50 border-rose-500/60 bg-rose-500/[0.04]',
+    },
   };
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      {kpis.map((k, i) => {
+      {kpis.map((k) => {
         const ac = accentMap[k.accent];
         return (
-          <Card key={i} className={`p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 ${ac.hover}`}>
-            <div className="flex items-start justify-between">
+          <button
+            key={k.id}
+            type="button"
+            onClick={k.onClick}
+            title={k.hint}
+            className={`text-left p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 cursor-pointer overflow-hidden ${ac.hover} ${k.isActive ? ac.activeRing : ''}`}
+          >
+            <div className="flex items-start justify-between w-full">
               <div className="min-w-0 flex-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{k.label}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block truncate">{k.label}</span>
+                  {k.isActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Active" />
+                  )}
+                </div>
                 <div className="text-xl font-bold text-foreground font-mono mt-1 tabular-nums">{k.value}</div>
               </div>
               <div className={`p-2 rounded-xl border shrink-0 ml-2 ${ac.iconBg}`}>{k.icon}</div>
             </div>
-            <div className="flex items-end justify-between mt-3 pt-3 border-t border-border">
-              <span className={`text-[11px] font-semibold ${k.subColor}`}>{k.sub}</span>
-              {k.spark && <div className="w-16 h-7"><Sparkline data={k.spark} color={k.sparkColor} /></div>}
+            <div className="flex items-end justify-between mt-3 pt-3 border-t border-border w-full">
+              <span className={`text-[11px] font-semibold truncate ${k.subColor}`}>{k.sub}</span>
+              {k.spark && (
+                <div className="w-16 h-7 shrink-0 overflow-hidden relative">
+                  <Sparkline data={k.spark} color={k.sparkColor} />
+                </div>
+              )}
             </div>
-          </Card>
+          </button>
         );
       })}
     </div>
@@ -364,7 +434,15 @@ export default function ProjectCommandCenter({
       </div>
 
       {/* ── KPI Strip ── */}
-      {projectsList.length > 0 && <ProjectsKpiStrip projectsList={projectsList} />}
+      {projectsList.length > 0 && (
+        <ProjectsKpiStrip
+          projectsList={projectsList}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+        />
+      )}
 
       {/* ── Filter Tabs + Search + View Toggle ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">

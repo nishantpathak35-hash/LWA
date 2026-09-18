@@ -112,33 +112,33 @@ export default function DashboardProjectLedger({
         {/* Dynamic Contextual KPI Mini-Strip based on active view */}
         {activeTab === 'cashflow' && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-border">
-            <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between overflow-hidden">
               <div>
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Contract Value</span>
                 <span className="text-base font-bold text-foreground font-mono tabular-nums">{fmtLakhs(totPV)}</span>
               </div>
-              <div className="w-16 h-8 shrink-0"><Sparkline data={spPV} color="rgba(200,164,90,.95)" /></div>
+              <div className="w-16 h-8 shrink-0 overflow-hidden relative"><Sparkline data={spPV} color="rgba(200,164,90,.95)" /></div>
             </div>
-            <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between overflow-hidden">
               <div>
                 <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">Inflow Received</span>
                 <span className="text-base font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums">{fmtLakhs(totInflow)}</span>
               </div>
-              <div className="w-16 h-8 shrink-0"><Sparkline data={spIn} color="rgba(61,214,140,.95)" /></div>
+              <div className="w-16 h-8 shrink-0 overflow-hidden relative"><Sparkline data={spIn} color="rgba(61,214,140,.95)" /></div>
             </div>
-            <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between overflow-hidden">
               <div>
                 <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">Outflow (Paid)</span>
                 <span className="text-base font-bold text-rose-600 dark:text-rose-400 font-mono tabular-nums">{fmtLakhs(totOut)}</span>
               </div>
-              <div className="w-16 h-8 shrink-0"><Sparkline data={spOutCF} color="rgba(239,68,68,.95)" /></div>
+              <div className="w-16 h-8 shrink-0 overflow-hidden relative"><Sparkline data={spOutCF} color="rgba(239,68,68,.95)" /></div>
             </div>
-            <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between overflow-hidden">
               <div>
                 <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider block">Pending Inflow</span>
                 <span className="text-base font-bold text-amber-600 dark:text-amber-500 font-mono tabular-nums">{fmtLakhs(totPendInflow)}</span>
               </div>
-              <div className="w-16 h-8 shrink-0"><Sparkline data={spPin} color="rgba(245,158,11,.95)" /></div>
+              <div className="w-16 h-8 shrink-0 overflow-hidden relative"><Sparkline data={spPin} color="rgba(245,158,11,.95)" /></div>
             </div>
           </div>
         )}

@@ -7,7 +7,7 @@ import { num, fmtLakhs, Sparkline } from '../dashboard/dashboard-utils';
  * ReportsSummaryStrip — shows at all times, computed from payments context.
  * No API call needed. Eliminates blank screen on report page load.
  */
-export default function ReportsSummaryStrip({ payments = [], onTabClick }) {
+export default function ReportsSummaryStrip({ payments = [], onTabClick, currentTab }) {
   const stats = useMemo(() => {
     let totalApproved = 0, totalRemitted = 0, totalPendingRemit = 0;
     let totalTDS = 0, approvedCount = 0, pendingRemitCount = 0;
@@ -59,10 +59,12 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick }) {
       subColor: 'text-emerald-500',
       icon: <CheckCircle2 className="w-4 h-4" />,
       iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-      hover: 'hover:border-emerald-500/30',
+      hover: 'hover:border-emerald-500/40',
+      activeRing: 'ring-2 ring-emerald-500/50 border-emerald-500/60 bg-emerald-500/[0.04]',
       spark: stats.approvedSpark,
       sparkColor: 'rgba(61,214,140,.95)',
       tab: 'Approved',
+      hint: 'Click to view Approved report',
     },
     {
       label: 'Pending Remittance',
@@ -71,9 +73,11 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick }) {
       subColor: stats.pendingRemitCount > 0 ? 'text-amber-500' : 'text-muted-foreground',
       icon: <Clock className="w-4 h-4" />,
       iconBg: 'bg-amber-500/10 text-amber-600 dark:text-primary border-amber-500/20',
-      hover: 'hover:border-amber-500/30',
+      hover: 'hover:border-amber-500/40',
+      activeRing: 'ring-2 ring-amber-500/50 border-amber-500/60 bg-amber-500/[0.04]',
       spark: null,
       tab: 'Remit',
+      hint: 'Click to view Remit queue',
     },
     {
       label: 'Total Remitted',
@@ -82,9 +86,11 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick }) {
       subColor: 'text-sky-500',
       icon: <Send className="w-4 h-4" />,
       iconBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
-      hover: 'hover:border-sky-500/30',
+      hover: 'hover:border-sky-500/40',
+      activeRing: 'ring-2 ring-sky-500/50 border-sky-500/60 bg-sky-500/[0.04]',
       spark: null,
       tab: 'Remitted',
+      hint: 'Click to view Remitted report',
     },
     {
       label: 'TDS Deducted',
@@ -93,34 +99,50 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick }) {
       subColor: 'text-violet-500',
       icon: <IndianRupee className="w-4 h-4" />,
       iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
-      hover: 'hover:border-violet-500/30',
+      hover: 'hover:border-violet-500/40',
+      activeRing: 'ring-2 ring-violet-500/50 border-violet-500/60 bg-violet-500/[0.04]',
       spark: stats.tdsSpark,
       sparkColor: 'rgba(167,139,250,.95)',
       tab: 'TDS_Register',
+      hint: 'Click to view TDS Register',
     },
   ];
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      {kpis.map((k, i) => (
-        <button
-          key={i}
-          onClick={() => k.tab && onTabClick && onTabClick(k.tab)}
-          className={`text-left p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 cursor-pointer ${k.hover}`}
-        >
-          <div className="flex items-start justify-between">
-            <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{k.label}</span>
-              <div className="text-xl font-bold text-foreground font-mono mt-1 tabular-nums">{k.value}</div>
+      {kpis.map((k, i) => {
+        const isActive = currentTab === k.tab;
+        return (
+          <button
+            key={i}
+            type="button"
+            title={k.hint}
+            onClick={() => k.tab && onTabClick && onTabClick(k.tab)}
+            className={`text-left p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 cursor-pointer overflow-hidden ${k.hover} ${isActive ? k.activeRing : ''}`}
+          >
+            <div className="flex items-start justify-between w-full">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block truncate">{k.label}</span>
+                  {isActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Active Tab" />
+                  )}
+                </div>
+                <div className="text-xl font-bold text-foreground font-mono mt-1 tabular-nums">{k.value}</div>
+              </div>
+              <div className={`p-2 rounded-xl border shrink-0 ml-2 ${k.iconBg}`}>{k.icon}</div>
             </div>
-            <div className={`p-2 rounded-xl border shrink-0 ml-2 ${k.iconBg}`}>{k.icon}</div>
-          </div>
-          <div className="flex items-end justify-between mt-3 pt-3 border-t border-border">
-            <span className={`text-[11px] font-semibold ${k.subColor}`}>{k.sub}</span>
-            {k.spark && <div className="w-16 h-7"><Sparkline data={k.spark} color={k.sparkColor} /></div>}
-          </div>
-        </button>
-      ))}
+            <div className="flex items-end justify-between mt-3 pt-3 border-t border-border w-full">
+              <span className={`text-[11px] font-semibold truncate ${k.subColor}`}>{k.sub}</span>
+              {k.spark && (
+                <div className="w-16 h-7 shrink-0 overflow-hidden relative">
+                  <Sparkline data={k.spark} color={k.sparkColor} />
+                </div>
+              )}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

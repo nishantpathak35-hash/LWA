@@ -414,6 +414,7 @@ export default function ReportsView() {
       <ReportsSummaryStrip
         payments={payments || []}
         onTabClick={(tab) => setReportType(tab)}
+        currentTab={reportType}
       />
       <ReportsHeader
         handleExport={handleExport} loading={loading} data={data} rTypes={rTypes}
