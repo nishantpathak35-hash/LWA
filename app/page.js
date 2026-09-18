@@ -45,7 +45,7 @@ function AppContent() {
           </div>
           <div className="flex flex-col items-center gap-1">
             <span className="text-xs font-semibold tracking-wider text-primary font-display">LUXEWORX ATELIER</span>
-            <span className="text-[11px] text-muted-foreground font-medium">Project Tracking System</span>
+            <span className="text-[11px] text-muted-foreground font-medium">Payment Tracking System</span>
           </div>
         </div>
       </div>
