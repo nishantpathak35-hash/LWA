@@ -24,5 +24,6 @@ export { addComment, getComments, requestPaymentClarification, answerPaymentClar
 export { getUserNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead } from './api/notifications.js';
 export { vendorLogin, getVendorPortalSession, getVendorPortalPOs, getVendorPortalPO, submitVendorInvoice, getVendorPortalInvoices, getVendorPortalInvoice, listInvoices, getInvoice, uploadInternalInvoice, updateInvoiceStatus, getPOInvoices, inviteVendorPortalUserAdmin, createVendorInvitation, resendVendorInvitation, getVendorOnboardingByToken, submitVendorOnboarding, listPendingOnboardings, getOnboardingDetails, approveVendorOnboarding, rejectVendorOnboarding, toggleVendorPortalAccess, deleteInvoice, listActiveInvitations } from './api/invoices.js';
 export { sendInternalWhatsApp, whatsappPO, whatsappPaymentAdvice } from './api/whatsappService.js';
+export { createDatabaseBackup, getSystemHealthAndDiagnostics, getGoogleDriveConfig, saveGoogleDriveConfig, testGoogleDriveConnection, performAutoBackupToGoogleDrive } from './api/system.js';
 
 

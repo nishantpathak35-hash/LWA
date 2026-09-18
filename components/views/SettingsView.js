@@ -55,6 +55,14 @@ export default function SettingsView() {
   const [poPrefix, setPoPrefix] = useState('');
   const [controlPolicies, setControlPolicies] = useState({ ...DEFAULT_CONTROL_POLICIES });
   const [savingControlPolicies, setSavingControlPolicies] = useState(false);
+  const [gdriveConfig, setGDriveConfig] = useState(null);
+  const [gdriveForm, setGDriveForm] = useState({ clientEmail: '', privateKey: '', folderId: '', enabled: false });
+  const [gdriveSaving, setGDriveSaving] = useState(false);
+  const [gdriveTesting, setGDriveTesting] = useState(false);
+  const [gdriveBackingUp, setGDriveBackingUp] = useState(false);
+  const [systemHealth, setSystemHealth] = useState(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [backupDownloading, setBackupDownloading] = useState(false);
   // Raw permissions from DB (source of truth after load)
   const [permissions, setPermissions] = useState({});
   // Controlled local state for the matrix UI (what checkboxes actually reflect)
@@ -159,11 +167,26 @@ export default function SettingsView() {
   // Load System Tab Data
   const loadSystem = useCallback(async () => {
     try {
-      const [prefix, policies] = await Promise.all([call('getPOPrefix'), call('getControlPolicies')]);
+      const [prefix, policies, gdConfig, health] = await Promise.all([
+        call('getPOPrefix'),
+        call('getControlPolicies'),
+        call('getGoogleDriveConfig').catch(() => null),
+        call('getSystemHealthAndDiagnostics').catch(() => null)
+      ]);
       setPoPrefix(prefix || '');
       setControlPolicies({ ...DEFAULT_CONTROL_POLICIES, ...(policies || {}) });
+      if (gdConfig) {
+        setGDriveConfig(gdConfig);
+        setGDriveForm({
+          clientEmail: gdConfig.clientEmail || '',
+          privateKey: gdConfig.hasPrivateKey ? '••••••••••••••••' : '',
+          folderId: gdConfig.folderId || '',
+          enabled: Boolean(gdConfig.enabled)
+        });
+      }
+      if (health) setSystemHealth(health);
     } catch (e) {
-      console.error('Failed to load PO prefix:', e);
+      console.error('Failed to load system settings:', e);
     }
   }, [call]);
 
@@ -327,6 +350,95 @@ export default function SettingsView() {
       toast('Cache cleared. Reload the page to see fresh data.');
     } catch (e) {
       toast.error('Error: ' + (e.message || String(e)));
+    }
+  };
+
+  const handleSaveGDriveConfig = async () => {
+    setGDriveSaving(true);
+    try {
+      const res = await call('saveGoogleDriveConfig', gdriveForm);
+      if (res?.config) {
+        setGDriveConfig(prev => ({ ...(prev || {}), ...res.config }));
+      }
+      toast.success('Google Drive settings saved successfully');
+    } catch (e) {
+      toast.error('Failed to save Google Drive settings: ' + (e.message || String(e)));
+    } finally {
+      setGDriveSaving(false);
+    }
+  };
+
+  const handleTestGDriveConnection = async () => {
+    setGDriveTesting(true);
+    try {
+      const res = await call('testGoogleDriveConnection', gdriveForm);
+      if (res?.success) {
+        toast.success(`Google Drive connected: Folder "${res.folderName || res.folderId}" is write-accessible!`);
+      } else {
+        toast.error('Could not verify write access to folder');
+      }
+    } catch (e) {
+      toast.error('Connection test failed: ' + (e.message || String(e)));
+    } finally {
+      setGDriveTesting(false);
+    }
+  };
+
+  const handleBackupToGDriveNow = async () => {
+    setGDriveBackingUp(true);
+    try {
+      const res = await call('performAutoBackupToGoogleDrive', 'manual', gdriveForm);
+      if (res?.success) {
+        toast.success(`Backup uploaded to Google Drive! (${res.fileName})`);
+        setGDriveConfig(prev => ({ ...(prev || {}), lastBackup: res }));
+      } else {
+        toast.error('Backup skipped: ' + (res?.reason || 'Unknown status'));
+      }
+    } catch (e) {
+      toast.error('Google Drive backup failed: ' + (e.message || String(e)));
+    } finally {
+      setGDriveBackingUp(false);
+    }
+  };
+
+  const handleDownloadLocalBackup = async () => {
+    setBackupDownloading(true);
+    try {
+      const backup = await call('createDatabaseBackup');
+      const jsonStr = JSON.stringify(backup, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const d = new Date().toISOString().replace(/[:.]/g, '-');
+      link.href = url;
+      link.download = `lwa_pts_backup_${d}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Database snapshot downloaded (${backup?.meta?.totalRecords || 0} records across ${backup?.meta?.totalTables || 0} tables)`);
+      loadSystem();
+    } catch (e) {
+      toast.error('Failed to export database snapshot: ' + (e.message || String(e)));
+    } finally {
+      setBackupDownloading(false);
+    }
+  };
+
+  const handleRunDiagnostics = async () => {
+    setDiagnosticsLoading(true);
+    try {
+      const health = await call('getSystemHealthAndDiagnostics');
+      setSystemHealth(health);
+      if (health?.status === 'healthy') {
+        toast.success(`System diagnostic passed! Latency: ${health.latencyMs}ms, ${health.totalRows} records verified.`);
+      } else {
+        toast.warning('System diagnostic completed: Some orphaned records need attention.');
+      }
+    } catch (e) {
+      toast.error('Diagnostic run failed: ' + (e.message || String(e)));
+    } finally {
+      setDiagnosticsLoading(false);
     }
   };
 
@@ -624,7 +736,7 @@ export default function SettingsView() {
       description: 'System utilities, audit trail & tools',
       icon: Wrench,
       tabs: [
-        { id: 'system', label: 'System Utilities', icon: Settings },
+        { id: 'system', label: 'System & Cloud Backup', icon: Database },
         { id: 'audit', label: 'Audit Log', icon: ClipboardList },
         { id: 'legacy_correction', label: 'Legacy Correction', icon: Shield },
         { id: 'project_merger', label: 'Project Merger', icon: Plus }
@@ -777,6 +889,13 @@ export default function SettingsView() {
           handleClearServerCache={handleClearServerCache} handleReloadAll={handleReloadAll}
           controlPolicies={controlPolicies} setControlPolicies={setControlPolicies}
           handleSaveControlPolicies={handleSaveControlPolicies} savingControlPolicies={savingControlPolicies}
+          gdriveConfig={gdriveConfig}
+          gdriveForm={gdriveForm} setGDriveForm={setGDriveForm}
+          gdriveSaving={gdriveSaving} handleSaveGDriveConfig={handleSaveGDriveConfig}
+          gdriveTesting={gdriveTesting} handleTestGDriveConnection={handleTestGDriveConnection}
+          gdriveBackingUp={gdriveBackingUp} handleBackupToGDriveNow={handleBackupToGDriveNow}
+          backupDownloading={backupDownloading} handleDownloadLocalBackup={handleDownloadLocalBackup}
+          systemHealth={systemHealth} diagnosticsLoading={diagnosticsLoading} handleRunDiagnostics={handleRunDiagnostics}
           legacyPONo={legacyPONo} setLegacyPONo={setLegacyPONo} legacyPO={legacyPO}
           legacyNewPaid={legacyNewPaid} setLegacyNewPaid={setLegacyNewPaid}
           legacyReason={legacyReason} setLegacyReason={setLegacyReason}
