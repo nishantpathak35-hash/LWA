@@ -44,18 +44,18 @@ export default function POFilters({ canCreate, filteredPOs, handleExportPOs, han
   return (
     <div className="space-y-5">
       {/* ── 1. Header Command Banner ── */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-card via-card to-amber-500/5 border border-border/80 p-6 rounded-2xl shadow-xs">
+      <div className="relative overflow-hidden bg-gradient-to-r from-card via-card to-amber-500/5 border border-border p-6 rounded-lg shadow-xs">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-gold bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-primary bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1.5">
                 <ShieldCheck className="w-3 h-3" /> Procurement Lifecycle
               </span>
               <span className="text-xs text-muted-foreground">•</span>
               <span className="text-xs text-muted-foreground font-medium">Purchase Orders Registry</span>
             </div>
             <div className="flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-gold border border-amber-500/30 shrink-0 shadow-inner">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-primary border border-amber-500/30 shrink-0 shadow-inner">
                 <Receipt className="w-6 h-6" />
               </div>
               <div>
@@ -75,7 +75,7 @@ export default function POFilters({ canCreate, filteredPOs, handleExportPOs, han
               size="sm" 
               onClick={handleExportPOs} 
               disabled={filteredPOs.length === 0} 
-              className="text-xs font-semibold h-9 rounded-xl border-border/80 hover:bg-muted/80 transition-all"
+              className="text-xs font-semibold h-9 rounded-xl border-border hover:bg-muted/80 transition-all"
             >
               <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Export Report
             </Button>
@@ -91,7 +91,7 @@ export default function POFilters({ canCreate, filteredPOs, handleExportPOs, han
         </div>
 
         {/* Treasury Settlement Progress Bar */}
-        <div className="mt-5 pt-4 border-t border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-3 w-full sm:w-2/3">
             <span className="text-muted-foreground font-medium whitespace-nowrap text-[11px]">Paid Outflow Rate:</span>
             <div className="w-full bg-muted rounded-full h-2 overflow-hidden flex">
@@ -116,7 +116,7 @@ export default function POFilters({ canCreate, filteredPOs, handleExportPOs, han
 
       {/* ── 2. Metric KPI Cards Bar ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+        <Card className="rounded-lg border-border bg-card shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total PO Registry</span>
@@ -132,7 +132,7 @@ export default function POFilters({ canCreate, filteredPOs, handleExportPOs, han
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+        <Card className="rounded-lg border-border bg-card shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Needs Approval</span>
@@ -152,7 +152,7 @@ export default function POFilters({ canCreate, filteredPOs, handleExportPOs, han
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+        <Card className="rounded-lg border-border bg-card shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Active Approved</span>
@@ -168,7 +168,7 @@ export default function POFilters({ canCreate, filteredPOs, handleExportPOs, han
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+        <Card className="rounded-lg border-border bg-card shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Disbursed Paid</span>

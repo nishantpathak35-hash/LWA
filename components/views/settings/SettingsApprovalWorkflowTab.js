@@ -94,7 +94,7 @@ export default function SettingsApprovalWorkflowTab() {
   return (
     <Card className="bg-card border-border shadow-xs rounded-xl">
       <CardHeader className="flex flex-col sm:flex-row items-center justify-between p-6 border-b border-border bg-muted/20 gap-4">
-        <CardTitle className="text-amber-800 dark:text-gold font-bold text-sm uppercase tracking-wider">
+        <CardTitle className="text-amber-800 dark:text-primary font-bold text-sm uppercase tracking-wider">
           Approval Workflows ({processedWorkflows.length})
         </CardTitle>
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -140,7 +140,7 @@ export default function SettingsApprovalWorkflowTab() {
                       <Edit className="w-3.5 h-3.5 mr-1" />
                       Edit
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleClone(wf.id)} className="h-7 text-xs text-amber-700 dark:text-gold hover:bg-amber-50 dark:hover:bg-gold/10">
+                    <Button variant="ghost" size="sm" onClick={() => handleClone(wf.id)} className="h-7 text-xs text-amber-700 dark:text-primary hover:bg-amber-50 dark:hover:bg-gold/10">
                       <Copy className="w-3.5 h-3.5 mr-1" />
                       Clone
                     </Button>

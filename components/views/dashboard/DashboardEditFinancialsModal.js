@@ -13,8 +13,8 @@ export default function DashboardEditFinancialsModal({
   return (
     <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} title="Update Project Financial Baseline">
       <form onSubmit={handleSaveFinancials} className="space-y-4">
-        <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-xl border border-border/80 text-xs">
-          <Building2 className="w-4 h-4 text-amber-600 dark:text-gold shrink-0" />
+        <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-xl border border-border text-xs">
+          <Building2 className="w-4 h-4 text-amber-600 dark:text-primary shrink-0" />
           <div>
             <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Project Reference</span>
             <strong className="text-foreground font-bold text-sm">{editProject?.project}</strong>

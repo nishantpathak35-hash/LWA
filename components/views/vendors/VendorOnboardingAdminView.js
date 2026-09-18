@@ -144,7 +144,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* View Title & Action Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-border/40">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-border/50">
         <div>
           <h3 className="text-base font-bold text-foreground flex items-center gap-2 tracking-tight">
             <UserCheck className="w-4 h-4 text-amber-500" /> Vendor Onboarding Management
@@ -194,7 +194,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
             /* Sent Invitations View */
             invitationsList.length === 0 ? (
               <div className="py-16 px-6 text-center flex flex-col items-center justify-center max-w-md mx-auto">
-                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-sm">
+                <div className="w-14 h-14 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-sm">
                   <Mail className="w-7 h-7" />
                 </div>
                 <h4 className="text-sm font-bold text-foreground tracking-tight">No Active Sent Invitations</h4>
@@ -217,7 +217,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
                   {invitationsList.map(inv => {
                     const isExpired = inv.expires_at ? new Date(inv.expires_at) < new Date() : false;
                     return (
-                      <TableRow key={inv.invitation_id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                      <TableRow key={inv.invitation_id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                         <TableCell className="text-xs font-semibold text-foreground">
                           {inv.email}
                         </TableCell>
@@ -276,7 +276,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
             /* Pending Submissions View */
             pendingList.length === 0 ? (
               <div className="py-16 px-6 text-center flex flex-col items-center justify-center max-w-md mx-auto">
-                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-sm">
+                <div className="w-14 h-14 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-sm">
                   <UserCheck className="w-7 h-7" />
                 </div>
                 <h4 className="text-sm font-bold text-foreground tracking-tight">No Pending Vendor Onboardings</h4>
@@ -298,7 +298,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
                 </TableHeader>
                 <TableBody>
                 {pendingList.map(sub => (
-                  <TableRow key={sub.submission_id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                  <TableRow key={sub.submission_id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                     <TableCell className="text-xs font-semibold text-foreground">
                       <div>{sub.legal_name}</div>
                       {sub.trade_name && <div className="text-[10px] text-muted-foreground font-normal">{sub.trade_name}</div>}

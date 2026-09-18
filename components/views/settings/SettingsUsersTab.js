@@ -100,7 +100,7 @@ export default function SettingsUsersTab({
         <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-amber-600 dark:text-gold" />
+              <Loader2 className="w-8 h-8 animate-spin text-amber-600 dark:text-primary" />
             </div>
           ) : (
             <Table id="tblUsers">
@@ -131,7 +131,7 @@ export default function SettingsUsersTab({
                       <TableRow key={u.email || idx} className="border-b border-border/70 hover:bg-muted/40 transition-colors">
                         <TableCell className="py-3.5">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 dark:bg-slate-800 dark:text-gold border border-amber-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 dark:bg-slate-800 dark:text-primary border border-amber-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
                               {initials}
                             </div>
                             <div className="space-y-0.5">
@@ -185,7 +185,7 @@ export default function SettingsUsersTab({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 text-xs text-amber-700 dark:text-gold hover:bg-amber-50 dark:hover:bg-gold/10 px-2 font-medium"
+                            className="h-7 text-xs text-amber-700 dark:text-primary hover:bg-amber-50 dark:hover:bg-gold/10 px-2 font-medium"
                             title="Reset Password"
                             onClick={() => {
                               setTargetEmail(u.email);
@@ -234,7 +234,7 @@ export default function SettingsUsersTab({
       {/* Add custom role card */}
       <Card className="bg-card border-border shadow-xs rounded-xl">
         <CardHeader className="p-5 border-b border-border bg-muted/20">
-          <CardTitle className="text-xs font-bold text-amber-700 dark:text-gold tracking-wider uppercase">Add Custom Access Role</CardTitle>
+          <CardTitle className="text-xs font-bold text-amber-700 dark:text-primary tracking-wider uppercase">Add Custom Access Role</CardTitle>
         </CardHeader>
         <CardContent className="p-5">
           <div className="flex gap-3 items-end max-w-md">

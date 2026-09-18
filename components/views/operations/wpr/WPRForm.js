@@ -152,7 +152,7 @@ export default function WPRForm({ onNavigate }) {
               variant="outline"
               disabled={aggregating}
               onClick={handleFetchAggregation}
-              className="border-gold/30 hover:bg-gold/10 text-gold"
+              className="border-gold/30 hover:bg-gold/10 text-primary"
             >
               {aggregating ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
               Fetch Weekly Aggregates
@@ -236,7 +236,7 @@ export default function WPRForm({ onNavigate }) {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-semibold text-slate-300">3D Design Render</span>
-                      <label className="text-[10px] text-gold cursor-pointer hover:underline">
+                      <label className="text-[10px] text-primary cursor-pointer hover:underline">
                         Upload Render
                         <input type="file" accept="image/*" onChange={e => handleImageUpload(e, 'render_image_url')} className="hidden" />
                       </label>
@@ -254,7 +254,7 @@ export default function WPRForm({ onNavigate }) {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-semibold text-slate-300">Actual Site Photo</span>
-                      <label className="text-[10px] text-gold cursor-pointer hover:underline">
+                      <label className="text-[10px] text-primary cursor-pointer hover:underline">
                         Upload Photo
                         <input type="file" accept="image/*" onChange={e => handleImageUpload(e, 'actual_image_url')} className="hidden" />
                       </label>

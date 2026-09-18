@@ -92,7 +92,7 @@ export default function ReportsEditPaymentModal({
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground font-medium">PO Number:</span>
-            <span className="font-mono font-bold text-amber-700 dark:text-gold">{editingPayment?.poNo || editingPayment?.po_no}</span>
+            <span className="font-mono font-bold text-amber-700 dark:text-primary">{editingPayment?.poNo || editingPayment?.po_no}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground font-medium">Current Stage:</span>
@@ -156,7 +156,7 @@ export default function ReportsEditPaymentModal({
 
         <div className="flex justify-between items-center p-3 rounded-lg bg-card border border-border text-xs font-bold">
           <span className="text-muted-foreground">Net Payable After TDS:</span>
-          <span className="text-amber-700 dark:text-gold text-sm tabular-nums">{formatCurrency(netPayable)}</span>
+          <span className="text-amber-700 dark:text-primary text-sm tabular-nums">{formatCurrency(netPayable)}</span>
         </div>
 
         <div>

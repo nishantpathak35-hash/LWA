@@ -89,7 +89,7 @@ export default function POListTable({
   };
 
   return (
-    <Card className="rounded-2xl border-border/80 shadow-xs overflow-hidden">
+    <Card className="rounded-lg border-border shadow-xs overflow-hidden">
       {/* ── Toolbar & Segmented Filters ── */}
       <div className="p-4 border-b border-border bg-card/60 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         
@@ -333,7 +333,7 @@ export default function POListTable({
                       <TableRow
                         key={idx}
                         onClick={() => setSelectedPOForDrawer(po)}
-                        className="border-b border-border/40 hover:bg-muted/30 transition-colors duration-150 cursor-pointer group"
+                        className="border-b border-border/50 hover:bg-muted/30 transition-colors duration-150 cursor-pointer group"
                       >
                         <TableCell className="pl-5 py-3.5 font-mono text-xs font-bold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                           <span className="flex items-center gap-1.5">

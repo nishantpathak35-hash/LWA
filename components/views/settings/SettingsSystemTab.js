@@ -28,7 +28,7 @@ export default function SettingsSystemTab({
       {activeTab === 'system' && (
         <Card className="bg-card border-border shadow-xs rounded-xl">
           <CardHeader className="p-6 border-b border-border">
-            <CardTitle className="text-amber-700 dark:text-gold font-bold text-sm uppercase tracking-wider">System Utilities</CardTitle>
+            <CardTitle className="text-amber-700 dark:text-primary font-bold text-sm uppercase tracking-wider">System Utilities</CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="p-4 rounded-xl bg-muted/30 border border-border space-y-3">
@@ -137,7 +137,7 @@ export default function SettingsSystemTab({
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-border">
                     <div>
                       <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">PO Number</div>
-                      <div className="font-mono text-sm text-gold font-bold">{legacyPO.po_no}</div>
+                      <div className="font-mono text-sm text-primary font-bold">{legacyPO.po_no}</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Project</div>

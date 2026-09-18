@@ -84,7 +84,7 @@ export default function PaymentListTable({
   };
 
   return (
-    <Card className="rounded-2xl border-border/80 shadow-xs overflow-hidden">
+    <Card className="rounded-lg border-border shadow-xs overflow-hidden">
       <CardContent className="p-0">
         {displayedRequests.length === 0 ? (
           <div className="py-16 text-center text-muted-foreground text-sm font-medium space-y-2">
@@ -203,7 +203,7 @@ export default function PaymentListTable({
                     return (
                       <TableRow
                         key={req.id || req.pr_id || idx}
-                        className={`border-b border-border/40 hover:bg-muted/30 transition-colors duration-150 ${isSelected ? 'bg-amber-500/5 border-l-2 border-l-amber-500' : ''} ${!isActionable ? 'opacity-70' : ''}`}
+                        className={`border-b border-border/50 hover:bg-muted/30 transition-colors duration-150 ${isSelected ? 'bg-amber-500/5 border-l-2 border-l-amber-500' : ''} ${!isActionable ? 'opacity-70' : ''}`}
                       >
                         <TableCell className="text-center py-3.5 px-3">
                           <input 

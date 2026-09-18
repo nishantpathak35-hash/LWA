@@ -256,7 +256,7 @@ export function CommandPalette() {
                   href={res.href}
                   onClick={res.action}
                   onMouseEnter={() => setActiveIndex(idx)}
-                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors block w-full ${isSel ? 'bg-muted border border-border shadow-2xs' : 'hover:bg-muted/50 border border-transparent'}`}
+                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors block w-full ${isSel ? 'bg-muted border border-border shadow-xs' : 'hover:bg-muted/50 border border-transparent'}`}
                 >
                   {inner}
                 </a>
@@ -268,7 +268,7 @@ export function CommandPalette() {
                 key={res.id}
                 onClick={res.action}
                 onMouseEnter={() => setActiveIndex(idx)}
-                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${isSel ? 'bg-muted border border-border shadow-2xs' : 'hover:bg-muted/50 border border-transparent'}`}
+                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${isSel ? 'bg-muted border border-border shadow-xs' : 'hover:bg-muted/50 border border-transparent'}`}
               >
                 {inner}
               </div>

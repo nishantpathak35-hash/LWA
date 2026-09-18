@@ -43,7 +43,7 @@ export default function PaymentFilters({
   return (
     <div className="space-y-5">
       {/* ── 1. Executive Header Banner ── */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-card via-card to-emerald-500/5 border border-border/80 p-6 rounded-2xl shadow-xs">
+      <div className="relative overflow-hidden bg-gradient-to-r from-card via-card to-emerald-500/5 border border-border p-6 rounded-lg shadow-xs">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export default function PaymentFilters({
                 variant="outline"
                 size="sm"
                 onClick={onExportCSV}
-                className="text-xs font-semibold h-9 rounded-xl border-border/80 hover:bg-muted/80 transition-all"
+                className="text-xs font-semibold h-9 rounded-xl border-border hover:bg-muted/80 transition-all"
               >
                 <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Export Ledger
               </Button>
@@ -91,7 +91,7 @@ export default function PaymentFilters({
         </div>
 
         {/* Treasury Stats Sub-bar */}
-        <div className="mt-5 pt-4 border-t border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-3">
             <span className="text-muted-foreground font-medium text-[11px]">Total Claim Value:</span>
             <span className="font-bold text-foreground font-mono text-[12px]">{formatCurrency(kpis.totalVal)}</span>
@@ -107,7 +107,7 @@ export default function PaymentFilters({
 
       {/* ── 2. Metric KPI Cards Bar ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+        <Card className="rounded-lg border-border bg-card shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">All Requests</span>
@@ -123,7 +123,7 @@ export default function PaymentFilters({
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+        <Card className="rounded-lg border-border bg-card shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Awaiting Sanction</span>
@@ -143,7 +143,7 @@ export default function PaymentFilters({
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+        <Card className="rounded-lg border-border bg-card shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Over-Budget Alerts</span>
@@ -163,7 +163,7 @@ export default function PaymentFilters({
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+        <Card className="rounded-lg border-border bg-card shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Disbursed (Settled)</span>
@@ -181,7 +181,7 @@ export default function PaymentFilters({
       </div>
 
       {/* ── 3. Tabs Navigation & Search Bar ── */}
-      <div className="p-3 bg-card rounded-2xl border border-border/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shadow-xs">
+      <div className="p-3 bg-card rounded-lg border border-border flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shadow-xs">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setActiveTab('pending')}

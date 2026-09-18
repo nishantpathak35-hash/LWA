@@ -14,8 +14,8 @@ export default function SettingsAuditTab({
       <Card className="bg-card border-border shadow-xs rounded-xl">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border-b border-border bg-muted/20">
           <div>
-            <CardTitle className="text-amber-800 dark:text-gold font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-amber-600 dark:text-gold" /> Audit Log
+            <CardTitle className="text-amber-800 dark:text-primary font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-amber-600 dark:text-primary" /> Audit Log
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               {auditTotal > 0 ? `${auditTotal} total records` : 'System activity log'}
@@ -103,7 +103,7 @@ export default function SettingsAuditTab({
         <CardContent className="p-0">
           {auditLoading ? (
             <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-amber-600 dark:text-gold" />
+              <Loader2 className="w-8 h-8 animate-spin text-amber-600 dark:text-primary" />
             </div>
           ) : auditLogs.length > 0 ? (
             <>

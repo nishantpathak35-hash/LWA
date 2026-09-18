@@ -16,7 +16,7 @@ export default function PaymentsHeader({ canRequest, activeTab, setActiveTab, ha
           <button
             onClick={() => setActiveTab('active')}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'active' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'
+              activeTab === 'active' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Active & Paid
@@ -24,7 +24,7 @@ export default function PaymentsHeader({ canRequest, activeTab, setActiveTab, ha
           <button
             onClick={() => setActiveTab('pending')}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === 'pending' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'
+              activeTab === 'pending' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Requires Action

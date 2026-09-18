@@ -131,7 +131,7 @@ export default function SettingsTDSTab() {
   return (
     <Card className="bg-card border-border shadow-xs rounded-xl">
       <CardHeader className="flex flex-col sm:flex-row items-center justify-between p-6 border-b border-border bg-muted/20 gap-4">
-        <CardTitle className="text-amber-800 dark:text-gold font-bold text-sm uppercase tracking-wider">
+        <CardTitle className="text-amber-800 dark:text-primary font-bold text-sm uppercase tracking-wider">
           TDS Sections Configuration ({processedSections.length})
         </CardTitle>
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -186,7 +186,7 @@ export default function SettingsTDSTab() {
             <TableBody>
               {processedSections.map(sec => (
                 <TableRow key={sec.id} className="border-b border-border/70 hover:bg-muted/40 transition-colors">
-                  <TableCell className="font-bold text-xs font-mono text-amber-700 dark:text-gold py-3">{sec.section_code}</TableCell>
+                  <TableCell className="font-bold text-xs font-mono text-amber-700 dark:text-primary py-3">{sec.section_code}</TableCell>
                   <TableCell className="text-xs font-bold text-slate-900 dark:text-slate-100 py-3">{sec.rate}%</TableCell>
                   <TableCell className="text-xs text-slate-700 dark:text-slate-300 py-3">{sec.description || '—'}</TableCell>
                   <TableCell className="py-3">

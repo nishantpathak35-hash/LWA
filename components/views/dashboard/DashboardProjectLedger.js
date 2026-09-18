@@ -43,17 +43,12 @@ export default function DashboardProjectLedger({
   return (
     <div className="space-y-6">
       {/* ── Ledger Header & Controls ── */}
-      <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="bg-card border border-border rounded-lg p-5 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-gold border border-amber-500/20">
-                <Layers className="w-4 h-4" />
-              </span>
-              <h3 className="text-lg font-bold text-foreground tracking-tight">Project Financial Ledger</h3>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Unified project performance, real-time treasury cashflow, BCS budgets & margin realization
+            <h3 className="text-sm font-semibold text-foreground">Project Ledger</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {filteredProjects.length} projects
             </p>
           </div>
 
@@ -66,7 +61,7 @@ export default function DashboardProjectLedger({
                 className={cn(
                   "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer",
                   activeTab === 'overview'
-                    ? "bg-card text-foreground shadow-xs font-bold border border-border/60"
+                    ? "bg-card text-foreground shadow-xs font-bold border border-border"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -78,7 +73,7 @@ export default function DashboardProjectLedger({
                 className={cn(
                   "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer",
                   activeTab === 'cashflow'
-                    ? "bg-card text-foreground shadow-xs font-bold border border-border/60"
+                    ? "bg-card text-foreground shadow-xs font-bold border border-border"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -90,7 +85,7 @@ export default function DashboardProjectLedger({
                 className={cn(
                   "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer",
                   activeTab === 'financial'
-                    ? "bg-card text-foreground shadow-xs font-bold border border-border/60"
+                    ? "bg-card text-foreground shadow-xs font-bold border border-border"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -102,7 +97,7 @@ export default function DashboardProjectLedger({
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
-                className="pl-8 pr-3 w-full sm:w-52 h-9 text-xs bg-background/80 border-border/80 rounded-xl"
+                className="pl-8 pr-3 w-full sm:w-52 h-9 text-xs bg-background/80 border-border rounded-xl"
                 placeholder="Search projects or clients..."
                 value={searchQuery}
                 onChange={e => {
@@ -116,7 +111,7 @@ export default function DashboardProjectLedger({
 
         {/* Dynamic Contextual KPI Mini-Strip based on active view */}
         {activeTab === 'cashflow' && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-border/60">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-border">
             <div className="p-3 rounded-xl bg-background/60 border border-border/70 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Contract Value</span>
@@ -149,7 +144,7 @@ export default function DashboardProjectLedger({
         )}
 
         {activeTab === 'financial' && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-3 border-t border-border/60">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-3 border-t border-border">
             <div className="p-2.5 rounded-xl bg-background/60 border border-border/70">
               <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">BCS Budget</span>
               <span className="text-sm font-bold text-foreground font-mono tabular-nums">{fmtLakhs(totBCS)}</span>
@@ -185,7 +180,7 @@ export default function DashboardProjectLedger({
       </div>
 
       {/* ── Master Table ── */}
-      <div className="bg-card border border-border/80 rounded-2xl overflow-hidden shadow-xs">
+      <div className="bg-card border border-border rounded-lg overflow-hidden shadow-xs">
         <Table>
           <TableHeader>
             {activeTab === 'overview' && (
@@ -262,7 +257,7 @@ export default function DashboardProjectLedger({
                           className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                           title="Toggle details"
                         >
-                          {isExpanded ? <ChevronDown className="w-4 h-4 text-amber-600 dark:text-gold" /> : <ChevronRight className="w-4 h-4" />}
+                          {isExpanded ? <ChevronDown className="w-4 h-4 text-amber-600 dark:text-primary" /> : <ChevronRight className="w-4 h-4" />}
                         </button>
                       </TableCell>
 
@@ -373,7 +368,7 @@ export default function DashboardProjectLedger({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-amber-600 dark:text-gold hover:bg-amber-500/10 hover:text-amber-700"
+                          className="h-7 w-7 text-amber-600 dark:text-primary hover:bg-amber-500/10 hover:text-amber-700"
                           onClick={() => handleOpenEditModal(r)}
                           title={`Edit financials for ${r.project}`}
                         >
@@ -384,10 +379,10 @@ export default function DashboardProjectLedger({
 
                     {/* ── Expandable Project Drilldown Card ── */}
                     {isExpanded && (
-                      <TableRow className="bg-muted/15 hover:bg-muted/15 border-b border-border/80">
+                      <TableRow className="bg-muted/15 hover:bg-muted/15 border-b border-border">
                         <TableCell colSpan={activeTab === 'financial' ? 12 : activeTab === 'overview' ? 8 : 7} className="p-4 sm:p-6">
-                          <div className="space-y-4 rounded-xl border border-border/80 bg-card p-5 shadow-xs">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-3">
+                          <div className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-xs">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border pb-3">
                               <div>
                                 <div className="flex items-center gap-2">
                                   <h4 className="font-bold text-foreground text-sm tracking-tight">{r.project} Financial Breakdown</h4>
@@ -403,7 +398,7 @@ export default function DashboardProjectLedger({
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleOpenEditModal(r)}
-                                className="h-8 gap-1.5 text-xs font-bold text-amber-700 dark:text-gold border-amber-500/30 hover:bg-amber-500/10"
+                                className="h-8 gap-1.5 text-xs font-bold text-amber-700 dark:text-primary border-amber-500/30 hover:bg-amber-500/10"
                               >
                                 <Edit2 className="w-3.5 h-3.5" /> Edit Financials
                               </Button>

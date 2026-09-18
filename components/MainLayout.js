@@ -12,7 +12,7 @@ import ErrorBoundary from './ErrorBoundary';
 import { NotificationsPanel } from './ui/NotificationsPanel';
 import ActivityStreamDrawer from './ui/ActivityStreamDrawer';
 import InstallPWA from './ui/InstallPWA';
-import { Menu, Sun, Moon, AlertTriangle, X, Search, Activity, LayoutDashboard, ShoppingBag, CreditCard, HardHat, MoreHorizontal, Plus, FilePlus, Receipt, ShieldCheck, Smartphone, Download, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Menu, Sun, Moon, AlertTriangle, X, Search, Activity, LayoutDashboard, ShoppingBag, CreditCard, MoreHorizontal, Plus, Receipt, ShieldCheck, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from './ui/core';
 import { CommandPalette } from './ui/CommandPalette';
 
@@ -272,11 +272,11 @@ export default function MainLayout() {
       if (getFirstAllowedView(hasPermission)) return null;
       return (
         <div className="flex flex-col items-center justify-center h-96 text-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center">
-            <span className="text-3xl">🚫</span>
+          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+            <span className="text-2xl">🚫</span>
           </div>
           <div>
-            <h2 className="text-lg font-medium text-foreground">Access Restricted</h2>
+            <h2 className="text-base font-medium text-foreground">Access Restricted</h2>
             <p className="text-sm text-muted-foreground mt-1">You don&apos;t have permission to view this module.</p>
             <p className="text-xs text-muted-foreground mt-1">Contact your administrator to request access.</p>
           </div>
@@ -305,14 +305,14 @@ export default function MainLayout() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans transition-colors duration-200">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
       <CommandPalette />
       <InstallPWA />
 
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 md:hidden"
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -327,7 +327,7 @@ export default function MainLayout() {
       {/* Main content */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* ── Header / Topbar ── */}
-        <header className="h-13 px-4 md:px-5 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 transition-colors duration-150 sticky top-0 z-20">
+        <header className="h-12 px-4 md:px-5 border-b border-border bg-card flex items-center justify-between flex-shrink-0 sticky top-0 z-20">
           <div className="flex items-center gap-2 md:gap-3">
             {/* Mobile menu trigger */}
             <Button
@@ -336,81 +336,65 @@ export default function MainLayout() {
               className="md:hidden"
               onClick={() => setMobileMenuOpen(true)}
             >
-              <Menu className="w-4 h-4 text-muted-foreground" />
+              <Menu className="w-4 h-4" />
             </Button>
 
-            {/* Desktop Sidebar Retract / Expand Button */}
+            {/* Desktop Sidebar Toggle */}
             <Button
               variant="ghost"
               size="icon"
-              className="hidden md:flex h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
+              className="hidden md:flex h-7 w-7"
               onClick={toggleSidebar}
-              title={sidebarCollapsed ? "Expand Sidebar (Ctrl+B)" : "Collapse Sidebar / Fuller View (Ctrl+B)"}
+              title={sidebarCollapsed ? "Expand Sidebar (Ctrl+B)" : "Collapse Sidebar (Ctrl+B)"}
             >
               {sidebarCollapsed ? (
-                <PanelLeftOpen className="w-4 h-4 text-amber-500" />
+                <PanelLeftOpen className="w-4 h-4 text-primary" />
               ) : (
                 <PanelLeftClose className="w-4 h-4" />
               )}
             </Button>
             
-            {/* Breadcrumb Navigation */}
+            {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground font-medium hidden sm:inline">Luxeworx ERP</span>
-              <span className="text-muted-foreground/60 hidden sm:inline">/</span>
-              <h1 className="text-sm font-semibold text-foreground tracking-tight">
+              <span className="text-muted-foreground hidden sm:inline">LWA</span>
+              <span className="text-muted-foreground/40 hidden sm:inline">/</span>
+              <h1 className="text-sm font-medium text-foreground">
                 {VIEW_LABELS[activeView] || activeView}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Mobile Install App Button */}
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('lx:open-install-pwa'))}
-              className="flex md:hidden items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-gold text-[11px] font-bold shadow-xs active:scale-95 transition-transform"
-              title="Install App on Phone"
-            >
-              <Download className="w-3.5 h-3.5 text-gold" />
-              <span>App</span>
-            </button>
-
-            {/* Search Trigger Button */}
+          <div className="flex items-center gap-1.5">
+            {/* Search Trigger */}
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('lx:open-command-palette'))}
-              className="hidden md:flex items-center justify-between w-60 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+              className="hidden md:flex items-center justify-between w-52 px-3 py-1.5 rounded-md bg-muted border border-border text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <div className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-slate-400" />
+                <Search className="w-3.5 h-3.5" />
                 <span>Search...</span>
               </div>
-              <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-slate-400">{isMac ? '⌘K' : 'Ctrl+K'}</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono text-muted-foreground">{isMac ? '⌘K' : 'Ctrl+K'}</kbd>
             </button>
 
             {/* Keyboard shortcut hint */}
             {keySequence.length > 0 && (
-              <span className="text-[10px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-amber-400 font-mono font-semibold">
+              <span className="text-[10px] px-2 py-1 rounded-md bg-muted border border-border text-primary font-mono font-medium">
                 {keySequence.map(k => k.toUpperCase()).join(' → ')} …
               </span>
             )}
-            {/* Notifications bell */}
+
+            {/* Notifications */}
             <NotificationsPanel />
-            {/* Activity Stream Drawer Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setActivityDrawerOpen(true)}
-              title="Team Activity Stream"
-            >
-              <Activity className="w-4 h-4 text-slate-400 hover:text-slate-200" />
+
+            {/* Activity Stream */}
+            <Button variant="ghost" size="icon" onClick={() => setActivityDrawerOpen(true)} title="Activity">
+              <Activity className="w-4 h-4" />
             </Button>
+
             {/* Theme toggle */}
             <Button variant="ghost" size="icon" onClick={toggleTheme} title="Toggle theme">
-              {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-slate-400 hover:text-slate-200" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-400 hover:text-slate-200" />
-              )}
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
           </div>
         </header>
@@ -420,58 +404,55 @@ export default function MainLayout() {
           onClose={() => setActivityDrawerOpen(false)}
         />
 
-        {/* ── Session expiry warning banner ── */}
+        {/* ── Session expiry warning ── */}
         {showSessionWarning && (
-          <div className="flex items-center gap-3 px-6 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex-shrink-0 font-medium">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="flex items-center gap-3 px-5 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 flex-shrink-0">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
             <span>
-              Your session expires in <strong>{sessionHours}h</strong>. Save your work and log back in to continue.
+              Session expires in <strong>{sessionHours}h</strong>. Save your work and re-login.
             </span>
             <button
               onClick={() => setSessionWarningDismissed(true)}
-              className="ml-auto p-1 rounded text-amber-600/70 hover:text-amber-800 transition-colors"
+              className="ml-auto p-1 rounded text-amber-600/70 hover:text-amber-800 dark:hover:text-amber-300 transition-colors"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
         {/* ── Scrollable View Area ── */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 bg-background transition-colors duration-200">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6 bg-background">
           <div className="max-w-7xl mx-auto space-y-6">
             {renderActiveView()}
           </div>
         </main>
 
-        {/* ── Mobile Quick Action Sheet / Backdrop ── */}
+        {/* ── Mobile Quick Action Sheet ── */}
         {mobileQuickActionOpen && (
-          <div className="md:hidden fixed inset-0 z-40 bg-black/75 backdrop-blur-md flex flex-col justify-end p-6 animate-fade-in" onClick={() => setMobileQuickActionOpen(false)}>
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Quick Actions</span>
-                <button onClick={() => setMobileQuickActionOpen(false)} className="p-1 text-slate-400 hover:text-slate-200">
-                  <X className="w-5 h-5" />
+          <div className="md:hidden fixed inset-0 z-40 bg-black/60 flex flex-col justify-end animate-fade-in" onClick={() => setMobileQuickActionOpen(false)}>
+            <div className="bg-card border-t border-border rounded-t-2xl p-5 space-y-3" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <span className="text-xs font-medium text-muted-foreground">Quick Actions</span>
+                <button onClick={() => setMobileQuickActionOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                {/* 1-Tap Approvals Queue */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Approvals Queue */}
                 <button
                   onClick={() => {
                     setMobileQuickActionOpen(false);
                     setActiveView(pendingPaymentsCount > 0 ? 'payments' : 'pos');
                   }}
-                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-all font-semibold text-xs gap-1.5 col-span-2 shadow-xs"
+                  className="flex items-center gap-2.5 p-3 rounded-lg bg-muted text-foreground text-xs font-medium transition-colors col-span-2"
                 >
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                    <span className="text-xs font-bold text-slate-100">Approvals Queue</span>
-                    {(pendingPaymentsCount + pendingPOsCount) > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
-                        {pendingPaymentsCount + pendingPOsCount} Pending
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-emerald-400/80 font-normal">Review & Approve pending payments & POs</span>
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <span>Approvals Queue</span>
+                  {(pendingPaymentsCount + pendingPOsCount) > 0 && (
+                    <span className="ml-auto text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                      {pendingPaymentsCount + pendingPOsCount}
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -480,10 +461,10 @@ export default function MainLayout() {
                     setActiveView('payments');
                     setTimeout(() => window.dispatchEvent(new CustomEvent('lx:new-payment-request')), 100);
                   }}
-                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-gold hover:bg-amber-500/20 transition-all font-semibold text-xs gap-1.5"
+                  className="flex items-center gap-2 p-3 rounded-lg bg-muted text-foreground text-xs font-medium transition-colors"
                 >
-                  <Receipt className="w-5 h-5 text-gold" />
-                  <span>Request Payment</span>
+                  <Receipt className="w-4 h-4 text-muted-foreground" />
+                  <span>Payment</span>
                 </button>
 
                 <button
@@ -492,35 +473,23 @@ export default function MainLayout() {
                     setActiveView('pos');
                     setTimeout(() => window.dispatchEvent(new CustomEvent('lx:new-po')), 100);
                   }}
-                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all font-semibold text-xs gap-1.5"
+                  className="flex items-center gap-2 p-3 rounded-lg bg-muted text-foreground text-xs font-medium transition-colors"
                 >
-                  <ShoppingBag className="w-5 h-5 text-blue-400" />
+                  <ShoppingBag className="w-4 h-4 text-muted-foreground" />
                   <span>New PO</span>
-                </button>
-
-                {/* Install App Quick Action */}
-                <button
-                  onClick={() => {
-                    setMobileQuickActionOpen(false);
-                    window.dispatchEvent(new CustomEvent('lx:open-install-pwa'));
-                  }}
-                  className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-all font-semibold text-xs gap-1.5"
-                >
-                  <Smartphone className="w-5 h-5 text-purple-400" />
-                  <span>Install App</span>
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── Mobile Floating Capsule Navbar ── */}
-        <div className="md:hidden fixed bottom-4 inset-x-4 z-30 pointer-events-none flex justify-center">
-          <nav className="pointer-events-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800/80 rounded-full px-3 py-2 flex items-center justify-between gap-1 shadow-2xl shadow-black/80 max-w-sm w-full">
+        {/* ── Mobile Bottom Nav ── */}
+        <div className="md:hidden fixed bottom-3 inset-x-3 z-30 pointer-events-none flex justify-center">
+          <nav className="pointer-events-auto bg-card border border-border rounded-full px-3 py-2 flex items-center justify-between gap-1 shadow-elevated max-w-sm w-full">
             <button
               onClick={() => setActiveView('dashboard')}
-              className={`flex flex-col items-center justify-center py-1 px-3.5 rounded-full text-[10px] font-bold transition-all ${
-                activeView === 'dashboard' ? 'bg-gold/15 text-gold shadow-xs' : 'text-slate-400 hover:text-slate-200'
+              className={`flex flex-col items-center justify-center py-1 px-3 rounded-full text-[10px] font-medium transition-colors ${
+                activeView === 'dashboard' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
@@ -529,42 +498,42 @@ export default function MainLayout() {
 
             <button
               onClick={() => setActiveView('pos')}
-              className={`relative flex flex-col items-center justify-center py-1 px-3.5 rounded-full text-[10px] font-bold transition-all ${
-                activeView === 'pos' ? 'bg-gold/15 text-gold shadow-xs' : 'text-slate-400 hover:text-slate-200'
+              className={`relative flex flex-col items-center justify-center py-1 px-3 rounded-full text-[10px] font-medium transition-colors ${
+                activeView === 'pos' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
               }`}
             >
               <ShoppingBag className="w-4 h-4" />
               <span className="mt-0.5">POs</span>
               {pendingPOsCount > 0 && (
-                <span className="absolute -top-1 right-2 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-900" />
+                <span className="absolute -top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
               )}
             </button>
 
-            {/* Central Floating Gold FAB (+) Button */}
+            {/* Central FAB */}
             <button
               onClick={() => setMobileQuickActionOpen(true)}
-              className="flex items-center justify-center h-11 w-11 rounded-full bg-gradient-to-tr from-amber-500 via-gold to-amber-300 text-slate-950 shadow-lg shadow-gold/30 hover:scale-110 active:scale-95 transition-all -mt-4 border-2 border-slate-950 font-black"
+              className="flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-elevated -mt-3 border-2 border-background"
               title="Quick Actions"
             >
-              <Plus className="w-6 h-6 stroke-[3]" />
+              <Plus className="w-5 h-5 stroke-[2.5]" />
             </button>
 
             <button
               onClick={() => setActiveView('payments')}
-              className={`relative flex flex-col items-center justify-center py-1 px-3.5 rounded-full text-[10px] font-bold transition-all ${
-                activeView === 'payments' ? 'bg-gold/15 text-gold shadow-xs' : 'text-slate-400 hover:text-slate-200'
+              className={`relative flex flex-col items-center justify-center py-1 px-3 rounded-full text-[10px] font-medium transition-colors ${
+                activeView === 'payments' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
               }`}
             >
               <CreditCard className="w-4 h-4" />
               <span className="mt-0.5">Pay</span>
               {pendingPaymentsCount > 0 && (
-                <span className="absolute -top-1 right-2 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
+                <span className="absolute -top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
               )}
             </button>
 
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="flex flex-col items-center justify-center py-1 px-3.5 rounded-full text-[10px] font-bold text-slate-400 hover:text-slate-200 transition-all"
+              className="flex flex-col items-center justify-center py-1 px-3 rounded-full text-[10px] font-medium text-muted-foreground transition-colors"
             >
               <MoreHorizontal className="w-4 h-4" />
               <span className="mt-0.5">Menu</span>

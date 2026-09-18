@@ -21,7 +21,7 @@ export default function PaymentHistoryModal({
       maxWidth="max-w-3xl">
       {loadingHistory ? (
         <div className="p-12 text-center text-muted-foreground text-sm flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-gold" /> Loading timeline...
+          <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-primary" /> Loading timeline...
         </div>
       ) : (
         <div className="space-y-6 py-2">

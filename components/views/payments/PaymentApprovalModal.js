@@ -61,7 +61,7 @@ export default function PaymentApprovalModal({
           {workflowAction === 'approve' && (
             <div className="p-4 bg-muted/30 border border-border rounded-xl space-y-4">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-bold text-amber-700 dark:text-gold uppercase tracking-wider block">Approval Details</span>
+                <span className="text-xs font-bold text-amber-700 dark:text-primary uppercase tracking-wider block">Approval Details</span>
                 {!canEditApprovalTds && (
                   <span className="text-xs font-medium text-muted-foreground">Read only at this approval stage</span>
                 )}
@@ -111,7 +111,7 @@ export default function PaymentApprovalModal({
               </div>
               <div className="flex justify-between items-center text-xs font-bold text-muted-foreground pt-3 border-t border-border">
                 <span>Net Payable:</span>
-                <span className="text-amber-700 dark:text-gold font-bold text-base tabular-nums">{formatCurrency(displayedNetAfterTds)}</span>
+                <span className="text-amber-700 dark:text-primary font-bold text-base tabular-nums">{formatCurrency(displayedNetAfterTds)}</span>
               </div>
             </div>
           )}
@@ -140,7 +140,7 @@ export default function PaymentApprovalModal({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="text-amber-700 dark:text-gold border-amber-500/30 hover:bg-amber-500/10 text-xs font-semibold"
+                  className="text-amber-700 dark:text-primary border-amber-500/30 hover:bg-amber-500/10 text-xs font-semibold"
                   onClick={() => {
                     setWorkflowModalOpen(false);
                     onOpenQueryModal(selectedRequest);

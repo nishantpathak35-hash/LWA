@@ -82,7 +82,7 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
           {floors.map((floor, fIdx) => (
             <Card key={fIdx} className="bg-slate-900/40 border-slate-800">
               <CardContent className="p-5 space-y-4">
-                <h3 className="text-lg font-semibold text-gold border-b border-slate-800 pb-2">{floor.name || `Floor ${fIdx + 1}`}</h3>
+                <h3 className="text-lg font-semibold text-primary border-b border-slate-800 pb-2">{floor.name || `Floor ${fIdx + 1}`}</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Manpower */}
@@ -105,7 +105,7 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
                     <ul className="space-y-1.5 list-disc list-inside text-xs text-slate-400 bg-slate-950 p-3 rounded border border-slate-800">
                       {(floor.workDone || []).map((w, wIdx) => (
                         <li key={wIdx}>
-                          {w.task} {w.progress ? <span className="text-gold font-medium ml-1">[{w.progress}%]</span> : ''}
+                          {w.task} {w.progress ? <span className="text-primary font-medium ml-1">[{w.progress}%]</span> : ''}
                         </li>
                       ))}
                       {(!floor.workDone || floor.workDone.length === 0) && <p className="text-xs text-slate-500">No work done logged.</p>}
@@ -138,7 +138,7 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
                     <div key={pIdx} className="bg-slate-950 p-2 rounded border border-slate-800">
                       <img src={ph.url} alt={ph.caption || "Site Photo"} className="w-full h-48 object-cover rounded" />
                       {ph.caption && <p className="text-xs text-slate-400 mt-2 text-center italic">"{ph.caption}"</p>}
-                      {ph.floor && <p className="text-[10px] text-gold mt-1 text-center font-semibold uppercase">{ph.floor}</p>}
+                      {ph.floor && <p className="text-[10px] text-primary mt-1 text-center font-semibold uppercase">{ph.floor}</p>}
                     </div>
                   ))}
                 </div>

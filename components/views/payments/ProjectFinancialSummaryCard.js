@@ -17,7 +17,7 @@ function Metric({ label, value, subtext, emphasis = false, variant = 'default' }
     : 'text-foreground';
 
   return (
-    <div className="min-w-0 bg-muted/30 rounded-lg p-2.5 border border-border/60">
+    <div className="min-w-0 bg-muted/30 rounded-lg p-2.5 border border-border">
       <dt className="text-[11px] font-medium text-muted-foreground truncate">{label}</dt>
       <dd className={`mt-0.5 text-sm font-semibold tabular-nums break-words ${textColor}`}>
         {money(value)}
@@ -54,7 +54,7 @@ export default function ProjectFinancialSummaryCard({ projectSummary: s, multiSe
   if (multiSelectSummary) return (
     <section aria-label="Selected project requests" className="rounded-xl border border-border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-gold flex items-center gap-1.5">
+        <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-primary flex items-center gap-1.5">
           <Building2 className="w-3.5 h-3.5" /> {s.project || 'Selected Project'}
         </span>
         <span className="text-xs text-muted-foreground">Batch Selection Review</span>
@@ -72,7 +72,7 @@ export default function ProjectFinancialSummaryCard({ projectSummary: s, multiSe
       {/* Header with Project and PO info */}
       <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-gold flex items-center gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-primary flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-amber-600" />
             {s.project || 'Project not linked'}
           </span>
@@ -145,7 +145,7 @@ export default function ProjectFinancialSummaryCard({ projectSummary: s, multiSe
 
           {/* Inflow Utilisation Bar */}
           {inflow > 0 ? (
-            <div className="mt-3 space-y-1 bg-muted/40 p-2.5 rounded-lg border border-border/60">
+            <div className="mt-3 space-y-1 bg-muted/40 p-2.5 rounded-lg border border-border">
               <div className="flex justify-between text-[11px] text-muted-foreground font-medium">
                 <span>Inflow Cash Absorption</span>
                 <span className="tabular-nums">

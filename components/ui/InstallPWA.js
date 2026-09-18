@@ -95,7 +95,7 @@ export default function InstallPWA() {
         <div className="fixed bottom-20 inset-x-4 z-40 md:hidden animate-slide-up">
           <div className="bg-slate-900/95 backdrop-blur-xl border border-amber-500/40 rounded-2xl p-3.5 shadow-2xl flex items-center justify-between gap-3 text-slate-100">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-gold shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-primary shrink-0">
                 <Smartphone className="w-5 h-5" />
               </div>
               <div className="min-w-0">
@@ -129,7 +129,7 @@ export default function InstallPWA() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl animate-scale-in text-slate-100" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-gold">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-primary">
                   <Smartphone className="w-4 h-4" />
                 </div>
                 <div>
@@ -148,7 +148,7 @@ export default function InstallPWA() {
                 <p className="text-[11px] text-amber-400 font-medium">To install on iPhone / iPad (Safari):</p>
                 
                 <div className="flex items-start gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-gold flex items-center justify-center font-bold text-[11px] shrink-0">1</div>
+                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-primary flex items-center justify-center font-bold text-[11px] shrink-0">1</div>
                   <div>
                     <p className="font-semibold text-slate-100">Tap the Share button</p>
                     <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
@@ -158,7 +158,7 @@ export default function InstallPWA() {
                 </div>
 
                 <div className="flex items-start gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-gold flex items-center justify-center font-bold text-[11px] shrink-0">2</div>
+                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-primary flex items-center justify-center font-bold text-[11px] shrink-0">2</div>
                   <div>
                     <p className="font-semibold text-slate-100">Add to Home Screen</p>
                     <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
@@ -168,7 +168,7 @@ export default function InstallPWA() {
                 </div>
 
                 <div className="flex items-start gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-gold flex items-center justify-center font-bold text-[11px] shrink-0">3</div>
+                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-primary flex items-center justify-center font-bold text-[11px] shrink-0">3</div>
                   <div>
                     <p className="font-semibold text-slate-100">Tap &apos;Add&apos;</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">

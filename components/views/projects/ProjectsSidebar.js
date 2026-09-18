@@ -37,7 +37,7 @@ export default function ProjectsSidebar({ projectsList, selectedProject, handleP
 
   return (
     <Card className="col-span-1 lg:col-span-1 border-border max-h-[85vh] flex flex-col bg-card shadow-xs">
-      <CardHeader className="p-3.5 border-b border-border/60 flex flex-col gap-2.5">
+      <CardHeader className="p-3.5 border-b border-border flex flex-col gap-2.5">
         <div className="flex flex-row items-center justify-between w-full">
           <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             PROJECTS ({processedProjects.length})
@@ -55,7 +55,7 @@ export default function ProjectsSidebar({ projectsList, selectedProject, handleP
             <Button 
               variant="ghost" 
               size="sm" 
-              className="h-7 px-2 text-xs text-amber-600 dark:text-gold hover:bg-amber-500/10 font-bold"
+              className="h-7 px-2 text-xs text-amber-600 dark:text-primary hover:bg-amber-500/10 font-bold"
               onClick={() => setShowNewProjectModal(true)}
             >
               <Plus className="w-3.5 h-3.5 mr-1" /> New Project
@@ -101,7 +101,7 @@ export default function ProjectsSidebar({ projectsList, selectedProject, handleP
                 onClick={() => handleProjectSelect(p)}
                 className={`
                   w-full flex items-center justify-between p-3.5 text-left transition-colors relative
-                  ${isSelected ? 'bg-amber-500/10 text-amber-700 dark:text-gold font-bold' : 'hover:bg-muted/40 text-foreground'}
+                  ${isSelected ? 'bg-amber-500/10 text-amber-700 dark:text-primary font-bold' : 'hover:bg-muted/40 text-foreground'}
                 `}
               >
                 {isSelected && (
@@ -115,7 +115,7 @@ export default function ProjectsSidebar({ projectsList, selectedProject, handleP
                     PO Issued: <span className="tabular-nums">{formatCurrency(p.poIssued)}</span>
                   </p>
                 </div>
-                <ArrowRight className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isSelected ? 'text-amber-600 dark:text-gold translate-x-0.5' : 'text-muted-foreground/40'}`} />
+                <ArrowRight className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isSelected ? 'text-amber-600 dark:text-primary translate-x-0.5' : 'text-muted-foreground/40'}`} />
               </button>
             );
           })

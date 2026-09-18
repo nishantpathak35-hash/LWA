@@ -218,7 +218,7 @@ export default function SettingsWorkflowEditorModal({
 
           <div className="flex justify-between items-end mb-4 pt-4 border-t border-border">
             <div>
-              <h3 className="text-xs font-bold text-amber-800 dark:text-gold uppercase tracking-wider">Approval Stages</h3>
+              <h3 className="text-xs font-bold text-amber-800 dark:text-primary uppercase tracking-wider">Approval Stages</h3>
               <p className="text-xs text-muted-foreground">Stages are executed sequentially.</p>
             </div>
             <Button variant="outline" size="sm" onClick={addStage} className="gap-2 text-xs">
@@ -233,7 +233,7 @@ export default function SettingsWorkflowEditorModal({
               </div>
             ) : (
               workflow.stages.map((stage, idx) => (
-                <div key={idx} className="bg-card border border-border rounded-xl p-4 relative group shadow-2xs">
+                <div key={idx} className="bg-card border border-border rounded-xl p-4 relative group shadow-xs">
                   
                   <div className="flex items-center justify-between mb-3 bg-muted/40 p-2 rounded-lg border border-border">
                     <Badge variant="outline" className="font-bold">Stage {idx + 1}</Badge>

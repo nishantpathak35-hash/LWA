@@ -12,7 +12,7 @@ export default function SettingsPermissionsTab({
   return (
     <Card className="bg-card border-border shadow-xs rounded-xl">
       <CardHeader className="flex items-center justify-between p-6 border-b border-border">
-        <CardTitle className="text-amber-700 dark:text-gold font-bold text-sm uppercase tracking-wider">Feature Permissions Matrix</CardTitle>
+        <CardTitle className="text-amber-700 dark:text-primary font-bold text-sm uppercase tracking-wider">Feature Permissions Matrix</CardTitle>
         <Button size="sm" variant="primary" onClick={handleSavePermissions} className="text-xs">
           Save Changes
         </Button>
@@ -29,7 +29,7 @@ export default function SettingsPermissionsTab({
           </TableHeader>
           <TableBody>
             {Object.keys(featureLabels).map(key => (
-              <TableRow key={key} className="border-b border-border/80 hover:bg-muted/30">
+              <TableRow key={key} className="border-b border-border hover:bg-muted/30">
                 <TableCell className="font-semibold text-xs text-foreground py-3">{featureLabels[key]}</TableCell>
                 {roleKeys.map(role => {
                   const isChecked = !!(localPerms[role] && localPerms[role].includes(key));

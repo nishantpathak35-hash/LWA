@@ -16,7 +16,7 @@ export default function SettingsCompanyTab({
   return (
     <Card className="bg-card border-border shadow-xs rounded-xl">
       <CardHeader className="p-6 border-b border-border">
-        <CardTitle className="text-amber-700 dark:text-gold font-bold text-sm uppercase tracking-wider">Company Profile & Invoice Settings</CardTitle>
+        <CardTitle className="text-amber-700 dark:text-primary font-bold text-sm uppercase tracking-wider">Company Profile & Invoice Settings</CardTitle>
       </CardHeader>
       <CardContent className="p-6">
         <form onSubmit={handleSaveCompany} className="space-y-6">

@@ -70,7 +70,7 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick }) {
       sub: `${stats.pendingRemitCount} awaiting transfer`,
       subColor: stats.pendingRemitCount > 0 ? 'text-amber-500' : 'text-muted-foreground',
       icon: <Clock className="w-4 h-4" />,
-      iconBg: 'bg-amber-500/10 text-amber-600 dark:text-gold border-amber-500/20',
+      iconBg: 'bg-amber-500/10 text-amber-600 dark:text-primary border-amber-500/20',
       hover: 'hover:border-amber-500/30',
       spark: null,
       tab: 'Remit',
@@ -106,7 +106,7 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick }) {
         <button
           key={i}
           onClick={() => k.tab && onTabClick && onTabClick(k.tab)}
-          className={`text-left p-4 bg-card border border-border/80 rounded-2xl shadow-xs flex flex-col justify-between transition-all duration-200 cursor-pointer ${k.hover}`}
+          className={`text-left p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 cursor-pointer ${k.hover}`}
         >
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
@@ -115,7 +115,7 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick }) {
             </div>
             <div className={`p-2 rounded-xl border shrink-0 ml-2 ${k.iconBg}`}>{k.icon}</div>
           </div>
-          <div className="flex items-end justify-between mt-3 pt-3 border-t border-border/60">
+          <div className="flex items-end justify-between mt-3 pt-3 border-t border-border">
             <span className={`text-[11px] font-semibold ${k.subColor}`}>{k.sub}</span>
             {k.spark && <div className="w-16 h-7"><Sparkline data={k.spark} color={k.sparkColor} /></div>}
           </div>

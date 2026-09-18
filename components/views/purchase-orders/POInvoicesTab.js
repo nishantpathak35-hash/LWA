@@ -224,7 +224,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
       {/* Header & Upload Button */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Receipt className="w-4 h-4 text-amber-600 dark:text-gold" /> Linked Invoices ({(data.invoices || []).length})
+          <Receipt className="w-4 h-4 text-amber-600 dark:text-primary" /> Linked Invoices ({(data.invoices || []).length})
         </h3>
         <Button
           onClick={() => setUploadModalOpen(true)}
@@ -237,7 +237,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
       {/* Table */}
       {loading ? (
         <div className="text-center py-8 text-xs text-muted-foreground italic flex flex-col items-center gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-amber-600 dark:text-gold" />
+          <Loader2 className="w-5 h-5 animate-spin text-amber-600 dark:text-primary" />
           <span>Loading invoices...</span>
         </div>
       ) : error ? (
@@ -247,7 +247,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
           No invoices uploaded for this PO yet.
         </div>
       ) : (
-        <Card className="border border-border rounded-xl overflow-hidden bg-card shadow-2xs">
+        <Card className="border border-border rounded-xl overflow-hidden bg-card shadow-xs">
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border bg-slate-50/80 dark:bg-slate-900/50">
@@ -276,7 +276,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
                       href={getAttachmentDownloadUrl(inv.invoice_id)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline font-semibold p-1 hover:bg-amber-500/10 rounded transition-colors"
+                      className="inline-flex items-center text-xs text-amber-600 dark:text-primary hover:underline font-semibold p-1 hover:bg-amber-500/10 rounded transition-colors"
                       title="Download PDF"
                     >
                       <Download className="w-3.5 h-3.5 mr-1" /> PDF

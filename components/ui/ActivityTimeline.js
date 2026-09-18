@@ -12,7 +12,7 @@ export function ActivityTimeline({ events = [] }) {
     if (action.includes('approve')) return <CheckCircle className="w-4 h-4 text-emerald-500" />;
     if (action.includes('reject')) return <XCircle className="w-4 h-4 text-red-500" />;
     if (action.includes('remit')) return <Send className="w-4 h-4 text-blue-500" />;
-    if (action.includes('comment')) return <MessageSquare className="w-4 h-4 text-gold" />;
+    if (action.includes('comment')) return <MessageSquare className="w-4 h-4 text-primary" />;
     if (action.includes('create') || action.includes('submit')) return <FileText className="w-4 h-4 text-slate-400" />;
     return <Clock className="w-4 h-4 text-slate-400" />;
   };

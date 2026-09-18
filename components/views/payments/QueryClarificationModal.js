@@ -75,8 +75,8 @@ export default function QueryClarificationModal({
     >
       {mode === 'ask' ? (
         <form onSubmit={handleAskQuery} className="space-y-4">
-          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-gold font-medium">
-            <HelpCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-gold" />
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-primary font-medium">
+            <HelpCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-primary" />
             <div>
               Placing this payment on <strong>Query Hold</strong> notifies the requester without rejecting the payment request. Workflows remain intact.
             </div>
@@ -109,7 +109,7 @@ export default function QueryClarificationModal({
           {payment.query_text && (
             <div className="p-3 rounded-lg bg-muted/50 border border-border space-y-1 text-xs">
               <div className="font-bold text-foreground flex items-center gap-1.5">
-                <HelpCircle className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+                <HelpCircle className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
                 <span>Question from {payment.query_asked_by || 'Approver'}:</span>
               </div>
               <p className="text-muted-foreground font-medium italic">"{payment.query_text}"</p>

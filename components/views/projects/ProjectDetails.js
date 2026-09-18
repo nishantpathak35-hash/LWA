@@ -184,12 +184,12 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ── Top Navigation & Project Header ── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card border border-border p-5 rounded-2xl shadow-xs">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card border border-border p-5 rounded-lg shadow-xs">
         <div className="space-y-2">
           {onBack && (
             <button
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-gold hover:text-amber-500 hover:underline transition-colors cursor-pointer mb-1"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-primary hover:text-amber-500 hover:underline transition-colors cursor-pointer mb-1"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Back to Projects Command Center
             </button>
@@ -250,9 +250,9 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
       {/* ── 4 Master Financial Intelligence Panels ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Panel 1: Client Inflow */}
-        <Card className="bg-card border-border/80 rounded-2xl shadow-xs p-5 flex flex-col justify-between hover:border-emerald-500/30 transition-all">
+        <Card className="bg-card border-border rounded-lg shadow-xs p-5 flex flex-col justify-between hover:border-emerald-500/30 transition-all">
           <div>
-            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <IndianRupee className="w-4 h-4" /> Client Inflow (Revenue)
               </span>
@@ -265,7 +265,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                 <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Contract Value</span>
                 <span className="text-xl font-bold font-mono text-foreground">{formatCurrency(contractValue)}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 text-xs">
                 <div>
                   <span className="text-[10px] text-muted-foreground font-semibold block">Inflow Received</span>
                   <span className="font-mono font-bold text-emerald-500">{formatCurrency(clientInflow)}</span>
@@ -283,7 +283,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
               )}
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-border/60">
+          <div className="mt-4 pt-3 border-t border-border">
             <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${inflowPercent}%` }} />
             </div>
@@ -291,9 +291,9 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
         </Card>
 
         {/* Panel 2: Vendor Outflow & Payables */}
-        <Card className="bg-card border-border/80 rounded-2xl shadow-xs p-5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
+        <Card className="bg-card border-border rounded-lg shadow-xs p-5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
           <div>
-            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
               <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                 <Layers className="w-4 h-4" /> PO Committed & Payable
               </span>
@@ -306,7 +306,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                 <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Total PO Committed</span>
                 <span className="text-xl font-bold font-mono text-foreground">{formatCurrency(poCommitted)}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 text-xs">
                 <div>
                   <span className="text-[10px] text-muted-foreground font-semibold block">Paid Outflow</span>
                   <span className="font-mono font-bold text-emerald-500">{formatCurrency(paidOutflow)}</span>
@@ -322,7 +322,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
               </div>
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-border/60">
+          <div className="mt-4 pt-3 border-t border-border">
             <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
               <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${outflowPaidPercent}%` }} />
             </div>
@@ -330,9 +330,9 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
         </Card>
 
         {/* Panel 3: Net Cash & Margin */}
-        <Card className="bg-card border-border/80 rounded-2xl shadow-xs p-5 flex flex-col justify-between hover:border-violet-500/30 transition-all">
+        <Card className="bg-card border-border rounded-lg shadow-xs p-5 flex flex-col justify-between hover:border-violet-500/30 transition-all">
           <div>
-            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
               <span className="text-[11px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
                 <Wallet className="w-4 h-4" /> Net Cash Position
               </span>
@@ -347,7 +347,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                   {formatCurrency(netCashInHand)}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 text-xs">
                 <div>
                   <span className="text-[10px] text-muted-foreground font-semibold block">Actual Gross Margin</span>
                   <span className="font-mono font-bold text-violet-500">{actualGMPct.toFixed(1)}%</span>
@@ -365,15 +365,15 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
               )}
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-border/60 text-[11px] text-muted-foreground">
+          <div className="mt-4 pt-3 border-t border-border text-[11px] text-muted-foreground">
             Inflow ({formatCurrency(clientInflow)}) − Outflow ({formatCurrency(paidOutflow)})
           </div>
         </Card>
 
         {/* Panel 4: Budget Control & Risk */}
-        <Card className="bg-card border-border/80 rounded-2xl shadow-xs p-5 flex flex-col justify-between hover:border-sky-500/30 transition-all">
+        <Card className="bg-card border-border rounded-lg shadow-xs p-5 flex flex-col justify-between hover:border-sky-500/30 transition-all">
           <div>
-            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
               <span className="text-[11px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4" /> BCS Budget Discipline
               </span>
@@ -386,7 +386,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                 <span className="text-[10px] text-muted-foreground uppercase font-semibold block">BCS Cost Budget</span>
                 <span className="text-xl font-bold font-mono text-foreground">{formatCurrency(bcsBudget)}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 text-xs">
                 <div>
                   <span className="text-[10px] text-muted-foreground font-semibold block">Uncommitted Budget</span>
                   <span className={`font-mono font-bold ${bcsBudget - poCommitted >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -402,7 +402,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
               </div>
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-border/60">
+          <div className="mt-4 pt-3 border-t border-border">
             <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
               <div 
                 className={`h-full rounded-full transition-all duration-500 ${isOverrun ? 'bg-rose-500' : bcsUtilPercent > 85 ? 'bg-amber-500' : 'bg-sky-500'}`} 
@@ -414,7 +414,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
       </div>
 
       {/* ── Cashflow Balance Bar Strip ── */}
-      <div className="bg-card border border-border p-4 rounded-2xl shadow-xs">
+      <div className="bg-card border border-border p-4 rounded-lg shadow-xs">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2.5">
           <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Cashflow Balance Architecture
@@ -484,7 +484,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
 
       {/* ── Tab 1: Purchase Orders Ledger ── */}
       {activeTab === 'pos' && (
-        <Card className="bg-card border-border/80 shadow-xs">
+        <Card className="bg-card border-border shadow-xs">
           <CardHeader className="border-b border-border py-3.5 px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Folder className="w-4 h-4 text-amber-500" />
@@ -533,7 +533,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                   </TableHeader>
                   <TableBody>
                     {filteredAndSortedPOs.map((po, idx) => (
-                      <TableRow key={idx} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                      <TableRow key={idx} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                         <TableCell className="px-4 py-3 font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">
                           <div className="flex items-center gap-1.5">
                             <a href={`/po/${encodeURIComponent(po.po_no || po.poNo)}`} target="_blank" rel="noreferrer" className="hover:text-amber-500 hover:underline font-bold" title={`Open PO ${po.po_no || po.poNo}`}>
@@ -588,7 +588,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
 
       {/* ── Tab 2: Payment Disbursements Log ── */}
       {activeTab === 'payments' && (
-        <Card className="bg-card border-border/80 shadow-xs">
+        <Card className="bg-card border-border shadow-xs">
           <CardHeader className="border-b border-border py-3.5 px-6 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-emerald-500" />
@@ -624,7 +624,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                   </TableHeader>
                   <TableBody>
                     {projectPayments.map((pmt, idx) => (
-                      <TableRow key={idx} className="border-b border-border/40 hover:bg-muted/30">
+                      <TableRow key={idx} className="border-b border-border/50 hover:bg-muted/30">
                         <TableCell className="font-mono text-xs font-semibold">{pmt.pr_id || '—'}</TableCell>
                         <TableCell className="font-mono text-xs font-semibold">
                           <div className="flex items-center gap-1.5">
@@ -651,7 +651,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
 
       {/* ── Tab 3: Site & Contract Details ── */}
       {activeTab === 'site' && (
-        <Card className="bg-card border-border/80 shadow-xs">
+        <Card className="bg-card border-border shadow-xs">
           <CardHeader className="border-b border-border py-3.5 px-6">
             <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider">
               Project Specification & Financial Overrides

@@ -10,7 +10,7 @@ export default function ReportsRemitModal({
       <Dialog open={remitModalOpen} onClose={() => setRemitModalOpen(false)} title={`Remit Payment #${selectedRemitPayment?.id}`}>
         <form onSubmit={handleRemitSubmit} className="space-y-4">
           <div className="p-4 bg-muted/40 border border-border rounded-xl space-y-4">
-            <span className="text-[10px] font-bold text-amber-700 dark:text-gold tracking-wider uppercase block">Remittance Details</span>
+            <span className="text-[10px] font-bold text-amber-700 dark:text-primary tracking-wider uppercase block">Remittance Details</span>
             <div>
               <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 tracking-wider block mb-1.5">UTR / REF TRANSACTION NUMBER</label>
               <Input

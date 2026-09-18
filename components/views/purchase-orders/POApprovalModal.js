@@ -15,10 +15,10 @@ export default function POApprovalModal({
       <Dialog open={approvalModalOpen} onClose={() => setApprovalModalOpen(false)}
         title={isApprove ? 'Approve Purchase Order' : 'Reject Purchase Order'}>
         <form onSubmit={handleConfirmApproval} className="space-y-5">
-          <div className="p-4 bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl space-y-2 text-xs font-medium shadow-2xs">
+          <div className="p-4 bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl space-y-2 text-xs font-medium shadow-xs">
             <div className="flex justify-between items-center pb-2 border-b border-amber-200/40 dark:border-slate-800">
               <span className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">PO Reference</span>
-              <span className="font-mono text-xs font-bold text-amber-700 dark:text-gold">{approvalTarget?.po_no}</span>
+              <span className="font-mono text-xs font-bold text-amber-700 dark:text-primary">{approvalTarget?.po_no}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Vendor:</span>
@@ -26,7 +26,7 @@ export default function POApprovalModal({
             </div>
             <div className="flex justify-between items-center pt-1">
               <span className="text-muted-foreground font-bold">Total PO Net Value:</span>
-              <span className="text-amber-800 dark:text-gold font-bold text-sm font-mono">{formatCurrency(Number(approvalTarget?.po_value || 0))}</span>
+              <span className="text-amber-800 dark:text-primary font-bold text-sm font-mono">{formatCurrency(Number(approvalTarget?.po_value || 0))}</span>
             </div>
           </div>
 

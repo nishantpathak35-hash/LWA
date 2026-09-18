@@ -27,7 +27,7 @@ export default function MultiSelectActionBar({
 
   return (
     <div className="w-full sticky top-4 z-30 animate-in fade-in slide-in-from-top-3 duration-300 my-4">
-      <Card className="bg-slate-900/95 backdrop-blur-xl border border-amber-500/40 shadow-[0_12px_40px_rgba(0,0,0,0.4)] shadow-amber-500/10 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 w-full min-w-0">
+      <Card className="bg-slate-900/95 backdrop-blur-xl border border-amber-500/40 shadow-[0_12px_40px_rgba(0,0,0,0.4)] shadow-amber-500/10 rounded-lg overflow-hidden flex flex-col transition-all duration-300 w-full min-w-0">
         
         {/* Top Summary Bar */}
         <div className="bg-gradient-to-r from-slate-950/95 via-slate-900/90 to-slate-950/95 px-5 py-3 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-4">

@@ -439,7 +439,7 @@ export default function InvoicesView() {
     const s = String(status || '').toLowerCase();
     if (s === 'approved') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 whitespace-nowrap shadow-2xs">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 whitespace-nowrap shadow-xs">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
           Approved
         </span>
@@ -447,7 +447,7 @@ export default function InvoicesView() {
     }
     if (s === 'paid') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/25 whitespace-nowrap shadow-2xs">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/25 whitespace-nowrap shadow-xs">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
           Paid
         </span>
@@ -455,7 +455,7 @@ export default function InvoicesView() {
     }
     if (s === 'rejected') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/25 whitespace-nowrap shadow-2xs">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/25 whitespace-nowrap shadow-xs">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
           Rejected
         </span>
@@ -463,14 +463,14 @@ export default function InvoicesView() {
     }
     if (s === 'under review') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/25 whitespace-nowrap shadow-2xs">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/25 whitespace-nowrap shadow-xs">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
           Under Review
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-500/10 text-slate-700 dark:text-slate-400 border border-slate-500/20 whitespace-nowrap shadow-2xs">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-500/10 text-slate-700 dark:text-slate-400 border border-slate-500/20 whitespace-nowrap shadow-xs">
         <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
         Submitted
       </span>
@@ -722,19 +722,19 @@ export default function InvoicesView() {
       {/* ── 4. Main Views Content ── */}
       {loading ? (
         <div className="py-24 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3">
-          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-gold shadow-inner">
+          <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-primary shadow-inner">
             <Loader2 className="w-6 h-6 animate-spin" />
           </div>
           <span className="font-semibold text-foreground">Loading invoices ledger...</span>
         </div>
       ) : error ? (
-        <div className="p-6 border border-rose-500/30 bg-rose-500/10 rounded-2xl text-center text-xs text-rose-600 dark:text-rose-400 font-semibold">
+        <div className="p-6 border border-rose-500/30 bg-rose-500/10 rounded-lg text-center text-xs text-rose-600 dark:text-rose-400 font-semibold">
           {error}
           <button type="button" onClick={fetchInvoices} className="block mx-auto mt-3 underline">Retry loading invoices</button>
         </div>
       ) : filteredInvoices.length === 0 ? (
-        <div className="py-20 px-6 border border-border/80 border-dashed rounded-2xl text-center flex flex-col items-center justify-center max-w-md mx-auto bg-card">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-gold flex items-center justify-center mb-3 shadow-inner">
+        <div className="py-20 px-6 border border-border border-dashed rounded-lg text-center flex flex-col items-center justify-center max-w-md mx-auto bg-card">
+          <div className="w-12 h-12 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-primary flex items-center justify-center mb-3 shadow-inner">
             <Receipt className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-foreground tracking-tight">No Invoices Found</h4>
@@ -750,21 +750,21 @@ export default function InvoicesView() {
             const isExpanded = expandedVendors[group.key] !== false; // expanded by default
 
             return (
-              <div key={group.key} className="border border-border/80 rounded-2xl overflow-hidden bg-card shadow-xs transition-all">
+              <div key={group.key} className="border border-border rounded-lg overflow-hidden bg-card shadow-xs transition-all">
                 {/* Vendor Group Header Card */}
                 <div 
                   onClick={() => toggleVendorExpanded(group.key)}
-                  className="p-4 bg-muted/20 hover:bg-muted/40 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 cursor-pointer select-none border-b border-border/60"
+                  className="p-4 bg-muted/20 hover:bg-muted/40 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 cursor-pointer select-none border-b border-border"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 text-amber-700 dark:text-gold border border-amber-500/30 font-bold text-sm flex items-center justify-center shrink-0 shadow-inner">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 text-amber-700 dark:text-primary border border-amber-500/30 font-bold text-sm flex items-center justify-center shrink-0 shadow-inner">
                       {getVendorInitials(group.vendorName)}
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                         {group.vendorName}
                         {group.vendorCode !== 'N/A' && (
-                          <span className="text-[11px] text-muted-foreground font-mono font-medium bg-muted px-2 py-0.5 rounded-md border border-border/60">
+                          <span className="text-[11px] text-muted-foreground font-mono font-medium bg-muted px-2 py-0.5 rounded-md border border-border">
                             {group.vendorCode}
                           </span>
                         )}
@@ -832,7 +832,7 @@ export default function InvoicesView() {
                           const isSelected = selectedInvoiceIds.includes(inv.invoice_id);
 
                           return (
-                            <TableRow key={inv.invoice_id} className={`border-b border-border/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-amber-500/5' : ''}`}>
+                            <TableRow key={inv.invoice_id} className={`border-b border-border/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-amber-500/5' : ''}`}>
                               <TableCell className="w-10 text-center py-3 px-2" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
@@ -847,14 +847,14 @@ export default function InvoicesView() {
                               <TableCell className="font-bold text-xs font-mono text-foreground">
                                 <button 
                                   onClick={() => setInspectInvoice(inv)}
-                                  className="hover:text-amber-600 dark:hover:text-gold hover:underline text-left font-mono inline-flex items-center gap-1"
+                                  className="hover:text-amber-600 dark:hover:text-primary hover:underline text-left font-mono inline-flex items-center gap-1"
                                 >
                                   {inv.invoice_number}
                                   <ArrowUpRight className="w-3 h-3 text-muted-foreground opacity-60" />
                                 </button>
                               </TableCell>
                               <TableCell className="text-xs font-mono text-muted-foreground font-medium">
-                                <span className="bg-muted px-2 py-0.5 rounded border border-border/60">
+                                <span className="bg-muted px-2 py-0.5 rounded border border-border">
                                   {inv.po_no}
                                 </span>
                               </TableCell>
@@ -884,7 +884,7 @@ export default function InvoicesView() {
                                     type="button"
                                     onClick={() => handleDownloadAttachment(inv.invoice_id, inv.file_name || `invoice-${inv.invoice_id}.pdf`)}
                                     disabled={downloadingId === inv.invoice_id}
-                                    className="inline-flex items-center text-xs text-amber-600 dark:text-gold hover:underline p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors disabled:opacity-50"
+                                    className="inline-flex items-center text-xs text-amber-600 dark:text-primary hover:underline p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors disabled:opacity-50"
                                     title="Download Invoice PDF"
                                   >
                                     <Download className={`w-3.5 h-3.5 ${downloadingId === inv.invoice_id ? 'animate-pulse' : ''}`} />
@@ -895,14 +895,14 @@ export default function InvoicesView() {
                                       <button
                                         type="button"
                                         onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
-                                        className="inline-flex items-center text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-1 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors cursor-pointer shadow-2xs"
+                                        className="inline-flex items-center text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-1 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors cursor-pointer shadow-xs"
                                       >
                                         <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
                                       </button>
                                       <button
                                         type="button"
                                         onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
-                                        className="inline-flex items-center text-[11px] text-rose-700 dark:text-rose-400 font-semibold px-2 py-1 rounded-lg border border-rose-500/30 hover:bg-rose-500/10 transition-colors cursor-pointer shadow-2xs"
+                                        className="inline-flex items-center text-[11px] text-rose-700 dark:text-rose-400 font-semibold px-2 py-1 rounded-lg border border-rose-500/30 hover:bg-rose-500/10 transition-colors cursor-pointer shadow-xs"
                                       >
                                         <XCircle className="w-3 h-3 mr-1" /> Reject
                                       </button>
@@ -986,7 +986,7 @@ export default function InvoicesView() {
       {/* ── 5. Sticky Floating Multi-Select Action Ribbon ── */}
       {selectedInvoiceIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-3xl px-4 animate-slide-up">
-          <div className="bg-slate-900/95 dark:bg-slate-900/95 border border-amber-500/50 shadow-2xl backdrop-blur-xl rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 text-white">
+          <div className="bg-slate-900/95 dark:bg-slate-900/95 border border-amber-500/50 shadow-2xl backdrop-blur-xl rounded-lg p-4 flex flex-wrap items-center justify-between gap-4 text-white">
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs border border-amber-500/30 flex items-center gap-1.5 shadow-inner">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -1082,7 +1082,7 @@ export default function InvoicesView() {
                   type="button"
                   onClick={() => handleDownloadAttachment(inspectInvoice.invoice_id, inspectInvoice.file_name || `invoice-${inspectInvoice.invoice_id}.pdf`)}
                   disabled={downloadingId === inspectInvoice.invoice_id}
-                  className="px-3 py-1.5 text-xs text-amber-600 dark:text-gold hover:bg-amber-500/10 font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 text-xs text-amber-600 dark:text-primary hover:bg-amber-500/10 font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 transition-colors disabled:opacity-50"
                 >
                   <Download className={`w-3.5 h-3.5 ${downloadingId === inspectInvoice.invoice_id ? 'animate-pulse' : ''}`} />
                   {downloadingId === inspectInvoice.invoice_id ? 'Downloading...' : 'Download PDF'}
@@ -1103,7 +1103,7 @@ export default function InvoicesView() {
                 onClick={() => setDrawerTab('overview')}
                 className={`py-3 border-b-2 transition-all cursor-pointer ${
                   drawerTab === 'overview'
-                    ? 'border-amber-500 text-amber-700 dark:text-gold'
+                    ? 'border-amber-500 text-amber-700 dark:text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1114,7 +1114,7 @@ export default function InvoicesView() {
                 onClick={() => setDrawerTab('po_health')}
                 className={`py-3 border-b-2 transition-all cursor-pointer ${
                   drawerTab === 'po_health'
-                    ? 'border-amber-500 text-amber-700 dark:text-gold'
+                    ? 'border-amber-500 text-amber-700 dark:text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1125,7 +1125,7 @@ export default function InvoicesView() {
                 onClick={() => setDrawerTab('pdf')}
                 className={`py-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
                   drawerTab === 'pdf'
-                    ? 'border-amber-500 text-amber-700 dark:text-gold'
+                    ? 'border-amber-500 text-amber-700 dark:text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1139,9 +1139,9 @@ export default function InvoicesView() {
               {drawerTab === 'overview' && (
                 <>
                   {/* Financial Summary Card */}
-                  <div className="p-5 rounded-2xl bg-muted/30 border border-border/80 space-y-4">
+                  <div className="p-5 rounded-lg bg-muted/30 border border-border space-y-4">
                     <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <IndianRupee className="w-3.5 h-3.5 text-amber-600 dark:text-gold" /> Tax & Amount Split
+                      <IndianRupee className="w-3.5 h-3.5 text-amber-600 dark:text-primary" /> Tax & Amount Split
                     </h4>
                     
                     <div className="grid grid-cols-2 gap-4 text-xs">
@@ -1159,9 +1159,9 @@ export default function InvoicesView() {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-border/80 flex items-center justify-between">
+                    <div className="pt-3 border-t border-border flex items-center justify-between">
                       <span className="text-sm font-semibold text-foreground">Gross Invoice Payable</span>
-                      <span className="text-xl font-bold text-amber-600 dark:text-gold font-mono">
+                      <span className="text-xl font-bold text-amber-600 dark:text-primary font-mono">
                         {formatCurrency(inspectInvoice.invoice_total)}
                       </span>
                     </div>
@@ -1169,7 +1169,7 @@ export default function InvoicesView() {
 
                   {/* Metadata Grid */}
                   <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 space-y-2">
+                    <div className="p-4 rounded-lg bg-muted/20 border border-border space-y-2">
                       <h5 className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">
                         Vendor & PO References
                       </h5>
@@ -1179,7 +1179,7 @@ export default function InvoicesView() {
                       <p><span className="text-muted-foreground">Source:</span> <span className="capitalize">{inspectInvoice.source?.replace('_', ' ') || 'Internal Upload'}</span></p>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 space-y-2">
+                    <div className="p-4 rounded-lg bg-muted/20 border border-border space-y-2">
                       <h5 className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">
                         Dates & Audit
                       </h5>
@@ -1191,7 +1191,7 @@ export default function InvoicesView() {
 
                   {/* Remarks / Notes */}
                   {inspectInvoice.remarks && (
-                    <div className="p-4 rounded-2xl bg-muted/20 border border-border/80 text-xs space-y-1">
+                    <div className="p-4 rounded-lg bg-muted/20 border border-border text-xs space-y-1">
                       <span className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider block">Internal Remarks / Notes</span>
                       <p className="text-foreground leading-relaxed">{inspectInvoice.remarks}</p>
                     </div>
@@ -1199,7 +1199,7 @@ export default function InvoicesView() {
 
                   {/* Rejection Alert */}
                   {inspectInvoice.rejection_reason && (
-                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-1 text-rose-600 dark:text-rose-400">
+                    <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs space-y-1 text-rose-600 dark:text-rose-400">
                       <span className="font-bold uppercase text-[10px] tracking-wider block flex items-center gap-1.5">
                         <ShieldAlert className="w-4 h-4" /> Rejection Reason
                       </span>
@@ -1211,9 +1211,9 @@ export default function InvoicesView() {
 
               {drawerTab === 'po_health' && (
                 <div className="space-y-5">
-                  <div className="p-5 rounded-2xl bg-muted/30 border border-border/80 space-y-3 text-xs">
+                  <div className="p-5 rounded-lg bg-muted/30 border border-border space-y-3 text-xs">
                     <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
-                      <Building className="w-4 h-4 text-amber-600 dark:text-gold" />
+                      <Building className="w-4 h-4 text-amber-600 dark:text-primary" />
                       PO #{inspectInvoice.po_no} Financial Health
                     </h4>
                     
@@ -1243,7 +1243,7 @@ export default function InvoicesView() {
               )}
 
               {drawerTab === 'pdf' && (
-                <div className="h-[480px] rounded-2xl overflow-hidden border border-border bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+                <div className="h-[480px] rounded-lg overflow-hidden border border-border bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
               <iframe 
                     src={getAttachmentUrl(inspectInvoice.invoice_id, 'inline')} 
                     className="w-full h-full rounded-xl"
@@ -1296,7 +1296,7 @@ export default function InvoicesView() {
       {selectedInvoice && (
         <Dialog open={true} onClose={() => { setSelectedInvoice(null); setStatusAction(null); }} title={`Confirm ${statusAction} — ${selectedInvoice.invoice_number}`} maxWidth="max-w-md">
           <div className="space-y-4">
-            <div className="text-xs text-foreground space-y-1 bg-muted/40 p-4 rounded-2xl border border-border">
+            <div className="text-xs text-foreground space-y-1 bg-muted/40 p-4 rounded-lg border border-border">
               <p><strong className="text-muted-foreground">Vendor:</strong> {selectedInvoice.vendor_name}</p>
               <p><strong className="text-muted-foreground">PO Number:</strong> {selectedInvoice.po_no}</p>
               <p><strong className="text-muted-foreground">Invoice Total:</strong> <span className="text-amber-600 dark:text-amber-400 font-bold font-mono">{formatCurrency(selectedInvoice.invoice_total)}</span></p>
@@ -1343,7 +1343,7 @@ export default function InvoicesView() {
                 required
                 value={uploadForm.poNo}
                 onChange={(e) => setUploadForm({ ...uploadForm, poNo: e.target.value })}
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-medium cursor-pointer shadow-2xs"
+                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-medium cursor-pointer shadow-xs"
               >
                 <option value="">-- Choose Approved PO --</option>
                 {Array.isArray(posList) && posList.map(p => (
@@ -1354,7 +1354,7 @@ export default function InvoicesView() {
               </select>
 
               {selectedPOData && (
-                <div className="mt-2.5 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                <div className="mt-2.5 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-700 dark:text-amber-300 space-y-1">
                   <p><span className="text-muted-foreground">Vendor:</span> <strong>{selectedPOData.vendor_name || selectedPOData.vendor}</strong></p>
                   <p><span className="text-muted-foreground">PO Value:</span> <strong className="font-mono">{formatCurrency(selectedPOData.po_value || selectedPOData.poValue)}</strong></p>
                 </div>
@@ -1429,7 +1429,7 @@ export default function InvoicesView() {
                 onDragLeave={handleDrag} 
                 onDragOver={handleDrag} 
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all ${
+                className={`border-2 border-dashed rounded-lg p-5 text-center transition-all ${
                   dragActive ? 'border-amber-500 bg-amber-500/10' : 'border-border bg-background hover:border-muted-foreground'
                 }`}
               >
@@ -1504,7 +1504,7 @@ export default function InvoicesView() {
               </div>
             </div>
 
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-foreground space-y-1">
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-xs text-foreground space-y-1">
               <p><strong className="text-muted-foreground">Invoice #:</strong> <span className="font-mono font-bold text-foreground">{invoiceToDelete.invoice_number}</span></p>
               <p><strong className="text-muted-foreground">PO #:</strong> <span className="font-mono text-foreground">{invoiceToDelete.po_no}</span></p>
               <p><strong className="text-muted-foreground">Vendor:</strong> <span className="text-foreground">{invoiceToDelete.vendor_name}</span></p>
@@ -1547,7 +1547,7 @@ export default function InvoicesView() {
               </div>
             </div>
 
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-foreground space-y-1">
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-xs text-foreground space-y-1">
               <p><strong className="text-muted-foreground">Selected Count:</strong> <span className="font-bold text-foreground">{selectedInvoiceIds.length} Invoices</span></p>
               <p><strong className="text-muted-foreground">Total Value:</strong> <span className="text-amber-600 dark:text-amber-400 font-mono font-bold">{formatCurrency(selectedTotalAmount)}</span></p>
             </div>
@@ -1588,7 +1588,7 @@ export default function InvoicesView() {
               </div>
             </div>
 
-            <div className="p-4 bg-muted/40 border border-border/80 rounded-2xl text-xs text-foreground space-y-1">
+            <div className="p-4 bg-muted/40 border border-border rounded-lg text-xs text-foreground space-y-1">
               <p><strong className="text-muted-foreground">Pending Invoices:</strong> <span className="font-bold text-foreground">{pendingSelectedCount} Invoices</span></p>
               <p><strong className="text-muted-foreground">Gross Value:</strong> <span className="text-amber-600 dark:text-amber-400 font-mono font-bold">{formatCurrency(selectedTotalAmount)}</span></p>
             </div>

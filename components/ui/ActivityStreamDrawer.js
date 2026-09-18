@@ -59,7 +59,7 @@ export default function ActivityStreamDrawer({ open, onClose }) {
     if (act.includes('approve') || act.includes('success')) return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
     if (act.includes('security') || act.includes('role')) return <Shield className="w-4 h-4 text-purple-500" />;
     if (act.includes('reject') || act.includes('delete') || act.includes('error')) return <AlertCircle className="w-4 h-4 text-rose-500" />;
-    return <Activity className="w-4 h-4 text-amber-600 dark:text-gold" />;
+    return <Activity className="w-4 h-4 text-amber-600 dark:text-primary" />;
   };
 
   const drawerContent = (
@@ -77,7 +77,7 @@ export default function ActivityStreamDrawer({ open, onClose }) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-gold">
+              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-primary">
                 <Activity className="w-5 h-5" />
               </div>
               <div>
@@ -141,7 +141,7 @@ export default function ActivityStreamDrawer({ open, onClose }) {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {loading && activities.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-                <RefreshCw className="w-8 h-8 animate-spin text-amber-600 dark:text-gold" />
+                <RefreshCw className="w-8 h-8 animate-spin text-amber-600 dark:text-primary" />
                 <span className="text-xs font-medium">Loading activity stream...</span>
               </div>
             ) : filteredActivities.length === 0 ? (

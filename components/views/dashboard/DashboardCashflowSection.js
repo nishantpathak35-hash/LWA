@@ -25,7 +25,7 @@ export default function DashboardCashflowSection({
               setCashflowPage(1);
             }}
           />
-          <span className="text-[11px] font-bold text-amber-700 dark:text-gold uppercase tracking-wider">
+          <span className="text-[11px] font-bold text-amber-700 dark:text-primary uppercase tracking-wider">
             {filteredCashflowProjects.length} MATCHING PROJECTS
           </span>
         </div>
@@ -33,7 +33,7 @@ export default function DashboardCashflowSection({
 
       {/* Project Cashflow Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="flex items-center justify-between p-4 shadow-2xs">
+        <Card className="flex items-center justify-between p-4 shadow-xs">
           <div>
             <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Project Value</div>
             <div className="text-xl font-bold text-foreground mt-1.5 tabular-nums">{fmtLakhs(totPV)}</div>
@@ -42,7 +42,7 @@ export default function DashboardCashflowSection({
             <Sparkline data={spPV} color="rgba(200,164,90,.95)" />
           </div>
         </Card>
-        <Card className="flex items-center justify-between p-4 shadow-2xs">
+        <Card className="flex items-center justify-between p-4 shadow-xs">
           <div>
             <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Inflow</div>
             <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400 mt-1.5 tabular-nums">{fmtLakhs(totInflow)}</div>
@@ -51,7 +51,7 @@ export default function DashboardCashflowSection({
             <Sparkline data={spIn} color="rgba(61,214,140,.95)" />
           </div>
         </Card>
-        <Card className="flex items-center justify-between p-4 shadow-2xs">
+        <Card className="flex items-center justify-between p-4 shadow-xs">
           <div>
             <div className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Outflow (Paid)</div>
             <div className="text-xl font-bold text-rose-700 dark:text-rose-400 mt-1.5 tabular-nums">{fmtLakhs(totOut)}</div>
@@ -60,7 +60,7 @@ export default function DashboardCashflowSection({
             <Sparkline data={spOutCF} color="rgba(239,68,68,.95)" />
           </div>
         </Card>
-        <Card className="flex items-center justify-between p-4 shadow-2xs">
+        <Card className="flex items-center justify-between p-4 shadow-xs">
           <div>
             <div className="text-[11px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">Pending Inflow</div>
             <div className="text-xl font-bold text-amber-700 dark:text-amber-500 mt-1.5 tabular-nums">{fmtLakhs(totPendInflow)}</div>
@@ -94,7 +94,7 @@ export default function DashboardCashflowSection({
                 <TableCell className="text-right font-bold text-amber-700 dark:text-amber-500 tabular-nums">{fmtLakhs(r.pendingInflow)}</TableCell>
                 <TableCell className="text-center">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditModal(r)}>
-                    <Edit2 className="w-3.5 h-3.5 text-amber-700 dark:text-gold" />
+                    <Edit2 className="w-3.5 h-3.5 text-amber-700 dark:text-primary" />
                   </Button>
                 </TableCell>
               </TableRow>

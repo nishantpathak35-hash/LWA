@@ -9,6 +9,11 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -43,24 +48,20 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+        },
         gold: {
-          50: '#faf8f5',
-          100: '#f3ece1',
-          200: '#e4d6be',
-          300: '#cfb992',
-          400: '#b89966',
-          500: '#a37e46',
-          DEFAULT: '#c5a880',
-          650: '#c5a880',
-          700: '#6c512a',
-          800: '#46341d',
-          900: '#2b2012',
-          950: '#171009',
+          DEFAULT: '#c5a055',
+          light: '#dbc28a',
+          dark: '#9a7a3a',
         }
       },
       boxShadow: {
-        '2xs': '0 1px 2px 0 rgb(0 0 0 / 0.03)',
-        'xs': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        'xs': '0 1px 2px 0 rgb(0 0 0 / 0.04)',
+        'elevated': '0 2px 8px -2px rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06)',
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -69,17 +70,12 @@ module.exports = {
       },
       keyframes: {
         'fade-in': {
-          from: { opacity: 0, transform: 'translateY(8px)' },
-          to: { opacity: 1, transform: 'translateY(0)' },
+          from: { opacity: 0 },
+          to: { opacity: 1 },
         },
-        'pulse-subtle': {
-          '0%, 100%': { opacity: 1 },
-          '50%': { opacity: 0.8 },
-        }
       },
       animation: {
-        'fade-in': 'fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'pulse-subtle': 'pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'fade-in': 'fade-in 0.2s ease-out forwards',
       }
     },
   },

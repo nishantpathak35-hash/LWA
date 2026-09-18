@@ -131,7 +131,7 @@ export default function DPRTemplates() {
                   }
                   return floors.map((f, idx) => (
                     <div key={idx} className="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
-                      <h4 className="text-xs font-semibold text-gold">{f.name || `Floor ${idx + 1}`}</h4>
+                      <h4 className="text-xs font-semibold text-primary">{f.name || `Floor ${idx + 1}`}</h4>
                       {f.manpower && f.manpower.length > 0 && (
                         <div>
                           <span className="text-[10px] text-slate-500 block mb-1">Manpower Config:</span>

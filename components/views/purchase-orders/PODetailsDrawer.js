@@ -174,7 +174,7 @@ export default function PODetailsDrawer({
                 <span className="text-[10px] uppercase font-semibold text-muted-foreground block">PO Value</span>
                 <span className="font-mono text-sm font-bold text-foreground">{formatCurrency(poValue)}</span>
               </div>
-              <div className="border-x border-border/80 px-2">
+              <div className="border-x border-border px-2">
                 <span className="text-[10px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Paid ({paidPercent}%)</span>
                 <span className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(paidAmount)}</span>
               </div>

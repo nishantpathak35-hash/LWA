@@ -19,7 +19,7 @@ export default function POManualPaymentModal({
 
           {/* Outstanding balance info */}
           {paymentData?.summary && (
-            <div className="grid grid-cols-3 gap-3 p-3.5 bg-amber-50/50 dark:bg-slate-900/40 rounded-xl border border-amber-200/60 dark:border-slate-800 shadow-2xs">
+            <div className="grid grid-cols-3 gap-3 p-3.5 bg-amber-50/50 dark:bg-slate-900/40 rounded-xl border border-amber-200/60 dark:border-slate-800 shadow-xs">
               {[
                 { label: 'PO Value',    value: paymentData.summary.po_value,    color: 'text-slate-900 dark:text-slate-100 font-bold' },
                 { label: 'Paid So Far', value: paymentData.summary.total_paid,  color: 'text-emerald-700 dark:text-emerald-400 font-bold' },

@@ -91,7 +91,7 @@ export default function SettingsNumberSeriesTab() {
   return (
     <Card className="bg-card border-border shadow-xs rounded-xl">
       <CardHeader className="flex flex-col sm:flex-row items-center justify-between p-6 border-b border-border bg-muted/20 gap-4">
-        <CardTitle className="text-amber-800 dark:text-gold font-bold text-sm uppercase tracking-wider">
+        <CardTitle className="text-amber-800 dark:text-primary font-bold text-sm uppercase tracking-wider">
           Number Series Configuration ({processedConfigs.length})
         </CardTitle>
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -147,7 +147,7 @@ export default function SettingsNumberSeriesTab() {
                 <TableRow key={cfg.id} className="border-b border-border/70 hover:bg-muted/40 transition-colors">
                   <TableCell className="font-bold text-xs capitalize text-slate-900 dark:text-slate-100 py-3">{cfg.module_type.replace('_', ' ')}</TableCell>
                   <TableCell className="text-xs font-mono text-slate-800 dark:text-slate-200 py-3">{cfg.prefix || '—'}</TableCell>
-                  <TableCell className="text-xs font-mono font-bold text-amber-700 dark:text-gold py-3">{cfg.current_number}</TableCell>
+                  <TableCell className="text-xs font-mono font-bold text-amber-700 dark:text-primary py-3">{cfg.current_number}</TableCell>
                   <TableCell className="font-mono text-xs text-slate-700 dark:text-slate-300 font-semibold py-3">{cfg.prefix}{String(cfg.current_number).padStart(cfg.padding_length !== undefined && cfg.padding_length !== null ? Number(cfg.padding_length) : 3, '0')}</TableCell>
                   <TableCell className="py-3 text-right flex justify-end">
                     <Button size="icon" variant="ghost" onClick={() => handleEdit(cfg)} className="h-7 w-7 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10"><Edit className="w-3.5 h-3.5" /></Button>

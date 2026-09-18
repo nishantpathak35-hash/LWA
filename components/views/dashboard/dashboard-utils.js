@@ -41,7 +41,7 @@ export function PaginationControls({ currentPage, totalPages, totalItems, label,
 
   return (
     <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-[11px] font-semibold text-gold">
+      <span className="text-[11px] font-semibold text-primary">
         {totalItems === 0 ? `Showing 0 ${label}` : `Showing ${startItem}-${endItem} of ${totalItems} ${label}`}
       </span>
       <div className="flex items-center gap-2">

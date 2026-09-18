@@ -25,7 +25,7 @@ export default function BulkApprovalReviewModal({
       maxWidth="max-w-7xl"
     >
       <div className="space-y-6">
-        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400 rounded-xl p-4 flex gap-3 text-xs font-medium shadow-2xs">
+        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400 rounded-xl p-4 flex gap-3 text-xs font-medium shadow-xs">
           <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
           <p>
             You are about to approve <strong>{selectedRequestsDetails.length}</strong> payment requests. 
@@ -33,7 +33,7 @@ export default function BulkApprovalReviewModal({
           </p>
         </div>
 
-        <div className="overflow-x-auto border border-border rounded-xl max-h-[60vh] custom-scrollbar shadow-2xs">
+        <div className="overflow-x-auto border border-border rounded-xl max-h-[60vh] custom-scrollbar shadow-xs">
           <table className="min-w-full text-xs text-left">
             <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10 border-b border-border">
               <tr>
@@ -93,7 +93,7 @@ export default function BulkApprovalReviewModal({
                       className="h-8 text-xs w-full bg-background text-foreground font-mono"
                     />
                   </td>
-                  <td className="px-4 py-3 align-top text-right font-bold text-amber-700 dark:text-gold pt-4 font-mono">
+                  <td className="px-4 py-3 align-top text-right font-bold text-amber-700 dark:text-primary pt-4 font-mono">
                     {formatCurrency(req.netPayable)}
                   </td>
                 </tr>
@@ -105,7 +105,7 @@ export default function BulkApprovalReviewModal({
                 <td className="px-4 py-3 font-mono">{formatCurrency(totalApproved)}</td>
                 <td className="px-4 py-3"></td>
                 <td className="px-4 py-3 font-mono text-purple-700 dark:text-purple-400">{formatCurrency(totalTds)}</td>
-                <td className="px-4 py-3 text-right text-amber-700 dark:text-gold font-mono">{formatCurrency(totalNet)}</td>
+                <td className="px-4 py-3 text-right text-amber-700 dark:text-primary font-mono">{formatCurrency(totalNet)}</td>
               </tr>
             </tfoot>
           </table>

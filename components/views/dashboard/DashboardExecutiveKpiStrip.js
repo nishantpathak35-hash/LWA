@@ -1,10 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card } from '../../ui/core';
-import { Briefcase, ArrowDownLeft, ArrowUpRight, TrendingUp, ShieldCheck, PieChart, Coins } from 'lucide-react';
-import { Sparkline, fmtLakhs, fmtPct, num } from './dashboard-utils';
-import { cn } from '../../../app/lib/utils';
+import { fmtLakhs, num } from './dashboard-utils';
 
 export default function DashboardExecutiveKpiStrip({
   totPV,
@@ -16,129 +13,71 @@ export default function DashboardExecutiveKpiStrip({
   totAGM,
   totPGM,
   totBal,
-  spPV,
-  spIn,
-  spOutCF,
   projectsCount = 0
 }) {
   const collectionPct = totPV > 0 ? Math.min(Math.round((totInflow / totPV) * 100), 100) : 0;
   const netBuffer = totInflow - totOut;
-  const gmAchievedPct = totBCS > 0 ? ((totAGM / totBCS) * 100) : 0;
   const poCommitmentPct = totBCS > 0 ? Math.min(Math.round((totPO / totBCS) * 100), 100) : 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      {/* 1. Contract Value (BOQ) */}
-      <Card className="p-4 bg-card border border-border/80 rounded-2xl shadow-xs flex flex-col justify-between hover:border-amber-500/40 transition-all">
-        <div className="flex items-start justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Total Contract Value</span>
-            <div className="text-xl font-bold text-foreground font-mono mt-1 tabular-nums">
-              {fmtLakhs(totPV)}
-            </div>
-          </div>
-          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-gold border border-amber-500/20 shrink-0">
-            <Briefcase className="w-4 h-4" />
-          </div>
+    <div className="space-y-4">
+      {/* Primary metrics — larger, asymmetric layout */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Contract Value — featured */}
+        <div className="bg-card border border-border rounded-lg p-4 col-span-2 lg:col-span-1">
+          <span className="text-xs text-muted-foreground">Total Contract Value</span>
+          <div className="text-2xl font-semibold text-foreground mt-1 tabular-nums">{fmtLakhs(totPV)}</div>
+          <span className="text-xs text-muted-foreground mt-1 block">{projectsCount} active projects</span>
         </div>
-        <div className="flex items-end justify-between mt-3 pt-3 border-t border-border/60">
-          <span className="text-[11px] text-muted-foreground font-medium">
-            {projectsCount} Active Projects
-          </span>
-          <div className="w-16 h-7">
-            <Sparkline data={spPV} color="rgba(200,164,90,.95)" />
-          </div>
-        </div>
-      </Card>
 
-      {/* 2. Inflow Received */}
-      <Card className="p-4 bg-card border border-border/80 rounded-2xl shadow-xs flex flex-col justify-between hover:border-emerald-500/40 transition-all">
-        <div className="flex items-start justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">Inflow Realized</span>
-            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-1 tabular-nums">
-              {fmtLakhs(totInflow)}
-            </div>
-          </div>
-          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-            <ArrowDownLeft className="w-4 h-4" />
-          </div>
+        {/* Inflow — featured */}
+        <div className="bg-card border border-border rounded-lg p-4">
+          <span className="text-xs text-muted-foreground">Inflow Realized</span>
+          <div className="text-2xl font-semibold text-foreground mt-1 tabular-nums">{fmtLakhs(totInflow)}</div>
+          <span className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 block font-medium">{collectionPct}% collected</span>
         </div>
-        <div className="flex items-end justify-between mt-3 pt-3 border-t border-border/60">
-          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-            {collectionPct}% of BOQ Collected
-          </span>
-          <div className="w-16 h-7">
-            <Sparkline data={spIn} color="rgba(61,214,140,.95)" />
-          </div>
-        </div>
-      </Card>
 
-      {/* 3. Treasury Outflow */}
-      <Card className="p-4 bg-card border border-border/80 rounded-2xl shadow-xs flex flex-col justify-between hover:border-rose-500/40 transition-all">
-        <div className="flex items-start justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">Treasury Outflow</span>
-            <div className="text-xl font-bold text-rose-600 dark:text-rose-400 font-mono mt-1 tabular-nums">
-              {fmtLakhs(totOut)}
-            </div>
-          </div>
-          <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0">
-            <ArrowUpRight className="w-4 h-4" />
-          </div>
+        {/* Outflow */}
+        <div className="bg-card border border-border rounded-lg p-4">
+          <span className="text-xs text-muted-foreground">Treasury Outflow</span>
+          <div className="text-2xl font-semibold text-foreground mt-1 tabular-nums">{fmtLakhs(totOut)}</div>
+          <span className="text-xs text-muted-foreground mt-1 block">Pending: {fmtLakhs(totPendInflow)}</span>
         </div>
-        <div className="flex items-end justify-between mt-3 pt-3 border-t border-border/60">
-          <span className="text-[11px] text-muted-foreground font-medium">
-            Pending: <strong className="text-amber-600 dark:text-amber-500">{fmtLakhs(totPendInflow)}</strong>
-          </span>
-          <div className="w-16 h-7">
-            <Sparkline data={spOutCF} color="rgba(239,68,68,.95)" />
-          </div>
-        </div>
-      </Card>
 
-      {/* 4. BCS Budget & PO Issued */}
-      <Card className="p-4 bg-card border border-border/80 rounded-2xl shadow-xs flex flex-col justify-between hover:border-blue-500/40 transition-all">
-        <div className="flex items-start justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Budgeted Cost (BCS)</span>
-            <div className="text-xl font-bold text-foreground font-mono mt-1 tabular-nums">
-              {fmtLakhs(totBCS)}
-            </div>
+        {/* Cash Buffer */}
+        <div className="bg-card border border-border rounded-lg p-4">
+          <span className="text-xs text-muted-foreground">Net Cash Buffer</span>
+          <div className={`text-2xl font-semibold mt-1 tabular-nums ${netBuffer >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+            {netBuffer >= 0 ? `+${fmtLakhs(netBuffer)}` : fmtLakhs(netBuffer)}
           </div>
-          <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0">
-            <Coins className="w-4 h-4" />
-          </div>
+          <span className="text-xs text-muted-foreground mt-1 block">Inflow − Outflow</span>
         </div>
-        <div className="flex items-end justify-between mt-3 pt-3 border-t border-border/60">
-          <span className="text-[11px] text-muted-foreground font-medium">
-            POs Issued: <strong className="text-foreground">{fmtLakhs(totPO)}</strong> ({poCommitmentPct}%)
-          </span>
-        </div>
-      </Card>
+      </div>
 
-      {/* 5. Actual GM & Cash Buffer */}
-      <Card className="p-4 bg-card border border-border/80 rounded-2xl shadow-xs flex flex-col justify-between hover:border-violet-500/40 transition-all">
-        <div className="flex items-start justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider block">Actual Gross Margin</span>
-            <div className="text-xl font-bold text-violet-600 dark:text-violet-400 font-mono mt-1 tabular-nums">
-              {fmtLakhs(totAGM)}
-            </div>
-          </div>
-          <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 shrink-0">
-            <TrendingUp className="w-4 h-4" />
-          </div>
+      {/* Secondary metrics — compact inline row, not more cards */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-1 text-xs">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-muted-foreground">BCS Budget</span>
+          <span className="font-semibold text-foreground tabular-nums">{fmtLakhs(totBCS)}</span>
         </div>
-        <div className="flex items-end justify-between mt-3 pt-3 border-t border-border/60">
-          <span className="text-[11px] font-bold">
-            Cash Buffer:{' '}
-            <span className={netBuffer >= 0 ? "text-emerald-600 dark:text-emerald-400 font-mono" : "text-rose-600 dark:text-rose-400 font-mono"}>
-              {netBuffer >= 0 ? `+${fmtLakhs(netBuffer)}` : fmtLakhs(netBuffer)}
-            </span>
-          </span>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-muted-foreground">POs Issued</span>
+          <span className="font-semibold text-foreground tabular-nums">{fmtLakhs(totPO)}</span>
+          <span className="text-muted-foreground">({poCommitmentPct}%)</span>
         </div>
-      </Card>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-muted-foreground">Planned GM</span>
+          <span className="font-semibold text-foreground tabular-nums">{fmtLakhs(totPGM)}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-muted-foreground">Actual GM</span>
+          <span className="font-semibold text-foreground tabular-nums">{fmtLakhs(totAGM)}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-muted-foreground">Balance</span>
+          <span className="font-semibold text-foreground tabular-nums">{fmtLakhs(totBal)}</span>
+        </div>
+      </div>
     </div>
   );
 }

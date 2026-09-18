@@ -172,10 +172,10 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Header Card & Sub-Tab Switcher */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-muted/40 p-5 rounded-2xl border border-border">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-muted/40 p-5 rounded-lg border border-border">
         <div>
           <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <FileText className="w-5 h-5 text-amber-700 dark:text-gold" />
+            <FileText className="w-5 h-5 text-amber-700 dark:text-primary" />
             TDS Compliance & TRACES Portal Tracker
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -188,14 +188,14 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
             <button
               type="button"
               onClick={() => setActiveTab('quarter_tracker')}
-              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${activeTab === 'quarter_tracker' ? 'bg-amber-600 text-white dark:bg-gold dark:text-slate-950 font-bold shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${activeTab === 'quarter_tracker' ? 'bg-amber-600 text-white dark:bg-gold dark:text-slate-950 font-bold shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <FileText className="w-3.5 h-3.5" /> Form 16A Tracker
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('challan_281')}
-              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${activeTab === 'challan_281' ? 'bg-amber-600 text-white dark:bg-gold dark:text-slate-950 font-bold shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${activeTab === 'challan_281' ? 'bg-amber-600 text-white dark:bg-gold dark:text-slate-950 font-bold shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Landmark className="w-3.5 h-3.5" /> Monthly Challan 281 & TRACES
             </button>
@@ -213,7 +213,7 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => window.open('https://eportal.incometax.gov.in/iec/foservices/#/e-pay-tax-login', '_blank')} className="gap-1.5 text-xs font-semibold">
-                <ExternalLink className="w-3.5 h-3.5 text-amber-700 dark:text-gold" /> Pay on ITD Portal
+                <ExternalLink className="w-3.5 h-3.5 text-amber-700 dark:text-primary" /> Pay on ITD Portal
               </Button>
               <Button variant="outline" size="sm" onClick={handleExport26QFile} className="gap-1.5 text-xs font-semibold">
                 <Download className="w-3.5 h-3.5" /> Export NSDL 26Q File
@@ -245,7 +245,7 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
                 <TableBody>
                   {challan281Records.map(c => (
                     <TableRow key={c.id}>
-                      <TableCell className="font-bold text-xs text-amber-700 dark:text-gold">{c.month}</TableCell>
+                      <TableCell className="font-bold text-xs text-amber-700 dark:text-primary">{c.month}</TableCell>
                       <TableCell className="font-mono text-xs font-bold uppercase">{c.tan}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="font-mono text-[10px]">
@@ -297,10 +297,10 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
 
             <Card className="p-4 bg-card border-border">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Pending Certificates</span>
-              <span className="text-lg font-bold text-amber-700 dark:text-gold mt-1 block tabular-nums">
+              <span className="text-lg font-bold text-amber-700 dark:text-primary mt-1 block tabular-nums">
                 {filteredRecords.length - Object.values(form16aRecords).filter(r => r.status === 'Issued').length}
               </span>
-              <span className="text-[10px] text-amber-700 dark:text-gold/80 mt-1 block font-medium">Awaiting TRACES Upload</span>
+              <span className="text-[10px] text-amber-700 dark:text-primary/80 mt-1 block font-medium">Awaiting TRACES Upload</span>
             </Card>
           </div>
 
@@ -320,7 +320,7 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
                     key={q}
                     type="button"
                     onClick={() => setSelectedQuarter(q)}
-                    className={`px-3 py-1 rounded-md transition-colors ${selectedQuarter === q ? 'bg-amber-600 text-white dark:bg-gold dark:text-slate-950 font-bold shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`px-3 py-1 rounded-md transition-colors ${selectedQuarter === q ? 'bg-amber-600 text-white dark:bg-gold dark:text-slate-950 font-bold shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {q === 'ALL' ? 'All Quarters' : q}
                   </button>
@@ -380,7 +380,7 @@ export default function TDSTrackerSection({ payments = [], vendors = [] }) {
                       const isIssued = rec.status === 'Issued';
                       return (
                         <TableRow key={idx}>
-                          <TableCell className="font-bold text-xs text-amber-700 dark:text-gold">{r.quarter}</TableCell>
+                          <TableCell className="font-bold text-xs text-amber-700 dark:text-primary">{r.quarter}</TableCell>
                           <TableCell className="font-bold text-foreground text-sm">{r.vendor_name}</TableCell>
                           <TableCell className="font-mono text-xs font-semibold text-muted-foreground">{r.vendor_pan}</TableCell>
                           <TableCell>

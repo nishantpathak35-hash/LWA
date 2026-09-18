@@ -40,7 +40,7 @@ export default function WPRDashboard({ onNavigate }) {
   }, { ahead: 0, onTrack: 0, behind: 0 });
 
   const StatCard = ({ title, value, icon: Icon, gradient, badge }) => (
-    <div className={`relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700 hover:shadow-2xl group`}>
+    <div className={`relative overflow-hidden rounded-lg border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700 hover:shadow-2xl group`}>
       <div className={`absolute top-0 right-0 h-32 w-32 translate-x-8 -translate-y-8 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl transition-all group-hover:opacity-30`} />
       <div className="flex items-center justify-between">
         <div>
@@ -59,7 +59,7 @@ export default function WPRDashboard({ onNavigate }) {
   return (
     <div className="space-y-6">
       {/* Top Banner / Headline */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800/80 to-slate-900 border border-slate-800 p-6 md:p-8">
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-slate-900 via-slate-800/80 to-slate-900 border border-slate-800 p-6 md:p-8">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
@@ -87,13 +87,13 @@ export default function WPRDashboard({ onNavigate }) {
       </div>
 
       {/* Recent WPRs */}
-      <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur-xl space-y-6 shadow-xl">
+      <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur-xl space-y-6 shadow-xl">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-gold" />
+            <Calendar className="w-5 h-5 text-primary" />
             <h3 className="text-lg font-bold text-slate-200">Recent Weekly Progress Reports</h3>
           </div>
-          <button onClick={() => onNavigate('new')} className="inline-flex items-center gap-1 text-xs font-semibold text-gold hover:text-amber-400 transition-colors">
+          <button onClick={() => onNavigate('new')} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-amber-400 transition-colors">
             Generate New <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

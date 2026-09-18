@@ -127,7 +127,7 @@ export default function AttachmentsSection({ entityType, entityId }) {
             disabled={uploading}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
           />
-          <Button variant="ghost" size="sm" className="h-7 text-xs flex items-center gap-1.5 text-gold hover:text-amber-500 hover:bg-gold/10">
+          <Button variant="ghost" size="sm" className="h-7 text-xs flex items-center gap-1.5 text-primary hover:text-amber-500 hover:bg-gold/10">
             {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <UploadCloud className="w-3 h-3" />}
             {uploading ? "Uploading..." : "Upload File"}
           </Button>

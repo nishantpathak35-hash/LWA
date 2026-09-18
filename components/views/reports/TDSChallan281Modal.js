@@ -84,7 +84,7 @@ export default function TDSChallan281Modal({
           <div>
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Target Month & TDS Section</span>
             <span className="text-sm font-bold text-foreground mt-0.5 block">
-              {monthData?.monthLabel || 'Current Month'} &middot; <span className="text-amber-700 dark:text-gold">{section} (ITD Code: {itdCode})</span>
+              {monthData?.monthLabel || 'Current Month'} &middot; <span className="text-amber-700 dark:text-primary">{section} (ITD Code: {itdCode})</span>
             </span>
           </div>
           <Button
@@ -92,7 +92,7 @@ export default function TDSChallan281Modal({
             variant="outline"
             size="sm"
             onClick={handleOpenITDPortal}
-            className="text-xs font-semibold gap-1.5 text-amber-700 dark:text-gold border-amber-500/30 hover:bg-amber-500/10"
+            className="text-xs font-semibold gap-1.5 text-amber-700 dark:text-primary border-amber-500/30 hover:bg-amber-500/10"
           >
             <ExternalLink className="w-3.5 h-3.5" /> Pay Online on ITD Portal
           </Button>
@@ -174,7 +174,7 @@ export default function TDSChallan281Modal({
 
         {/* Bank Deposit Verification Fields */}
         <div className="p-4 bg-muted/30 border border-border rounded-xl space-y-4">
-          <span className="text-xs font-bold text-amber-700 dark:text-gold uppercase tracking-wider block">
+          <span className="text-xs font-bold text-amber-700 dark:text-primary uppercase tracking-wider block">
             Bank Deposit Verification Details (CIN / BSR)
           </span>
 

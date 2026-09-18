@@ -31,7 +31,7 @@ export default function SiteWPRView() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <HardHat className="w-6 h-6 text-gold" />
+            <HardHat className="w-6 h-6 text-primary" />
             Site WPR (Weekly Progress Report)
           </h1>
           <p className="text-slate-400 text-sm mt-1">
@@ -53,7 +53,7 @@ export default function SiteWPRView() {
                 className={`
                   flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors
                   ${isActive 
-                    ? 'border-gold text-gold bg-gold/5' 
+                    ? 'border-gold text-primary bg-gold/5' 
                     : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'}
                 `}
               >

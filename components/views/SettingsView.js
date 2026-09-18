@@ -635,12 +635,12 @@ export default function SettingsView() {
   const activeCategory = categoryGroups.find(c => c.tabs.some(t => t.id === activeTab)) || categoryGroups[0];
 
   return (
-    <div className="space-y-6 animate-fade-in glass-card p-6 md:p-8 rounded-2xl mx-auto w-full max-w-7xl">
+    <div className="space-y-6 animate-fade-in bg-card border border-border rounded-lg p-6 md:p-8 rounded-lg mx-auto w-full max-w-7xl">
       {/* Title Header */}
       <div className="flex flex-wrap justify-between items-start gap-4 pb-2 border-b border-border">
         <div>
           <h2 className="text-3xl font-light text-foreground flex items-center gap-3 font-serif mb-1">
-            <Settings className="w-7 h-7 text-amber-600 dark:text-gold" />
+            <Settings className="w-7 h-7 text-amber-600 dark:text-primary" />
             System Settings
           </h2>
           <p className="text-xs font-light text-muted-foreground tracking-wide">
@@ -674,14 +674,14 @@ export default function SettingsView() {
                   "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
                   isCatActive
                     ? "bg-amber-600 dark:bg-gold text-white dark:text-slate-950 shadow-xs"
-                    : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 group-hover:text-amber-700 dark:group-hover:text-gold"
+                    : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 group-hover:text-amber-700 dark:group-hover:text-primary"
                 )}>
                   <CatIcon className="w-4 h-4" />
                 </div>
                 <span className={cn(
                   "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
                   isCatActive
-                    ? "bg-amber-500/15 dark:bg-gold/15 text-amber-900 dark:text-gold border-amber-500/30 dark:border-gold/30"
+                    ? "bg-amber-500/15 dark:bg-gold/15 text-amber-900 dark:text-primary border-amber-500/30 dark:border-gold/30"
                     : "bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/60"
                 )}>
                   {cat.tabs.length} module{cat.tabs.length > 1 ? 's' : ''}
@@ -724,7 +724,7 @@ export default function SettingsView() {
                   ? "bg-white text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800/60 hover:bg-rose-50 dark:hover:bg-rose-900/40"
                   : isSpecialWarning
                   ? "bg-white text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/60 hover:bg-amber-50 dark:hover:bg-amber-900/40"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-amber-50/60 hover:text-amber-900 hover:border-amber-300 dark:bg-slate-900/60 dark:text-slate-300 dark:border-slate-800 dark:hover:text-gold dark:hover:border-gold/40"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-amber-50/60 hover:text-amber-900 hover:border-amber-300 dark:bg-slate-900/60 dark:text-slate-300 dark:border-slate-800 dark:hover:text-primary dark:hover:border-gold/40"
               )}
             >
               <TabIcon className="w-3.5 h-3.5" />

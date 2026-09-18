@@ -40,7 +40,7 @@ export default function ReportsHeader({
       {/* Title & Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border p-4 rounded-xl shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-gold border border-amber-500/20">
+          <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-primary border border-amber-500/20">
             <FileText className="w-5 h-5" />
           </div>
           <div>
@@ -60,7 +60,7 @@ export default function ReportsHeader({
 
       {/* Categorized Tab Navigation */}
       <div className="bg-card border border-border p-1.5 rounded-xl space-y-2">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 border-b border-border/60 pb-1.5 px-1 pt-1">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 border-b border-border pb-1.5 px-1 pt-1">
           {/* Main Segment Switcher */}
           <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg">
             <button
@@ -84,7 +84,7 @@ export default function ReportsHeader({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <PieChart className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+              <PieChart className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
               TDS & Tax Ledgers
             </button>
           </div>
@@ -98,7 +98,7 @@ export default function ReportsHeader({
                 className={cn(
                   "px-3 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap",
                   reportType === t.id
-                    ? "bg-amber-500/15 text-amber-700 dark:text-gold font-semibold border border-amber-500/30"
+                    ? "bg-amber-500/15 text-amber-700 dark:text-primary font-semibold border border-amber-500/30"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}
               >
@@ -112,7 +112,7 @@ export default function ReportsHeader({
         <div className="pt-1.5 px-1.5 pb-0.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
             <div className="flex items-center gap-1.5 bg-muted/30 px-2.5 py-1 rounded-lg border border-border text-xs">
-              <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-gold shrink-0" />
+              <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-primary shrink-0" />
               <input
                 type="date"
                 value={startDate}

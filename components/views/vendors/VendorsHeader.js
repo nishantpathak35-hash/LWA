@@ -117,7 +117,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
       {/* Header Panel */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-2">
         <div className="flex items-center gap-3.5">
-          <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-sm">
+          <div className="p-3 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-sm">
             <Users className="w-6 h-6" />
           </div>
           <div>
@@ -168,7 +168,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
 
       {/* KPI Metric Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-3">
+        <div className="p-4 rounded-lg bg-card border border-border shadow-sm flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
             <Users className="w-4 h-4" />
           </div>
@@ -178,7 +178,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-3">
+        <div className="p-4 rounded-lg bg-card border border-border shadow-sm flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
             <UserCheck className="w-4 h-4" />
           </div>
@@ -188,7 +188,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-3">
+        <div className="p-4 rounded-lg bg-card border border-border shadow-sm flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
             <Mail className="w-4 h-4" />
           </div>
@@ -216,7 +216,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-3">
+        <div className="p-4 rounded-lg bg-card border border-border shadow-sm flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
             <Key className="w-4 h-4" />
           </div>
@@ -293,11 +293,11 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
                     const isPortalEnabled = String(v.portal_access || v.portalAccess || '').toLowerCase() === 'enabled';
                     const code = v.code || v.vendorId || v.vendor_code;
                     return (
-                      <TableRow key={idx} className="border-b border-border/40 hover:bg-muted/30 transition-colors duration-150">
+                      <TableRow key={idx} className="border-b border-border/50 hover:bg-muted/30 transition-colors duration-150">
                         <TableCell className="px-4 py-3.5 font-mono text-xs font-bold text-foreground">{v.code}</TableCell>
                         <TableCell className="px-3 py-3.5 font-semibold text-foreground text-xs truncate max-w-[220px]" title={v.name}>
                           <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-700 dark:text-gold flex items-center justify-center text-[10px] font-bold border border-amber-500/20 shrink-0">
+                            <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-700 dark:text-primary flex items-center justify-center text-[10px] font-bold border border-amber-500/20 shrink-0">
                               {(v.name || 'V').substring(0, 2).toUpperCase()}
                             </span>
                             <span className="truncate">{v.name}</span>

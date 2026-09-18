@@ -267,7 +267,7 @@ export default function WPRSchedules() {
                     </div>
                   )}
                   <div className="space-y-1.5 flex-1 min-w-0">
-                    <span className="text-[10px] text-gold font-semibold uppercase">{s.project}</span>
+                    <span className="text-[10px] text-primary font-semibold uppercase">{s.project}</span>
                     <h3 className="text-sm font-bold text-slate-200 truncate">{s.milestone_name}</h3>
                     {s.floor_zone && <p className="text-xs text-slate-400 font-normal">Zone: {s.floor_zone}</p>}
                     <p className="text-[10px] text-slate-500 font-normal">Period: {s.planned_start || "N/A"} to {s.planned_end || "N/A"}</p>

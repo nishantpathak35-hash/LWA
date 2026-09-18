@@ -383,8 +383,8 @@ export default function DPRForm({ onNavigate, editData = null }) {
 
       {/* OVERALL MANPOWER SUMMARY */}
       <div className="flex items-center justify-between px-4 py-3 bg-gold/10 border border-gold/20 rounded-lg">
-        <h3 className="text-gold font-medium">Overall Site Manpower</h3>
-        <span className="text-2xl font-bold text-gold">{calculateOverallManpower()}</span>
+        <h3 className="text-primary font-medium">Overall Site Manpower</h3>
+        <span className="text-2xl font-bold text-primary">{calculateOverallManpower()}</span>
       </div>
 
       {/* SECTION 2 & 3 & 4: Floor-wise Progress */}
@@ -417,8 +417,8 @@ export default function DPRForm({ onNavigate, editData = null }) {
               {/* Manpower */}
               <div>
                 <div className="flex justify-between mb-2">
-                  <h4 className="text-sm font-medium text-slate-300 text-gold/80">Manpower Details</h4>
-                  <button type="button" onClick={() => addManpower(fIdx)} className="text-xs text-gold hover:underline flex items-center gap-1">
+                  <h4 className="text-sm font-medium text-slate-300 text-primary/80">Manpower Details</h4>
+                  <button type="button" onClick={() => addManpower(fIdx)} className="text-xs text-primary hover:underline flex items-center gap-1">
                     <Plus className="w-3 h-3" /> Add Team
                   </button>
                 </div>
@@ -453,7 +453,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
                 <div className="bg-slate-900/40 p-4 rounded-lg border border-slate-800">
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="text-sm font-medium text-slate-300">Today's Work Progress</h4>
-                    <button type="button" onClick={() => addWork(fIdx, 'workDone')} className="text-xs text-gold hover:underline flex items-center">
+                    <button type="button" onClick={() => addWork(fIdx, 'workDone')} className="text-xs text-primary hover:underline flex items-center">
                       <Plus className="w-3 h-3 mr-1" /> Add Item
                     </button>
                   </div>
@@ -484,7 +484,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
                 <div className="bg-slate-900/40 p-4 rounded-lg border border-slate-800 mt-4">
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="text-sm font-medium text-slate-300">Tomorrow's Plan</h4>
-                    <button type="button" onClick={() => addWork(fIdx, 'tomorrowPlan')} className="text-xs text-gold hover:underline flex items-center">
+                    <button type="button" onClick={() => addWork(fIdx, 'tomorrowPlan')} className="text-xs text-primary hover:underline flex items-center">
                       <Plus className="w-3 h-3 mr-1" /> Add Item
                     </button>
                   </div>
@@ -554,7 +554,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
           <CardContent className="p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-md font-medium text-slate-200">Materials</h3>
-              <button type="button" onClick={() => addDynamicRow('materials', { item: '', quantity: '', unit: '' })} className="text-xs text-gold hover:underline flex items-center">
+              <button type="button" onClick={() => addDynamicRow('materials', { item: '', quantity: '', unit: '' })} className="text-xs text-primary hover:underline flex items-center">
                 <Plus className="w-3 h-3 mr-1" /> Add
               </button>
             </div>
@@ -581,7 +581,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
           <CardContent className="p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-md font-medium text-slate-200">Site Issues</h3>
-              <button type="button" onClick={() => addDynamicRow('issues', { issue: '' })} className="text-xs text-gold hover:underline flex items-center">
+              <button type="button" onClick={() => addDynamicRow('issues', { issue: '' })} className="text-xs text-primary hover:underline flex items-center">
                 <Plus className="w-3 h-3 mr-1" /> Add
               </button>
             </div>
@@ -602,7 +602,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
           <CardContent className="p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-md font-medium text-slate-200">Visitors</h3>
-              <button type="button" onClick={() => addDynamicRow('visitors', { visitor: '', purpose: '' })} className="text-xs text-gold hover:underline flex items-center">
+              <button type="button" onClick={() => addDynamicRow('visitors', { visitor: '', purpose: '' })} className="text-xs text-primary hover:underline flex items-center">
                 <Plus className="w-3 h-3 mr-1" /> Add
               </button>
             </div>

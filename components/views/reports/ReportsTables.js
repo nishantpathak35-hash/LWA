@@ -27,7 +27,7 @@ export default function ReportsTables({
         if (loading) {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-gold" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <span className="text-sm font-light">Loading report data...</span>
         </div>
       );
@@ -70,7 +70,7 @@ export default function ReportsTables({
               {entries.length > 0 ? (
                 entries.map((e, idx) => (
                   <TableRow key={e.id || idx}>
-                    <TableCell className="font-bold text-amber-700 dark:text-gold">#{e.id}</TableCell>
+                    <TableCell className="font-bold text-amber-700 dark:text-primary">#{e.id}</TableCell>
                     <TableCell className="text-xs text-muted-foreground font-medium">
                       {e.transaction_date ? new Date(e.transaction_date).toLocaleDateString('en-IN') : '—'}
                     </TableCell>
@@ -105,7 +105,7 @@ export default function ReportsTables({
           {summaryKeys.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-amber-700 dark:text-gold font-bold">TDS Summary by Section</CardTitle>
+                <CardTitle className="text-amber-700 dark:text-primary font-bold">TDS Summary by Section</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {summaryKeys.map(sec => {
@@ -290,7 +290,7 @@ export default function ReportsTables({
             dates.map((day, idx) => (
               <div key={idx} className="space-y-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-card">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center p-4 bg-muted/40 border-b border-border gap-2">
-                  <div className="font-bold text-amber-700 dark:text-gold text-sm">{day.displayDate}</div>
+                  <div className="font-bold text-amber-700 dark:text-primary text-sm">{day.displayDate}</div>
                   <div className="flex gap-4 text-xs">
                     <span className="text-slate-600 dark:text-slate-400 font-medium">{day.count} entries</span>
                     <span className="text-slate-800 dark:text-slate-200 font-medium">Gross: {fmtRupees(day.gross)}</span>
@@ -315,7 +315,7 @@ export default function ReportsTables({
                   <TableBody>
                     {day.entries.map((e, eIdx) => (
                       <TableRow key={e.sNo || eIdx}>
-                        <TableCell className="font-bold text-amber-700 dark:text-gold text-xs">{e.sNo}</TableCell>
+                        <TableCell className="font-bold text-amber-700 dark:text-primary text-xs">{e.sNo}</TableCell>
                         <TableCell className="font-bold text-slate-900 dark:text-slate-100">{e.vendor}</TableCell>
                         <TableCell className="text-slate-700 dark:text-slate-300">{e.project}</TableCell>
                         <TableCell className="font-mono text-xs text-slate-800 dark:text-slate-300">{e.poNo}</TableCell>
@@ -372,7 +372,7 @@ export default function ReportsTables({
 
               return (
                 <TableRow key={p.rowNumber || idx} className="hover:bg-muted/30 transition-colors">
-                  <TableCell className="font-bold text-amber-700 dark:text-gold text-xs">#{p.sNo}</TableCell>
+                  <TableCell className="font-bold text-amber-700 dark:text-primary text-xs">#{p.sNo}</TableCell>
                   <TableCell className="text-xs text-muted-foreground font-medium whitespace-nowrap">
                     {p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}
                   </TableCell>
@@ -408,7 +408,7 @@ export default function ReportsTables({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 text-[10px] px-2 font-semibold text-amber-700 dark:text-gold border-amber-500/30 hover:bg-amber-500/10"
+                          className="h-7 text-[10px] px-2 font-semibold text-amber-700 dark:text-primary border-amber-500/30 hover:bg-amber-500/10"
                           onClick={() => handleOpenEditModal(p)}
                           title="Edit Payment Request & TDS"
                         >
@@ -432,7 +432,7 @@ export default function ReportsTables({
                           onClick={() => handleSendPaymentAdvice(p)}
                           title="Send Payment Advice Email"
                           disabled={sendingAdviceId === p.id}
-                          className="h-7 w-7 text-amber-600 dark:text-gold hover:bg-amber-500/10"
+                          className="h-7 w-7 text-amber-600 dark:text-primary hover:bg-amber-500/10"
                         >
                           {sendingAdviceId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
                         </Button>

@@ -85,9 +85,9 @@ export default function RecordDiscussionThread({ recordType, recordId, className
 
   return (
     <Card className={`border-border bg-card shadow-xs ${className}`}>
-      <CardHeader className="py-3 px-4 border-b border-border/60 flex flex-row items-center justify-between">
+      <CardHeader className="py-3 px-4 border-b border-border flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-amber-600 dark:text-gold" />
+          <MessageSquare className="w-4 h-4 text-amber-600 dark:text-primary" />
           <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">
             Discussion & Team Activity ({comments.length})
           </CardTitle>
@@ -99,7 +99,7 @@ export default function RecordDiscussionThread({ recordType, recordId, className
         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
           {loading ? (
             <div className="flex items-center justify-center py-6 text-muted-foreground text-xs gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-gold" />
+              <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-primary" />
               <span>Loading discussion thread...</span>
             </div>
           ) : comments.length === 0 ? (
@@ -111,7 +111,7 @@ export default function RecordDiscussionThread({ recordType, recordId, className
               <div key={c.id} className="p-3 rounded-lg bg-muted/40 border border-border space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 font-bold text-foreground">
-                    <User className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+                    <User className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
                     <span>{c.author_name}</span>
                     <span className="text-[10px] text-muted-foreground font-normal">({c.author_email})</span>
                   </div>
@@ -127,7 +127,7 @@ export default function RecordDiscussionThread({ recordType, recordId, className
                 {c.mentions && c.mentions.length > 0 && (
                   <div className="flex items-center gap-1 pt-1">
                     {c.mentions.map((m, idx) => (
-                      <span key={idx} className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-gold border border-amber-500/20">
+                      <span key={idx} className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-primary border border-amber-500/20">
                         @{m}
                       </span>
                     ))}
@@ -139,11 +139,11 @@ export default function RecordDiscussionThread({ recordType, recordId, className
         </div>
 
         {/* Input & Mention Autocomplete */}
-        <div className="relative space-y-2 pt-2 border-t border-border/60">
+        <div className="relative space-y-2 pt-2 border-t border-border">
           {showMentions && (
             <div className="absolute bottom-full left-0 mb-1 w-48 bg-card border border-border rounded-lg shadow-lg z-20 p-1 space-y-0.5">
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1 flex items-center gap-1">
-                <AtSign className="w-3 h-3 text-amber-600 dark:text-gold" /> Mention Role
+                <AtSign className="w-3 h-3 text-amber-600 dark:text-primary" /> Mention Role
               </div>
               {mentionSuggestions.map((role) => (
                 <button

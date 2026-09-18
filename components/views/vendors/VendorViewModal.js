@@ -37,7 +37,7 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
           <div className="flex flex-wrap justify-between items-start gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-amber-600 dark:text-gold flex-shrink-0" />
+                <Building2 className="w-5 h-5 text-amber-600 dark:text-primary flex-shrink-0" />
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{tradeName}</h3>
                 <Badge variant={String(status).toLowerCase() === 'active' ? 'success' : 'default'}>
                   {status}
@@ -50,7 +50,7 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
             </div>
             <div className="text-right">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Vendor Code</span>
-              <span className="font-mono text-sm font-bold text-amber-700 dark:text-gold">{vendorCode}</span>
+              <span className="font-mono text-sm font-bold text-amber-700 dark:text-primary">{vendorCode}</span>
             </div>
           </div>
 
@@ -68,7 +68,7 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
 
         {/* Tax & Banking Details */}
         <div className="p-5 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 shadow-xs">
-          <h4 className="text-xs font-bold text-amber-800 dark:text-gold uppercase tracking-wider flex items-center gap-2">
+          <h4 className="text-xs font-bold text-amber-800 dark:text-primary uppercase tracking-wider flex items-center gap-2">
             <CreditCard className="w-4 h-4" /> Tax & Banking Identification
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 pt-1">
@@ -101,7 +101,7 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
 
         {/* Contact Directory */}
         <div className="p-5 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4 shadow-xs">
-          <h4 className="text-xs font-bold text-amber-800 dark:text-gold uppercase tracking-wider flex items-center gap-2">
+          <h4 className="text-xs font-bold text-amber-800 dark:text-primary uppercase tracking-wider flex items-center gap-2">
             <User className="w-4 h-4" /> Contact Persons & Directory
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
@@ -146,7 +146,7 @@ export default function VendorViewModal({ viewModalOpen, setViewModalOpen, viewV
                 <TableBody>
                   {viewVendorPOs.map((p, i) => (
                     <TableRow key={i} className="border-b border-slate-200 dark:border-slate-800/80 hover:bg-amber-50/40 dark:hover:bg-slate-900/40">
-                      <TableCell className="py-2.5 font-mono text-xs text-amber-700 dark:text-gold font-bold">{p.poNo}</TableCell>
+                      <TableCell className="py-2.5 font-mono text-xs text-amber-700 dark:text-primary font-bold">{p.poNo}</TableCell>
                       <TableCell className="py-2.5 text-xs text-slate-900 dark:text-slate-300 font-medium">{p.project || '—'}</TableCell>
                       <TableCell className="py-2.5">
                         <Badge variant={String(p.status || '').toLowerCase() === 'active' || String(p.status || '').toLowerCase() === 'approved' ? 'success' : 'default'}>

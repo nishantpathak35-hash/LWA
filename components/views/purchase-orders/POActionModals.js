@@ -19,7 +19,7 @@ export function EmailPOModal({ open, po, defaultEmail, onClose, onConfirm, sendi
 
   return (
     <Dialog open={open} onClose={onClose} title={
-      <span className="flex items-center gap-2 text-amber-600 dark:text-gold">
+      <span className="flex items-center gap-2 text-amber-600 dark:text-primary">
         <Mail className="w-4 h-4" /> Email Purchase Order
       </span>
     }>
@@ -95,7 +95,7 @@ export function ShortClosePOModal({ open, po, onClose, onConfirm, loading }) {
 
   return (
     <Dialog open={open} onClose={onClose} title={
-      <span className="flex items-center gap-2 text-amber-600 dark:text-gold">
+      <span className="flex items-center gap-2 text-amber-600 dark:text-primary">
         <Scissors className="w-4 h-4" /> Short Close Purchase Order
       </span>
     }>

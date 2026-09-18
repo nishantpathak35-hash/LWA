@@ -98,7 +98,7 @@ export default function InvoiceUploadModal({ open, onClose }) {
             className="border-2 border-dashed border-slate-700 rounded-xl p-12 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-800/50 transition-colors"
             onClick={() => fileInputRef.current?.click()}
           >
-            <UploadCloud className="w-12 h-12 text-gold mb-4" />
+            <UploadCloud className="w-12 h-12 text-primary mb-4" />
             <h3 className="text-lg font-medium text-slate-200">Upload Invoice Image</h3>
             <p className="text-sm text-slate-400 mt-2">Drag and drop or click to browse (PNG, JPG)</p>
             <input 
@@ -114,7 +114,7 @@ export default function InvoiceUploadModal({ open, onClose }) {
         {/* Scanning State */}
         {scanning && (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
-            <Loader2 className="w-10 h-10 text-gold animate-spin" />
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
             <div className="text-lg font-medium text-slate-200 animate-pulse">
               AI is reading the invoice...
             </div>

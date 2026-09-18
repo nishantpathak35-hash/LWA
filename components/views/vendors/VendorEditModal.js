@@ -94,7 +94,7 @@ export default function VendorEditModal({
         )}
 
         <div className="mt-6 space-y-4 border-t border-border pt-4">
-          <h3 className="text-xs font-bold text-amber-800 dark:text-gold uppercase tracking-wider">Contact Persons & Communication Directory</h3>
+          <h3 className="text-xs font-bold text-amber-800 dark:text-primary uppercase tracking-wider">Contact Persons & Communication Directory</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">PRIMARY CONTACT NAME</label>

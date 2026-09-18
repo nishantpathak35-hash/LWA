@@ -60,7 +60,7 @@ export default function DPRDashboard({ onNavigate }) {
   };
 
   const StatCard = ({ title, value, subtitle, icon: Icon, gradient, badge }) => (
-    <div className={`relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700 hover:shadow-2xl hover:shadow-gold/5 group`}>
+    <div className={`relative overflow-hidden rounded-lg border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700 hover:shadow-2xl hover:shadow-gold/5 group`}>
       <div className={`absolute top-0 right-0 h-32 w-32 translate-x-8 -translate-y-8 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl transition-all group-hover:opacity-30`} />
       <div className="flex items-center justify-between">
         <div>
@@ -68,7 +68,7 @@ export default function DPRDashboard({ onNavigate }) {
           <div className="mt-2 flex items-baseline gap-2">
             <h3 className="text-3xl font-extrabold text-slate-100 tabular-nums tracking-tight">{value}</h3>
             {badge && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold/10 text-gold border border-gold/20">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold/10 text-primary border border-gold/20">
                 {badge}
               </span>
             )}
@@ -94,10 +94,10 @@ export default function DPRDashboard({ onNavigate }) {
   return (
     <div className="space-y-6">
       {/* Top Banner / Headline */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800/80 to-slate-900 border border-slate-800 p-6 md:p-8">
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-slate-900 via-slate-800/80 to-slate-900 border border-slate-800 p-6 md:p-8">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold/10 border border-gold/20 text-gold text-xs font-semibold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold/10 border border-gold/20 text-primary text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" /> Site Operations Pulse
             </div>
             <h2 className="text-2xl md:text-3xl font-extrabold text-slate-100 tracking-tight">Daily Progress Command Center</h2>
@@ -128,18 +128,18 @@ export default function DPRDashboard({ onNavigate }) {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-gold" />
+              <TrendingUp className="w-5 h-5 text-primary" />
               <h3 className="text-lg font-bold text-slate-200">Recent Site Reports</h3>
             </div>
             <button 
               onClick={() => onNavigate('history')}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-gold hover:text-amber-400 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-amber-400 transition-colors"
             >
               View Full History <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl overflow-hidden shadow-xl">
+          <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl overflow-hidden shadow-xl">
             <div className="divide-y divide-slate-800/50">
               {recentDPRs.length === 0 ? (
                 <div className="p-12 text-center text-slate-400 font-medium">No DPR reports recorded yet. Click "Create New DPR" to file your first daily report.</div>
@@ -176,12 +176,12 @@ export default function DPRDashboard({ onNavigate }) {
 
         {/* Quick Actions & Weather / Manpower Card */}
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-xl space-y-4">
+          <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-xl space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Quick Operations</h3>
             <div className="space-y-2">
               <button 
                 onClick={() => onNavigate('new')}
-                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gold/10 border border-gold/20 text-gold hover:bg-gold/20 transition-all font-semibold text-sm group"
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gold/10 border border-gold/20 text-primary hover:bg-gold/20 transition-all font-semibold text-sm group"
               >
                 <span className="flex items-center gap-3">
                   <FilePlus className="w-5 h-5" /> File Daily Report
@@ -202,7 +202,7 @@ export default function DPRDashboard({ onNavigate }) {
           </div>
 
           {/* Manpower Distribution Card */}
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-xl space-y-4">
+          <div className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-400" /> Manpower Distribution

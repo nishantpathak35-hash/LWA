@@ -85,7 +85,7 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
         {/* Task Title */}
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-            <CheckSquare className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+            <CheckSquare className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
             Task Title / Action Required *
           </label>
           <Input
@@ -101,7 +101,7 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <UserCheck className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+              <UserCheck className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
               Assign To *
             </label>
             <select
@@ -134,7 +134,7 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
               Priority Level
             </label>
             <select
@@ -154,7 +154,7 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+              <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
               Target Due Date
             </label>
             <Input
@@ -167,7 +167,7 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <Link2 className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+              <Link2 className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
               Related Record Type
             </label>
             <select
@@ -198,7 +198,7 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
         {/* Description / Instructions */}
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-            <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-gold" />
+            <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-primary" />
             Detailed Instructions / Context (Optional)
           </label>
           <textarea

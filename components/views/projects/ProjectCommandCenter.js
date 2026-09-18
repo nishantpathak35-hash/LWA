@@ -114,7 +114,7 @@ function ProjectsKpiStrip({ projectsList }) {
   ];
 
   const accentMap = {
-    amber:   { iconBg: 'bg-amber-500/10 text-amber-600 dark:text-gold border-amber-500/20', hover: 'hover:border-amber-500/40' },
+    amber:   { iconBg: 'bg-amber-500/10 text-amber-600 dark:text-primary border-amber-500/20', hover: 'hover:border-amber-500/40' },
     emerald: { iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', hover: 'hover:border-emerald-500/40' },
     sky:     { iconBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20', hover: 'hover:border-sky-500/40' },
     violet:  { iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20', hover: 'hover:border-violet-500/40' },
@@ -126,7 +126,7 @@ function ProjectsKpiStrip({ projectsList }) {
       {kpis.map((k, i) => {
         const ac = accentMap[k.accent];
         return (
-          <Card key={i} className={`p-4 bg-card border border-border/80 rounded-2xl shadow-xs flex flex-col justify-between transition-all duration-200 ${ac.hover}`}>
+          <Card key={i} className={`p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 ${ac.hover}`}>
             <div className="flex items-start justify-between">
               <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{k.label}</span>
@@ -134,7 +134,7 @@ function ProjectsKpiStrip({ projectsList }) {
               </div>
               <div className={`p-2 rounded-xl border shrink-0 ml-2 ${ac.iconBg}`}>{k.icon}</div>
             </div>
-            <div className="flex items-end justify-between mt-3 pt-3 border-t border-border/60">
+            <div className="flex items-end justify-between mt-3 pt-3 border-t border-border">
               <span className={`text-[11px] font-semibold ${k.subColor}`}>{k.sub}</span>
               {k.spark && <div className="w-16 h-7"><Sparkline data={k.spark} color={k.sparkColor} /></div>}
             </div>
@@ -155,7 +155,7 @@ function ProjectCard({ project, isSelected, onClick, projectPOs }) {
     <button
       onClick={onClick}
       className={`
-        w-full text-left p-4 rounded-2xl border transition-all duration-200 relative group
+        w-full text-left p-4 rounded-lg border transition-all duration-200 relative group
         ${isSelected
           ? 'bg-amber-500/10 border-amber-500/50 shadow-md ring-1 ring-amber-500/30'
           : 'bg-card border-border/70 hover:border-amber-500/30 hover:bg-amber-500/5 hover:shadow-sm'}
@@ -434,7 +434,7 @@ export default function ProjectCommandCenter({
 
       {/* ── Main Content: Project Cards Grid / List ── */}
       {sortedProjects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 border border-dashed border-border rounded-2xl bg-muted/20">
+        <div className="flex flex-col items-center justify-center py-20 gap-3 border border-dashed border-border rounded-lg bg-muted/20">
           <Wallet className="w-10 h-10 text-muted-foreground/30" />
           <p className="text-sm font-semibold text-muted-foreground">No projects match your filters</p>
           <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); }} className="text-xs text-amber-500 hover:underline font-medium cursor-pointer">

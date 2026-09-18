@@ -105,7 +105,7 @@ export default function PaymentFormModal({
               </div>
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase block mb-1">PO TOTAL VALUE</label>
-                <div className="text-sm font-bold text-amber-700 dark:text-gold">{formatCurrency(selectedPO.po_value || 0)}</div>
+                <div className="text-sm font-bold text-amber-700 dark:text-primary">{formatCurrency(selectedPO.po_value || 0)}</div>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase block mb-1">AMOUNT ALREADY REMITTED</label>
@@ -137,7 +137,7 @@ export default function PaymentFormModal({
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">NET AMOUNT PAYABLE</label>
-              <div className="w-full px-3.5 py-2 bg-muted/60 border border-border rounded-lg text-amber-700 dark:text-gold text-base font-bold tabular-nums">
+              <div className="w-full px-3.5 py-2 bg-muted/60 border border-border rounded-lg text-amber-700 dark:text-primary text-base font-bold tabular-nums">
                 {formatCurrency(netAmount || 0)}
               </div>
             </div>

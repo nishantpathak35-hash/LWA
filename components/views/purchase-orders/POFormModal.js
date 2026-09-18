@@ -145,7 +145,7 @@ export default function POFormModal(props) {
 
           {/* Project Details Info Box */}
           {selectedProjectData && (
-            <div className="bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-2xs">
+            <div className="bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-xs">
               <div>
                 <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider block mb-1">Project Ref</span>
                 <span className="text-xs text-slate-900 dark:text-slate-200 font-mono font-bold">{selectedProjectData.project_ref || '—'}</span>
@@ -163,7 +163,7 @@ export default function POFormModal(props) {
 
           {/* PO Terms Architecture: Box 1 (Payment & Delivery) + Internal Notes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="border border-border/80 rounded-xl p-3 bg-card/60 shadow-2xs space-y-1.5">
+            <div className="border border-border rounded-xl p-3 bg-card/60 shadow-xs space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
                   1. PAYMENT &amp; DELIVERY TERMS
@@ -178,7 +178,7 @@ export default function POFormModal(props) {
                 style={{ minHeight: '95px', height: '95px', resize: 'vertical' }}
               />
             </div>
-            <div className="border border-border/80 rounded-xl p-3 bg-card/60 shadow-2xs space-y-1.5">
+            <div className="border border-border rounded-xl p-3 bg-card/60 shadow-xs space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
                   INTERNAL NOTES / REMARKS
@@ -196,7 +196,7 @@ export default function POFormModal(props) {
           </div>
 
           {/* PO Terms Architecture: Box 2 (General Terms & Conditions - Global 1-Pager Contract) */}
-          <div className="border border-border/80 rounded-xl p-3 bg-card/60 shadow-2xs space-y-2">
+          <div className="border border-border rounded-xl p-3 bg-card/60 shadow-xs space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <label className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
@@ -225,7 +225,7 @@ export default function POFormModal(props) {
                     size="sm"
                     disabled={savingGlobalTerms}
                     onClick={handleSaveGlobalGeneralTerms}
-                    className="h-7 text-[10px] font-semibold text-amber-700 dark:text-gold border border-amber-300/60"
+                    className="h-7 text-[10px] font-semibold text-amber-700 dark:text-primary border border-amber-300/60"
                   >
                     {savingGlobalTerms ? 'Saving Default...' : 'Save as Global Default'}
                   </Button>
@@ -245,7 +245,7 @@ export default function POFormModal(props) {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Line Items</span>
-              <Button type="button" variant="ghost" size="sm" onClick={handleAddItemLine} className="h-7 text-xs text-amber-700 dark:text-gold font-bold">
+              <Button type="button" variant="ghost" size="sm" onClick={handleAddItemLine} className="h-7 text-xs text-amber-700 dark:text-primary font-bold">
                 <Plus className="w-3.5 h-3.5 mr-1" /> Add Line
               </Button>
             </div>
@@ -260,7 +260,7 @@ export default function POFormModal(props) {
             {items.map((item, idx) => {
               const { total } = calcItem(item);
               return (
-                <div key={idx} style={{ minHeight: '56px' }} className="grid grid-cols-1 md:grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 items-center p-2.5 rounded-xl bg-card border border-border shadow-2xs">
+                <div key={idx} style={{ minHeight: '56px' }} className="grid grid-cols-1 md:grid-cols-[minmax(200px,1fr)_90px_70px_100px_100px_80px_100px_36px] gap-2 items-center p-2.5 rounded-xl bg-card border border-border shadow-xs">
                   <Input
                     required
                     type="text"
@@ -285,7 +285,7 @@ export default function POFormModal(props) {
                     className="h-10 text-xs bg-background text-foreground font-semibold">
                     {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
                   </Select>
-                  <div className="h-10 flex items-center px-2 text-xs font-bold text-amber-700 dark:text-gold font-mono">
+                  <div className="h-10 flex items-center px-2 text-xs font-bold text-amber-700 dark:text-primary font-mono">
                     {formatCurrency(total)}
                   </div>
                   {items.length > 1
@@ -300,8 +300,8 @@ export default function POFormModal(props) {
           </div>
 
           {/* TDS */}
-          <div className="p-4 bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl space-y-3 shadow-2xs">
-            <span className="text-[10px] font-bold text-amber-800 dark:text-gold tracking-wider uppercase block">TDS Deduction</span>
+          <div className="p-4 bg-amber-50/50 dark:bg-slate-900/40 border border-amber-200/60 dark:border-slate-800 rounded-xl space-y-3 shadow-xs">
+            <span className="text-[10px] font-bold text-amber-800 dark:text-primary tracking-wider uppercase block">TDS Deduction</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">TDS SECTION</label>
@@ -319,8 +319,8 @@ export default function POFormModal(props) {
           </div>
 
           {/* Summary */}
-          <div className="p-4 bg-card border border-border rounded-xl shadow-2xs">
-            <span className="text-[10px] font-bold text-amber-800 dark:text-gold tracking-wider uppercase block mb-3">Order Summary</span>
+          <div className="p-4 bg-card border border-border rounded-xl shadow-xs">
+            <span className="text-[10px] font-bold text-amber-800 dark:text-primary tracking-wider uppercase block mb-3">Order Summary</span>
             <div className="space-y-2 text-xs font-medium">
               <div className="flex justify-between border-b border-border pb-2">
                 <span className="text-slate-600 dark:text-slate-400">Subtotal:</span>
@@ -338,19 +338,19 @@ export default function POFormModal(props) {
               )}
               <div className="flex justify-between pt-1 text-sm font-bold">
                 <span className="text-slate-900 dark:text-slate-100">Net PO Value:</span>
-                <span className="text-amber-700 dark:text-gold font-mono text-base">{formatCurrency(netPayable)}</span>
+                <span className="text-amber-700 dark:text-primary font-mono text-base">{formatCurrency(netPayable)}</span>
               </div>
             </div>
           </div>
 
           {/* ── Payment Summary (Edit Mode only) ──────────────────────────── */}
           {editingPoNo && paymentData && (
-            <div className="border border-border rounded-xl shadow-2xs overflow-hidden">
+            <div className="border border-border rounded-xl shadow-xs overflow-hidden">
               <button type="button"
                 onClick={() => setShowPayments(p => !p)}
                 className="w-full flex items-center justify-between p-4 bg-muted/40 hover:bg-muted/60 transition-colors text-left">
                 <div className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-amber-600 dark:text-gold" />
+                  <Wallet className="w-4 h-4 text-amber-600 dark:text-primary" />
                   <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Payment Summary</span>
                   {paymentData.summary && (
                     <span className="ml-2">{getPaymentStatusBadge(paymentData.summary.payment_status)}</span>
@@ -369,7 +369,7 @@ export default function POFormModal(props) {
                         { label: 'Total Paid', value: paymentData.summary.total_paid, color: 'text-emerald-700 dark:text-emerald-400 font-bold' },
                         { label: 'Outstanding', value: paymentData.summary.outstanding, color: 'text-amber-700 dark:text-amber-400 font-bold' },
                       ].map(kpi => (
-                        <div key={kpi.label} className="p-3 bg-card rounded-xl border border-border text-center shadow-2xs">
+                        <div key={kpi.label} className="p-3 bg-card rounded-xl border border-border text-center shadow-xs">
                           <div className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">{kpi.label}</div>
                           <div className={`text-xs font-mono ${kpi.color}`}>{formatCurrency(kpi.value)}</div>
                         </div>

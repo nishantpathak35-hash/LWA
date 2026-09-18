@@ -120,7 +120,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
     }
     if (item.task_type === 'payment_approval') {
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-gold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-primary bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
           <ShieldAlert className="w-3 h-3" /> Payment Approval
         </span>
       );
@@ -156,9 +156,9 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
   return (
     <>
       <Card className={`border-border bg-card shadow-xs rounded-2xl overflow-hidden ${className}`}>
-        <CardHeader className="py-3.5 px-5 border-b border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20">
+        <CardHeader className="py-3.5 px-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20">
           <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-gold border border-amber-500/20">
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-primary border border-amber-500/20">
               <CheckSquare className="w-4 h-4" />
             </div>
             <div>
@@ -166,7 +166,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
                 <CardTitle className="text-sm font-bold tracking-tight text-foreground">
                   My Pending Actions & Tasks
                 </CardTitle>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-gold border border-amber-500/20 font-mono">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-primary border border-amber-500/20 font-mono">
                   {pendingAssigned.length}
                 </span>
               </div>
@@ -185,7 +185,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
                 className={cn(
                   "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
                   activeTab === 'assigned'
-                    ? "bg-card text-foreground shadow-xs font-bold border border-border/60"
+                    ? "bg-card text-foreground shadow-xs font-bold border border-border"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -197,7 +197,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
                 className={cn(
                   "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
                   activeTab === 'allocated'
-                    ? "bg-card text-foreground shadow-xs font-bold border border-border/60"
+                    ? "bg-card text-foreground shadow-xs font-bold border border-border"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -210,7 +210,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
               size="sm"
               variant="outline"
               onClick={() => setAllocateModalOpen(true)}
-              className="h-8 text-xs font-bold gap-1.5 border-amber-500/30 text-amber-700 dark:text-gold hover:bg-amber-500/10"
+              className="h-8 text-xs font-bold gap-1.5 border-amber-500/30 text-amber-700 dark:text-primary hover:bg-amber-500/10"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>Allocate Task</span>
@@ -230,7 +230,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
                 className={cn(
                   "px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-colors capitalize",
                   filterType === f
-                    ? "bg-amber-500/15 text-amber-700 dark:text-gold border border-amber-500/30 font-bold"
+                    ? "bg-amber-500/15 text-amber-700 dark:text-primary border border-amber-500/30 font-bold"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                 )}
               >
@@ -243,7 +243,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
         <CardContent className="p-4 space-y-2.5">
           {loading ? (
             <div className="flex items-center justify-center py-10 text-xs text-muted-foreground gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-gold" />
+              <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-primary" />
               <span>Loading pending actions and workflow items...</span>
             </div>
           ) : filteredItems.length === 0 ? (
@@ -261,7 +261,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
                   <div className="text-2xl">📋</div>
                   <div className="font-bold text-foreground">No tasks allocated to teammates yet.</div>
                   <p className="text-muted-foreground max-w-md mx-auto text-[11px]">
-                    Click <strong className="text-amber-700 dark:text-gold cursor-pointer" onClick={() => setAllocateModalOpen(true)}>+ Allocate Task</strong> above to assign an action item to a colleague or team.
+                    Click <strong className="text-amber-700 dark:text-primary cursor-pointer" onClick={() => setAllocateModalOpen(true)}>+ Allocate Task</strong> above to assign an action item to a colleague or team.
                   </p>
                 </>
               )}
@@ -274,13 +274,13 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
               return (
                 <div
                   key={t.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-background/70 border border-border/70 text-xs gap-3 hover:border-amber-500/30 hover:shadow-2xs transition-all"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-background/70 border border-border/70 text-xs gap-3 hover:border-amber-500/30 hover:shadow-xs transition-all"
                 >
                   <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       {renderBadge(t)}
                       {t.record_id && (
-                        <span className="font-mono text-xs text-amber-700 dark:text-gold font-bold">
+                        <span className="font-mono text-xs text-amber-700 dark:text-primary font-bold">
                           #{t.record_id}
                         </span>
                       )}
@@ -324,7 +324,7 @@ export default function PendingActionsWidget({ className = '', onSelectRecord })
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-xs px-2.5 font-bold text-amber-700 dark:text-gold hover:bg-amber-500/10 gap-1"
+                        className="h-7 text-xs px-2.5 font-bold text-amber-700 dark:text-primary hover:bg-amber-500/10 gap-1"
                         onClick={() => handleActionClick(t)}
                       >
                         <span>{t.task_type === 'query_hold' ? 'Respond' : isWorkflow ? 'Review & Act' : 'View'}</span>

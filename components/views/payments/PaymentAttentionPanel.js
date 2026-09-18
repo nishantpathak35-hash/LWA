@@ -12,7 +12,7 @@ const queues = [
 
 export default function PaymentAttentionPanel({ items, activeFilter, onFilter, policies, hasMore, onLoadMore, loadingPolicies, policyError, onRetry }) {
   return (
-    <section aria-labelledby="payment-attention-heading" className="rounded-2xl border border-border bg-card p-5 sm:p-6 space-y-4">
+    <section aria-labelledby="payment-attention-heading" className="rounded-lg border border-border bg-card p-5 sm:p-6 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Your next actions</div>
