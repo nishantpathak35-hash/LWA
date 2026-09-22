@@ -86,6 +86,74 @@ export class PaymentRepository {
     await queryRun(sql, params);
   }
 
+  static async updateRemittedRequest(
+    prId: string | number,
+    updates: Partial<IPaymentRequest> & Record<string, any>,
+    poNo: string,
+    expectedVersion?: number
+  ): Promise<void> {
+    await queryTransaction(async (db: any) => {
+      const validColumns = new Set([
+        'po_no', 'vendor_id', 'vendor_code', 'vendor_name', 'project', 'category', 'amount_requested', 'approved_amount',
+        'stage', 'remittance', 'remarks', 'created_by',
+        'tds_amount', 'tds_percentage', 'tds_section', 'invoice_id',
+        'remittance_ref', 'remittance_date',
+        'proc_approval', 'finance_approval', 'director_approval'
+      ]);
+
+      const fields: string[] = [];
+      const values: any[] = [];
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined && key !== 'version' && validColumns.has(key)) {
+          fields.push(`${key} = ?`);
+          values.push(value);
+        }
+      }
+
+      if (fields.length > 0) {
+        fields.push('version = COALESCE(version, 1) + 1');
+        let sql = `UPDATE payment_requests SET ${fields.join(', ')} WHERE pr_id = ?`;
+        values.push(prId);
+        if (expectedVersion !== undefined && expectedVersion !== null) {
+          sql += ' AND COALESCE(version, 1) = ?';
+          values.push(expectedVersion);
+        }
+        const result = await db.queryRun(sql, values);
+        if (expectedVersion !== undefined && expectedVersion !== null && result?.rowsAffected === 0) {
+          throw new Error('CONFLICT: This payment request was modified by another user since you last loaded it. Please reload and try again.');
+        }
+      }
+
+      const updatedPr = await db.queryGet('SELECT * FROM payment_requests WHERE pr_id = ?', [prId]);
+      if (updatedPr) {
+        const netAmt = Math.max(0, Number(updatedPr.approved_amount ?? updatedPr.amount_requested ?? 0) - Number(updatedPr.tds_amount ?? 0));
+        const sysUpdates = ['amount = ?'];
+        const sysValues = [netAmt];
+        if (updates.remittance_ref !== undefined) {
+          sysUpdates.push('utr_ref = ?');
+          sysValues.push(updates.remittance_ref);
+        }
+        if (updates.remittance_date !== undefined) {
+          sysUpdates.push('payment_date = ?');
+          sysValues.push(updates.remittance_date);
+        }
+        sysValues.push(String(prId), String(prId));
+        await db.queryRun(
+          `UPDATE system_payments SET ${sysUpdates.join(', ')} WHERE CAST(pr_key AS TEXT) = ? OR reference_no = ?`,
+          sysValues
+        );
+
+        const targetPo = updates.po_no || updatedPr.po_no || poNo;
+        if (targetPo) {
+          await this.recomputePO(targetPo, db);
+        }
+        if (poNo && targetPo && poNo !== targetPo) {
+          await this.recomputePO(poNo, db);
+        }
+      }
+    });
+  }
+
   static async updateRequest(prId: string | number, updates: Partial<IPaymentRequest> & Record<string, any>, expectedVersion?: number): Promise<void> {
     // P0-6: Column allowlist — prevents SQL injection if raw client payload is ever passed
     const validColumns = new Set([

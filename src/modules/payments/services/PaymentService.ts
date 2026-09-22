@@ -104,15 +104,26 @@ export class PaymentService {
   static async updatePaymentRequest(prId: string | number, payload: any, session: any): Promise<{ ok: boolean }> {
     AuthService.requireAuth(session);
     const userEmail = session.email;
-    if (payload.adminOverride) AuthService.requireAdminConsole(session);
+    const roles = session?.roles || [];
+    const isSuperAdmin = AuthService.isSuperAdmin(session?.email);
+    const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || isSuperAdmin;
+    const isFinance = roles.includes('finance');
+
     const pr = await PaymentRepository.findRequestById(prId);
     if (!pr) throw new Error(`Payment request not found: ${prId}`);
     
-    // Check if editable (allow adminOverride for admin/director edits at any stage)
-    const editableStages = ['Pending Procurement', 'Pending Finance'];
-    if (pr.stage === 'Remitted' || pr.remittance === 'Remitted') throw new Error('Remitted payment amounts cannot be edited');
-    if (!payload.adminOverride && !editableStages.includes(pr.stage)) {
-      throw new Error(`Payment request cannot be edited in stage: ${pr.stage}`);
+    const isRemitted = String(pr.stage || '').toLowerCase() === 'remitted' || String(pr.remittance || '').toLowerCase() === 'remitted';
+
+    if (isRemitted) {
+      if (!isDirOrAdmin && !isFinance) {
+        throw new Error('AUTH:Unauthorized - Only Director, Admin, or Finance can edit remitted payments');
+      }
+    } else {
+      if (payload.adminOverride) AuthService.requireAdminConsole(session);
+      const editableStages = ['Pending Procurement', 'Pending Finance'];
+      if (!payload.adminOverride && !editableStages.includes(pr.stage)) {
+        throw new Error(`Payment request cannot be edited in stage: ${pr.stage}`);
+      }
     }
 
     const reqAmt = payload.amountRequested !== undefined ? Number(payload.amountRequested || payload.gross_amount || 0) : Number(pr.amount_requested || 0);
@@ -146,10 +157,20 @@ export class PaymentService {
       remarks: remarks
     };
 
-    await PaymentRepository.updateRequest(prId, updates, payload.expectedVersion ?? (pr as any).version ?? 1);
+    if (payload.remittance_ref !== undefined) updates.remittance_ref = payload.remittance_ref;
+    if (payload.remittance_date !== undefined) updates.remittance_date = payload.remittance_date;
 
-    const changeDesc = `Edited PR #${prId}. Req: ${reqAmt}, App: ${approvedAmt}, TDS: ${tdsSec} (${tdsAmt}).`;
-    await logAudit(userEmail, 'Update Payment Request', changeDesc, pr.stage);
+    if (isRemitted) {
+      await PaymentRepository.updateRemittedRequest(prId, updates, pr.po_no, payload.expectedVersion ?? (pr as any).version ?? 1);
+    } else {
+      await PaymentRepository.updateRequest(prId, updates, payload.expectedVersion ?? (pr as any).version ?? 1);
+    }
+
+    const netAmt = Math.max(0, approvedAmt - tdsAmt);
+    const changeDesc = isRemitted
+      ? `Edited Remitted PR #${prId}. Req: ${reqAmt}, App: ${approvedAmt}, TDS: ${tdsSec} (${tdsAmt}), Net: ${netAmt}.`
+      : `Edited PR #${prId}. Req: ${reqAmt}, App: ${approvedAmt}, TDS: ${tdsSec} (${tdsAmt}).`;
+    await logAudit(userEmail, isRemitted ? 'Update Remitted Payment' : 'Update Payment Request', changeDesc, pr.stage);
 
     return { ok: true };
   }

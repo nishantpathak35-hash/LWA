@@ -460,6 +460,7 @@ export default function PaymentsView() {
       
       let res;
       if (editingPrId) {
+        if (isAdmin || isDirector || isFinance) payload.adminOverride = true;
         res = await call('updatePaymentRequest', editingPrId, payload);
       } else {
         res = await call('createPaymentRequest', payload);

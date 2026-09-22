@@ -12,6 +12,8 @@ export default function ReportsEditPaymentModal({
   const [tdsPct, setTdsPct] = useState(0);
   const [tdsAmount, setTdsAmount] = useState(0);
   const [remarks, setRemarks] = useState('');
+  const [remittanceRef, setRemittanceRef] = useState('');
+  const [remittanceDate, setRemittanceDate] = useState('');
 
   useEffect(() => {
     if (editingPayment) {
@@ -27,6 +29,8 @@ export default function ReportsEditPaymentModal({
       setTdsPct(pct);
       setTdsAmount(amt);
       setRemarks(editingPayment.remarks || '');
+      setRemittanceRef(editingPayment.remittance_ref || editingPayment.utr || '');
+      setRemittanceDate(editingPayment.remittance_date || (editingPayment.created_at ? editingPayment.created_at.split('T')[0] : ''));
     }
   }, [editingPayment]);
 
@@ -73,9 +77,13 @@ export default function ReportsEditPaymentModal({
       tds_percentage: Number(tdsPct),
       tds_amount: Number(tdsAmount),
       remarks,
+      remittance_ref: remittanceRef,
+      remittance_date: remittanceDate,
       adminOverride: true
     });
   };
+
+  const isRemitted = String(editingPayment?.stage || '').toLowerCase() === 'remitted' || String(editingPayment?.remittance || '').toLowerCase() === 'remitted';
 
   return (
     <Dialog
@@ -158,6 +166,32 @@ export default function ReportsEditPaymentModal({
           <span className="text-muted-foreground">Net Payable After TDS:</span>
           <span className="text-amber-700 dark:text-primary text-sm tabular-nums">{formatCurrency(netPayable)}</span>
         </div>
+
+        {isRemitted && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">
+                UTR / PAYMENT REFERENCE
+              </label>
+              <Input
+                type="text"
+                placeholder="e.g. UTR12345678"
+                value={remittanceRef}
+                onChange={e => setRemittanceRef(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">
+                REMITTANCE DATE
+              </label>
+              <Input
+                type="date"
+                value={remittanceDate}
+                onChange={e => setRemittanceDate(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">

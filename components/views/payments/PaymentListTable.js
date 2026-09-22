@@ -146,7 +146,7 @@ export default function PaymentListTable({
                         <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground">
                           <History className="w-3 h-3 mr-1" /> Trail
                         </Button>
-                        {(String(reqStage).toLowerCase().includes('procurement') || String(reqStage).toLowerCase().includes('finance')) && onEditPayment && (
+                        {(isAdmin || isDirector || isFinance || String(reqStage).toLowerCase().includes('procurement') || String(reqStage).toLowerCase().includes('finance')) && onEditPayment && (
                           <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-7 px-2 text-[11px]">
                             Edit
                           </Button>
@@ -270,7 +270,7 @@ export default function PaymentListTable({
                           <div className="flex items-center justify-center gap-1">
                             {getWorkflowActionButton(req)}
                             
-                            {(String(req.stage || req.approval_stage || '').toLowerCase().includes('procurement') || String(req.stage || req.approval_stage || '').toLowerCase().includes('finance')) && onEditPayment && (
+                            {(isAdmin || isDirector || isFinance || String(req.stage || req.approval_stage || '').toLowerCase().includes('procurement') || String(req.stage || req.approval_stage || '').toLowerCase().includes('finance')) && onEditPayment && (
                               <Button variant="ghost" size="icon" onClick={() => onEditPayment(req)} title="Edit Payment Request" className="h-7 w-7 text-muted-foreground hover:text-foreground">
                                 <CheckSquare className="w-3.5 h-3.5" />
                               </Button>
