@@ -30,47 +30,70 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
   const handleAiAutoFill = async () => {
     if (!selectedFile) return;
     setAiLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
+
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const base64Data = event.target.result.split(',')[1];
-          const token = localStorage.getItem('lx_auth_token');
-          const res = await fetch('/api/ai/parse-invoice', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-lwa-token': token || ''
-            },
-            body: JSON.stringify({
-              fileData: base64Data,
-              fileType: selectedFile.type
-            })
-          });
-          const result = await res.json();
-          if (!res.ok || result.error) {
-            throw new Error(result.error || 'AI parsing failed');
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const res = e.target?.result;
+          if (typeof res === 'string') {
+            resolve(res.includes(',') ? res.split(',')[1] : res);
+          } else {
+            reject(new Error('Failed to read file data'));
           }
-          const data = result.data;
-          
-          setFormData(prev => ({
-            ...prev,
-            invoiceNumber: data.invoiceNumber || prev.invoiceNumber,
-            invoiceDate: data.invoiceDate || prev.invoiceDate,
-            subtotal: data.subtotal ? String(data.subtotal) : prev.subtotal,
-            taxAmount: data.taxAmount ? String(data.taxAmount) : prev.taxAmount,
-            invoiceTotal: data.invoiceTotal ? String(data.invoiceTotal) : prev.invoiceTotal
-          }));
-          toast.success("AI auto-filled invoice details successfully!");
-        } catch (err) {
-          toast.error("AI parsing failed: " + err.message);
-        } finally {
-          setAiLoading(false);
-        }
-      };
-      reader.readAsDataURL(selectedFile);
+        };
+        reader.onerror = () => reject(new Error('File reading failed'));
+        reader.readAsDataURL(selectedFile);
+      });
+
+      const token = localStorage.getItem('lx_auth_token');
+      const res = await fetch('/api/ai/parse-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-lwa-token': token || ''
+        },
+        body: JSON.stringify({
+          fileData: base64Data,
+          fileType: selectedFile.type || 'application/pdf'
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const rawText = await res.text();
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch {
+        throw new Error('Server returned invalid response. Please enter invoice details manually.');
+      }
+
+      if (!res.ok || result.error) {
+        throw new Error(result.error || 'AI parsing failed');
+      }
+      const data = result.data || {};
+      
+      setFormData(prev => ({
+        ...prev,
+        invoiceNumber: data.invoiceNumber || prev.invoiceNumber,
+        invoiceDate: data.invoiceDate || prev.invoiceDate,
+        subtotal: data.subtotal ? String(data.subtotal) : prev.subtotal,
+        taxAmount: data.taxAmount ? String(data.taxAmount) : prev.taxAmount,
+        invoiceTotal: data.invoiceTotal ? String(data.invoiceTotal) : prev.invoiceTotal
+      }));
+      toast.success("AI auto-filled invoice details successfully!");
     } catch (err) {
-      toast.error("Error reading file: " + err.message);
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        toast.error('OCR scan timed out. Please enter invoice details manually.');
+      } else {
+        toast.error("AI parsing failed: " + (err.message || 'Unknown error'));
+      }
+    } finally {
       setAiLoading(false);
     }
   };

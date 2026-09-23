@@ -251,73 +251,91 @@ export default function InvoicesView() {
     }
     setAiLoading(true);
     setOcrSuccess(false);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
+
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const base64Data = event.target.result.split(',')[1];
-          const token = localStorage.getItem('lx_auth_token') || localStorage.getItem('auth_token');
-          const res = await fetch('/api/ai/parse-invoice', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-lwa-token': token || ''
-            },
-            body: JSON.stringify({
-              fileData: base64Data,
-              fileType: file.type || 'application/pdf'
-            })
-          });
-          const rawText = await res.text();
-          let result;
-          try {
-            result = JSON.parse(rawText);
-          } catch {
-            throw new Error(`Server returned status ${res.status}. Please enter invoice details manually.`);
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const res = e.target?.result;
+          if (typeof res === 'string') {
+            resolve(res.includes(',') ? res.split(',')[1] : res);
+          } else {
+            reject(new Error('Failed to read file data'));
           }
-          if (!res.ok || result.error) {
-            throw new Error(result.error || 'OCR document reading failed');
-          }
-          const data = result.data || {};
-          
-          setUploadForm(prev => ({
-            ...prev,
-            invoiceNumber: data.invoiceNumber || prev.invoiceNumber,
-            invoiceDate: data.invoiceDate || prev.invoiceDate,
-            subtotal: data.subtotal !== undefined && data.subtotal !== null ? String(data.subtotal) : prev.subtotal,
-            taxAmount: data.taxAmount !== undefined && data.taxAmount !== null ? String(data.taxAmount) : prev.taxAmount,
-            invoiceTotal: data.invoiceTotal !== undefined && data.invoiceTotal !== null ? String(data.invoiceTotal) : prev.invoiceTotal
-          }));
+        };
+        reader.onerror = () => reject(new Error('File reading failed'));
+        reader.readAsDataURL(file);
+      });
 
-          // Auto-match vendor if detected
-          if (data.vendorName && !uploadVendorFilter) {
-            const vNameLower = String(data.vendorName).toLowerCase();
-            const matched = allAvailableVendors.find(v => 
-              vNameLower.includes(String(v.name || '').toLowerCase()) ||
-              (v.code && vNameLower.includes(String(v.code).toLowerCase()))
-            );
-            if (matched) {
-              const matchedVal = matched.code || matched.name;
-              setUploadVendorFilter(matchedVal);
-              toast.info(`Auto-matched vendor: ${matched.name}`);
-            }
-          }
+      const token = localStorage.getItem('lx_auth_token') || localStorage.getItem('auth_token');
+      const res = await fetch('/api/ai/parse-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-lwa-token': token || ''
+        },
+        body: JSON.stringify({
+          fileData: base64Data,
+          fileType: file.type || 'application/pdf'
+        }),
+        signal: controller.signal
+      });
 
-          setOcrSuccess(true);
-          const fields = [];
-          if (data.invoiceNumber) fields.push('Invoice #');
-          if (data.invoiceDate) fields.push('Date');
-          if (data.invoiceTotal) fields.push('Total');
-          toast.success(`✨ OCR auto-filled: ${fields.join(', ') || 'details'} successfully!`);
-        } catch (err) {
-          toast.error("OCR auto-fill failed: " + err.message);
-        } finally {
-          setAiLoading(false);
+      clearTimeout(timeoutId);
+
+      const rawText = await res.text();
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch {
+        throw new Error('Server returned invalid response. Please enter invoice details manually.');
+      }
+
+      if (!res.ok || result.error) {
+        throw new Error(result.error || 'OCR document reading failed');
+      }
+
+      const data = result.data || {};
+      
+      setUploadForm(prev => ({
+        ...prev,
+        invoiceNumber: data.invoiceNumber || prev.invoiceNumber,
+        invoiceDate: data.invoiceDate || prev.invoiceDate,
+        subtotal: data.subtotal !== undefined && data.subtotal !== null ? String(data.subtotal) : prev.subtotal,
+        taxAmount: data.taxAmount !== undefined && data.taxAmount !== null ? String(data.taxAmount) : prev.taxAmount,
+        invoiceTotal: data.invoiceTotal !== undefined && data.invoiceTotal !== null ? String(data.invoiceTotal) : prev.invoiceTotal
+      }));
+
+      // Auto-match vendor if detected
+      if (data.vendorName && !uploadVendorFilter) {
+        const vNameLower = String(data.vendorName).toLowerCase();
+        const matched = allAvailableVendors.find(v => 
+          vNameLower.includes(String(v.name || '').toLowerCase()) ||
+          (v.code && vNameLower.includes(String(v.code).toLowerCase()))
+        );
+        if (matched) {
+          const matchedVal = matched.code || matched.name;
+          setUploadVendorFilter(matchedVal);
+          toast.info(`Auto-matched vendor: ${matched.name}`);
         }
-      };
-      reader.readAsDataURL(file);
+      }
+
+      setOcrSuccess(true);
+      const fields = [];
+      if (data.invoiceNumber) fields.push('Invoice #');
+      if (data.invoiceDate) fields.push('Date');
+      if (data.invoiceTotal) fields.push('Total');
+      toast.success(`OCR auto-filled: ${fields.join(', ') || 'details'} successfully!`);
     } catch (err) {
-      toast.error("Error reading file: " + err.message);
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        toast.error('OCR scan timed out. Please enter invoice details manually.');
+      } else {
+        toast.error('OCR auto-fill failed: ' + (err.message || 'Unknown error'));
+      }
+    } finally {
       setAiLoading(false);
     }
   };

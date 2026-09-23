@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server';
 import * as api from '../../../lib/api.js';
 import { validateInvoiceFields } from '../../../../src/modules/invoices/services/invoiceValidation.js';
 
+async function withTimeout(promise, ms, name = 'Operation') {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${name} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 function parseInvoiceText(text) {
   if (!text || typeof text !== 'string') return {};
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -88,23 +96,24 @@ function parseInvoiceText(text) {
 }
 
 async function extractTextFromBuffer(buffer, fileType) {
-  // 1. Try PDFParse for PDF files
+  // 1. PDF files: use PDFParse with strict timeout (NEVER call Tesseract on PDF)
   if (fileType === 'application/pdf') {
     try {
       const pdfModule = await import('pdf-parse');
       const PDFParse = pdfModule.PDFParse || pdfModule.default || pdfModule;
       if (typeof PDFParse === 'function') {
         const parser = new PDFParse({ data: buffer });
-        const res = await parser.getText();
-        if (res?.text && res.text.trim().length > 10) {
-          return res.text;
+        const res = await withTimeout(parser.getText(), 4000, 'PDF text extraction');
+        const clean = (res?.text || '').replace(/-- \d+ of \d+ --/g, '').trim();
+        if (clean.length > 15) {
+          return clean;
         }
       }
     } catch (pdfErr) {
-      console.warn('PDF text extraction error:', pdfErr.message);
+      console.warn('PDF text extraction warning:', pdfErr.message);
     }
 
-    // Fallback: fast PDF stream text extractor without external dependencies
+    // Fast native stream text extraction fallback
     try {
       const rawPdf = buffer.toString('latin1');
       const textMatches = [];
@@ -119,22 +128,31 @@ async function extractTextFromBuffer(buffer, fileType) {
         return textMatches.join(' ');
       }
     } catch (streamErr) {
-      console.warn('PDF stream extraction error:', streamErr.message);
+      console.warn('PDF stream extraction warning:', streamErr.message);
     }
+
+    return '';
   }
 
-  // 2. Try Tesseract OCR for images or scanned PDFs
-  try {
-    const tessModule = await import('tesseract.js');
-    const Tesseract = tessModule.default || tessModule;
-    if (Tesseract && typeof Tesseract.recognize === 'function') {
-      const { data: { text } } = await Tesseract.recognize(buffer, 'eng');
-      if (text && text.trim().length > 10) {
-        return text;
+  // 2. Image files ONLY (JPEG, PNG, WEBP)
+  if (fileType && (fileType.startsWith('image/') || fileType === 'image/jpeg' || fileType === 'image/png' || fileType === 'image/webp')) {
+    try {
+      const tessModule = await import('tesseract.js');
+      const Tesseract = tessModule.default || tessModule;
+      if (Tesseract && typeof Tesseract.recognize === 'function') {
+        const textRes = await withTimeout(
+          Tesseract.recognize(buffer, 'eng'),
+          5000,
+          'Image OCR'
+        );
+        const text = textRes?.data?.text || '';
+        if (text && text.trim().length > 10) {
+          return text;
+        }
       }
+    } catch (ocrErr) {
+      console.warn('Image OCR warning:', ocrErr.message);
     }
-  } catch (ocrErr) {
-    console.warn('Tesseract OCR error:', ocrErr.message);
   }
 
   return '';
@@ -147,7 +165,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized: Missing Token' }, { status: 401 });
     }
 
-    // Authenticate session (either internal or vendor portal)
     let session = null;
     try {
       session = await api.getMySession(token);
@@ -176,42 +193,44 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Valid fileData is required' }, { status: 400 });
     }
 
-    // Strip data URI header if present
     const cleanBase64 = fileData.includes(',') ? fileData.split(',')[1] : fileData;
     const fileBuffer = Buffer.from(cleanBase64, 'base64');
     const geminiKey = process.env.GEMINI_API_KEY;
 
-    // 1. Try Gemini AI if API key is configured
+    // 1. Try Gemini AI if configured with 8s timeout
     if (geminiKey) {
       try {
         const mime = fileType || 'application/pdf';
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(20000),
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    {
-                      inlineData: {
-                        mimeType: mime,
-                        data: cleanBase64
+        const response = await withTimeout(
+          fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      {
+                        inlineData: {
+                          mimeType: mime,
+                          data: cleanBase64
+                        }
+                      },
+                      {
+                        text: 'Extract the following details from this invoice image/PDF. Return a JSON object with keys: invoiceNumber, invoiceDate (in YYYY-MM-DD format), subtotal (number), taxAmount (number), invoiceTotal (number). Subtotal and taxAmount must sum to invoiceTotal. If a value is missing or unreadable, return empty string or 0. Return ONLY the raw JSON, no markdown code blocks, no backticks, no markdown wrapping.'
                       }
-                    },
-                    {
-                      text: 'Extract the following details from this invoice image/PDF. Return a JSON object with keys: invoiceNumber, invoiceDate (in YYYY-MM-DD format), subtotal (number), taxAmount (number), invoiceTotal (number). Subtotal and taxAmount must sum to invoiceTotal. If a value is missing or unreadable, return empty string or 0. Return ONLY the raw JSON, no markdown code blocks, no backticks, no markdown wrapping.'
-                    }
-                  ]
+                    ]
+                  }
+                ],
+                generationConfig: {
+                  responseMimeType: 'application/json'
                 }
-              ],
-              generationConfig: {
-                responseMimeType: 'application/json'
-              }
-            })
-          }
+              })
+            }
+          ),
+          8000,
+          'Gemini API'
         );
 
         if (response.ok) {
@@ -228,11 +247,11 @@ export async function POST(request) {
       }
     }
 
-    // 2. High-performance local OCR / PDF extraction engine
+    // 2. High-performance local PDF / Image extraction engine (guaranteed under 5 seconds)
     const rawText = await extractTextFromBuffer(fileBuffer, fileType || 'application/pdf');
     if (!rawText || rawText.trim().length === 0) {
       return NextResponse.json({ 
-        error: 'Could not extract text from document. Please ensure the document is clear and readable, or enter invoice details manually.' 
+        error: 'This invoice document could not be auto-read (scanned image inside PDF). Please enter the invoice details manually.' 
       }, { status: 422 });
     }
 
