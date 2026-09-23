@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, Mail, Landmark, FileText } from 'lucide-react';
+import { Loader2, Mail, Landmark, FileText, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Card, CardHeader, CardTitle, CardContent } from '../../ui/core';
 import { fmtRupees, fmtLakhs, stageBadge, wfSteps } from './report-utils';
 import SortableHeader from '../../ui/SortableHeader';
@@ -38,6 +38,45 @@ export default function ReportsTables({
 }) {
   const [sortField, setSortField] = useState('id');
   const [sortDir, setSortDir] = useState('desc');
+  const mainTableRef = React.useRef(null);
+  const tdsTableRef = React.useRef(null);
+
+  const scrollContainer = (ref, dir) => {
+    if (ref.current) {
+      ref.current.scrollBy({ left: dir === 'left' ? -380 : 380, behavior: 'smooth' });
+    }
+  };
+
+  const renderScrollNavigator = (ref, label) => (
+    <div className="flex items-center justify-between px-3.5 py-1.5 bg-muted/40 border-b border-border/70 text-[11px] text-muted-foreground select-none">
+      <div className="flex items-center gap-1.5">
+        <ArrowLeftRight className="w-3 h-3 text-primary shrink-0" />
+        <span>Wide Ledger ({label}): Scroll sideways or click arrows</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => scrollContainer(ref, 'left')}
+          className="h-6 px-2 text-[10px] font-semibold gap-1 rounded-md"
+          title="Scroll Left"
+        >
+          <ChevronLeft className="w-3 h-3" /> Left
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => scrollContainer(ref, 'right')}
+          className="h-6 px-2 text-[10px] font-semibold gap-1 rounded-md"
+          title="Scroll Right"
+        >
+          Right <ChevronRight className="w-3 h-3" />
+        </Button>
+      </div>
+    </div>
+  );
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -76,10 +115,12 @@ export default function ReportsTables({
 
       return (
         <div className="space-y-6">
-          <Table id="tblReports">
+          <div className="space-y-0 rounded-lg overflow-hidden border border-border">
+          {renderScrollNavigator(tdsTableRef, "12 Columns")}
+          <Table id="tblReports" containerRef={tdsTableRef} className="min-w-[1300px]">
             <TableHeader>
               <TableRow className="border-b border-border bg-slate-50/70 dark:bg-slate-900/50">
-                <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="sticky left-0 z-20 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs w-[60px] pl-3 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/60" />
                 <SortableHeader field="transaction_date" label="Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
                 <SortableHeader field="project_id" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
                 <SortableHeader field="po_id" label="PO" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} />
@@ -97,7 +138,7 @@ export default function ReportsTables({
               {entries.length > 0 ? (
                 entries.map((e, idx) => (
                   <TableRow key={e.id || idx}>
-                    <TableCell className="font-bold text-amber-700 dark:text-primary">#{e.id}</TableCell>
+                    <TableCell className="sticky left-0 z-10 bg-card/95 backdrop-blur-xs font-bold text-amber-700 dark:text-primary pl-3 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/40">#{e.id}</TableCell>
                     <TableCell className="text-xs text-muted-foreground font-medium">
                       {e.transaction_date ? new Date(e.transaction_date).toLocaleDateString('en-IN') : '—'}
                     </TableCell>
@@ -128,6 +169,7 @@ export default function ReportsTables({
               )}
             </TableBody>
           </Table>
+          </div>
 
           {summaryKeys.length > 0 && (
             <Card>
@@ -233,7 +275,7 @@ export default function ReportsTables({
     if (reportType === 'Approval_Audit') {
       const entries = data.entries || [];
       return (
-        <Table id="tblReports">
+        <Table id="tblReports" className="min-w-[1100px]">
           <TableHeader>
             <TableRow>
               <TableHead>Timestamp</TableHead>
@@ -371,25 +413,27 @@ export default function ReportsTables({
     // Main payment reports table
     const rows = data || [];
     return (
-      <Table id="tblReports">
-        <TableHeader>
-          <TableRow className="bg-muted/40 hover:bg-muted/40">
-            <TableHead className="w-[50px] text-xs font-bold text-muted-foreground uppercase tracking-wider">ID</TableHead>
-            <TableHead className="w-[90px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</TableHead>
-            <TableHead className="min-w-[160px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Vendor</TableHead>
-            <TableHead className="min-w-[140px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Project</TableHead>
-            <TableHead className="w-[140px] text-xs font-bold text-muted-foreground uppercase tracking-wider">PO Number</TableHead>
-            <TableHead className="w-[95px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Mode</TableHead>
-            <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Gross Amt</TableHead>
-            <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">TDS</TableHead>
-            <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Net Payment</TableHead>
-            <TableHead className="w-[130px] text-xs font-bold text-muted-foreground uppercase tracking-wider">UTR / Ref</TableHead>
-            <TableHead className="w-[110px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</TableHead>
-            <TableHead className="w-[80px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval</TableHead>
-            <TableHead className="w-[100px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Rejected</TableHead>
-            <TableHead className="w-[150px] text-right text-xs font-bold text-muted-foreground uppercase tracking-wider pr-4">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
+      <div className="space-y-0 rounded-lg overflow-hidden border border-border">
+        {renderScrollNavigator(mainTableRef, "14 Columns")}
+        <Table id="tblReports" containerRef={mainTableRef} className="min-w-[1450px]">
+          <TableHeader>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="sticky left-0 z-20 bg-muted/95 backdrop-blur-xs w-[60px] pl-3 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/60 text-xs font-bold text-muted-foreground uppercase tracking-wider">ID</TableHead>
+              <TableHead className="w-[90px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</TableHead>
+              <TableHead className="min-w-[160px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Vendor</TableHead>
+              <TableHead className="min-w-[140px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Project</TableHead>
+              <TableHead className="w-[140px] text-xs font-bold text-muted-foreground uppercase tracking-wider">PO Number</TableHead>
+              <TableHead className="w-[95px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Mode</TableHead>
+              <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Gross Amt</TableHead>
+              <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">TDS</TableHead>
+              <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Net Payment</TableHead>
+              <TableHead className="w-[130px] text-xs font-bold text-muted-foreground uppercase tracking-wider">UTR / Ref</TableHead>
+              <TableHead className="w-[110px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</TableHead>
+              <TableHead className="w-[80px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval</TableHead>
+              <TableHead className="w-[100px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Rejected</TableHead>
+              <TableHead className="sticky right-0 z-20 bg-muted/95 backdrop-blur-xs w-[170px] text-right text-xs font-bold text-muted-foreground uppercase tracking-wider pr-4 shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/60">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
         <TableBody>
           {rows.length > 0 ? (
             rows.map((p, idx) => {
@@ -402,7 +446,7 @@ export default function ReportsTables({
 
               return (
                 <TableRow key={p.rowNumber || idx} className="hover:bg-muted/30 transition-colors">
-                  <TableCell className="font-bold text-amber-700 dark:text-primary text-xs">#{p.sNo}</TableCell>
+                  <TableCell className="sticky left-0 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs font-bold text-amber-700 dark:text-primary text-xs pl-3 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/40">#{p.sNo}</TableCell>
                   <TableCell className="text-xs text-muted-foreground font-medium whitespace-nowrap">
                     {p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}
                   </TableCell>
@@ -435,7 +479,7 @@ export default function ReportsTables({
                   <TableCell className={`text-xs whitespace-nowrap ${p.rejectedBy ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground'}`}>
                     {rejBy}
                   </TableCell>
-                  <TableCell className="text-right pr-4 whitespace-nowrap">
+                  <TableCell className="sticky right-0 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs text-right pr-4 whitespace-nowrap shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/40">
                     <div className="flex items-center justify-end gap-1.5">
                       {(isAdmin || isDirector || isFinance) && handleOpenEditModal && (
                         <Button
@@ -488,13 +532,14 @@ export default function ReportsTables({
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={13} className="text-center py-10 text-muted-foreground font-medium">
+              <TableCell colSpan={14} className="text-center py-10 text-muted-foreground font-medium">
                 No items match your filters.
               </TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
+      </div>
     );
   })()}
     </>

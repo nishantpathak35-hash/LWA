@@ -130,13 +130,13 @@ export function Select({ className, children, ...props }) {
 }
 
 // --- TABLE ---
-export function Table({ className, ...props }) {
+export const Table = React.forwardRef(function Table({ className, containerClassName, containerRef, ...props }, ref) {
   return (
-    <div className="w-full overflow-x-auto border border-border rounded-lg bg-card">
-      <table className={cn("w-full border-collapse text-left text-xs", className)} {...props} />
+    <div ref={containerRef} className={cn("w-full overflow-x-auto border border-border rounded-lg bg-card", containerClassName)}>
+      <table ref={ref} className={cn("w-full border-collapse text-left text-xs", className)} {...props} />
     </div>
   );
-}
+});
 
 export function TableHeader({ className, ...props }) {
   return <thead className={cn("sticky top-0 z-10 bg-muted/50 border-b border-border text-xs font-medium text-muted-foreground select-none", className)} {...props} />;
