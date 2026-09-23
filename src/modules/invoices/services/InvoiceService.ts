@@ -50,8 +50,8 @@ export class InvoiceService {
     }
 
     const st = String(po.approval_status || po.status || '').trim().toLowerCase();
-    if (st !== 'approved' && st !== 'active') {
-      throw new Error(`Invoices can only be uploaded against Approved Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
+    if (!['approved', 'active', 'open'].includes(st)) {
+      throw new Error(`Invoices can only be uploaded against Open or Approved Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
     }
 
     // Server-side Duplicate Invoice Prevention
@@ -131,7 +131,7 @@ export class InvoiceService {
     if (!po) throw new Error(`Purchase Order "${cleanPoNo}" not found.`);
 
     const status = String(po.approval_status || po.status || '').trim().toLowerCase();
-    if (!['approved', 'active'].includes(status)) throw new Error('Invoices can only be uploaded against Approved Purchase Orders.');
+    if (!['approved', 'active', 'open'].includes(status)) throw new Error('Invoices can only be uploaded against Open or Approved Purchase Orders.');
 
     let targetVendor = null;
     const vQuery = vendorCode || po.vendor_code || po.vendor_key;
@@ -232,7 +232,7 @@ export class InvoiceService {
       const vCode = (po.vendor_code || po.vendor_key || '').trim().toLowerCase();
       const belongs = belongsToVendor(po, cleanVendorCode, vendor_id);
       const st = (po.approval_status || po.status || '').trim().toLowerCase();
-      const isApproved = st === 'approved' || st === 'active';
+      const isApproved = ['approved', 'active', 'open'].includes(st);
       return belongs && isApproved;
     });
 
@@ -268,8 +268,8 @@ export class InvoiceService {
     }
 
     const st = (po.approval_status || po.status || '').trim().toLowerCase();
-    if (st !== 'approved' && st !== 'active') {
-      throw new Error('AUTH: PO is not approved');
+    if (!['approved', 'active', 'open'].includes(st)) {
+      throw new Error('AUTH: PO is not open or approved');
     }
 
     const items = await PORepository.findItemsByPoNo(po.po_no);

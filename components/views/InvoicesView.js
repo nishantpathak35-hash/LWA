@@ -377,9 +377,13 @@ export default function InvoicesView() {
   // Filtered POs for internal invoice upload modal based on selected vendor
   const availableUploadPOs = useMemo(() => {
     if (!Array.isArray(posList)) return [];
-    if (!uploadVendorFilter) return posList;
+    const validPOs = posList.filter(p => {
+      const st = String(p.status || p.approval_status || '').toLowerCase();
+      return !['rejected', 'cancelled', 'canceled'].includes(st);
+    });
+    if (!uploadVendorFilter) return validPOs;
     const vFilter = uploadVendorFilter.trim().toLowerCase();
-    return posList.filter(p => {
+    return validPOs.filter(p => {
       const code = String(p.vendor_code || p.vendorCode || '').trim().toLowerCase();
       const name = String(p.vendor_name || p.vendor || '').trim().toLowerCase();
       return code === vFilter || name === vFilter || code.includes(vFilter) || name.includes(vFilter);
@@ -1535,7 +1539,7 @@ export default function InvoicesView() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-foreground font-bold">Select Approved Purchase Order *</label>
+                <label className="text-xs text-foreground font-bold">Select Purchase Order (Open / Approved) *</label>
                 {uploadVendorFilter && (
                   <span className="text-[10px] text-muted-foreground">
                     Filtered by vendor ({availableUploadPOs.length} PO{availableUploadPOs.length === 1 ? '' : 's'})
@@ -1560,20 +1564,24 @@ export default function InvoicesView() {
               >
                 <option value="">
                   {availableUploadPOs.length > 0 
-                    ? `-- Choose Approved PO (${availableUploadPOs.length} available) --` 
-                    : '-- No approved POs found for this vendor --'}
+                    ? `-- Choose Purchase Order (${availableUploadPOs.length} available) --` 
+                    : '-- No open or approved POs found for this vendor --'}
                 </option>
-                {availableUploadPOs.map(p => (
-                  <option key={p.po_no || p.poNo} value={p.po_no || p.poNo}>
-                    {p.po_no || p.poNo} — {p.vendor_name || p.vendor} ({formatCurrency(p.po_value || p.poValue)})
-                  </option>
-                ))}
+                {availableUploadPOs.map(p => {
+                  const poStatus = p.approval_status || p.status || 'Open';
+                  return (
+                    <option key={p.po_no || p.poNo} value={p.po_no || p.poNo}>
+                      {p.po_no || p.poNo} — {p.vendor_name || p.vendor} ({formatCurrency(p.po_value || p.poValue)}) [{poStatus}]
+                    </option>
+                  );
+                })}
               </select>
 
               {selectedPOData && (
                 <div className="mt-2.5 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-700 dark:text-amber-300 space-y-1">
                   <p><span className="text-muted-foreground">Vendor:</span> <strong>{selectedPOData.vendor_name || selectedPOData.vendor}</strong></p>
                   <p><span className="text-muted-foreground">PO Value:</span> <strong className="font-mono">{formatCurrency(selectedPOData.po_value || selectedPOData.poValue)}</strong></p>
+                  <p><span className="text-muted-foreground">PO Status:</span> <strong className="uppercase font-mono text-[11px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200">{selectedPOData.approval_status || selectedPOData.status || 'Open'}</strong></p>
                 </div>
               )}
             </div>
