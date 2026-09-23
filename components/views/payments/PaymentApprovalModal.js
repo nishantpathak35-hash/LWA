@@ -27,10 +27,13 @@ export default function PaymentApprovalModal({
         maxWidth="max-w-4xl"
       >
         <form onSubmit={handleWorkflowAction} className="space-y-4">
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span>Request <strong className="text-foreground">#{selectedRequest?.id}</strong></span>
             <span className="text-foreground font-medium">{selectedRequest?.vendor_name}</span>
             <span>PO {selectedRequest?.po_no || '—'}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted border border-border text-foreground tracking-wider uppercase">
+              Mode: <strong className="text-primary">{selectedRequest?.payment_mode || selectedRequest?.paymentMode || 'NEFT'}</strong>
+            </span>
           </div>
           {loadingSummary && workflowAction !== 'reject' && (
             <div className="bg-muted/40 border border-border rounded-xl p-3 text-xs text-muted-foreground flex items-center justify-center gap-2">
@@ -47,13 +50,19 @@ export default function PaymentApprovalModal({
 
           {workflowAction === 'remit' && (
             <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">UTR / REF TRANSACTION NUMBER *</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">
+                {(String(selectedRequest?.payment_mode || selectedRequest?.paymentMode || '').toLowerCase().includes('cheque')
+                  ? 'CHEQUE NUMBER / PAYMENT REFERENCE *'
+                  : 'UTR / REF TRANSACTION NUMBER *')}
+              </label>
               <Input
                 type="text"
                 required
                 value={utr}
                 onChange={(e) => setUtr(e.target.value)}
-                placeholder="Enter bank transfer UTR number"
+                placeholder={String(selectedRequest?.payment_mode || selectedRequest?.paymentMode || '').toLowerCase().includes('cheque')
+                  ? 'Enter Cheque number or reference'
+                  : 'Enter bank transfer UTR number'}
               />
             </div>
           )}

@@ -136,14 +136,25 @@ export default function PaymentFormModal({
               />
             </div>
             <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">PAYMENT MODE *</label>
+              <Select value={paymentMode || 'NEFT'} onChange={(e) => setPaymentMode && setPaymentMode(e.target.value)}>
+                <option value="NEFT">NEFT (Direct Bank Transfer)</option>
+                <option value="Cheque">Cheque / PDC</option>
+                <option value="RTGS">RTGS</option>
+                <option value="IMPS">IMPS</option>
+                <option value="UPI">UPI</option>
+                <option value="Cash">Cash</option>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">NET AMOUNT PAYABLE</label>
               <div className="w-full px-3.5 py-2 bg-muted/60 border border-border rounded-lg text-amber-700 dark:text-primary text-base font-bold tabular-nums">
                 {formatCurrency(netAmount || 0)}
               </div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">INVOICE NO / FILE REF</label>
               <Input
@@ -153,15 +164,16 @@ export default function PaymentFormModal({
                 placeholder="e.g. INV-2026-987"
               />
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">REMARKS</label>
-              <Input
-                type="text"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Payment description or notes"
-              />
-            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wider uppercase block mb-1.5">REMARKS</label>
+            <Input
+              type="text"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="Payment description or notes"
+            />
           </div>
 
           </fieldset>
