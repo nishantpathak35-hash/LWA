@@ -112,7 +112,6 @@ describe('PaymentService unit tests', () => {
     let capturedCreatePayload: any = null;
     vi.spyOn(PaymentRepository, 'createRequest').mockImplementation(async (payload) => {
       capturedCreatePayload = payload;
-      return 303;
     });
 
     const createRes = await PaymentService.createPaymentRequest({

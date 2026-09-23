@@ -128,7 +128,7 @@ export class PaymentRepository {
       if (updatedPr) {
         const netAmt = Math.max(0, Number(updatedPr.approved_amount ?? updatedPr.amount_requested ?? 0) - Number(updatedPr.tds_amount ?? 0));
         const sysUpdates = ['amount = ?'];
-        const sysValues = [netAmt];
+        const sysValues: (string | number)[] = [netAmt];
         if (updates.remittance_ref !== undefined) {
           sysUpdates.push('utr_ref = ?');
           sysValues.push(updates.remittance_ref);
