@@ -1,29 +1,9 @@
 import { NextResponse } from 'next/server';
 import * as api from '../../../lib/api.js';
 import { validateInvoiceFields } from '../../../../src/modules/invoices/services/invoiceValidation.js';
-import { PDFParse } from 'pdf-parse';
-import Tesseract from 'tesseract.js';
-
-const MAX_BODY_BYTES = 8 * 1024 * 1024;
-async function readBody(request) {
-  if (Number(request.headers.get('content-length')) > MAX_BODY_BYTES) throw new Error('Invoice file is too large');
-  const reader = request.body?.getReader();
-  if (!reader) throw new Error('Missing invoice file');
-  const chunks = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_BODY_BYTES) { await reader.cancel(); throw new Error('Invoice file is too large'); }
-      chunks.push(value);
-    }
-  } finally { reader.releaseLock(); }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-}
 
 function parseInvoiceText(text) {
+  if (!text || typeof text !== 'string') return {};
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   
   let invoiceNumber = '';
@@ -67,19 +47,19 @@ function parseInvoiceText(text) {
     
     // Total / Grand Total / Invoice Value
     if (!invoiceTotal && /(?:grand\s+total|invoice\s+(?:total|value)|total\s+amount|total\s+payable|net\s+payable|total\s+value|balance\s+due)\b/i.test(line)) {
-      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:₹RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
+      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:?RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
       if (amtMatch) invoiceTotal = parseFloat(amtMatch[1]) || 0;
     }
 
     // Subtotal / Taxable Value
     if (!subtotal && /(?:taxable\s+(?:value|amount)|sub\s*total|basic\s+amount)\b/i.test(line)) {
-      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:₹RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
+      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:?RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
       if (amtMatch) subtotal = parseFloat(amtMatch[1]) || 0;
     }
 
     // Tax Amount / IGST / CGST+SGST
     if (!taxAmount && /(?:total\s+tax|tax\s+amount|gst\s+amount|igst|cgst\s*\+\s*sgst)\b/i.test(line)) {
-      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:₹RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
+      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:?RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
       if (amtMatch) taxAmount = parseFloat(amtMatch[1]) || 0;
     }
   }
@@ -108,25 +88,56 @@ function parseInvoiceText(text) {
 }
 
 async function extractTextFromBuffer(buffer, fileType) {
+  // 1. Try PDFParse for PDF files
   if (fileType === 'application/pdf') {
     try {
-      const parser = new PDFParse({ data: buffer });
-      const res = await parser.getText();
-      if (res && res.text && res.text.trim().length > 10) {
-        return res.text;
+      const pdfModule = await import('pdf-parse');
+      const PDFParse = pdfModule.PDFParse || pdfModule.default || pdfModule;
+      if (typeof PDFParse === 'function') {
+        const parser = new PDFParse({ data: buffer });
+        const res = await parser.getText();
+        if (res?.text && res.text.trim().length > 10) {
+          return res.text;
+        }
       }
-    } catch (err) {
-      console.warn('PDF text parse warning:', err.message);
+    } catch (pdfErr) {
+      console.warn('PDF text extraction error:', pdfErr.message);
+    }
+
+    // Fallback: fast PDF stream text extractor without external dependencies
+    try {
+      const rawPdf = buffer.toString('latin1');
+      const textMatches = [];
+      const tjRegex = /\(([^)]+)\)\s*(?:Tj|'|")/g;
+      let m;
+      while ((m = tjRegex.exec(rawPdf)) !== null) {
+        if (m[1] && m[1].length > 1) {
+          textMatches.push(m[1]);
+        }
+      }
+      if (textMatches.length > 5) {
+        return textMatches.join(' ');
+      }
+    } catch (streamErr) {
+      console.warn('PDF stream extraction error:', streamErr.message);
     }
   }
 
+  // 2. Try Tesseract OCR for images or scanned PDFs
   try {
-    const { data: { text } } = await Tesseract.recognize(buffer, 'eng');
-    return text || '';
-  } catch (err) {
-    console.warn('Tesseract OCR warning:', err.message);
-    return '';
+    const tessModule = await import('tesseract.js');
+    const Tesseract = tessModule.default || tessModule;
+    if (Tesseract && typeof Tesseract.recognize === 'function') {
+      const { data: { text } } = await Tesseract.recognize(buffer, 'eng');
+      if (text && text.trim().length > 10) {
+        return text;
+      }
+    }
+  } catch (ocrErr) {
+    console.warn('Tesseract OCR error:', ocrErr.message);
   }
+
+  return '';
 }
 
 export async function POST(request) {
@@ -153,13 +164,21 @@ export async function POST(request) {
     }
 
     let body;
-    try { body = await readBody(request); }
-    catch (error) { return NextResponse.json({ error: error.message === 'Invoice file is too large' ? error.message : 'Invalid invoice request' }, { status: error.message === 'Invoice file is too large' ? 413 : 400 }); }
-    const { fileData, fileType } = body || {};
-    if (typeof fileData !== 'string' || !fileData.length || fileData.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(fileData)) return NextResponse.json({ error: 'Valid base64 fileData is required' }, { status: 400 });
-    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(fileType || 'application/pdf')) return NextResponse.json({ error: 'Unsupported invoice file type' }, { status: 400 });
+    try {
+      const raw = await request.text();
+      body = JSON.parse(raw);
+    } catch (err) {
+      return NextResponse.json({ error: 'Invalid JSON request: ' + err.message }, { status: 400 });
+    }
 
-    const fileBuffer = Buffer.from(fileData, 'base64');
+    const { fileData, fileType } = body || {};
+    if (typeof fileData !== 'string' || !fileData.length) {
+      return NextResponse.json({ error: 'Valid fileData is required' }, { status: 400 });
+    }
+
+    // Strip data URI header if present
+    const cleanBase64 = fileData.includes(',') ? fileData.split(',')[1] : fileData;
+    const fileBuffer = Buffer.from(cleanBase64, 'base64');
     const geminiKey = process.env.GEMINI_API_KEY;
 
     // 1. Try Gemini AI if API key is configured
@@ -179,7 +198,7 @@ export async function POST(request) {
                     {
                       inlineData: {
                         mimeType: mime,
-                        data: fileData
+                        data: cleanBase64
                       }
                     },
                     {
@@ -199,7 +218,7 @@ export async function POST(request) {
           const data = await response.json();
           const textResult = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (textResult) {
-            const cleanedText = textResult.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+            const cleanedText = textResult.trim().replace(/^\`\`\`json\s*/i, '').replace(/\`\`\`$/, '').trim();
             const parsed = validateInvoiceFields(JSON.parse(cleanedText), { partial: true });
             return NextResponse.json({ ok: true, data: parsed, engine: 'gemini' });
           }
@@ -223,6 +242,8 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Invoice parse error:', error);
-    return NextResponse.json({ error: error.name === 'TimeoutError' ? 'Invoice extraction timed out. Please try again.' : 'Unable to extract this invoice. Please enter details manually.' }, { status: error.name === 'TimeoutError' ? 504 : 500 });
+    return NextResponse.json({ 
+      error: error.message || 'Unable to extract this invoice. Please enter details manually.' 
+    }, { status: 500 });
   }
 }

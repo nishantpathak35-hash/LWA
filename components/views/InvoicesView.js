@@ -268,7 +268,13 @@ export default function InvoicesView() {
               fileType: file.type || 'application/pdf'
             })
           });
-          const result = await res.json();
+          const rawText = await res.text();
+          let result;
+          try {
+            result = JSON.parse(rawText);
+          } catch {
+            throw new Error(`Server returned status ${res.status}. Please enter invoice details manually.`);
+          }
           if (!res.ok || result.error) {
             throw new Error(result.error || 'OCR document reading failed');
           }
@@ -505,8 +511,8 @@ export default function InvoicesView() {
   const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
   const getAttachmentUrl = (invoiceId, disposition = 'inline') => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('lx_auth_token') : '';
-    return `/api/attachments/${encodeURIComponent(invoiceId)}?token=${encodeURIComponent(token || '')}&disposition=${disposition}`;
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('lx_auth_token') || localStorage.getItem('auth_token') || '') : '';
+    return `/api/attachments/${encodeURIComponent(invoiceId)}?token=${encodeURIComponent(token)}&disposition=${disposition}`;
   };
 
   // Fetch attachment as blob and trigger a real browser download
@@ -516,7 +522,12 @@ export default function InvoicesView() {
     setDownloadingId(invoiceId);
     try {
       const url = getAttachmentUrl(invoiceId, 'attachment');
-      const res = await fetch(url);
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('lx_auth_token') || localStorage.getItem('auth_token') || '') : '';
+      const res = await fetch(url, {
+        headers: {
+          'x-lwa-token': token
+        }
+      });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `Server error ${res.status}`);
@@ -529,7 +540,8 @@ export default function InvoicesView() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(objectUrl);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      toast.success('Download started');
     } catch (err) {
       toast.error('Download failed: ' + (err.message || 'Unknown error'));
     } finally {
