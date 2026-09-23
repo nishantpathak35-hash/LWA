@@ -3,6 +3,7 @@ import { Dialog, Button, Input, Select, Textarea, Table, TableHeader, TableBody,
 import AttachmentsSection from '../../ui/AttachmentsSection';
 import RecordDiscussionThread from '../../ui/RecordDiscussionThread';
 import POInvoicesTab from './POInvoicesTab';
+import SearchableVendorSelect from '../../ui/SearchableVendorSelect';
 import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import { GST_RATES, UOM_OPTIONS } from './po-constants';
@@ -124,9 +125,14 @@ export default function POFormModal(props) {
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">VENDOR *</label>
-              <Select value={vendorCode} onChange={e => setVendorCode(e.target.value)} className="bg-background text-foreground text-xs font-semibold">
-                {vendors.map((v, i) => <option key={getVendorSelectValue(v, i)} value={getVendorSelectValue(v, i)}>{v?.name} ({v?.code || 'No Code'})</option>)}
-              </Select>
+              <SearchableVendorSelect
+                vendors={vendors}
+                value={vendorCode}
+                getValue={getVendorSelectValue}
+                onChange={(code) => setVendorCode(code)}
+                placeholder="Type to search vendor..."
+                required
+              />
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">CATEGORY</label>

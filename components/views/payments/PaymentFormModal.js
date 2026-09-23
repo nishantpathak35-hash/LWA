@@ -2,6 +2,7 @@
 import { Dialog, Button, Input, Select } from '../../ui/core';
 import { ShieldAlert, CreditCard, Landmark, FileText, IndianRupee, Layers, CheckCircle2 } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
+import SearchableVendorSelect from '../../ui/SearchableVendorSelect';
 import { useAppState } from '../../StateProvider';
 
 export default function PaymentFormModal({
@@ -92,21 +93,18 @@ export default function PaymentFormModal({
                 <label className="text-xs font-bold text-foreground block mb-1.5">
                   VENDOR PARTNER *
                 </label>
-                <Select 
+                <SearchableVendorSelect 
+                  vendors={vendors}
                   value={vendorCode} 
-                  onChange={(e) => {
-                    const newVendorCode = e.target.value;
+                  onChange={(newVendorCode) => {
                     setVendorCode(newVendorCode);
                     const validPOs = getVendorPOs(newVendorCode);
                     setPoNo(validPOs[0]?.po_no || '');
                   }} 
                   disabled={isEditMode}
-                  className="text-xs font-medium"
-                >
-                  {vendors.map((v, idx) => (
-                    <option key={idx} value={v.code}>{v.name} ({v.code})</option>
-                  ))}
-                </Select>
+                  placeholder="Type to search vendor..."
+                  required
+                />
               </div>
 
               <div>

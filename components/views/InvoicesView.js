@@ -13,9 +13,10 @@ import {
 import { toast } from '../ui/Toast';
 import { exportToCSV } from '../../app/lib/exportUtils';
 import { formatDate } from '../../app/lib/utils';
+import SearchableVendorSelect from '../ui/SearchableVendorSelect';
 
 export default function InvoicesView() {
-  const { call, setActiveView } = useAppState();
+  const { call, setActiveView, vendors = [] } = useAppState();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -60,6 +61,8 @@ export default function InvoicesView() {
   // Manual Upload Modal
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [posList, setPosList] = useState([]);
+  const [selectedVendorFilter, setSelectedVendorFilter] = useState('');
+  const [uploadVendorFilter, setUploadVendorFilter] = useState('');
   const [uploadForm, setUploadForm] = useState({
     poNo: '',
     invoiceNumber: '',
@@ -179,6 +182,7 @@ export default function InvoicesView() {
           });
           toast.success(`Internal Invoice #${uploadForm.invoiceNumber} uploaded successfully!`);
           setUploadModalOpen(false);
+          setUploadVendorFilter('');
           setUploadForm({
             poNo: '',
             invoiceNumber: '',
@@ -292,6 +296,69 @@ export default function InvoicesView() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // Combined list of vendors across master vendors, POs and invoices
+  const allAvailableVendors = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(vendors)) {
+      vendors.forEach(v => {
+        const code = (v.code || v.vendor_code || v.vendorId || '').trim();
+        const name = (v.name || v.legal_name || v.legalName || '').trim();
+        const key = (code || name).toLowerCase();
+        if (key && !map.has(key)) {
+          map.set(key, {
+            code: code,
+            name: name || key,
+            trade_name: v.trade_name || v.tradeName || '',
+            recordId: v.recordId || v.id || key
+          });
+        }
+      });
+    }
+    if (Array.isArray(posList)) {
+      posList.forEach(p => {
+        const code = (p.vendor_code || p.vendorCode || '').trim();
+        const name = (p.vendor_name || p.vendor || '').trim();
+        const key = (code || name).toLowerCase();
+        if (key && !map.has(key)) {
+          map.set(key, {
+            code: code,
+            name: name || key,
+            trade_name: '',
+            recordId: key
+          });
+        }
+      });
+    }
+    if (Array.isArray(invoices)) {
+      invoices.forEach(inv => {
+        const code = (inv.vendor_code || '').trim();
+        const name = (inv.vendor_name || '').trim();
+        const key = (code || name).toLowerCase();
+        if (key && !map.has(key)) {
+          map.set(key, {
+            code: code,
+            name: name || key,
+            trade_name: '',
+            recordId: key
+          });
+        }
+      });
+    }
+    return Array.from(map.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [vendors, posList, invoices]);
+
+  // Filtered POs for internal invoice upload modal based on selected vendor
+  const availableUploadPOs = useMemo(() => {
+    if (!Array.isArray(posList)) return [];
+    if (!uploadVendorFilter) return posList;
+    const vFilter = uploadVendorFilter.trim().toLowerCase();
+    return posList.filter(p => {
+      const code = String(p.vendor_code || p.vendorCode || '').trim().toLowerCase();
+      const name = String(p.vendor_name || p.vendor || '').trim().toLowerCase();
+      return code === vFilter || name === vFilter || code.includes(vFilter) || name.includes(vFilter);
+    });
+  }, [posList, uploadVendorFilter]);
+
   // Filtered List
   const filteredInvoices = useMemo(() => {
     if (!Array.isArray(invoices)) return [];
@@ -313,6 +380,10 @@ export default function InvoicesView() {
 
       const matchesSource = sourceFilter === 'ALL' || String(inv.source || '').toLowerCase() === sourceFilter.toLowerCase();
 
+      const matchesVendor = !selectedVendorFilter ||
+        String(inv.vendor_code || '').toLowerCase() === selectedVendorFilter.toLowerCase() ||
+        String(inv.vendor_name || '').toLowerCase() === selectedVendorFilter.toLowerCase();
+
       let matchesQuick = true;
       if (quickFilter === 'HIGH_VALUE') {
         matchesQuick = Number(inv.invoice_total || 0) >= 100000;
@@ -322,7 +393,7 @@ export default function InvoicesView() {
         matchesQuick = invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear();
       }
 
-      return matchesSearch && matchesTab && matchesSource && matchesQuick;
+      return matchesSearch && matchesTab && matchesSource && matchesQuick && matchesVendor;
     }).sort((a, b) => {
       if (invoiceSort === 'vendor') return String(a.vendor_name || '').localeCompare(String(b.vendor_name || ''));
       if (invoiceSort === 'amount_desc') return Number(b.invoice_total || 0) - Number(a.invoice_total || 0);
@@ -330,7 +401,7 @@ export default function InvoicesView() {
       const second = Date.parse(b.invoice_date || b.created_at || '') || 0;
       return invoiceSort === 'date_asc' ? first - second : second - first;
     });
-  }, [invoices, search, statusFilter, sourceFilter, quickFilter, invoiceSort]);
+  }, [invoices, search, statusFilter, sourceFilter, quickFilter, invoiceSort, selectedVendorFilter]);
 
   const invoicePageCount = Math.max(1, Math.ceil(filteredInvoices.length / invoicePageSize));
   const safeInvoicePage = Math.min(invoicePage, invoicePageCount);
@@ -338,7 +409,7 @@ export default function InvoicesView() {
   useEffect(() => {
     setInvoicePage(1);
     setSelectedInvoiceIds([]);
-  }, [search, statusFilter, sourceFilter, quickFilter, invoiceSort, invoicePageSize, activeViewMode]);
+  }, [search, statusFilter, sourceFilter, quickFilter, invoiceSort, invoicePageSize, activeViewMode, selectedVendorFilter]);
 
   // Grouped by Vendor
   const vendorGroups = useMemo(() => {
@@ -707,6 +778,14 @@ export default function InvoicesView() {
           <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />
           <Input aria-label="Search invoices" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice number, vendor or PO…" className="pl-9 h-10" />
         </div>
+        <div className="w-[210px] shrink-0">
+          <SearchableVendorSelect
+            vendors={allAvailableVendors}
+            value={selectedVendorFilter}
+            onChange={(val) => setSelectedVendorFilter(val)}
+            placeholder="All Vendors (Filter)"
+          />
+        </div>
         <select aria-label="Invoice source" value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm">
           <option value="ALL">All sources</option><option value="vendor_portal">Vendor portal</option><option value="internal_upload">Internal upload</option>
         </select>
@@ -716,7 +795,7 @@ export default function InvoicesView() {
         <select aria-label="Sort invoices" value={invoiceSort} onChange={e => setInvoiceSort(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm">
           <option value="date_desc">Newest invoice first</option><option value="date_asc">Oldest invoice first</option><option value="amount_desc">Highest amount first</option><option value="vendor">Vendor A–Z</option>
         </select>
-        {(search || statusFilter !== 'ALL' || sourceFilter !== 'ALL') && <button type="button" className="text-xs text-blue-600 dark:text-blue-400" onClick={() => { setSearch(''); setStatusFilter('ALL'); setSourceFilter('ALL'); setQuickFilter('ALL'); }}>Clear filters</button>}
+        {(search || statusFilter !== 'ALL' || sourceFilter !== 'ALL' || selectedVendorFilter) && <button type="button" className="text-xs text-blue-600 dark:text-blue-400" onClick={() => { setSearch(''); setStatusFilter('ALL'); setSourceFilter('ALL'); setQuickFilter('ALL'); setSelectedVendorFilter(''); }}>Clear filters</button>}
       </div>
 
       {/* ── 4. Main Views Content ── */}
@@ -1335,18 +1414,64 @@ export default function InvoicesView() {
 
       {/* ── 7. Internal Invoice Upload Modal ── */}
       {uploadModalOpen && (
-        <Dialog open={true} onClose={() => setUploadModalOpen(false)} title="Upload Internal Invoice" maxWidth="max-w-lg">
+        <Dialog open={true} onClose={() => { setUploadModalOpen(false); setUploadVendorFilter(''); }} title="Upload Internal Invoice" maxWidth="max-w-lg">
           <form onSubmit={handleManualUploadSubmit} className="space-y-4">
             <div>
-              <label className="text-xs text-foreground block mb-1 font-bold">Select Approved Purchase Order *</label>
+              <label className="text-xs text-foreground block mb-1 font-bold">
+                Vendor Partner (Type to search)
+              </label>
+              <SearchableVendorSelect
+                vendors={allAvailableVendors}
+                value={uploadVendorFilter}
+                onChange={(val) => {
+                  setUploadVendorFilter(val);
+                  if (val && uploadForm.poNo) {
+                    const currentPO = posList.find(p => String(p.po_no || p.poNo) === String(uploadForm.poNo));
+                    if (currentPO) {
+                      const vCode = String(currentPO.vendor_code || '').toLowerCase();
+                      const vName = String(currentPO.vendor_name || currentPO.vendor || '').toLowerCase();
+                      const selectedVal = String(val).toLowerCase();
+                      if (vCode !== selectedVal && vName !== selectedVal) {
+                        setUploadForm(prev => ({ ...prev, poNo: '' }));
+                      }
+                    }
+                  }
+                }}
+                placeholder="Type vendor name or code to filter..."
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-foreground font-bold">Select Approved Purchase Order *</label>
+                {uploadVendorFilter && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Filtered by vendor ({availableUploadPOs.length} PO{availableUploadPOs.length === 1 ? '' : 's'})
+                  </span>
+                )}
+              </div>
               <select
                 required
                 value={uploadForm.poNo}
-                onChange={(e) => setUploadForm({ ...uploadForm, poNo: e.target.value })}
+                onChange={(e) => {
+                  const selectedVal = e.target.value;
+                  setUploadForm(prev => ({ ...prev, poNo: selectedVal }));
+                  if (selectedVal && !uploadVendorFilter) {
+                    const matchedPO = posList.find(p => String(p.po_no || p.poNo) === String(selectedVal));
+                    if (matchedPO) {
+                      const vCode = matchedPO.vendor_code || matchedPO.vendor_name || matchedPO.vendor;
+                      if (vCode) setUploadVendorFilter(vCode);
+                    }
+                  }
+                }}
                 className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-medium cursor-pointer shadow-xs"
               >
-                <option value="">-- Choose Approved PO --</option>
-                {Array.isArray(posList) && posList.map(p => (
+                <option value="">
+                  {availableUploadPOs.length > 0 
+                    ? `-- Choose Approved PO (${availableUploadPOs.length} available) --` 
+                    : '-- No approved POs found for this vendor --'}
+                </option>
+                {availableUploadPOs.map(p => (
                   <option key={p.po_no || p.poNo} value={p.po_no || p.poNo}>
                     {p.po_no || p.poNo} — {p.vendor_name || p.vendor} ({formatCurrency(p.po_value || p.poValue)})
                   </option>
@@ -1474,7 +1599,7 @@ export default function InvoicesView() {
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-              <Button type="button" variant="ghost" onClick={() => setUploadModalOpen(false)} disabled={uploading} className="text-xs rounded-xl">
+              <Button type="button" variant="ghost" onClick={() => { setUploadModalOpen(false); setUploadVendorFilter(''); }} disabled={uploading} className="text-xs rounded-xl">
                 Cancel
               </Button>
               <Button
