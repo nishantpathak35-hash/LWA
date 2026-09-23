@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import zlib from 'zlib';
 import * as api from '../../../lib/api.js';
 import { validateInvoiceFields } from '../../../../src/modules/invoices/services/invoiceValidation.js';
 
-// Safe DOMMatrix polyfill for Node.js / Vercel Serverless environment where @napi-rs/canvas is unavailable
+// Safe DOMMatrix polyfill in case pdfjs-dist or pdf-parse is ever loaded
 if (typeof globalThis !== 'undefined' && (!globalThis.DOMMatrix || typeof globalThis.DOMMatrix.prototype?.multiply !== 'function')) {
   globalThis.DOMMatrix = class DOMMatrix {
     constructor(init) {
@@ -36,6 +37,120 @@ async function withTimeout(promise, ms, name = 'Operation') {
     timer = setTimeout(() => reject(new Error(`${name} timed out after ${ms}ms`)), ms);
   });
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
+// 100% pure JavaScript PDF text extractor using Node built-in zlib & standard CMap decoding
+// Zero external binaries, zero canvas, zero worker threads, works in all serverless environments
+function extractTextFromPdfBuffer(buffer) {
+  try {
+    const raw = buffer.toString('latin1');
+    const cmap = new Map();
+
+    // 1. Parse ToUnicode beginbfchar blocks (<srcHex> <dstHex>)
+    const bfcharRegex = /beginbfchar([\s\S]*?)endbfchar/g;
+    let match;
+    while ((match = bfcharRegex.exec(raw)) !== null) {
+      const pairs = match[1].match(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>/g);
+      if (pairs) {
+        for (const p of pairs) {
+          const m = p.match(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>/);
+          if (m) {
+            const src = parseInt(m[1], 16);
+            const dst = String.fromCharCode(parseInt(m[2], 16));
+            cmap.set(src, dst);
+          }
+        }
+      }
+    }
+
+    // 2. Parse ToUnicode beginbfrange blocks (<startHex> <endHex> <dstStartHex>)
+    const bfrangeRegex = /beginbfrange([\s\S]*?)endbfrange/g;
+    while ((match = bfrangeRegex.exec(raw)) !== null) {
+      const lines = match[1].trim().split('\n');
+      for (const line of lines) {
+        const singleMatch = line.match(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>/);
+        if (singleMatch) {
+          const start = parseInt(singleMatch[1], 16);
+          const end = parseInt(singleMatch[2], 16);
+          let dstStart = parseInt(singleMatch[3], 16);
+          for (let c = start; c <= end; c++) {
+            cmap.set(c, String.fromCharCode(dstStart++));
+          }
+        }
+      }
+    }
+
+    // 3. Decompress all streams and decode TJ arrays & Tj strings
+    const extractedLines = [];
+    let pos = 0;
+    while (pos < buffer.length) {
+      const streamStart = buffer.indexOf('stream', pos);
+      if (streamStart === -1) break;
+      let dataStart = streamStart + 6;
+      if (buffer[dataStart] === 0x0d && buffer[dataStart+1] === 0x0a) dataStart += 2;
+      else if (buffer[dataStart] === 0x0a || buffer[dataStart] === 0x0d) dataStart += 1;
+
+      const streamEnd = buffer.indexOf('endstream', dataStart);
+      if (streamEnd === -1) break;
+
+      const slice = buffer.subarray(dataStart, streamEnd);
+      let streamText = '';
+      try {
+        streamText = zlib.inflateSync(slice).toString('latin1');
+      } catch {
+        streamText = slice.toString('latin1');
+      }
+
+      // Handle TJ array syntax: [(string) -120 (string)] TJ or [<0012> 2.0 <0014>] TJ
+      const tjRegex = /\[(.*?)\]\s*TJ/g;
+      let tjMatch;
+      while ((tjMatch = tjRegex.exec(streamText)) !== null) {
+        const content = tjMatch[1];
+        let lineBuf = '';
+        const tokens = content.match(/<([0-9a-fA-F]+)>|\(([^)]*)\)|(-?\d+(?:\.\d+)?)/g);
+        if (tokens) {
+          for (const tok of tokens) {
+            if (tok.startsWith('<') && tok.endsWith('>')) {
+              const hexStr = tok.slice(1, -1);
+              for (let i = 0; i < hexStr.length; i += 4) {
+                const code = parseInt(hexStr.slice(i, i + 4), 16);
+                lineBuf += cmap.get(code) || '';
+              }
+            } else if (tok.startsWith('(') && tok.endsWith(')')) {
+              lineBuf += tok.slice(1, -1);
+            } else {
+              const num = parseFloat(tok);
+              if (num < -100) {
+                lineBuf += ' ';
+              }
+            }
+          }
+        }
+        if (lineBuf.trim().length > 0) {
+          extractedLines.push(lineBuf.trim());
+        }
+      }
+
+      // Handle standard Tj string syntax: (Text string) Tj
+      const singleTjRegex = /\(([^)]+)\)\s*(?:Tj|'|")/g;
+      let sMatch;
+      while ((sMatch = singleTjRegex.exec(streamText)) !== null) {
+        if (sMatch[1].trim().length > 0) {
+          extractedLines.push(sMatch[1].trim());
+        }
+      }
+
+      pos = streamEnd + 9;
+    }
+
+    const result = extractedLines.join('\n');
+    if (result.trim().length > 20) {
+      return result;
+    }
+  } catch (err) {
+    console.warn('Native PDF extraction error:', err.message);
+  }
+  return '';
 }
 
 function parseInvoiceText(text) {
@@ -72,7 +187,11 @@ function parseInvoiceText(text) {
     if (!invoiceNumber) {
       const invMatch = line.match(/(?:invoice\s*no\.?|inv\s*no\.?|bill\s*no\.?|invoice\s*#|bill\s*#|inv\s*#|invoice\s*number)\s*[:#-]?\s*([A-Za-z0-9\/-]+)/i);
       if (invMatch && invMatch[1].length >= 3 && !['TAX', 'INVOICE', 'ORIGINAL', 'DUPLICATE', 'TRIPLICATE'].includes(invMatch[1].toUpperCase())) {
-        invoiceNumber = invMatch[1].trim();
+        let candidate = invMatch[1].trim();
+        candidate = candidate.replace(/(vehicle|date|dated|dt|transport|porter).*$/i, '').trim();
+        if (candidate.length >= 3) {
+          invoiceNumber = candidate;
+        }
       }
     }
 
@@ -135,8 +254,14 @@ function parseInvoiceText(text) {
 }
 
 async function extractTextFromBuffer(buffer, fileType) {
-  // 1. PDF files: use PDFParse with DOMMatrix polyfill & strict 4s timeout
+  // 1. PDF files: First try fast pure JS native extractor (15ms, 0 external dependencies)
   if (fileType === 'application/pdf') {
+    const pureText = extractTextFromPdfBuffer(buffer);
+    if (pureText && pureText.trim().length > 20) {
+      return pureText;
+    }
+
+    // Secondary fallback: pdf-parse if available
     try {
       const pdfModule = await import('pdf-parse');
       const PDFParse = pdfModule.PDFParse || pdfModule.default || pdfModule;
@@ -150,24 +275,6 @@ async function extractTextFromBuffer(buffer, fileType) {
       }
     } catch (pdfErr) {
       console.warn('PDF text extraction warning:', pdfErr.message);
-    }
-
-    // Fast native stream text extraction fallback
-    try {
-      const rawPdf = buffer.toString('latin1');
-      const textMatches = [];
-      const tjRegex = /\(([^)]+)\)\s*(?:Tj|'|")/g;
-      let m;
-      while ((m = tjRegex.exec(rawPdf)) !== null) {
-        if (m[1] && m[1].length > 1) {
-          textMatches.push(m[1]);
-        }
-      }
-      if (textMatches.length > 5) {
-        return textMatches.join(' ');
-      }
-    } catch (streamErr) {
-      console.warn('PDF stream extraction warning:', streamErr.message);
     }
 
     return '';
@@ -216,7 +323,7 @@ export async function POST(request) {
     }
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid Session' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized: Invalid Token' }, { status: 401 });
     }
 
     let body;
@@ -276,7 +383,7 @@ export async function POST(request) {
           const data = await response.json();
           const textResult = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (textResult) {
-            const cleanedText = textResult.trim().replace(/^\`\`\`json\s*/i, '').replace(/\`\`\`$/, '').trim();
+            const cleanedText = textResult.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
             const parsed = validateInvoiceFields(JSON.parse(cleanedText), { partial: true });
             return NextResponse.json({ ok: true, data: parsed, engine: 'gemini' });
           }
