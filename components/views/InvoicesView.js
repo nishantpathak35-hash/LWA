@@ -183,6 +183,7 @@ export default function InvoicesView() {
           toast.success(`Internal Invoice #${uploadForm.invoiceNumber} uploaded successfully!`);
           setUploadModalOpen(false);
           setUploadVendorFilter('');
+          setOcrSuccess(false);
           setUploadForm({
             poNo: '',
             invoiceNumber: '',
@@ -240,16 +241,22 @@ export default function InvoicesView() {
   };
 
   const [aiLoading, setAiLoading] = useState(false);
+  const [ocrSuccess, setOcrSuccess] = useState(false);
 
-  const handleAiAutoFill = async () => {
-    if (!selectedFile) return;
+  const handleAiAutoFill = async (overrideFile) => {
+    const file = overrideFile || selectedFile;
+    if (!file) {
+      toast.info('Please select or drag an invoice document first.');
+      return;
+    }
     setAiLoading(true);
+    setOcrSuccess(false);
     try {
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
           const base64Data = event.target.result.split(',')[1];
-          const token = localStorage.getItem('lx_auth_token');
+          const token = localStorage.getItem('lx_auth_token') || localStorage.getItem('auth_token');
           const res = await fetch('/api/ai/parse-invoice', {
             method: 'POST',
             headers: {
@@ -258,31 +265,51 @@ export default function InvoicesView() {
             },
             body: JSON.stringify({
               fileData: base64Data,
-              fileType: selectedFile.type
+              fileType: file.type || 'application/pdf'
             })
           });
           const result = await res.json();
           if (!res.ok || result.error) {
-            throw new Error(result.error || 'AI parsing failed');
+            throw new Error(result.error || 'OCR document reading failed');
           }
-          const data = result.data;
+          const data = result.data || {};
           
           setUploadForm(prev => ({
             ...prev,
             invoiceNumber: data.invoiceNumber || prev.invoiceNumber,
             invoiceDate: data.invoiceDate || prev.invoiceDate,
-            subtotal: data.subtotal ? String(data.subtotal) : prev.subtotal,
-            taxAmount: data.taxAmount ? String(data.taxAmount) : prev.taxAmount,
-            invoiceTotal: data.invoiceTotal ? String(data.invoiceTotal) : prev.invoiceTotal
+            subtotal: data.subtotal !== undefined && data.subtotal !== null ? String(data.subtotal) : prev.subtotal,
+            taxAmount: data.taxAmount !== undefined && data.taxAmount !== null ? String(data.taxAmount) : prev.taxAmount,
+            invoiceTotal: data.invoiceTotal !== undefined && data.invoiceTotal !== null ? String(data.invoiceTotal) : prev.invoiceTotal
           }));
-          toast.success("AI auto-filled invoice details successfully!");
+
+          // Auto-match vendor if detected
+          if (data.vendorName && !uploadVendorFilter) {
+            const vNameLower = String(data.vendorName).toLowerCase();
+            const matched = allAvailableVendors.find(v => 
+              vNameLower.includes(String(v.name || '').toLowerCase()) ||
+              (v.code && vNameLower.includes(String(v.code).toLowerCase()))
+            );
+            if (matched) {
+              const matchedVal = matched.code || matched.name;
+              setUploadVendorFilter(matchedVal);
+              toast.info(`Auto-matched vendor: ${matched.name}`);
+            }
+          }
+
+          setOcrSuccess(true);
+          const fields = [];
+          if (data.invoiceNumber) fields.push('Invoice #');
+          if (data.invoiceDate) fields.push('Date');
+          if (data.invoiceTotal) fields.push('Total');
+          toast.success(`✨ OCR auto-filled: ${fields.join(', ') || 'details'} successfully!`);
         } catch (err) {
-          toast.error("AI parsing failed: " + err.message);
+          toast.error("OCR auto-fill failed: " + err.message);
         } finally {
           setAiLoading(false);
         }
       };
-      reader.readAsDataURL(selectedFile);
+      reader.readAsDataURL(file);
     } catch (err) {
       toast.error("Error reading file: " + err.message);
       setAiLoading(false);
@@ -1414,8 +1441,73 @@ export default function InvoicesView() {
 
       {/* ── 7. Internal Invoice Upload Modal ── */}
       {uploadModalOpen && (
-        <Dialog open={true} onClose={() => { setUploadModalOpen(false); setUploadVendorFilter(''); }} title="Upload Internal Invoice" maxWidth="max-w-lg">
+        <Dialog open={true} onClose={() => { setUploadModalOpen(false); setUploadVendorFilter(''); setOcrSuccess(false); }} title="Upload Internal Invoice" maxWidth="max-w-lg">
           <form onSubmit={handleManualUploadSubmit} className="space-y-4">
+            {/* ── 1. OCR Document Dropzone ── */}
+            <div className="bg-muted/30 border border-border/80 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-foreground font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                  <span>Invoice Document (Instant OCR Auto-Fill) *</span>
+                </label>
+                {ocrSuccess && (
+                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    ✓ Auto-filled by OCR
+                  </span>
+                )}
+              </div>
+
+              <div 
+                onDragEnter={handleDrag} 
+                onDragLeave={handleDrag} 
+                onDragOver={handleDrag} 
+                onDrop={(e) => {
+                  handleDrop(e);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleAiAutoFill(e.dataTransfer.files[0]);
+                  }
+                }}
+                className={`border-2 border-dashed rounded-xl p-4 text-center transition-all ${
+                  dragActive ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-border/80'
+                }`}
+              >
+                <UploadCloud className="w-7 h-7 text-amber-600 dark:text-amber-400 mx-auto mb-1" />
+                <p className="text-xs font-semibold text-foreground">Upload Invoice PDF or Image</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Drag & drop or browse — OCR will auto-read numbers & amounts</p>
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  required={!selectedFile}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setSelectedFile(f);
+                    if (f) handleAiAutoFill(f);
+                  }}
+                  className="mt-2 text-xs text-muted-foreground file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-500/10 file:text-amber-600 dark:file:text-amber-400 hover:file:bg-amber-500/20 cursor-pointer"
+                />
+
+                {selectedFile && (
+                  <div className="mt-2.5 pt-2.5 border-t border-border/50 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1.5 truncate max-w-[240px]">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{selectedFile.name}</span>
+                      <span className="text-[10px] text-muted-foreground font-normal shrink-0">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={() => handleAiAutoFill(selectedFile)}
+                      disabled={aiLoading}
+                      className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 px-3 py-1 rounded-xl shadow-xs cursor-pointer ml-auto"
+                    >
+                      {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {aiLoading ? 'Reading with OCR...' : '⚡ Re-scan with OCR'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="text-xs text-foreground block mb-1 font-bold">
                 Vendor Partner (Type to search)
@@ -1547,45 +1639,7 @@ export default function InvoicesView() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs text-foreground block mb-1 font-bold">Invoice Document File *</label>
-              <div 
-                onDragEnter={handleDrag} 
-                onDragLeave={handleDrag} 
-                onDragOver={handleDrag} 
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-lg p-5 text-center transition-all ${
-                  dragActive ? 'border-amber-500 bg-amber-500/10' : 'border-border bg-background hover:border-muted-foreground'
-                }`}
-              >
-                <UploadCloud className="w-8 h-8 text-amber-600 dark:text-amber-400 mx-auto mb-1.5" />
-                <p className="text-xs font-semibold text-foreground">Drag & drop invoice PDF or image here</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">or select a file from your computer</p>
-                <input
-                  type="file"
-                  accept="application/pdf,image/*"
-                  required={!selectedFile}
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="mt-3 text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-500/10 file:text-amber-600 dark:file:text-amber-400 hover:file:bg-amber-500/20 cursor-pointer"
-                />
-                {selectedFile && (
-                  <div className="mt-3 flex flex-col items-center gap-2">
-                    <div className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-                      ✓ {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={handleAiAutoFill}
-                      disabled={aiLoading}
-                      className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs"
-                    >
-                      {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      {aiLoading ? 'AI Reading Document...' : '✨ AI Auto-Fill Invoice Details'}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
+
 
             <div>
               <label className="text-xs text-foreground block mb-1 font-bold">Internal Remarks</label>
@@ -1599,7 +1653,7 @@ export default function InvoicesView() {
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-              <Button type="button" variant="ghost" onClick={() => { setUploadModalOpen(false); setUploadVendorFilter(''); }} disabled={uploading} className="text-xs rounded-xl">
+              <Button type="button" variant="ghost" onClick={() => { setUploadModalOpen(false); setUploadVendorFilter(''); setOcrSuccess(false); }} disabled={uploading} className="text-xs rounded-xl">
                 Cancel
               </Button>
               <Button
