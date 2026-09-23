@@ -721,12 +721,12 @@ export default function PaymentsView() {
 
     if (isRemit) {
       return (
-        <div className="flex gap-2">
-          <Button variant="primary" size="sm" onClick={() => handleOpenWorkflowModal(req, 'remit')}>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button variant="primary" size="sm" className="h-7 text-[11px] px-2.5 font-semibold gap-1 rounded-md shrink-0 shadow-2xs" onClick={() => handleOpenWorkflowModal(req, 'remit')}>
             <CheckSquare className="w-3.5 h-3.5" />
             Remit
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => handleOpenWorkflowModal(req, 'reject')}>
+          <Button variant="destructive" size="sm" className="h-7 text-[11px] px-2.5 font-semibold gap-1 rounded-md shrink-0 shadow-2xs" onClick={() => handleOpenWorkflowModal(req, 'reject')}>
             <Ban className="w-3.5 h-3.5" />
             Reject
           </Button>
@@ -735,12 +735,12 @@ export default function PaymentsView() {
     }
 
     return (
-      <div className="flex gap-2">
-        <Button variant="primary" size="sm" onClick={() => handleOpenWorkflowModal(req, 'approve')}>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <Button variant="primary" size="sm" className="h-7 text-[11px] px-2.5 font-semibold gap-1 rounded-md shrink-0 shadow-2xs" onClick={() => handleOpenWorkflowModal(req, 'approve')}>
           <ShieldCheck className="w-3.5 h-3.5" />
           Approve
         </Button>
-        <Button variant="destructive" size="sm" onClick={() => handleOpenWorkflowModal(req, 'reject')}>
+        <Button variant="destructive" size="sm" className="h-7 text-[11px] px-2.5 font-semibold gap-1 rounded-md shrink-0 shadow-2xs" onClick={() => handleOpenWorkflowModal(req, 'reject')}>
           <Ban className="w-3.5 h-3.5" />
           Reject
         </Button>

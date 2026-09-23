@@ -1,6 +1,6 @@
 ﻿import React, { useState, useMemo } from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
-import { History, CheckSquare, Edit3, Mail, Landmark, FileText, ChevronRight, Layers, ArrowUpRight } from 'lucide-react';
+import { History, CheckSquare, Edit3, Mail, Landmark, FileText, ChevronRight, ChevronLeft, Layers, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import SortableHeader from '../../ui/SortableHeader';
 import { sortData } from '../../../app/lib/exportUtils';
@@ -32,6 +32,44 @@ export default function PaymentListTable({
   const actionableRequests = processedRequests.filter(canActOnReq);
   const allSelected = actionableRequests.length > 0 && actionableRequests.every(req => selectedIds.has(req.id || req.pr_id));
   const [loadingMore, setLoadingMore] = useState(false);
+  const tableContainerRef = React.useRef(null);
+
+  const scrollContainer = (dir) => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollBy({ left: dir === 'left' ? -380 : 380, behavior: 'smooth' });
+    }
+  };
+
+  const renderScrollNavigator = () => (
+    <div className="flex items-center justify-between px-3.5 py-1.5 bg-muted/40 border-b border-border/70 text-[11px] text-muted-foreground select-none">
+      <div className="flex items-center gap-1.5">
+        <ArrowLeftRight className="w-3 h-3 text-primary shrink-0" />
+        <span>Operational Ledger (12 Columns): Scroll sideways or click arrows</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => scrollContainer('left')}
+          className="h-6 px-2 text-[10px] font-semibold gap-1 rounded-md"
+          title="Scroll Left"
+        >
+          <ChevronLeft className="w-3 h-3" /> Left
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => scrollContainer('right')}
+          className="h-6 px-2 text-[10px] font-semibold gap-1 rounded-md"
+          title="Scroll Right"
+        >
+          Right <ChevronRight className="w-3 h-3" />
+        </Button>
+      </div>
+    </div>
+  );
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
@@ -194,11 +232,12 @@ export default function PaymentListTable({
             </div>
 
             {/* ── Desktop View: Modern Financial Ledger Table ── */}
-            <div className="hidden md:block overflow-x-auto">
-              <Table>
+            <div className="hidden md:block">
+              {renderScrollNavigator()}
+              <Table containerRef={tableContainerRef} className="min-w-[1300px]">
                 <TableHeader>
                   <TableRow className="border-b border-border/80 bg-muted/35 text-muted-foreground">
-                    <TableHead className="w-10 text-center py-3.5 px-3">
+                    <TableHead className="sticky left-0 z-20 bg-muted/95 dark:bg-muted/95 backdrop-blur-xs w-10 text-center py-3.5 px-3">
                       <input 
                         type="checkbox" 
                         className="rounded border-border text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-30"
@@ -208,7 +247,7 @@ export default function PaymentListTable({
                         onChange={(e) => onSelectAll?.(e.target.checked)}
                       />
                     </TableHead>
-                    <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-16 pl-2" />
+                    <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="sticky left-10 z-20 bg-muted/95 dark:bg-muted/95 backdrop-blur-xs w-16 pl-2 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/60" />
                     <SortableHeader field="created_at" label="Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-24" />
                     <SortableHeader field="vendor_name" label="Vendor Partner" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[170px]" />
                     <SortableHeader field="project" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[130px]" />
@@ -218,7 +257,7 @@ export default function PaymentListTable({
                     <SortableHeader field="paid" label="Paid to Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <SortableHeader field="amount_requested" label="Net Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <SortableHeader field="approval_stage" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-36" />
-                    <TableHead className="text-right w-28 py-3.5 px-4 font-semibold text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
+                    <TableHead className="sticky right-0 z-20 bg-muted/95 dark:bg-muted/95 backdrop-blur-xs text-right w-[210px] min-w-[210px] py-3.5 px-4 whitespace-nowrap font-semibold text-[11px] text-muted-foreground tracking-wide select-none shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/60">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -238,7 +277,7 @@ export default function PaymentListTable({
                         key={req.id || req.pr_id || idx}
                         className={`border-b border-border/50 hover:bg-muted/40 transition-colors duration-150 ${isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''} ${!isActionable ? 'opacity-80' : ''}`}
                       >
-                        <TableCell className="text-center py-3.5 px-3">
+                        <TableCell className="sticky left-0 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs text-center py-3.5 px-3">
                           <input 
                             type="checkbox" 
                             className="rounded border-border text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-30"
@@ -248,7 +287,7 @@ export default function PaymentListTable({
                             disabled={!isActionable}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-xs font-bold text-foreground py-3.5 pl-2">
+                        <TableCell className="sticky left-10 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs font-mono text-xs font-bold text-foreground py-3.5 pl-2 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/40">
                           #{req.id}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap py-3.5 px-3">
@@ -295,8 +334,8 @@ export default function PaymentListTable({
                         <TableCell className="py-3.5 px-3 whitespace-nowrap">
                           {getStageBadge(reqStage)}
                         </TableCell>
-                        <TableCell className="text-right py-3.5 px-4">
-                          <div className="flex items-center justify-end gap-1">
+                        <TableCell className="sticky right-0 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs text-right w-[210px] min-w-[210px] py-3.5 px-4 whitespace-nowrap shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/40">
+                          <div className="flex items-center justify-end gap-1.5">
                             {getWorkflowActionButton(req)}
                             
                             {(isAdmin || isDirector || isFinance || String(req.stage || req.approval_stage || '').toLowerCase().includes('procurement') || String(req.stage || req.approval_stage || '').toLowerCase().includes('finance')) && onEditPayment && (
