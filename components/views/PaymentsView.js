@@ -25,7 +25,7 @@ import QueryClarificationModal from './payments/QueryClarificationModal';
 const PaymentFormModal = dynamic(() => import('./payments/PaymentFormModal'), { ssr: false });
 
 export default function PaymentsView() {
-  const { payments, setPayments, vendors, pos, user, call, refreshData, tdsSections, hasMorePayments, loadMorePayments } = useAppState();
+  const { payments, setPayments, vendors, pos, user, call, refreshData, tdsSections, hasMorePayments, loadMorePayments, setActiveView } = useAppState();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('pending'); // pending (awaiting approval), approved (ready to remit), all
   const [attentionFilter, setAttentionFilter] = useState(null);
@@ -257,10 +257,17 @@ export default function PaymentsView() {
       const q = searchQuery.trim().toLowerCase();
       return attentionItems.filter(item => item.queue === attentionFilter)
         .map(item => item.payment)
+        .filter(p => !isPaymentSettled(p) && getPaymentStageKey(p) !== 'rejected')
         .filter(p => [p.vendor_name, p.po_no, p.id, p.project].some(value => String(value || '').toLowerCase().includes(q)))
         .sort((a, b) => (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0));
     }
     return payments.filter(p => {
+      const stageKey = getPaymentStageKey(p);
+      const isSettled = isPaymentSettled(p);
+
+      // Operational payments view: NEVER show settled/remitted or rejected orders here (they are in Reports)
+      if (isSettled || stageKey === 'rejected') return false;
+
       const q = searchQuery.toLowerCase();
       const matchesSearch = (p.vendor_name || '').toLowerCase().includes(q) || 
                             (p.po_no || '').toLowerCase().includes(q) || 
@@ -270,25 +277,13 @@ export default function PaymentsView() {
       
       if (!matchesSearch) return false;
 
-      const stageKey = getPaymentStageKey(p);
-      const isSettled = isPaymentSettled(p);
-
-      if (activeTab === 'pending') {
-        // Only payments actively awaiting approval (exclude settled, readyToRemit, rejected)
-        if (isSettled || stageKey === 'readyToRemit' || stageKey === 'rejected') return false;
-        return true;
-      }
-
-      if (activeTab === 'approved') {
+      if (activeTab === 'approved' || activeTab === 'remit') {
         // Payments approved and ready for remittance
-        return stageKey === 'readyToRemit' && !isSettled;
+        return stageKey === 'readyToRemit';
       }
 
-      if (activeTab === 'all' || activeTab === 'active') {
-        return true;
-      }
-
-      return true;
+      // Default (activeTab === 'pending'): only payments actively awaiting approval
+      return stageKey !== 'readyToRemit';
     });
   }, [payments, searchQuery, activeTab, isAdmin, isProcurement, isFinance, isDirector, attentionFilter, attentionItems]);
 
@@ -843,6 +838,7 @@ export default function PaymentsView() {
         activeTab={activeTab} setActiveTab={tab => { setActiveTab(tab); setAttentionFilter(null); setSelectedPayments([]); }}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
         onExportCSV={handleExportCSV}
+        onGoToReports={() => setActiveView && setActiveView('reports')}
       />
       {controlPolicies.show_payment_attention && <PaymentAttentionPanel
         items={attentionItems} activeFilter={attentionFilter} policies={controlPolicies}
