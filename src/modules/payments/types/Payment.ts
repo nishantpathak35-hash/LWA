@@ -32,6 +32,7 @@ export interface IPaymentRequest {
   tds_percentage?: number;
   tds_section?: string;
   invoice_id?: string;
+  payment_mode?: string;
   created_at?: string;
 }
 
@@ -65,4 +66,6 @@ export interface IPaymentRequestInput {
   tdsSection?: string;
   invoice_id?: string;
   invoiceId?: string;
+  payment_mode?: string;
+  paymentMode?: string;
 }

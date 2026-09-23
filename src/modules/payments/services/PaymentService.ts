@@ -90,7 +90,8 @@ export class PaymentService {
       tds_amount: tdsAmount,
       tds_percentage: tdsPct,
       tds_section: tdsSection,
-      invoice_id: payload.invoice_id || payload.invoiceId || undefined
+      invoice_id: payload.invoice_id || payload.invoiceId || undefined,
+      payment_mode: payload.payment_mode || payload.paymentMode || 'NEFT'
     });
 
     await logAudit(userEmail, 'Payment Request', `Requested ${reqAmt} for PO#${payload.poNo}`, 'Finance');
@@ -159,6 +160,8 @@ export class PaymentService {
 
     if (payload.remittance_ref !== undefined) updates.remittance_ref = payload.remittance_ref;
     if (payload.remittance_date !== undefined) updates.remittance_date = payload.remittance_date;
+    if (payload.payment_mode !== undefined) updates.payment_mode = payload.payment_mode;
+    if (payload.paymentMode !== undefined) updates.payment_mode = payload.paymentMode;
 
     if (isRemitted) {
       await PaymentRepository.updateRemittedRequest(prId, updates, pr.po_no, payload.expectedVersion ?? (pr as any).version ?? 1);

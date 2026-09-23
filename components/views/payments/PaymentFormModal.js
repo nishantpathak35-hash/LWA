@@ -9,7 +9,7 @@ export default function PaymentFormModal({
   poNo, handlePOChange, vendorPOs, grossAmount, handleGrossAmountChange,
   tdsAmount, setTdsAmount, netAmount, invoiceRef, setInvoiceRef, remarks, setRemarks,
   formError, submitting, handleSubmitRequest, projectSummary, progressWidths, getHealthTheme,
-  getVendorPOs, setPoNo, isEditMode, editingPrId
+  getVendorPOs, setPoNo, isEditMode, editingPrId, paymentMode, setPaymentMode
 }) {
   const selectedPO = vendorPOs?.find(p => p.po_no === poNo) || null;
 

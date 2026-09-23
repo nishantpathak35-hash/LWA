@@ -14,6 +14,7 @@ export default function ReportsEditPaymentModal({
   const [remarks, setRemarks] = useState('');
   const [remittanceRef, setRemittanceRef] = useState('');
   const [remittanceDate, setRemittanceDate] = useState('');
+  const [paymentMode, setPaymentMode] = useState('NEFT');
 
   useEffect(() => {
     if (editingPayment) {
@@ -31,6 +32,10 @@ export default function ReportsEditPaymentModal({
       setRemarks(editingPayment.remarks || '');
       setRemittanceRef(editingPayment.remittance_ref || editingPayment.utr || '');
       setRemittanceDate(editingPayment.remittance_date || (editingPayment.created_at ? editingPayment.created_at.split('T')[0] : ''));
+      const pMode = editingPayment.payment_mode || editingPayment.paymentMode || (
+        `${editingPayment.remarks || ''} ${editingPayment.terms || ''}`.toLowerCase().match(/cheque|chq|pdc/) ? 'Cheque' : 'NEFT'
+      );
+      setPaymentMode(pMode);
     }
   }, [editingPayment]);
 
@@ -76,6 +81,7 @@ export default function ReportsEditPaymentModal({
       tds_section: tdsSection,
       tds_percentage: Number(tdsPct),
       tds_amount: Number(tdsAmount),
+      payment_mode: paymentMode,
       remarks,
       remittance_ref: remittanceRef,
       remittance_date: remittanceDate,
@@ -192,6 +198,20 @@ export default function ReportsEditPaymentModal({
             </div>
           </div>
         )}
+
+        <div>
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">
+            PAYMENT MODE *
+          </label>
+          <Select value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
+            <option value="NEFT">NEFT (Direct Bank Transfer)</option>
+            <option value="Cheque">Cheque / PDC</option>
+            <option value="RTGS">RTGS</option>
+            <option value="IMPS">IMPS</option>
+            <option value="UPI">UPI</option>
+            <option value="Cash">Cash</option>
+          </Select>
+        </div>
 
         <div>
           <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">

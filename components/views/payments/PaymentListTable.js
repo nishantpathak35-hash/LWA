@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
-import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail, MessageSquare, IndianRupee, Layers } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail, MessageSquare, IndianRupee, Layers, Landmark, FileText } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import { getPaymentPriorityScore } from '../../../app/lib/paymentAI';
 import SortableHeader from '../../ui/SortableHeader';
@@ -37,6 +37,33 @@ export default function PaymentListTable({
     setLoadingMore(true);
     try { await loadMorePayments(); }
     finally { setLoadingMore(false); }
+  };
+
+
+  const getPaymentModeBadge = (mode, req) => {
+    let m = String(mode || req?.payment_mode || req?.paymentMode || '').trim();
+    if (!m) {
+      const combined = `${req?.remarks || ''} ${req?.po_terms || ''} ${req?.po_notes || ''} ${req?.remittance_ref || ''}`.toLowerCase();
+      if (combined.includes('cheque') || combined.includes('chq') || combined.includes('pdc')) {
+        m = 'Cheque';
+      } else {
+        m = 'NEFT';
+      }
+    }
+    const isCheque = m.toLowerCase().includes('cheque') || m.toLowerCase().includes('chq') || m.toLowerCase().includes('pdc');
+
+    if (isCheque) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 tracking-wider uppercase shrink-0" title="Payment Mode: Cheque">
+          <FileText className="w-3 h-3 text-indigo-500" /> Cheque
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25 tracking-wider uppercase shrink-0" title="Payment Mode: NEFT / Electronic Transfer">
+        <Landmark className="w-3 h-3 text-sky-500" /> {m || 'NEFT'}
+      </span>
+    );
   };
 
   const getStageBadge = (stage) => {
@@ -121,6 +148,7 @@ export default function PaymentListTable({
                           />
                         )}
                         <span className="font-mono text-xs font-bold text-foreground">#{req.id || req.pr_id || req.sNo}</span>
+                        {getPaymentModeBadge(req.payment_mode, req)}
                       </div>
                       <div>{getStageBadge(reqStage)}</div>
                     </div>
@@ -181,6 +209,7 @@ export default function PaymentListTable({
                     <SortableHeader field="vendor_name" label="Vendor Partner" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[170px]" />
                     <SortableHeader field="project" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[130px]" />
                     <SortableHeader field="po_no" label="PO Reference" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <SortableHeader field="payment_mode" label="Mode" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="center" className="w-24 text-center" />
                     <SortableHeader field="po_value" label="PO Budget" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <SortableHeader field="paid" label="Paid To Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <SortableHeader field="amount_requested" label="Net Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
@@ -236,6 +265,9 @@ export default function PaymentListTable({
                           <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={`Open PO ${req.po_no}`}>
                             {req.po_no}
                           </a>
+                        </TableCell>
+                        <TableCell className="text-center py-3.5 px-2 whitespace-nowrap">
+                          {getPaymentModeBadge(req.payment_mode, req)}
                         </TableCell>
                         <TableCell className="text-right text-xs font-mono font-medium text-muted-foreground tabular-nums py-3.5 px-3">
                           {formatCurrency(poValue)}

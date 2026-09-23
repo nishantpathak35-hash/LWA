@@ -73,6 +73,7 @@ export default function PaymentsView() {
   const [tdsAmount, setTdsAmount] = useState(0);
   const [invoiceRef, setInvoiceRef] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [paymentMode, setPaymentMode] = useState('NEFT');
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -182,6 +183,10 @@ export default function PaymentsView() {
     if (selectedPO) {
       const tdsPct = Number(selectedPO.tds_pct) || 0;
       setTdsAmount(Math.round(grossAmount * (tdsPct / 100)));
+      const poTerms = `${selectedPO.terms || ''} ${selectedPO.notes || ''}`.toLowerCase();
+      if (poTerms.includes('cheque') || poTerms.includes('chq') || poTerms.includes('pdc')) {
+        setPaymentMode('Cheque');
+      }
     }
   };
 
@@ -199,6 +204,10 @@ export default function PaymentsView() {
     setGrossAmount(Number(pr.amount_requested || pr.gross_amount || 0));
     setTdsAmount(Number(pr.tds_amount || 0));
     setRemarks(pr.remarks || '');
+    const prMode = pr.payment_mode || pr.paymentMode || (
+      `${pr.remarks || ''} ${pr.po_terms || ''} ${pr.po_notes || ''}`.toLowerCase().match(/cheque|chq|pdc/) ? 'Cheque' : 'NEFT'
+    );
+    setPaymentMode(prMode);
     // Invoice ref is part of remarks or payload? The codebase sets invoiceRef into remarks.
     setInvoiceRef('');
     setFormError(null);
@@ -256,6 +265,7 @@ export default function PaymentsView() {
       const matchesSearch = (p.vendor_name || '').toLowerCase().includes(q) || 
                             (p.po_no || '').toLowerCase().includes(q) || 
                             (p.project || '').toLowerCase().includes(q) ||
+                            (p.payment_mode || p.paymentMode || '').toLowerCase().includes(q) ||
                             String(p.id).includes(q);
       
       if (!matchesSearch) return false;
@@ -294,6 +304,7 @@ export default function PaymentsView() {
       { label: 'Vendor', key: 'vendor_name', formatter: (v, r) => r.vendor_name || r.vendor },
       { label: 'Project', key: 'project' },
       { label: 'PO Number', key: 'po_no' },
+      { label: 'Payment Mode', key: 'payment_mode', formatter: (v, r) => r.payment_mode || r.paymentMode || 'NEFT' },
       { label: 'Gross Amount', key: 'amount_requested', formatter: (v, r) => Number(r.approved_amount ?? r.approvedAmount ?? r.amount_requested ?? r.gross_amount ?? 0) },
       { label: 'TDS Amount', key: 'tds_amount', formatter: (v, r) => Number(r.tds_amount || 0) },
       { label: 'Net Payable', key: 'net_amount', formatter: (v, r) => Number(r.net_amount ?? (Number(r.approved_amount ?? r.approvedAmount ?? r.amount_requested ?? 0) - Number(r.tds_amount ?? 0))) },
@@ -412,6 +423,10 @@ export default function PaymentsView() {
     setTdsAmount(Number(initialData?.tds_amount || (numGross > 0 ? Math.round(numGross * (tdsPct / 100)) : 0)));
     setInvoiceRef(initialData?.invoice_number || initialData?.invoiceRef || '');
     setRemarks(initialData?.remarks || '');
+    const initMode = initialData?.payment_mode || initialData?.paymentMode || (
+      poObj && `${poObj.terms || ''} ${poObj.notes || ''}`.toLowerCase().match(/cheque|chq|pdc/) ? 'Cheque' : 'NEFT'
+    );
+    setPaymentMode(initMode);
     setFormError(null);
     setEditingPrId(null);
     setRequestModalOpen(true);
@@ -454,6 +469,8 @@ export default function PaymentsView() {
         net_amount: netAmount,
         invoice_no: invoiceRef.trim(),
         invoiceRef,
+        payment_mode: paymentMode || 'NEFT',
+        paymentMode: paymentMode || 'NEFT',
         remarks: remarks.trim(),
         expectedVersion: editPrVersion
       };
@@ -476,6 +493,7 @@ export default function PaymentsView() {
         setTdsAmount(0);
         setInvoiceRef('');
         setRemarks('');
+        setPaymentMode('NEFT');
         await refreshData();
       } else {
         setFormError(res?.error || 'Failed to save request');
@@ -907,6 +925,8 @@ export default function PaymentsView() {
           setInvoiceRef={setInvoiceRef}
           remarks={remarks}
           setRemarks={setRemarks}
+          paymentMode={paymentMode}
+          setPaymentMode={setPaymentMode}
           formError={formError}
           submitting={submitting}
           handleSubmitRequest={handleSubmitRequest}

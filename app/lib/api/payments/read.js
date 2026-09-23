@@ -29,7 +29,9 @@ export async function listPaymentRequests(filters = {}, session) {
       pr.*,
       COALESCE(v.legal_name, po.vendor_name) as joined_vendor_name,
       po.project as po_project,
-      po.category as po_category
+      po.category as po_category,
+      po.terms as po_terms,
+      po.notes as po_notes
     FROM payment_requests pr
     LEFT JOIN purchase_orders po ON pr.po_no = po.po_no
     LEFT JOIN vendors v ON (v.vendor_code = pr.vendor_code OR v.legal_name = po.vendor_name)
@@ -48,6 +50,16 @@ export async function listPaymentRequests(filters = {}, session) {
     const gross = Number((r.approved_amount ?? r.amount_requested) || 0);
     const tds = Number(r.tds_amount || 0);
     const net = gross - tds;
+
+    let pMode = String(r.payment_mode || '').trim();
+    if (!pMode) {
+      const combined = `${r.remarks || ''} ${r.po_terms || ''} ${r.po_notes || ''} ${r.remittance_ref || ''}`.toLowerCase();
+      if (combined.includes('cheque') || combined.includes('chq') || combined.includes('pdc')) {
+        pMode = 'Cheque';
+      } else {
+        pMode = 'NEFT';
+      }
+    }
 
     let vName = r.vendor_name;
     if (!vName || vName === 'Unknown') {
@@ -92,7 +104,9 @@ export async function listPaymentRequests(filters = {}, session) {
       query_asked_at: r.query_asked_at || null,
       remarks: r.remarks || '',
       created_by: r.created_by || '',
-      vendor_code: r.vendor_code || ''
+      vendor_code: r.vendor_code || '',
+      payment_mode: pMode,
+      paymentMode: pMode
     };
   });
 }

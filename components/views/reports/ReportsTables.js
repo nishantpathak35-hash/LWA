@@ -1,9 +1,36 @@
 import React, { useState } from 'react';
-import { Loader2, Mail } from 'lucide-react';
+import { Loader2, Mail, Landmark, FileText } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Card, CardHeader, CardTitle, CardContent } from '../../ui/core';
 import { fmtRupees, fmtLakhs, stageBadge, wfSteps } from './report-utils';
 import SortableHeader from '../../ui/SortableHeader';
 import { sortData } from '../../../app/lib/exportUtils';
+
+
+const getPaymentModeBadge = (mode, req) => {
+  let m = String(mode || req?.payment_mode || req?.paymentMode || '').trim();
+  if (!m) {
+    const combined = `${req?.remarks || ''} ${req?.po_terms || ''} ${req?.po_notes || ''} ${req?.remittance_ref || ''}`.toLowerCase();
+    if (combined.includes('cheque') || combined.includes('chq') || combined.includes('pdc')) {
+      m = 'Cheque';
+    } else {
+      m = 'NEFT';
+    }
+  }
+  const isCheque = m.toLowerCase().includes('cheque') || m.toLowerCase().includes('chq') || m.toLowerCase().includes('pdc');
+
+  if (isCheque) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 tracking-wider uppercase shrink-0" title="Payment Mode: Cheque">
+        <FileText className="w-3 h-3 text-indigo-500" /> Cheque
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25 tracking-wider uppercase shrink-0" title="Payment Mode: NEFT / Electronic Transfer">
+      <Landmark className="w-3 h-3 text-sky-500" /> {m || 'NEFT'}
+    </span>
+  );
+};
 
 export default function ReportsTables({
   loading, data, reportType, isAdmin, isFinance, isDirector, canRemit,
@@ -305,6 +332,7 @@ export default function ReportsTables({
                       <TableHead>Vendor</TableHead>
                       <TableHead>Project</TableHead>
                       <TableHead>PO</TableHead>
+                      <TableHead>Mode</TableHead>
                       <TableHead className="text-right">Gross</TableHead>
                       <TableHead className="text-right text-violet-600 dark:text-violet-400">TDS</TableHead>
                       <TableHead className="text-right text-emerald-600 dark:text-emerald-400">Net</TableHead>
@@ -319,6 +347,7 @@ export default function ReportsTables({
                         <TableCell className="font-bold text-slate-900 dark:text-slate-100">{e.vendor}</TableCell>
                         <TableCell className="text-slate-700 dark:text-slate-300">{e.project}</TableCell>
                         <TableCell className="font-mono text-xs text-slate-800 dark:text-slate-300">{e.poNo}</TableCell>
+                        <TableCell className="whitespace-nowrap">{getPaymentModeBadge(e.payment_mode || e.paymentMode, e)}</TableCell>
                         <TableCell className="text-right">{fmtRupees(e.grossAmount)}</TableCell>
                         <TableCell className="text-right text-violet-600 dark:text-violet-400">{fmtRupees(e.tdsAmount)}</TableCell>
                         <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-bold">{fmtRupees(e.netAmount)}</TableCell>
@@ -350,6 +379,7 @@ export default function ReportsTables({
             <TableHead className="min-w-[160px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Vendor</TableHead>
             <TableHead className="min-w-[140px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Project</TableHead>
             <TableHead className="w-[140px] text-xs font-bold text-muted-foreground uppercase tracking-wider">PO Number</TableHead>
+            <TableHead className="w-[95px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Mode</TableHead>
             <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Gross Amt</TableHead>
             <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">TDS</TableHead>
             <TableHead className="text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Net Payment</TableHead>
@@ -384,6 +414,9 @@ export default function ReportsTables({
                   </TableCell>
                   <TableCell className="font-mono text-[11px] text-muted-foreground font-medium whitespace-nowrap">
                     {p.poNo || '—'}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {getPaymentModeBadge(p.payment_mode || p.paymentMode, p)}
                   </TableCell>
                   <TableCell className="text-right text-xs font-medium tabular-nums text-foreground">
                     {fmtRupees(gross)}

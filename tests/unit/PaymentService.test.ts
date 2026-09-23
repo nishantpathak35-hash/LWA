@@ -104,4 +104,46 @@ describe('PaymentService unit tests', () => {
       )
     ).rejects.toThrow('AUTH:Unauthorized - Only Director, Admin, or Finance can edit remitted payments');
   });
+  it('creates payment request with payment_mode and updates payment_mode on edit', async () => {
+    const { PaymentRepository } = await import('../../src/modules/payments/repositories/PaymentRepository');
+    vi.spyOn(POService, 'getPO').mockResolvedValue({ po_no: 'PO-100', vendor: 'Vendor A', vendor_key: 'V-001', vendor_name: 'Vendor A' } as any);
+    vi.spyOn(PaymentRepository, 'findActiveRequestsByPOAndAmount').mockResolvedValue([]);
+    
+    let capturedCreatePayload: any = null;
+    vi.spyOn(PaymentRepository, 'createRequest').mockImplementation(async (payload) => {
+      capturedCreatePayload = payload;
+      return 303;
+    });
+
+    const createRes = await PaymentService.createPaymentRequest({
+      vendor: 'Vendor A',
+      poNo: 'PO-100',
+      amountRequested: 15000,
+      payment_mode: 'Cheque'
+    } as any, 'maker@luxe.com');
+
+    expect(createRes.ok).toBe(true);
+    expect(capturedCreatePayload.payment_mode).toBe('Cheque');
+
+    // Test update with payment_mode
+    vi.spyOn(PaymentRepository, 'findRequestById').mockResolvedValue({
+      pr_id: 303,
+      po_no: 'PO-100',
+      stage: 'Pending Procurement',
+      amount_requested: 15000,
+      payment_mode: 'Cheque'
+    } as any);
+
+    let capturedUpdates: any = null;
+    vi.spyOn(PaymentRepository, 'updateRequest').mockImplementation(async (id, updates) => {
+      capturedUpdates = updates;
+    });
+
+    const updateRes = await PaymentService.updatePaymentRequest(303, {
+      payment_mode: 'NEFT'
+    }, { email: 'admin@luxe.com', roles: ['admin'], active: true });
+
+    expect(updateRes.ok).toBe(true);
+    expect(capturedUpdates.payment_mode).toBe('NEFT');
+  });
 });
