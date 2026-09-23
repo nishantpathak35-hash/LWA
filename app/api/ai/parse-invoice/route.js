@@ -2,6 +2,34 @@ import { NextResponse } from 'next/server';
 import * as api from '../../../lib/api.js';
 import { validateInvoiceFields } from '../../../../src/modules/invoices/services/invoiceValidation.js';
 
+// Safe DOMMatrix polyfill for Node.js / Vercel Serverless environment where @napi-rs/canvas is unavailable
+if (typeof globalThis !== 'undefined' && (!globalThis.DOMMatrix || typeof globalThis.DOMMatrix.prototype?.multiply !== 'function')) {
+  globalThis.DOMMatrix = class DOMMatrix {
+    constructor(init) {
+      this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.e = 0; this.f = 0;
+      this.m11 = 1; this.m12 = 0; this.m13 = 0; this.m14 = 0;
+      this.m21 = 0; this.m22 = 1; this.m23 = 0; this.m24 = 0;
+      this.m31 = 0; this.m32 = 0; this.m33 = 1; this.m34 = 0;
+      this.m41 = 0; this.m42 = 0; this.m43 = 0; this.m44 = 1;
+      this.is2D = true;
+      this.isIdentity = true;
+      if (Array.isArray(init) && init.length === 6) {
+        this.a = this.m11 = init[0];
+        this.b = this.m12 = init[1];
+        this.c = this.m21 = init[2];
+        this.d = this.m22 = init[3];
+        this.e = this.m41 = init[4];
+        this.f = this.m42 = init[5];
+      }
+    }
+    multiply() { return this; }
+    translate() { return this; }
+    scale() { return this; }
+    transformPoint(p) { return p; }
+    inverse() { return this; }
+  };
+}
+
 async function withTimeout(promise, ms, name = 'Operation') {
   let timer;
   const timeoutPromise = new Promise((_, reject) => {
@@ -21,10 +49,21 @@ function parseInvoiceText(text) {
   let taxAmount = 0;
   let vendorName = '';
 
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
+  // Vendor detection via email domain (e.g. name@interiomart.in -> Interio Mart)
+  const emailMatch = text.match(/([a-zA-Z0-9._-]+@([a-zA-Z0-9_-]+)\.[a-zA-Z0-9._-]+)/);
+  if (emailMatch && emailMatch[2]) {
+    const domainPart = emailMatch[2].toLowerCase();
+    if (!['gmail', 'yahoo', 'outlook', 'hotmail', 'rediffmail', 'icloud'].includes(domainPart)) {
+      vendorName = domainPart;
+    }
+  }
+
+  for (let i = 0; i < Math.min(8, lines.length); i++) {
     const l = lines[i];
-    if (l.length >= 3 && !/tax\s+invoice|invoice|original|bill\s+of\s+supply|duplicate|triplicate|customer\s+copy/i.test(l)) {
-      if (!vendorName) vendorName = l.replace(/[-|:]\s*$/, '').trim();
+    if (l.length >= 3 && !/tax\s+invoice|invoice|original|bill\s+of\s+supply|duplicate|triplicate|customer\s+copy|ack\s+no|irn\s+no|terms/i.test(l)) {
+      if (!vendorName && !l.includes(':')) {
+        vendorName = l.replace(/[-|:]\s*$/, '').trim();
+      }
     }
   }
 
@@ -32,14 +71,14 @@ function parseInvoiceText(text) {
     // 1. Invoice Number
     if (!invoiceNumber) {
       const invMatch = line.match(/(?:invoice\s*no\.?|inv\s*no\.?|bill\s*no\.?|invoice\s*#|bill\s*#|inv\s*#|invoice\s*number)\s*[:#-]?\s*([A-Za-z0-9\/-]+)/i);
-      if (invMatch && invMatch[1].length >= 3 && !['TAX', 'INVOICE', 'ORIGINAL'].includes(invMatch[1].toUpperCase())) {
+      if (invMatch && invMatch[1].length >= 3 && !['TAX', 'INVOICE', 'ORIGINAL', 'DUPLICATE', 'TRIPLICATE'].includes(invMatch[1].toUpperCase())) {
         invoiceNumber = invMatch[1].trim();
       }
     }
 
     // 2. Invoice Date
     if (!invoiceDate) {
-      const dateHeaderMatch = line.match(/(?:date|dated|dt\.?|invoice\s*date)\s*[:#-]?\s*(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/i);
+      const dateHeaderMatch = line.match(/(?:date\s*of\s*invoice|invoice\s*date|date|dated|dt\.?)\s*[:#-]?\s*(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/i);
       if (dateHeaderMatch) {
         const raw = dateHeaderMatch[1].replace(/\./g, '-').replace(/\//g, '-');
         const p = raw.split('-');
@@ -50,24 +89,24 @@ function parseInvoiceText(text) {
       }
     }
 
-    // 3. Amounts
+    // 3. Amounts (handle Indian currency formatting commas)
     const cleanLine = line.replace(/,/g, '');
     
     // Total / Grand Total / Invoice Value
     if (!invoiceTotal && /(?:grand\s+total|invoice\s+(?:total|value)|total\s+amount|total\s+payable|net\s+payable|total\s+value|balance\s+due)\b/i.test(line)) {
-      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:?RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
+      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:\u20B9RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
       if (amtMatch) invoiceTotal = parseFloat(amtMatch[1]) || 0;
     }
 
     // Subtotal / Taxable Value
     if (!subtotal && /(?:taxable\s+(?:value|amount)|sub\s*total|basic\s+amount)\b/i.test(line)) {
-      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:?RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
+      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:\u20B9RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
       if (amtMatch) subtotal = parseFloat(amtMatch[1]) || 0;
     }
 
     // Tax Amount / IGST / CGST+SGST
     if (!taxAmount && /(?:total\s+tax|tax\s+amount|gst\s+amount|igst|cgst\s*\+\s*sgst)\b/i.test(line)) {
-      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:?RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
+      const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:\u20B9RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
       if (amtMatch) taxAmount = parseFloat(amtMatch[1]) || 0;
     }
   }
@@ -96,7 +135,7 @@ function parseInvoiceText(text) {
 }
 
 async function extractTextFromBuffer(buffer, fileType) {
-  // 1. PDF files: use PDFParse with strict timeout (NEVER call Tesseract on PDF)
+  // 1. PDF files: use PDFParse with DOMMatrix polyfill & strict 4s timeout
   if (fileType === 'application/pdf') {
     try {
       const pdfModule = await import('pdf-parse');
@@ -177,19 +216,19 @@ export async function POST(request) {
     }
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid Token' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized: Invalid Session' }, { status: 401 });
     }
 
     let body;
     try {
-      const raw = await request.text();
-      body = JSON.parse(raw);
+      const text = await request.text();
+      body = JSON.parse(text);
     } catch (err) {
-      return NextResponse.json({ error: 'Invalid JSON request: ' + err.message }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid JSON request payload' }, { status: 400 });
     }
 
     const { fileData, fileType } = body || {};
-    if (typeof fileData !== 'string' || !fileData.length) {
+    if (!fileData || typeof fileData !== 'string') {
       return NextResponse.json({ error: 'Valid fileData is required' }, { status: 400 });
     }
 
@@ -243,7 +282,7 @@ export async function POST(request) {
           }
         }
       } catch (geminiErr) {
-        console.warn('Gemini extraction failed, falling back to local OCR engine:', geminiErr.message);
+        console.warn('Gemini extraction warning:', geminiErr.message);
       }
     }
 
@@ -262,7 +301,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Invoice parse error:', error);
     return NextResponse.json({ 
-      error: error.message || 'Unable to extract this invoice. Please enter details manually.' 
+      error: error.message || 'Invoice auto-fill processing failed. Please enter invoice details manually.' 
     }, { status: 500 });
   }
 }
