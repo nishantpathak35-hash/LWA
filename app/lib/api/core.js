@@ -48,7 +48,7 @@ export async function ensureSettingsTable() {
 }
 
 async function _runMigrations() {
-  const migrationsAppliedKey = 'migrations_applied_v1';
+  const migrationsAppliedKey = 'migrations_applied_v2';
   try {
     const check = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [migrationsAppliedKey]);
     if (check && check.value === 'true') {
@@ -494,7 +494,7 @@ async function _runMigrations() {
       [migrationsAppliedKey, 'true', new Date().toISOString()]
     );
   } catch (e) {
-    console.error('Failed to set migrations_applied_v1 flag:', e);
+    console.error('Failed to set migrations_applied_v2 flag:', e);
   }
 
   // Migration complete — promise remains cached so future calls are instant no-ops.
