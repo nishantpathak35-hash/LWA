@@ -118,8 +118,8 @@ export default function PaymentListTable({
               <Layers className="w-6 h-6" />
             </div>
             <div>
-              <p className="font-semibold text-foreground">No payment orders found</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Try adjusting your search criteria or switch tabs</p>
+              <p className="font-semibold text-foreground">No payment requests pending approval</p>
+              <p className="text-xs text-muted-foreground mt-0.5">All caught up! Approved orders and remittances are managed in Reports.</p>
             </div>
           </div>
         ) : (

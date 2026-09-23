@@ -265,8 +265,9 @@ export default function PaymentsView() {
       const stageKey = getPaymentStageKey(p);
       const isSettled = isPaymentSettled(p);
 
-      // Operational payments view: NEVER show settled/remitted or rejected orders here (they are in Reports)
-      if (isSettled || stageKey === 'rejected') return false;
+      // Operational Payments view: ONLY show requests actively awaiting approval
+      // Ready to Remit and Remitted orders already exist in Reports!
+      if (isSettled || stageKey === 'readyToRemit' || stageKey === 'rejected') return false;
 
       const q = searchQuery.toLowerCase();
       const matchesSearch = (p.vendor_name || '').toLowerCase().includes(q) || 
@@ -277,13 +278,12 @@ export default function PaymentsView() {
       
       if (!matchesSearch) return false;
 
-      if (activeTab === 'approved' || activeTab === 'remit') {
-        // Payments approved and ready for remittance
-        return stageKey === 'readyToRemit';
-      }
+      if (activeTab === 'proc') return stageKey === 'pendingProc';
+      if (activeTab === 'finance') return stageKey === 'pendingFinance';
+      if (activeTab === 'director') return stageKey === 'pendingDirector';
 
-      // Default (activeTab === 'pending'): only payments actively awaiting approval
-      return stageKey !== 'readyToRemit';
+      // Default ('all' or 'pending'): show all requests awaiting approval
+      return true;
     });
   }, [payments, searchQuery, activeTab, isAdmin, isProcurement, isFinance, isDirector, attentionFilter, attentionItems]);
 
