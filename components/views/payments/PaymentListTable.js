@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
-import { ShieldCheck, ShieldAlert, History, Ban, CheckSquare, Eye, Mail, MessageSquare, IndianRupee, Layers, Landmark, FileText } from 'lucide-react';
+import { History, CheckSquare, Edit3, Mail, Landmark, FileText, ChevronRight, Layers, ArrowUpRight } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
-import { getPaymentPriorityScore } from '../../../app/lib/paymentAI';
 import SortableHeader from '../../ui/SortableHeader';
 import { sortData } from '../../../app/lib/exportUtils';
 import { getPaymentStageKey, isPaymentSettled } from '../../../app/lib/paymentStatus';
@@ -33,12 +32,12 @@ export default function PaymentListTable({
   const actionableRequests = processedRequests.filter(canActOnReq);
   const allSelected = actionableRequests.length > 0 && actionableRequests.every(req => selectedIds.has(req.id || req.pr_id));
   const [loadingMore, setLoadingMore] = useState(false);
+
   const handleLoadMore = async () => {
     setLoadingMore(true);
     try { await loadMorePayments(); }
     finally { setLoadingMore(false); }
   };
-
 
   const getPaymentModeBadge = (mode, req) => {
     let m = String(mode || req?.payment_mode || req?.paymentMode || '').trim();
@@ -54,14 +53,14 @@ export default function PaymentListTable({
 
     if (isCheque) {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 tracking-wider uppercase shrink-0" title="Payment Mode: Cheque">
-          <FileText className="w-3 h-3 text-indigo-500" /> Cheque
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 tracking-wider uppercase shrink-0 shadow-2xs" title="Mode: Cheque / PDC">
+          <FileText className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Cheque
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25 tracking-wider uppercase shrink-0" title="Payment Mode: NEFT / Electronic Transfer">
-        <Landmark className="w-3 h-3 text-sky-500" /> {m || 'NEFT'}
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25 tracking-wider uppercase shrink-0 shadow-2xs" title="Mode: Direct Bank Transfer (NEFT)">
+        <Landmark className="w-3 h-3 text-sky-600 dark:text-sky-400" /> {m || 'NEFT'}
       </span>
     );
   };
@@ -70,53 +69,58 @@ export default function PaymentListTable({
     const s = getPaymentStageKey(stage);
     if (s === 'remitted') {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Settled / Remitted
         </span>
       );
     }
     if (s === 'pendingDirector') {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" /> Director Sign-off
         </span>
       );
     }
     if (s === 'pendingFinance') {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Finance Review
         </span>
       );
     }
     if (['pending procurement', 'pending maker'].includes(String(stage || '').trim().toLowerCase())) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Procurement Check
         </span>
       );
     }
     if (s === 'rejected') {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> {stage}
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border">
         {stage || 'Pending'}
       </span>
     );
   };
 
   return (
-    <Card className="rounded-lg border-border shadow-xs overflow-hidden">
+    <Card className="rounded-xl border-border/80 shadow-xs overflow-hidden bg-card">
       <CardContent className="p-0">
         {displayedRequests.length === 0 ? (
-          <div className="py-16 text-center text-muted-foreground text-sm font-medium space-y-2">
-            <Layers className="w-8 h-8 mx-auto text-muted-foreground/50" />
-            <p>No payment requests found matching your filters.</p>
+          <div className="py-20 text-center text-muted-foreground text-sm font-medium space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-muted/60 border border-border flex items-center justify-center mx-auto text-muted-foreground/60 shadow-2xs">
+              <Layers className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">No payment orders found</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Try adjusting your search criteria or switch tabs</p>
+            </div>
           </div>
         ) : (
           <>
@@ -135,7 +139,7 @@ export default function PaymentListTable({
                 const reqStage = isPaymentSettled(req) ? 'Remitted' : req.stage || req.approval_stage || 'Pending';
 
                 return (
-                  <div key={req.id || req.pr_id || idx} className={`rounded-xl border ${isChecked ? 'border-amber-500 bg-amber-500/5' : 'border-border bg-card'} p-4 space-y-3 shadow-xs transition-colors`}>
+                  <div key={req.id || req.pr_id || idx} className={`rounded-xl border ${isChecked ? 'border-primary bg-primary/5' : 'border-border/80 bg-card'} p-4 space-y-3 shadow-2xs transition-all`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {canAct && (
@@ -144,7 +148,7 @@ export default function PaymentListTable({
                             aria-label={`Select payment ${req.id || req.pr_id}`}
                             checked={isChecked}
                             onChange={() => onSelectPayment?.(req.id || req.pr_id)}
-                            className="rounded border-border text-amber-500 focus:ring-amber-500/30"
+                            className="rounded border-border text-primary focus:ring-primary/30"
                           />
                         )}
                         <span className="font-mono text-xs font-bold text-foreground">#{req.id || req.pr_id || req.sNo}</span>
@@ -155,21 +159,21 @@ export default function PaymentListTable({
 
                     <div>
                       <h4 className="font-bold text-foreground text-xs">{req.vendor_name || req.vendor}</h4>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{req.project || 'General'} • PO: <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">{req.po_no || '—'}</span></p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{req.project || 'General'} • PO: <span className="font-mono font-semibold text-amber-700 dark:text-primary">{req.po_no || '—'}</span></p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-xl border border-border text-[11px]">
+                    <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-lg border border-border/60 text-[11px]">
                       <div>
                         <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Gross Claim</span>
                         <span className="font-medium text-foreground font-mono tabular-nums">{formatCurrency(requestedAmt)}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Net Payable</span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(netValue)}</span>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(netValue)}</span>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-border">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-border/60">
                       <div className="flex items-center gap-1.5">
                         <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground">
                           <History className="w-3 h-3 mr-1" /> Trail
@@ -189,15 +193,15 @@ export default function PaymentListTable({
               })}
             </div>
 
-            {/* ── Desktop View: Table ── */}
+            {/* ── Desktop View: Modern Financial Ledger Table ── */}
             <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-border bg-muted/40 text-muted-foreground">
+                  <TableRow className="border-b border-border/80 bg-muted/35 text-muted-foreground">
                     <TableHead className="w-10 text-center py-3.5 px-3">
                       <input 
                         type="checkbox" 
-                        className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer disabled:opacity-30"
+                        className="rounded border-border text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-30"
                         aria-label="Select all actionable payments"
                         disabled={actionableRequests.length === 0}
                         checked={allSelected}
@@ -208,13 +212,13 @@ export default function PaymentListTable({
                     <SortableHeader field="created_at" label="Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-24" />
                     <SortableHeader field="vendor_name" label="Vendor Partner" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[170px]" />
                     <SortableHeader field="project" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[130px]" />
-                    <SortableHeader field="po_no" label="PO Reference" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <SortableHeader field="po_no" label="PO Ref" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
                     <SortableHeader field="payment_mode" label="Mode" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="center" className="w-24 text-center" />
                     <SortableHeader field="po_value" label="PO Budget" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
-                    <SortableHeader field="paid" label="Paid To Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="paid" label="Paid to Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <SortableHeader field="amount_requested" label="Net Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
-                    <SortableHeader field="approval_stage" label="Approval Stage" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-36" />
-                    <TableHead className="text-center w-28 py-3 px-3 font-medium text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
+                    <SortableHeader field="approval_stage" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-36" />
+                    <TableHead className="text-right w-28 py-3.5 px-4 font-semibold text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -232,12 +236,12 @@ export default function PaymentListTable({
                     return (
                       <TableRow
                         key={req.id || req.pr_id || idx}
-                        className={`border-b border-border/50 hover:bg-muted/30 transition-colors duration-150 ${isSelected ? 'bg-amber-500/5 border-l-2 border-l-amber-500' : ''} ${!isActionable ? 'opacity-70' : ''}`}
+                        className={`border-b border-border/50 hover:bg-muted/40 transition-colors duration-150 ${isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''} ${!isActionable ? 'opacity-80' : ''}`}
                       >
                         <TableCell className="text-center py-3.5 px-3">
                           <input 
                             type="checkbox" 
-                            className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer disabled:opacity-30"
+                            className="rounded border-border text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-30"
                             aria-label={`Select payment ${req.id || req.pr_id}`}
                             checked={isSelected}
                             onChange={() => isActionable && onSelectPayment?.(req.id)}
@@ -252,7 +256,7 @@ export default function PaymentListTable({
                         </TableCell>
                         <TableCell className="text-xs font-semibold text-foreground truncate max-w-[200px] py-3.5 px-3" title={req.vendor_name || ''}>
                           <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold border border-emerald-500/20 shrink-0">
+                            <span className="w-6 h-6 rounded-full bg-primary/10 text-amber-700 dark:text-primary flex items-center justify-center text-[10px] font-bold border border-primary/20 shrink-0">
                               {(req.vendor_name || 'V').substring(0, 2).toUpperCase()}
                             </span>
                             <span className="truncate">{req.vendor_name}</span>
@@ -261,8 +265,8 @@ export default function PaymentListTable({
                         <TableCell className="text-xs text-muted-foreground truncate max-w-[140px] py-3.5 px-3" title={req.project || ''}>
                           {req.project || 'General'}
                         </TableCell>
-                        <TableCell className="font-mono text-xs font-semibold text-amber-600 dark:text-amber-400 py-3.5 px-3">
-                          <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={`Open PO ${req.po_no}`}>
+                        <TableCell className="font-mono text-xs font-semibold text-amber-700 dark:text-primary py-3.5 px-3">
+                          <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="hover:underline flex items-center gap-1" title={`Open PO ${req.po_no}`}>
                             {req.po_no}
                           </a>
                         </TableCell>
@@ -273,10 +277,10 @@ export default function PaymentListTable({
                           {formatCurrency(poValue)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-3.5 px-3">
-                          <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                          <span className="font-mono font-medium text-foreground/80">
                             {formatCurrency(paidAmount)}
                           </span>
-                          <span className="ml-1 text-[10px] font-mono text-muted-foreground">
+                          <span className="ml-1 text-[10px] font-mono text-muted-foreground/75">
                             ({paidPct}%)
                           </span>
                         </TableCell>
@@ -284,43 +288,34 @@ export default function PaymentListTable({
                           <span className="font-mono font-bold text-foreground">
                             {formatCurrency(netAmount)}
                           </span>
-                          <span className="ml-1 text-[10px] font-mono text-muted-foreground">
+                          <span className="ml-1 text-[10px] font-mono text-muted-foreground/75">
                             ({reqPct}%)
                           </span>
                         </TableCell>
                         <TableCell className="py-3.5 px-3 whitespace-nowrap">
                           {getStageBadge(reqStage)}
-                          {String(req.status || '').toLowerCase() === 'pending' && getPaymentPriorityScore(req) !== null && (
-                            <div className="mt-1">
-                              <Badge variant={getPaymentPriorityScore(req) > 75 ? 'success' : getPaymentPriorityScore(req) < 40 ? 'error' : 'secondary'} className="text-[10px] py-0 px-1 border-dashed">
-                                ⚡ AI Priority: {getPaymentPriorityScore(req)}%
-                              </Badge>
-                            </div>
-                          )}
                         </TableCell>
-                        <TableCell className="text-center py-3.5 px-3">
-                          <div className="flex items-center justify-center gap-1">
+                        <TableCell className="text-right py-3.5 px-4">
+                          <div className="flex items-center justify-end gap-1">
                             {getWorkflowActionButton(req)}
                             
                             {(isAdmin || isDirector || isFinance || String(req.stage || req.approval_stage || '').toLowerCase().includes('procurement') || String(req.stage || req.approval_stage || '').toLowerCase().includes('finance')) && onEditPayment && (
-                              <Button variant="ghost" size="icon" onClick={() => onEditPayment(req)} title="Edit Payment Request" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                                <CheckSquare className="w-3.5 h-3.5" />
+                              <Button variant="ghost" size="icon" onClick={() => onEditPayment(req)} title="Edit Order Details" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-amber-700 dark:hover:text-primary hover:bg-primary/10">
+                                <Edit3 className="w-3.5 h-3.5" />
                               </Button>
                             )}
 
-                            <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="Discussion & Team Activity Thread" className="h-7 w-7 text-muted-foreground hover:text-amber-500">
-                              <MessageSquare className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="View Logs Trail" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                            <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="Audit Trail & Comments" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted">
                               <History className="w-3.5 h-3.5" />
                             </Button>
+                            
                             {(String(req.stage || '').toLowerCase().trim() === 'remitted' || String(req.remittance || '').toLowerCase().trim() === 'remitted') && (
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
                                 onClick={() => handleSendPaymentAdvice(req.id, 'email')} 
                                 title="Send Payment Advice Email"
-                                className="h-7 w-7 text-amber-600 dark:text-amber-400 hover:text-amber-700"
+                                className="h-7 w-7 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
                               >
                                 <Mail className="w-3.5 h-3.5" />
                               </Button>
@@ -333,10 +328,11 @@ export default function PaymentListTable({
                 </TableBody>
               </Table>
             </div>
+
             {hasMorePayments && (
-              <div className="flex justify-center p-4 border-t border-border bg-muted/20">
-                <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="text-muted-foreground hover:text-foreground font-medium">
-                  {loadingMore ? 'Loading...' : 'Load More Payments'}
+              <div className="p-4 border-t border-border flex justify-center">
+                <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="text-xs">
+                  {loadingMore ? 'Loading orders...' : 'Load More Orders'}
                 </Button>
               </div>
             )}

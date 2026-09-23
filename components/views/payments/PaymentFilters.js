@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import { Button, Input, Card, CardContent } from '../../ui/core';
-import { CreditCard, PlusCircle, Search, Download, AlertTriangle, CheckCircle2, Clock, ShieldCheck, IndianRupee, Layers } from 'lucide-react';
+import { CreditCard, PlusCircle, Search, Download, Clock, CheckCircle2, Layers, Landmark, ArrowUpRight, X } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
-import { getPaymentStageKey, isPaymentPending, isPaymentSettled } from '../../../app/lib/paymentStatus';
+import { getPaymentStageKey, isPaymentSettled } from '../../../app/lib/paymentStatus';
 
 export default function PaymentFilters({
   canOnboard,
@@ -42,190 +42,211 @@ export default function PaymentFilters({
 
   return (
     <div className="space-y-5">
-      {/* ── 1. Executive Header Banner ── */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-card via-card to-emerald-500/5 border border-border p-6 rounded-lg shadow-xs">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1.5">
-                <ShieldCheck className="w-3 h-3" /> Treasury & Payouts Engine
-              </span>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground font-medium">Multi-Tier Approval Pipeline</span>
-            </div>
-            <div className="flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0 shadow-inner">
-                <CreditCard className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                  Payment Requests & Approvals
-                </h1>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Verify invoices against PO buffers, authorize multi-tier approvals, and disburse bank remittances
-                </p>
-              </div>
-            </div>
+      {/* ── 1. Executive Treasury Header ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-border/60">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-primary/10 text-amber-700 dark:text-primary border border-primary/20">
+              <Landmark className="w-3 h-3" /> Treasury & Disbursements
+            </span>
+            <span className="text-xs text-muted-foreground/60">•</span>
+            <span className="text-xs text-muted-foreground font-medium">Enterprise PTS</span>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full lg:w-auto">
-            {onExportCSV && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onExportCSV}
-                className="text-xs font-semibold h-9 rounded-xl border-border hover:bg-muted/80 transition-all"
-              >
-                <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Export Ledger
-              </Button>
-            )}
-            {canOnboard && (
-              <Button
-                onClick={handleOpenRequestModal}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4" /> New Payment Request
-              </Button>
-            )}
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground font-display">
+            Payment Orders
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Audit vendor invoices against PO commitments, enforce multi-tier sanctions, and manage remittances.
+          </p>
         </div>
 
-        {/* Treasury Stats Sub-bar */}
-        <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <span className="text-muted-foreground font-medium text-[11px]">Total Claim Value:</span>
-            <span className="font-bold text-foreground font-mono text-[12px]">{formatCurrency(kpis.totalVal)}</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-            <span>Pending Authorization: <strong className="text-amber-600 dark:text-amber-400 font-mono font-semibold">{formatCurrency(kpis.pendingVal)}</strong></span>
-            <span>•</span>
-            <span>Disbursed (UTR Logged): <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold">{formatCurrency(kpis.remittedVal)}</strong></span>
-          </div>
+        <div className="flex items-center gap-2.5 shrink-0">
+          {onExportCSV && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportCSV}
+              className="text-xs font-semibold h-9 rounded-xl border-border/80 hover:bg-muted/80 text-foreground transition-all gap-1.5 shadow-2xs"
+            >
+              <Download className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Export CSV</span>
+            </Button>
+          )}
+          {canOnboard && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleOpenRequestModal()}
+              className="text-xs font-semibold h-9 rounded-xl shadow-xs gap-1.5 px-4"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>New Payment Request</span>
+            </Button>
+          )}
         </div>
       </div>
 
       {/* ── 2. Metric KPI Cards Bar ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="rounded-lg border-border bg-card shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">All Requests</span>
-              <div className="p-2 rounded-xl bg-muted text-muted-foreground">
-                <Layers className="w-4 h-4" />
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Card 1: All Requests */}
+        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-4 shadow-2xs hover:border-border transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Invoiced</span>
+            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+              <Layers className="w-4 h-4" />
             </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-foreground font-mono tabular-nums">{kpis.total}</p>
-              <span className="text-xs font-semibold text-foreground font-mono tabular-nums">{formatCurrency(kpis.totalVal)}</span>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold tracking-tight text-foreground font-mono tabular-nums">
+              {formatCurrency(kpis.totalVal)}
             </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Total Raised Claims</span>
-          </CardContent>
-        </Card>
+            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+              <span>{kpis.total} Total Requests</span>
+              <span className="font-medium text-foreground/75">100% Invoiced</span>
+            </div>
+          </div>
+        </div>
 
-        <Card className="rounded-lg border-border bg-card shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Awaiting Sanction</span>
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <Clock className="w-4 h-4" />
-              </div>
+        {/* Card 2: Pending Approval */}
+        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-4 shadow-2xs hover:border-amber-500/40 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Pending Sanction</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
             </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-amber-700 dark:text-amber-400 font-mono tabular-nums">{kpis.pendingCount}</p>
-              {kpis.pendingCount > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> In Queue
-                </span>
-              )}
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold tracking-tight text-amber-700 dark:text-amber-400 font-mono tabular-nums">
+              {formatCurrency(kpis.pendingVal)}
             </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Value: {formatCurrency(kpis.pendingVal)}</span>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-lg border-border bg-card shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Over-Budget Alerts</span>
-              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                <AlertTriangle className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-rose-700 dark:text-rose-400 font-mono tabular-nums">{kpis.overBudgetCount}</p>
+            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                {kpis.pendingCount} Awaiting Review
+              </span>
               {kpis.overBudgetCount > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
-                  Director Required
-                </span>
+                <span className="text-rose-600 dark:text-rose-400 font-semibold">{kpis.overBudgetCount} Overbudget</span>
               )}
             </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">Exceeds PO/Project Buffer</span>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="rounded-lg border-border bg-card shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Disbursed (Settled)</span>
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
+        {/* Card 3: Ready to Remit */}
+        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-4 shadow-2xs hover:border-sky-500/40 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 uppercase tracking-wider">Ready to Disburse</span>
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-400 flex items-center justify-center">
+              <CreditCard className="w-4 h-4" />
             </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{kpis.remittedCount}</p>
-              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(kpis.remittedVal)}</span>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold tracking-tight text-sky-700 dark:text-sky-400 font-mono tabular-nums">
+              {formatCurrency(kpis.approvedVal)}
             </div>
-            <span className="text-[10px] text-muted-foreground mt-1 block">UTR Logged Successfully</span>
-          </CardContent>
-        </Card>
+            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+              <span>{kpis.approvedCount} Sanctioned</span>
+              <span className="text-sky-700 dark:text-sky-400 font-medium">Ready for UTR/Chq</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Disbursed */}
+        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-4 shadow-2xs hover:border-emerald-500/40 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Settled & Remitted</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold tracking-tight text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">
+              {formatCurrency(kpis.remittedVal)}
+            </div>
+            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+              <span>{kpis.remittedCount} Disbursed</span>
+              <span className="text-emerald-700 dark:text-emerald-400 font-medium">100% Closed</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* ── 3. Tabs Navigation & Search Bar ── */}
-      <div className="p-3 bg-card rounded-lg border border-border flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shadow-xs">
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* ── 3. Sleek Segmented Control & Search Bar ── */}
+      <div className="p-2 bg-card rounded-xl border border-border/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shadow-2xs">
+        {/* Segmented Tab Track */}
+        <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-lg border border-border/40 overflow-x-auto">
           <button
+            type="button"
             onClick={() => setActiveTab('pending')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'pending' 
-                ? 'bg-amber-600 text-white shadow-xs' 
-                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'pending'
+                ? 'bg-card text-foreground shadow-xs font-bold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            Awaiting Approval ({kpis.pendingCount})
+            <span>Awaiting Review</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${
+              activeTab === 'pending' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-muted text-muted-foreground'
+            }`}>
+              {kpis.pendingCount}
+            </span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveTab('approved')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'approved' 
-                ? 'bg-purple-600 text-white shadow-xs' 
-                : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20'
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'approved'
+                ? 'bg-card text-foreground shadow-xs font-bold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-            Approved / Ready to Remit ({kpis.approvedCount})
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+            <span>Ready to Remit</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${
+              activeTab === 'approved' ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400' : 'bg-muted text-muted-foreground'
+            }`}>
+              {kpis.approvedCount}
+            </span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveTab('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'all' 
-                ? 'bg-foreground text-background shadow-xs' 
-                : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'all'
+                ? 'bg-card text-foreground shadow-xs font-bold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            All Requests ({payments.length})
+            <span>All Orders</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${
+              activeTab === 'all' ? 'bg-foreground/10 text-foreground' : 'bg-muted text-muted-foreground'
+            }`}>
+              {payments.length}
+            </span>
           </button>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        {/* Search Input */}
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" />
           <Input
             type="text"
-            placeholder="Search vendor, PO No, invoice..."
+            placeholder="Filter vendor, PO, invoice, mode..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 text-xs py-1.5 h-9 bg-background rounded-xl border-border"
+            className="pl-9 pr-8 text-xs py-1.5 h-9 bg-background/80 rounded-lg border-border/80 focus:border-primary/60 transition-colors"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </div>

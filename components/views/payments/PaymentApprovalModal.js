@@ -1,9 +1,36 @@
 import React from 'react';
 import { Dialog, Button, Input, Select, Textarea } from '../../ui/core';
-import { ShieldCheck, Ban, CheckSquare, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Ban, CheckSquare, AlertTriangle, ShieldAlert, Landmark, FileText, HelpCircle } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import ProjectFinancialSummaryCard from './ProjectFinancialSummaryCard';
 import { buildFinancialPreview } from '../../../app/lib/financialPreview';
+
+
+const getPaymentModeBadge = (mode, req) => {
+  let m = String(mode || req?.payment_mode || req?.paymentMode || '').trim();
+  if (!m) {
+    const combined = `${req?.remarks || ''} ${req?.po_terms || ''} ${req?.po_notes || ''} ${req?.remittance_ref || ''}`.toLowerCase();
+    if (combined.includes('cheque') || combined.includes('chq') || combined.includes('pdc')) {
+      m = 'Cheque';
+    } else {
+      m = 'NEFT';
+    }
+  }
+  const isCheque = m.toLowerCase().includes('cheque') || m.toLowerCase().includes('chq') || m.toLowerCase().includes('pdc');
+
+  if (isCheque) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 tracking-wider uppercase shrink-0" title="Mode: Cheque / PDC">
+        <FileText className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Cheque
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25 tracking-wider uppercase shrink-0" title="Mode: Electronic NEFT">
+      <Landmark className="w-3 h-3 text-sky-600 dark:text-sky-400" /> {m || 'NEFT'}
+    </span>
+  );
+};
 
 export default function PaymentApprovalModal({
   workflowModalOpen, setWorkflowModalOpen, selectedRequest, workflowAction,
@@ -27,13 +54,18 @@ export default function PaymentApprovalModal({
         maxWidth="max-w-4xl"
       >
         <form onSubmit={handleWorkflowAction} className="space-y-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>Request <strong className="text-foreground">#{selectedRequest?.id}</strong></span>
-            <span className="text-foreground font-medium">{selectedRequest?.vendor_name}</span>
-            <span>PO {selectedRequest?.po_no || '—'}</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted border border-border text-foreground tracking-wider uppercase">
-              Mode: <strong className="text-primary">{selectedRequest?.payment_mode || selectedRequest?.paymentMode || 'NEFT'}</strong>
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-border/80 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-bold text-foreground">Order #{selectedRequest?.id}</span>
+              <span className="text-muted-foreground/60">•</span>
+              <span className="font-semibold text-foreground">{selectedRequest?.vendor_name}</span>
+              <span className="text-muted-foreground/60">•</span>
+              <span className="font-mono text-amber-700 dark:text-primary font-medium">{selectedRequest?.po_no || '—'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground font-medium text-[11px]">Disbursement:</span>
+              {getPaymentModeBadge(selectedRequest?.payment_mode || selectedRequest?.paymentMode, selectedRequest)}
+            </div>
           </div>
           {loadingSummary && workflowAction !== 'reject' && (
             <div className="bg-muted/40 border border-border rounded-xl p-3 text-xs text-muted-foreground flex items-center justify-center gap-2">
@@ -155,7 +187,7 @@ export default function PaymentApprovalModal({
                     onOpenQueryModal(selectedRequest);
                   }}
                 >
-                  ❓ Request Clarification (Query Hold)
+                  <HelpCircle className="w-3.5 h-3.5 mr-1.5" /> Request Clarification
                 </Button>
               )}
             </div>
