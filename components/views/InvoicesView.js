@@ -1,5 +1,6 @@
 'use client';
 
+import InvoiceDocumentPreview from './InvoiceDocumentPreview';
 import { mergeOcrFields } from '../../app/lib/invoiceOcrFields';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppState } from '../StateProvider';
@@ -9,7 +10,7 @@ import {
   Loader2, CreditCard, Eye, Trash2, AlertTriangle, LayoutGrid, LayoutList, 
   FileText, Sparkles, Building, IndianRupee, RefreshCw, FileCheck, ShieldAlert, UploadCloud,
   ChevronDown, ChevronRight, Users, Calendar, ArrowUpRight, ExternalLink, Percent, ShieldCheck,
-  Check, Copy, X, SlidersHorizontal, Edit2, Paperclip, Printer
+  Check, Copy, X, SlidersHorizontal, Edit2
 } from 'lucide-react';
 import { toast } from '../ui/Toast';
 import { exportToCSV } from '../../app/lib/exportUtils';
@@ -34,13 +35,7 @@ export default function InvoicesView() {
   const [expandedVendors, setExpandedVendors] = useState({});
 
   // Slide-Over Inspection Drawer State
-    const [inspectInvoice, setInspectInvoice] = useState(null);
-  const [inspectFullData, setInspectFullData] = useState(null);
-  const [inspectLoading, setInspectLoading] = useState(false);
-  const [showPdfView, setShowPdfView] = useState(false);
-  const [attachmentsPopoverOpen, setAttachmentsPopoverOpen] = useState(false);
-  const [drawerTab, setDrawerTab] = useState('overview'); // 'overview' | 'pdf' | 'po_health'
-
+  const [inspectInvoice, setInspectInvoice] = useState(null);
   // Deletion State
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -198,50 +193,8 @@ export default function InvoicesView() {
     return { isOverdue: false, days: 0, label: 'AWAITING REVIEW', type: 'pending' };
   };
 
-  const handleOpenInspect = async (inv) => {
+  const handleOpenInspect = (inv) => {
     setInspectInvoice(inv);
-    setDrawerTab('overview');
-    setShowPdfView(false);
-    setAttachmentsPopoverOpen(false);
-    setInspectLoading(true);
-    try {
-      const full = await call('getInvoice', inv.invoice_id || inv.id);
-      setInspectFullData(full);
-    } catch (err) {
-      console.warn('Failed to load full invoice details:', err);
-      setInspectFullData(inv);
-    } finally {
-      setInspectLoading(false);
-    }
-  };
-
-  const handleUploadAdditionalAttachment = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !inspectInvoice) return;
-    try {
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        try {
-          const base64Data = evt.target.result.split(',')[1];
-          await call('uploadAttachment', {
-            entityType: 'invoice',
-            entityId: inspectInvoice.invoice_id,
-            fileName: file.name,
-            fileType: file.type || 'application/pdf',
-            fileSize: file.size,
-            fileData: base64Data
-          });
-          toast.success(`Attachment "${file.name}" uploaded successfully!`);
-          const full = await call('getInvoice', inspectInvoice.invoice_id);
-          setInspectFullData(full);
-        } catch (err) {
-          toast.error('Upload failed: ' + (err.message || err));
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      toast.error('Error reading file: ' + err.message);
-    }
   };
 
   const handleOpenEditModal = (inv) => {
@@ -1732,13 +1685,13 @@ export default function InvoicesView() {
                       </td>
 
                       <td className="px-3 py-3.5 whitespace-nowrap text-xs text-muted-foreground">{inv.invoice_date ? formatDate(inv.invoice_date) : '—'}</td>
-                      <td className="px-4 py-3.5"><button type="button" onClick={() => { setDrawerTab('overview'); setInspectInvoice(inv); }} className="font-semibold text-sm text-blue-600 dark:text-blue-400 hover:underline">{inv.invoice_number || 'Unnumbered invoice'}</button></td>
+                      <td className="px-4 py-3.5"><button type="button" onClick={() => { handleOpenInspect(inv); }} className="font-semibold text-sm text-blue-600 dark:text-blue-400 hover:underline">{inv.invoice_number || 'Unnumbered invoice'}</button></td>
                       <td className="px-4 py-3.5 text-xs text-muted-foreground">{inv.po_no || '—'}</td>
                       <td className="px-4 py-3.5"><span className="block text-sm font-medium">{inv.vendor_name || 'Unassigned vendor'}</span><span className="text-xs text-muted-foreground">{inv.project}</span></td>
                       <td className="px-4 py-3.5">{getStatusBadge(inv.status)}</td>
                       <td className="px-3 py-3.5 text-xs">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
                       <td className="px-4 py-3.5 text-right font-semibold tabular-nums">{formatCurrency(inv.invoice_total)}</td>
-                      <td className="px-3 py-3.5 text-right"><button type="button" onClick={() => { setDrawerTab('overview'); setInspectInvoice(inv); }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View / review</button></td>
+                      <td className="px-3 py-3.5 text-right"><button type="button" onClick={() => { handleOpenInspect(inv); }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View / review</button></td>
                     </tr>
                   );
                 })}
@@ -1825,12 +1778,12 @@ export default function InvoicesView() {
         </div>
       )}
 
-      {/* ── 6. Zoho Books Style Bill Inspector Drawer / Modal ── */}
+      {/* ── 6. Original Invoice Inspector ── */}
       {inspectInvoice && (
         <div className="fixed inset-0 z-50 overflow-hidden flex justify-end bg-black/60 backdrop-blur-xs animate-fade-in">
           <div className="w-full max-w-5xl bg-background border-l border-border h-full flex flex-col shadow-2xl animate-slide-left overflow-hidden">
             
-            {/* Top Bar (Matches Screenshot 2 & 3) */}
+            {/* Invoice header */}
             <div className="px-6 py-4 border-b border-border bg-card flex flex-wrap items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold font-mono text-foreground tracking-tight">
@@ -1854,7 +1807,7 @@ export default function InvoicesView() {
                 })()}
               </div>
 
-              {/* Action Buttons: Edit, PDF/Print, Record Payment, Attachments, Close */}
+              {/* Edit and close */}
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -1864,120 +1817,6 @@ export default function InvoicesView() {
                 >
                   <Edit2 size={13} className="mr-1.5 text-muted-foreground" /> Edit
                 </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(getAttachmentUrl(inspectInvoice.invoice_id, 'inline'), '_blank')}
-                  className="h-8 text-xs font-semibold rounded-lg hover:bg-muted"
-                >
-                  <Printer size={13} className="mr-1.5 text-muted-foreground" /> PDF/Print
-                </Button>
-
-                {String(inspectInvoice.status).toLowerCase() !== 'paid' && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleCreatePaymentRequest(inspectInvoice)}
-                    className="h-8 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
-                  >
-                    <CreditCard size={13} className="mr-1.5" /> Record Payment
-                  </Button>
-                )}
-
-                {/* Attachments Dropdown Popover (Matching Screenshot 3) */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setAttachmentsPopoverOpen(!attachmentsPopoverOpen)}
-                    className="h-8 px-2.5 rounded-lg border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer"
-                    title="View & manage attachments"
-                  >
-                    <Paperclip size={14} />
-                    <span className="font-mono">{(inspectFullData?.attachments || []).length || (inspectInvoice.file_name ? 1 : 0)}</span>
-                  </button>
-
-                  {attachmentsPopoverOpen && (
-                    <div className="absolute right-0 top-10 w-80 bg-card border border-border rounded-xl shadow-2xl z-50 p-4 space-y-3 animate-fade-in">
-                      <div className="flex items-center justify-between border-b border-border pb-2">
-                        <span className="text-xs font-bold text-foreground">
-                          Attachments ({(inspectFullData?.attachments || []).length || (inspectInvoice.file_name ? 1 : 0)})
-                        </span>
-                        <button onClick={() => setAttachmentsPopoverOpen(false)} className="text-muted-foreground hover:text-foreground">
-                          <X size={14} />
-                        </button>
-                      </div>
-
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {(inspectFullData?.attachments && inspectFullData.attachments.length > 0) ? (
-                          inspectFullData.attachments.map((att, attIdx) => (
-                            <div key={att.id || attIdx} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 hover:bg-muted/70 border border-border text-xs transition-colors">
-                              <div className="flex items-center gap-2 truncate">
-                                <FileText size={16} className="text-rose-500 shrink-0" />
-                                <div className="truncate">
-                                  <a
-                                    href={getAttachmentUrl(inspectInvoice.invoice_id, 'inline')}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-medium text-foreground hover:underline truncate block"
-                                  >
-                                    {att.file_name || `Invoice-Doc-${attIdx + 1}.pdf`}
-                                  </a>
-                                  <span className="text-[10px] text-muted-foreground font-mono">
-                                    {att.file_size ? `${(att.file_size / 1024).toFixed(1)} KB` : 'Attached file'}
-                                  </span>
-                                </div>
-                              </div>
-                              <a
-                                href={getAttachmentUrl(inspectInvoice.invoice_id, 'attachment')}
-                                download
-                                className="p-1 text-muted-foreground hover:text-foreground shrink-0"
-                                title="Download Document"
-                              >
-                                <Download size={14} />
-                              </a>
-                            </div>
-                          ))
-                        ) : inspectInvoice.file_name ? (
-                          <div className="flex items-center justify-between p-2 rounded-lg bg-muted/40 hover:bg-muted/70 border border-border text-xs transition-colors">
-                            <div className="flex items-center gap-2 truncate">
-                              <FileText size={16} className="text-rose-500 shrink-0" />
-                              <div className="truncate">
-                                <a
-                                  href={getAttachmentUrl(inspectInvoice.invoice_id, 'inline')}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="font-medium text-foreground hover:underline truncate block"
-                                >
-                                  {inspectInvoice.file_name}
-                                </a>
-                                <span className="text-[10px] text-muted-foreground font-mono">Primary document</span>
-                              </div>
-                            </div>
-                            <a
-                              href={getAttachmentUrl(inspectInvoice.invoice_id, 'attachment')}
-                              download
-                              className="p-1 text-muted-foreground hover:text-foreground shrink-0"
-                              title="Download Document"
-                            >
-                              <Download size={14} />
-                            </a>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground italic py-2">No attachments found.</p>
-                        )}
-                      </div>
-
-                      <div className="pt-2 border-t border-border">
-                        <label className="w-full py-2 px-3 border border-border border-dashed rounded-lg flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 cursor-pointer transition-colors font-medium">
-                          <UploadCloud size={14} />
-                          <span>Upload your Files</span>
-                          <input type="file" accept="application/pdf,image/*" onChange={handleUploadAdditionalAttachment} className="hidden" />
-                        </label>
-                        <span className="text-[10px] text-muted-foreground block text-center mt-1">You can upload a maximum of 5 files, 10MB each</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 <button
                   onClick={() => setInspectInvoice(null)}
@@ -1992,30 +1831,11 @@ export default function InvoicesView() {
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4 bg-muted/20">
               
-              {/* WHAT'S NEXT? Banner (Matching Screenshot 2) */}
-              <div className="p-3.5 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-purple-500/5 border border-purple-500/20 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 text-foreground font-medium">
-                  <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-                  <span>
-                    <strong className="text-purple-700 dark:text-purple-300">WHAT'S NEXT?</strong>{' '}
-                    {String(inspectInvoice.status).toLowerCase() === 'paid'
-                      ? 'Payment for this bill has been recorded and settled in full.'
-                      : getInvoiceOverdueInfo(inspectInvoice).isOverdue
-                      ? 'Payment for this bill is overdue. You can record the payment for this bill if paid.'
-                      : (String(inspectInvoice.status).toLowerCase() === 'submitted' || String(inspectInvoice.status).toLowerCase() === 'under review')
-                      ? 'This bill is awaiting internal review and approval.'
-                      : 'Bill approved. Ready for payment scheduling.'}
-                  </span>
-                </div>
-                {String(inspectInvoice.status).toLowerCase() !== 'paid' && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleCreatePaymentRequest(inspectInvoice)}
-                    className="h-7 text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg px-3 shrink-0 shadow-xs"
-                  >
-                    Record Payment
-                  </Button>
-                )}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div><span className="text-muted-foreground block">Vendor</span><strong>{inspectInvoice.vendor_name || '—'}</strong></div>
+                <div><span className="text-muted-foreground block">Invoice date</span><strong>{inspectInvoice.invoice_date ? formatDate(inspectInvoice.invoice_date) : '—'}</strong></div>
+                <div><span className="text-muted-foreground block">Invoice amount</span><strong className="font-mono">{formatCurrency(inspectInvoice.invoice_total)}</strong></div>
+                <div><span className="text-muted-foreground block">Project</span><strong>{inspectInvoice.project || '—'}</strong></div>
               </div>
 
               {/* Purchase Orders Link Accordion */}
@@ -2032,7 +1852,7 @@ export default function InvoicesView() {
                   </div>
                   <div className="text-muted-foreground flex items-center gap-4">
                     <span>
-                      PO Value: <strong className="text-foreground font-mono font-semibold">{formatCurrency(inspectFullData?.po?.revised_po_value || inspectFullData?.po?.po_value || inspectPOData?.po_value || 0)}</strong>
+                      PO Value: <strong className="text-foreground font-mono font-semibold">{formatCurrency(inspectPOData?.revised_po_value || inspectPOData?.po_value || 0)}</strong>
                     </span>
                     <Button
                       variant="ghost"
@@ -2052,267 +1872,9 @@ export default function InvoicesView() {
                 </div>
               )}
 
-              {/* View Switch: Show PDF View Toggle (Screenshot 2 & 3) */}
-              <div className="flex items-center justify-end gap-2.5 py-1">
-                <span className="text-xs font-semibold text-foreground">Show PDF View</span>
-                <button
-                  type="button"
-                  onClick={() => setShowPdfView(!showPdfView)}
-                  aria-pressed={showPdfView}
-                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${showPdfView ? 'bg-blue-600' : 'bg-muted border border-border'}`}
-                >
-                  <span className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform block absolute top-1 ${showPdfView ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-
-              {/* Document Rendering */}
-              {showPdfView ? (
-                /* LIVE PDF EMBED VIEW */
-                <div className="h-[620px] rounded-xl overflow-hidden border border-border bg-slate-900 flex flex-col shadow-inner">
-                  <div className="p-2.5 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs text-slate-300">
-                    <span className="font-mono">Live PDF Preview — #{inspectInvoice.invoice_number}</span>
-                    <button
-                      type="button"
-                      onClick={() => window.open(getAttachmentUrl(inspectInvoice.invoice_id, 'inline'), '_blank', 'width=900,height=1000')}
-                      className="text-amber-400 hover:underline flex items-center gap-1 font-bold"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" /> Side Window
-                    </button>
-                  </div>
-                  <iframe
-                    src={getAttachmentUrl(inspectInvoice.invoice_id, 'inline')}
-                    className="w-full h-full rounded-b-xl"
-                    title="Invoice PDF Preview"
-                  />
-                </div>
-              ) : (
-                /* ZOHO BOOKS BILL TEMPLATE (Screenshot 2 & 3) */
-                <div className="relative bg-card border border-border rounded-xl p-8 shadow-sm space-y-6 overflow-hidden">
-                  
-                  {/* Slanted Ribbon in Corner (Zoho style) */}
-                  {(() => {
-                    const ov = getInvoiceOverdueInfo(inspectInvoice);
-                    let color = 'from-amber-500 to-amber-600';
-                    let text = 'Overdue';
-                    if (ov.type === 'paid') {
-                      color = 'from-emerald-500 to-emerald-600';
-                      text = 'Paid';
-                    } else if (ov.type === 'approved') {
-                      color = 'from-blue-500 to-blue-600';
-                      text = 'Approved';
-                    } else if (String(inspectInvoice.status).toLowerCase() === 'rejected') {
-                      color = 'from-rose-500 to-rose-600';
-                      text = 'Rejected';
-                    }
-                    return (
-                      <div className="absolute -top-7 -left-7 w-28 h-28 pointer-events-none overflow-hidden">
-                        <div className={`bg-gradient-to-r ${color} text-white font-bold text-[10px] uppercase py-1 text-center shadow-md transform -rotate-45 translate-y-9 -translate-x-2 w-32`}>
-                          {text}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Header: Luxeworx Atelier Logo & Address + Bill Title */}
-                  <div className="flex flex-col sm:flex-row items-start justify-between gap-6 border-b border-border pb-6 pt-2">
-                    <div className="space-y-1.5 pl-6">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-serif font-bold text-amber-600 text-sm">
-                          LA
-                        </div>
-                        <span className="font-serif tracking-widest text-xs uppercase font-bold text-amber-700 dark:text-amber-400">
-                          LUXEWORX ATELIER
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-sm text-foreground uppercase tracking-tight">
-                        LUXEWORX ATELIER INTERIORS PRIVATE LIMITED
-                      </h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        8th Floor, Magnum Towers-1<br />
-                        Golf Course Ext Rd<br />
-                        Gurugram Haryana 122001<br />
-                        <span className="font-mono text-[11px] font-semibold text-foreground">GSTIN 06AAGCL1112M1ZP</span>
-                      </p>
-                    </div>
-
-                    <div className="text-right sm:pr-2">
-                      <h1 className="text-3xl font-serif font-bold text-foreground tracking-tight">Bill</h1>
-                      <p className="font-mono font-bold text-sm text-muted-foreground mt-1">
-                        Bill# {inspectInvoice.invoice_number}
-                      </p>
-                      <div className="mt-3">
-                        <span className="text-[11px] text-muted-foreground block font-medium">Balance Due</span>
-                        <strong className="text-2xl font-bold font-mono text-foreground">
-                          {String(inspectInvoice.status).toLowerCase() === 'paid' ? '₹0.00' : formatCurrency(inspectInvoice.invoice_total)}
-                        </strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bill Info Grid: Bill From, Order Number, Dates */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs border-b border-border pb-6">
-                    <div className="space-y-1">
-                      <span className="text-muted-foreground font-semibold text-[11px] uppercase tracking-wider block">Bill From</span>
-                      <strong className="text-sm font-bold text-blue-600 dark:text-blue-400 block">
-                        {inspectInvoice.vendor_name}
-                      </strong>
-                      {inspectInvoice.vendor_code && (
-                        <p className="font-mono text-[11px] text-muted-foreground">Code: {inspectInvoice.vendor_code}</p>
-                      )}
-                      {inspectFullData?.vendor?.address && (
-                        <p className="text-muted-foreground leading-relaxed">{inspectFullData.vendor.address}</p>
-                      )}
-                      {inspectFullData?.vendor?.gstin && (
-                        <p className="font-mono text-muted-foreground">GSTIN: {inspectFullData.vendor.gstin}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 sm:text-right">
-                      <div className="flex justify-between sm:justify-end gap-6">
-                        <span className="text-muted-foreground">Order Number :</span>
-                        <strong className="font-mono text-foreground font-bold">{inspectInvoice.po_no || '—'}</strong>
-                      </div>
-                      <div className="flex justify-between sm:justify-end gap-6">
-                        <span className="text-muted-foreground">Bill Date :</span>
-                        <strong className="font-mono text-foreground font-bold">{inspectInvoice.invoice_date ? formatDate(inspectInvoice.invoice_date) : '—'}</strong>
-                      </div>
-                      <div className="flex justify-between sm:justify-end gap-6">
-                        <span className="text-muted-foreground">DueDate :</span>
-                        <strong className="font-mono text-foreground font-bold">
-                          {(() => {
-                            const d = getInvoiceDueDate(inspectInvoice);
-                            return d ? formatDate(d) : (inspectInvoice.invoice_date ? formatDate(inspectInvoice.invoice_date) : '—');
-                          })()}
-                        </strong>
-                      </div>
-                      {inspectInvoice.project && (
-                        <div className="flex justify-between sm:justify-end gap-6">
-                          <span className="text-muted-foreground">Project :</span>
-                          <span className="font-medium text-foreground">{inspectInvoice.project}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Itemized Line Items Table (Actual Item Values from po_items) */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                        Itemized Line Items
-                      </h4>
-                      <span className="text-[11px] text-muted-foreground font-medium">
-                        {(inspectFullData?.items || []).length > 0 ? `${inspectFullData.items.length} line items as per Purchase Order` : 'Invoice Line Items'}
-                      </span>
-                    </div>
-
-                    <div className="border border-border rounded-lg overflow-hidden">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
-                          <tr>
-                            <th className="px-3 py-2.5 w-10 text-center">#</th>
-                            <th className="px-3 py-2.5 min-w-[220px]">Item & Description</th>
-                            <th className="px-3 py-2.5 whitespace-nowrap text-center">HSN/SAC</th>
-                            <th className="px-3 py-2.5 text-right whitespace-nowrap">Qty</th>
-                            <th className="px-3 py-2.5 text-right whitespace-nowrap">Rate</th>
-                            <th className="px-3 py-2.5 text-right whitespace-nowrap">Tax %</th>
-                            <th className="px-3 py-2.5 text-right whitespace-nowrap">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border font-sans">
-                          {(inspectFullData?.items && inspectFullData.items.length > 0) ? (
-                            inspectFullData.items.map((item, idx) => (
-                              <tr key={item.id || idx} className="hover:bg-muted/20 transition-colors">
-                                <td className="px-3 py-2.5 text-center text-muted-foreground font-mono">{idx + 1}</td>
-                                <td className="px-3 py-2.5">
-                                  <span className="font-semibold text-foreground block leading-snug">{item.description}</span>
-                                </td>
-                                <td className="px-3 py-2.5 text-center font-mono text-muted-foreground">{item.hsn_sac || '—'}</td>
-                                <td className="px-3 py-2.5 text-right font-mono font-medium whitespace-nowrap">
-                                  {item.qty} {item.unit || ''}
-                                </td>
-                                <td className="px-3 py-2.5 text-right font-mono whitespace-nowrap">
-                                  {formatCurrency(item.rate)}
-                                </td>
-                                <td className="px-3 py-2.5 text-right font-mono text-muted-foreground whitespace-nowrap">
-                                  {item.tax_pct ? `${item.tax_pct}%` : '18%'}
-                                </td>
-                                <td className="px-3 py-2.5 text-right font-mono font-bold text-foreground whitespace-nowrap">
-                                  {formatCurrency(item.amount)}
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            /* Fallback line item */
-                            <tr className="hover:bg-muted/20">
-                              <td className="px-3 py-2.5 text-center text-muted-foreground font-mono">1</td>
-                              <td className="px-3 py-2.5 font-semibold text-foreground">
-                                Goods / Services rendered against Bill #{inspectInvoice.invoice_number}
-                              </td>
-                              <td className="px-3 py-2.5 text-center text-muted-foreground font-mono">—</td>
-                              <td className="px-3 py-2.5 text-right font-mono">1 Lot</td>
-                              <td className="px-3 py-2.5 text-right font-mono">
-                                {formatCurrency(inspectInvoice.subtotal || (Number(inspectInvoice.invoice_total || 0) - Number(inspectInvoice.tax_amount || 0)))}
-                              </td>
-                              <td className="px-3 py-2.5 text-right font-mono text-muted-foreground">18%</td>
-                              <td className="px-3 py-2.5 text-right font-mono font-bold text-foreground">
-                                {formatCurrency(inspectInvoice.subtotal || (Number(inspectInvoice.invoice_total || 0) - Number(inspectInvoice.tax_amount || 0)))}
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Totals & Tax Calculation Breakdown */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-4 border-t border-border">
-                    <div className="space-y-2 max-w-sm text-xs">
-                      {inspectInvoice.remarks && (
-                        <div>
-                          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Notes / Remarks</span>
-                          <p className="text-foreground mt-0.5 leading-relaxed bg-muted/40 p-2.5 rounded-lg border border-border">
-                            {inspectInvoice.remarks}
-                          </p>
-                        </div>
-                      )}
-                      {inspectInvoice.rejection_reason && (
-                        <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
-                          <span className="font-bold text-[11px] uppercase tracking-wider block">Rejection Reason</span>
-                          <p className="mt-0.5 leading-relaxed">{inspectInvoice.rejection_reason}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="w-full sm:w-72 space-y-2 text-xs">
-                      <div className="flex justify-between py-1 border-b border-border/50">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <strong className="font-mono text-foreground">
-                          {formatCurrency(inspectInvoice.subtotal || (Number(inspectInvoice.invoice_total || 0) - Number(inspectInvoice.tax_amount || 0)))}
-                        </strong>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-border/50">
-                        <span className="text-muted-foreground">GST / Tax Amount</span>
-                        <strong className="font-mono text-foreground">
-                          {formatCurrency(inspectInvoice.tax_amount || 0)}
-                        </strong>
-                      </div>
-                      <div className="flex justify-between py-2 border-b-2 border-border text-sm">
-                        <span className="font-bold text-foreground">Total Bill Value</span>
-                        <strong className="font-mono font-bold text-foreground">
-                          {formatCurrency(inspectInvoice.invoice_total)}
-                        </strong>
-                      </div>
-                      <div className="flex justify-between py-2 bg-muted/40 p-2.5 rounded-lg border border-border">
-                        <span className="font-bold text-foreground">Balance Due</span>
-                        <strong className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                          {String(inspectInvoice.status).toLowerCase() === 'paid' ? '₹0.00' : formatCurrency(inspectInvoice.invoice_total)}
-                        </strong>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              )}
+              <InvoiceDocumentPreview key={inspectInvoice.invoice_id} invoiceId={inspectInvoice.invoice_id} refreshKey={inspectInvoice} call={call} />
+              {inspectInvoice.remarks && <p className="text-xs text-muted-foreground"><strong>Remarks:</strong> {inspectInvoice.remarks}</p>}
+              {inspectInvoice.rejection_reason && <p className="text-xs text-rose-600"><strong>Rejection reason:</strong> {inspectInvoice.rejection_reason}</p>}
             </div>
 
             {/* Bottom Actions Bar */}
