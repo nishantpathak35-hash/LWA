@@ -390,7 +390,10 @@ export async function getPOsOnly(options, session) {
     tds_amount: Number(p.tds_amount) || 0,
     gst_total: Number(p.gst_total) || 0,
     gst_mode: p.gst_mode || 'inter',
-    vendor_key: p.vendor_key || ''
+    vendor_code: p.vendor_code || p.vendor_key || '',
+    vendor_key: p.vendor_key || p.vendor_code || '',
+    vendor: p.vendor_name || '',
+    vendor_id: p.vendor_id || ''
   }));
   return { pos: mappedPOs, total, hasMore: (offset + mappedPOs.length) < total };
 }

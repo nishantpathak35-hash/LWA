@@ -354,21 +354,55 @@ export default function InvoicesView() {
 
       // 2. Auto-match vendor if detected or from matched PO
       if (matchedPO) {
-        const vCode = matchedPO.vendor_code || matchedPO.vendorCode || matchedPO.vendor_name || matchedPO.vendor;
+        const vCode = matchedPO.vendor_code || matchedPO.vendor_key || matchedPO.vendor_name || matchedPO.vendor;
         if (vCode) {
           setUploadVendorFilter(vCode);
           toast.info(`Auto-selected Vendor: ${matchedPO.vendor_name || matchedPO.vendor}`);
         }
       } else if (data.vendorName) {
-        const vNameLower = String(data.vendorName).toLowerCase();
-        const matched = allAvailableVendors.find(v => 
-          vNameLower.includes(String(v.name || '').toLowerCase()) ||
-          (v.code && vNameLower.includes(String(v.code).toLowerCase()))
-        );
+        const vNameClean = String(data.vendorName).toLowerCase().replace(/[^a-z0-9]/g, '');
+        let matched = allAvailableVendors.find(v => {
+          const vName = String(v.name || v.legal_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const vCode = String(v.code || v.vendor_code || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const vTrade = String(v.trade_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (!vName && !vCode) return false;
+          return (vName && (vNameClean.includes(vName) || vName.includes(vNameClean))) ||
+                 (vCode && (vNameClean.includes(vCode) || vCode.includes(vNameClean))) ||
+                 (vTrade && (vNameClean.includes(vTrade) || vTrade.includes(vNameClean)));
+        });
+
+        if (!matched && vNameClean.length >= 4) {
+          const stopWords = ['pvt', 'ltd', 'limited', 'private', 'enterprises', 'associates', 'llp', 'sons', 'and', 'the', 'india', 'solutions', 'works', 'decor'];
+          const words = String(data.vendorName).toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !stopWords.includes(w));
+          if (words.length > 0) {
+            matched = allAvailableVendors.find(v => {
+              const targetStr = (String(v.name || '') + ' ' + String(v.legal_name || '') + ' ' + String(v.trade_name || '')).toLowerCase();
+              return words.some(w => targetStr.includes(w));
+            });
+          }
+        }
+
         if (matched) {
           const matchedVal = matched.code || matched.name;
           setUploadVendorFilter(matchedVal);
-          toast.info(`Auto-matched vendor: ${matched.name}`);
+          toast.info(`Auto-matched Vendor: ${matched.name || matched.legal_name}`);
+
+          // Auto-select PO if vendor has open/approved POs
+          const targetCode = String(matched.code || matched.vendor_code || '').toLowerCase();
+          const targetName = String(matched.name || matched.legal_name || '').toLowerCase();
+          const vendorPOs = posList.filter(p => {
+            const st = String(p.status || p.approval_status || '').toLowerCase();
+            if (['rejected', 'cancelled', 'canceled'].includes(st)) return false;
+            const pCode = String(p.vendor_code || p.vendor_key || '').toLowerCase();
+            const pName = String(p.vendor_name || p.vendor || '').toLowerCase();
+            return (targetCode && pCode === targetCode) || (targetName && pName === targetName) || (targetName && (pName.includes(targetName) || targetName.includes(pName)));
+          });
+
+          if (vendorPOs.length === 1) {
+            const autoPo = vendorPOs[0].po_no || vendorPOs[0].poNo;
+            setUploadForm(prev => ({ ...prev, poNo: autoPo }));
+            toast.info(`Auto-selected PO: ${autoPo}`);
+          }
         }
       }
 
@@ -457,12 +491,34 @@ export default function InvoicesView() {
     });
     if (!uploadVendorFilter) return validPOs;
     const vFilter = uploadVendorFilter.trim().toLowerCase();
-    return validPOs.filter(p => {
-      const code = String(p.vendor_code || p.vendorCode || '').trim().toLowerCase();
-      const name = String(p.vendor_name || p.vendor || '').trim().toLowerCase();
-      return code === vFilter || name === vFilter || code.includes(vFilter) || name.includes(vFilter);
+    const cleanFilter = vFilter.replace(/[^a-z0-9]/g, '');
+
+    const vObj = allAvailableVendors.find(v => {
+      const vc = String(v.code || v.vendor_code || '').trim().toLowerCase();
+      const vn = String(v.name || v.legal_name || '').trim().toLowerCase();
+      return (vc && vc === vFilter) || (vn && vn === vFilter) || 
+             (vc && cleanFilter.includes(vc.replace(/[^a-z0-9]/g, ''))) ||
+             (vn && cleanFilter.includes(vn.replace(/[^a-z0-9]/g, '')));
     });
-  }, [posList, uploadVendorFilter]);
+
+    const targetCode = vObj ? String(vObj.code || vObj.vendor_code || '').trim().toLowerCase() : '';
+    const targetName = vObj ? String(vObj.name || vObj.legal_name || '').trim().toLowerCase() : '';
+
+    const filtered = validPOs.filter(p => {
+      const code = String(p.vendor_code || p.vendorCode || p.vendor_key || '').trim().toLowerCase();
+      const name = String(p.vendor_name || p.vendor || '').trim().toLowerCase();
+      const cleanCode = code.replace(/[^a-z0-9]/g, '');
+      const cleanName = name.replace(/[^a-z0-9]/g, '');
+
+      if (code && (code === vFilter || cleanCode === cleanFilter || cleanFilter.includes(cleanCode) || cleanCode.includes(cleanFilter))) return true;
+      if (name && (name === vFilter || cleanName === cleanFilter || cleanFilter.includes(cleanName) || cleanName.includes(cleanFilter))) return true;
+      if (targetCode && code && (code === targetCode || cleanCode === targetCode.replace(/[^a-z0-9]/g, ''))) return true;
+      if (targetName && name && (name === targetName || cleanName === targetName.replace(/[^a-z0-9]/g, ''))) return true;
+      return false;
+    });
+
+    return filtered.length > 0 ? filtered : validPOs;
+  }, [posList, uploadVendorFilter, allAvailableVendors]);
 
   // Filtered List
   const filteredInvoices = useMemo(() => {
@@ -1851,17 +1907,35 @@ export default function InvoicesView() {
               <SearchableVendorSelect
                 vendors={allAvailableVendors}
                 value={uploadVendorFilter}
-                onChange={(val) => {
+                onChange={(val, vendorObj) => {
                   setUploadVendorFilter(val);
                   if (val && uploadForm.poNo) {
                     const currentPO = posList.find(p => String(p.po_no || p.poNo) === String(uploadForm.poNo));
                     if (currentPO) {
-                      const vCode = String(currentPO.vendor_code || '').toLowerCase();
+                      const vCode = String(currentPO.vendor_code || currentPO.vendor_key || '').toLowerCase();
                       const vName = String(currentPO.vendor_name || currentPO.vendor || '').toLowerCase();
                       const selectedVal = String(val).toLowerCase();
-                      if (vCode !== selectedVal && vName !== selectedVal) {
+                      const selName = vendorObj ? String(vendorObj.name || vendorObj.legal_name || '').toLowerCase() : '';
+                      const isMatch = (vCode && vCode === selectedVal) || (vName && vName === selectedVal) ||
+                                      (selName && vName && (vName.includes(selName) || selName.includes(vName))) ||
+                                      (vCode && selectedVal && (vCode.includes(selectedVal) || selectedVal.includes(vCode)));
+                      if (!isMatch) {
                         setUploadForm(prev => ({ ...prev, poNo: '' }));
                       }
+                    }
+                  } else if (val && !uploadForm.poNo) {
+                    const vObj = vendorObj || allAvailableVendors.find(v => String(v.code || '').toLowerCase() === String(val).toLowerCase() || String(v.name || '').toLowerCase() === String(val).toLowerCase());
+                    const targetCode = vObj ? String(vObj.code || vObj.vendor_code || '').toLowerCase() : '';
+                    const targetName = vObj ? String(vObj.name || vObj.legal_name || '').toLowerCase() : '';
+                    const vendorPOs = posList.filter(p => {
+                      const st = String(p.status || p.approval_status || '').toLowerCase();
+                      if (['rejected', 'cancelled', 'canceled'].includes(st)) return false;
+                      const pCode = String(p.vendor_code || p.vendor_key || '').toLowerCase();
+                      const pName = String(p.vendor_name || p.vendor || '').toLowerCase();
+                      return (targetCode && pCode === targetCode) || (targetName && pName === targetName) || (targetName && (pName.includes(targetName) || targetName.includes(pName)));
+                    });
+                    if (vendorPOs.length === 1) {
+                      setUploadForm(prev => ({ ...prev, poNo: vendorPOs[0].po_no || vendorPOs[0].poNo }));
                     }
                   }
                 }}
@@ -1884,11 +1958,18 @@ export default function InvoicesView() {
                 onChange={(e) => {
                   const selectedVal = e.target.value;
                   setUploadForm(prev => ({ ...prev, poNo: selectedVal }));
-                  if (selectedVal && !uploadVendorFilter) {
+                  if (selectedVal) {
                     const matchedPO = posList.find(p => String(p.po_no || p.poNo) === String(selectedVal));
                     if (matchedPO) {
-                      const vCode = matchedPO.vendor_code || matchedPO.vendor_name || matchedPO.vendor;
-                      if (vCode) setUploadVendorFilter(vCode);
+                      const vCode = matchedPO.vendor_code || matchedPO.vendor_key || '';
+                      const vName = matchedPO.vendor_name || matchedPO.vendor || '';
+                      const foundV = allAvailableVendors.find(v => {
+                        const vc = String(v.code || v.vendor_code || '').toLowerCase();
+                        const vn = String(v.name || v.legal_name || '').toLowerCase();
+                        return (vCode && vc === vCode.toLowerCase()) || (vName && vn === vName.toLowerCase());
+                      });
+                      const finalV = foundV ? (foundV.code || foundV.name) : (vCode || vName);
+                      if (finalV) setUploadVendorFilter(finalV);
                     }
                   }
                 }}
