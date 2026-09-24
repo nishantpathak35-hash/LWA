@@ -8,7 +8,7 @@ import {
   Loader2, CreditCard, Eye, Trash2, AlertTriangle, LayoutGrid, LayoutList, 
   FileText, Sparkles, Building, IndianRupee, RefreshCw, FileCheck, ShieldAlert, UploadCloud,
   ChevronDown, ChevronRight, Users, Calendar, ArrowUpRight, ExternalLink, Percent, ShieldCheck,
-  Check, Copy, X, SlidersHorizontal
+  Check, Copy, X, SlidersHorizontal, Edit2
 } from 'lucide-react';
 import { toast } from '../ui/Toast';
 import { exportToCSV } from '../../app/lib/exportUtils';
@@ -46,6 +46,42 @@ export default function InvoicesView() {
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkRejectModalOpen, setBulkRejectModalOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState('');
+
+  // Edit Invoice State
+  const [invoiceToEdit, setInvoiceToEdit] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editFilePreviewUrl, setEditFilePreviewUrl] = useState(null);
+  const [editSelectedFile, setEditSelectedFile] = useState(null);
+  const [editForm, setEditForm] = useState({
+    invoiceNumber: '',
+    invoiceDate: '',
+    subtotal: '',
+    taxAmount: '',
+    invoiceTotal: '',
+    remarks: ''
+  });
+
+  // Credit Note (CN) State
+  const [creditNotesList, setCreditNotesList] = useState([]);
+  const [cnLoading, setCnLoading] = useState(false);
+  const [cnModalOpen, setCnModalOpen] = useState(false);
+  const [cnSubmitting, setCnSubmitting] = useState(false);
+  const [cnFile, setCnFile] = useState(null);
+  const [cnVendorFilter, setCnVendorFilter] = useState('');
+  const [cnToDelete, setCnToDelete] = useState(null);
+  const [cnDeleting, setCnDeleting] = useState(false);
+  const [cnForm, setCnForm] = useState({
+    poNo: '',
+    invoiceId: '',
+    cnNumber: '',
+    cnDate: new Date().toISOString().split('T')[0],
+    subtotal: '',
+    taxAmount: '',
+    totalAmount: '',
+    reason: 'Rate Difference',
+    remarks: ''
+  });
 
   // Filter States
   const [search, setSearch] = useState('');
@@ -106,10 +142,216 @@ export default function InvoicesView() {
     }
   };
 
+  const fetchCreditNotes = async () => {
+    try {
+      setCnLoading(true);
+      const res = await call('listCreditNotes', {});
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      setCreditNotesList(list);
+    } catch (err) {
+      console.warn('Failed to fetch credit notes:', err);
+      setCreditNotesList([]);
+    } finally {
+      setCnLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchInvoices();
     fetchPOs();
+    fetchCreditNotes();
   }, []);
+
+  const handleOpenEditModal = (inv) => {
+    setInvoiceToEdit(inv);
+    setEditForm({
+      invoiceNumber: inv.invoice_number || '',
+      invoiceDate: inv.invoice_date ? String(inv.invoice_date).split('T')[0] : new Date().toISOString().split('T')[0],
+      subtotal: inv.subtotal != null ? String(inv.subtotal) : '',
+      taxAmount: inv.tax_amount != null ? String(inv.tax_amount) : '',
+      invoiceTotal: inv.invoice_total != null ? String(inv.invoice_total) : '',
+      remarks: inv.remarks || ''
+    });
+    setEditSelectedFile(null);
+    if (editFilePreviewUrl) URL.revokeObjectURL(editFilePreviewUrl);
+    setEditFilePreviewUrl(null);
+    setEditModalOpen(true);
+  };
+
+  const handleEditAmountChange = (field, val) => {
+    const updated = { ...editForm, [field]: val };
+    const s = parseFloat(field === 'subtotal' ? val : updated.subtotal) || 0;
+    const t = parseFloat(field === 'taxAmount' ? val : updated.taxAmount) || 0;
+    if (field !== 'invoiceTotal' && s > 0) {
+      updated.invoiceTotal = (s + t).toFixed(2);
+    }
+    setEditForm(updated);
+  };
+
+  const handleEditFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (editFilePreviewUrl) URL.revokeObjectURL(editFilePreviewUrl);
+    setEditSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setEditFilePreviewUrl(url);
+  };
+
+  const handleEditInvoiceSubmit = async (e) => {
+    e.preventDefault();
+    if (!invoiceToEdit) return;
+    if (!editForm.invoiceNumber || !editForm.invoiceTotal) {
+      toast.error("Invoice Number and Total Amount are required.");
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      let fileData = null;
+      let fileName = null;
+      let fileType = null;
+      let fileSize = null;
+
+      if (editSelectedFile) {
+        fileName = editSelectedFile.name;
+        fileType = editSelectedFile.type;
+        fileSize = editSelectedFile.size;
+        fileData = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => resolve(evt.target.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(editSelectedFile);
+        });
+      }
+
+      const payload = {
+        invoiceNumber: editForm.invoiceNumber.trim(),
+        invoiceDate: editForm.invoiceDate,
+        subtotal: editForm.subtotal ? Number(editForm.subtotal) : 0,
+        taxAmount: editForm.taxAmount ? Number(editForm.taxAmount) : 0,
+        invoiceTotal: Number(editForm.invoiceTotal),
+        remarks: editForm.remarks,
+        fileName,
+        fileData,
+        fileType,
+        fileSize
+      };
+
+      await call('updateInvoice', invoiceToEdit.invoice_id || invoiceToEdit.id, payload);
+      toast.success(`Invoice #${payload.invoiceNumber} updated successfully!`);
+      if (editFilePreviewUrl) URL.revokeObjectURL(editFilePreviewUrl);
+      setEditFilePreviewUrl(null);
+      setEditSelectedFile(null);
+      setEditModalOpen(false);
+      setInvoiceToEdit(null);
+      if (inspectInvoice && (inspectInvoice.invoice_id === invoiceToEdit.invoice_id)) {
+        setInspectInvoice(prev => ({
+          ...prev,
+          invoice_number: payload.invoiceNumber,
+          invoice_date: payload.invoiceDate,
+          subtotal: payload.subtotal,
+          tax_amount: payload.taxAmount,
+          invoice_total: payload.invoiceTotal,
+          remarks: payload.remarks
+        }));
+      }
+      await fetchInvoices();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update invoice');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleCnAmountChange = (field, val) => {
+    const updated = { ...cnForm, [field]: val };
+    const s = parseFloat(field === 'subtotal' ? val : updated.subtotal) || 0;
+    const t = parseFloat(field === 'taxAmount' ? val : updated.taxAmount) || 0;
+    if (field !== 'totalAmount' && s > 0) {
+      updated.totalAmount = (s + t).toFixed(2);
+    }
+    setCnForm(updated);
+  };
+
+  const handleCreateCnSubmit = async (e) => {
+    e.preventDefault();
+    if (!cnForm.poNo || !cnForm.cnNumber || !cnForm.totalAmount) {
+      toast.error("PO Number, Credit Note Number, and Total Amount are required.");
+      return;
+    }
+
+    setCnSubmitting(true);
+    try {
+      let fileData = null;
+      let fileName = null;
+      let fileType = null;
+      let fileSize = null;
+
+      if (cnFile) {
+        fileName = cnFile.name;
+        fileType = cnFile.type;
+        fileSize = cnFile.size;
+        fileData = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => resolve(evt.target.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(cnFile);
+        });
+      }
+
+      await call('createCreditNote', {
+        cnNumber: cnForm.cnNumber.trim(),
+        cnDate: cnForm.cnDate,
+        poNo: cnForm.poNo,
+        invoiceId: cnForm.invoiceId || null,
+        subtotal: cnForm.subtotal ? Number(cnForm.subtotal) : 0,
+        taxAmount: cnForm.taxAmount ? Number(cnForm.taxAmount) : 0,
+        totalAmount: Number(cnForm.totalAmount),
+        reason: cnForm.reason,
+        remarks: cnForm.remarks,
+        fileName,
+        fileData,
+        fileType,
+        fileSize
+      });
+
+      toast.success(`Credit Note #${cnForm.cnNumber} recorded successfully!`);
+      setCnModalOpen(false);
+      setCnFile(null);
+      setCnVendorFilter('');
+      setCnForm({
+        poNo: '',
+        invoiceId: '',
+        cnNumber: '',
+        cnDate: new Date().toISOString().split('T')[0],
+        subtotal: '',
+        taxAmount: '',
+        totalAmount: '',
+        reason: 'Rate Difference',
+        remarks: ''
+      });
+      await fetchCreditNotes();
+    } catch (err) {
+      toast.error(err.message || 'Failed to create Credit Note');
+    } finally {
+      setCnSubmitting(false);
+    }
+  };
+
+  const handleDeleteCnConfirm = async () => {
+    if (!cnToDelete) return;
+    setCnDeleting(true);
+    try {
+      await call('deleteCreditNote', cnToDelete.cn_id || cnToDelete.id);
+      toast.success(`Credit Note #${cnToDelete.cn_number} deleted successfully`);
+      setCnToDelete(null);
+      await fetchCreditNotes();
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete Credit Note');
+    } finally {
+      setCnDeleting(false);
+    }
+  };
 
   const handleDeleteInvoiceConfirm = async () => {
     if (!invoiceToDelete) return;
@@ -989,7 +1231,7 @@ export default function InvoicesView() {
           <option value="ALL">All sources</option><option value="vendor_portal">Vendor portal</option><option value="internal_upload">Internal upload</option>
         </select>
         <select aria-label="Invoice view" value={activeViewMode} onChange={e => setActiveViewMode(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm">
-          <option value="flat">Invoice list</option><option value="vendor">Group by vendor</option>
+          <option value="flat">Invoice list</option><option value="vendor">Group by vendor</option><option value="credit_notes">Credit Notes ({creditNotesList.length})</option>
         </select>
         <select aria-label="Sort invoices" value={invoiceSort} onChange={e => setInvoiceSort(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm">
           <option value="date_desc">Newest invoice first</option><option value="date_asc">Oldest invoice first</option><option value="amount_desc">Highest amount first</option><option value="vendor">Vendor A–Z</option>
@@ -1200,6 +1442,14 @@ export default function InvoicesView() {
 
                                   <button
                                     type="button"
+                                    onClick={() => handleOpenEditModal(inv)}
+                                    className="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 p-1.5 hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer"
+                                    title="Edit Invoice"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => setInvoiceToDelete(inv)}
                                     className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
                                     title="Delete Invoice"
@@ -1218,6 +1468,131 @@ export default function InvoicesView() {
               </div>
             );
           })}
+        </div>
+
+      ) : activeViewMode === 'credit_notes' ? (
+
+        /* ── CREDIT NOTES (CN) VIEW ── */
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 rounded-xl bg-muted/30 border border-border p-4">
+            <div>
+              <span className="block text-xs text-muted-foreground">Total Credit Notes</span>
+              <span className="block mt-1 text-xl font-bold font-mono text-foreground">{filteredCreditNotes.length} records</span>
+            </div>
+            <div>
+              <span className="block text-xs text-muted-foreground">Total Credit Adjustment</span>
+              <span className="block mt-1 text-xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                {formatCurrency(totalCnAmount)}
+              </span>
+            </div>
+            <div>
+              <span className="block text-xs text-muted-foreground">Average Adjustment</span>
+              <span className="block mt-1 text-xl font-bold font-mono text-foreground">
+                {filteredCreditNotes.length ? formatCurrency(totalCnAmount / filteredCreditNotes.length) : '₹0'}
+              </span>
+            </div>
+          </div>
+
+          {cnLoading ? (
+            <div className="py-20 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600 dark:text-indigo-400" />
+              <span>Loading Credit Notes ledger...</span>
+            </div>
+          ) : filteredCreditNotes.length === 0 ? (
+            <div className="p-12 border border-border border-dashed rounded-xl text-center text-xs text-muted-foreground space-y-3">
+              <Receipt className="w-10 h-10 mx-auto text-muted-foreground/40" />
+              <p className="font-semibold text-foreground text-sm">No Credit Notes found</p>
+              <p>Record a credit note against any PO or invoice to log rate adjustments, damages, or returns.</p>
+              <Button size="sm" onClick={() => setCnModalOpen(true)} className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+                <Receipt size={14} className="mr-1.5" /> + Record Credit Note
+              </Button>
+            </div>
+          ) : (
+            <div className="border border-border rounded-xl overflow-hidden bg-card shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/50 text-xs text-muted-foreground border-b border-border">
+                    <tr>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground whitespace-nowrap text-center">S.No</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground whitespace-nowrap">CN Number</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground whitespace-nowrap">Date</th>
+                      <th className="px-4 py-3.5 font-bold text-muted-foreground min-w-[180px]">Vendor</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground whitespace-nowrap">PO #</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground whitespace-nowrap">Linked Invoice</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground whitespace-nowrap">Reason</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground text-right whitespace-nowrap">Subtotal</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground text-right whitespace-nowrap">Tax</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground text-right whitespace-nowrap">Total CN Value</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground text-center whitespace-nowrap">Doc</th>
+                      <th className="px-3 py-3.5 font-bold text-muted-foreground text-right whitespace-nowrap">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border font-sans">
+                    {filteredCreditNotes.map((cn, idx) => (
+                      <tr key={cn.cn_id || cn.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-3 py-3.5 text-center text-xs text-muted-foreground font-mono">{idx + 1}</td>
+                        <td className="px-3 py-3.5 font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                          {cn.cn_number}
+                        </td>
+                        <td className="px-3 py-3.5 whitespace-nowrap text-xs text-muted-foreground font-mono">
+                          {cn.cn_date ? formatDate(cn.cn_date) : '—'}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="font-semibold text-foreground text-xs">{cn.vendor_name}</div>
+                          {cn.vendor_code && <span className="text-[10px] text-muted-foreground font-mono">{cn.vendor_code}</span>}
+                        </td>
+                        <td className="px-3 py-3.5 font-mono text-xs font-semibold text-foreground whitespace-nowrap">
+                          {cn.po_no}
+                        </td>
+                        <td className="px-3 py-3.5 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                          {cn.invoice_number || 'General / None'}
+                        </td>
+                        <td className="px-3 py-3.5 whitespace-nowrap">
+                          <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 text-[10px] font-semibold">
+                            {cn.reason || 'Adjustment'}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-3.5 text-right text-xs font-mono text-muted-foreground whitespace-nowrap">
+                          {formatCurrency(cn.subtotal || 0)}
+                        </td>
+                        <td className="px-3 py-3.5 text-right text-xs font-mono text-muted-foreground whitespace-nowrap">
+                          {formatCurrency(cn.tax_amount || 0)}
+                        </td>
+                        <td className="px-3 py-3.5 text-right text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                          {formatCurrency(cn.total_amount)}
+                        </td>
+                        <td className="px-3 py-3.5 text-center whitespace-nowrap">
+                          {cn.file_url ? (
+                            <a
+                              href={cn.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-xs text-indigo-600 dark:text-indigo-400 hover:underline p-1.5 hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer"
+                              title="View Document"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground/30 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setCnToDelete(cn)}
+                            className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Credit Note"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
       ) : (
@@ -1387,6 +1762,24 @@ export default function InvoicesView() {
                             title="Download Invoice PDF"
                           >
                             <Download className={`w-3.5 h-3.5 ${downloadingId === inv.invoice_id ? 'animate-pulse' : ''}`} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(inv)}
+                            className="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 p-1.5 hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Invoice"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceToDelete(inv)}
+                            className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Invoice"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
 
                           {(String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review') && (
@@ -1708,9 +2101,14 @@ export default function InvoicesView() {
 
             {/* Drawer Bottom Actions */}
             <div className="p-5 border-t border-border bg-muted/30 flex flex-wrap items-center justify-between gap-3">
-              <Button variant="ghost" onClick={() => setInvoiceToDelete(inspectInvoice)} className="text-xs rounded-xl text-rose-600 dark:text-rose-400">
-                Delete invoice
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" onClick={() => setInvoiceToDelete(inspectInvoice)} className="text-xs rounded-xl text-rose-600 dark:text-rose-400">
+                  Delete invoice
+                </Button>
+                <Button variant="outline" onClick={() => handleOpenEditModal(inspectInvoice)} className="text-xs rounded-xl font-bold border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10">
+                  <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit invoice
+                </Button>
+              </div>
 
               <div className="flex items-center gap-2.5">
                 {(String(inspectInvoice.status).toLowerCase() === 'submitted' || String(inspectInvoice.status).toLowerCase() === 'under review') && (
@@ -2228,6 +2626,390 @@ export default function InvoicesView() {
         </Dialog>
       )}
 
+
+      {/* ── Edit Invoice Modal ── */}
+      {editModalOpen && invoiceToEdit && (
+        <Dialog
+          open={true}
+          onClose={() => {
+            if (editFilePreviewUrl) URL.revokeObjectURL(editFilePreviewUrl);
+            setEditFilePreviewUrl(null);
+            setEditSelectedFile(null);
+            setEditModalOpen(false);
+            setInvoiceToEdit(null);
+          }}
+          title={`Edit Invoice Details — #${invoiceToEdit.invoice_number}`}
+          maxWidth={editFilePreviewUrl ? "max-w-5xl" : "max-w-lg"}
+        >
+          <form onSubmit={handleEditInvoiceSubmit} className="space-y-4">
+            <div className="p-3 bg-muted/30 border border-border rounded-xl text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Vendor:</span>
+                <span className="font-bold text-foreground">{invoiceToEdit.vendor_name} ({invoiceToEdit.vendor_code})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">PO Number:</span>
+                <span className="font-mono font-bold text-foreground">{invoiceToEdit.po_no}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Current Status:</span>
+                <span className="font-semibold text-foreground">{invoiceToEdit.status}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Invoice Number *</label>
+                <Input
+                  type="text"
+                  required
+                  value={editForm.invoiceNumber}
+                  onChange={(e) => setEditForm({ ...editForm, invoiceNumber: e.target.value })}
+                  placeholder="e.g. INV-2026-001"
+                  className="bg-background border-border text-xs font-mono rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Invoice Date *</label>
+                <Input
+                  type="date"
+                  required
+                  value={editForm.invoiceDate}
+                  onChange={(e) => setEditForm({ ...editForm, invoiceDate: e.target.value })}
+                  className="bg-background border-border text-xs rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Subtotal (₹)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editForm.subtotal}
+                  onChange={(e) => handleEditAmountChange('subtotal', e.target.value)}
+                  placeholder="0.00"
+                  className="bg-background border-border text-xs font-mono rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Tax Amount (₹)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editForm.taxAmount}
+                  onChange={(e) => handleEditAmountChange('taxAmount', e.target.value)}
+                  placeholder="0.00"
+                  className="bg-background border-border text-xs font-mono rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Total Amount (₹) *</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={editForm.invoiceTotal}
+                  onChange={(e) => handleEditAmountChange('invoiceTotal', e.target.value)}
+                  placeholder="0.00"
+                  className="bg-background border-border text-xs font-bold text-amber-600 dark:text-amber-400 font-mono rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-foreground font-bold block mb-1">Replace Attachment File (Optional)</label>
+              <input
+                type="file"
+                accept="application/pdf,image/*"
+                onChange={handleEditFileChange}
+                className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-amber-500/10 file:text-amber-600 dark:file:text-amber-400 hover:file:bg-amber-500/20 cursor-pointer"
+              />
+              {editSelectedFile && (
+                <div className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                  ✓ Selected: {editSelectedFile.name} ({(editSelectedFile.size / 1024).toFixed(1)} KB)
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs text-foreground font-bold block mb-1">Remarks</label>
+              <Textarea
+                rows={2}
+                value={editForm.remarks}
+                onChange={(e) => setEditForm({ ...editForm, remarks: e.target.value })}
+                placeholder="Optional notes or reason for edit..."
+                className="bg-background border-border text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  if (editFilePreviewUrl) URL.revokeObjectURL(editFilePreviewUrl);
+                  setEditFilePreviewUrl(null);
+                  setEditSelectedFile(null);
+                  setEditModalOpen(false);
+                  setInvoiceToEdit(null);
+                }}
+                disabled={editSubmitting}
+                className="text-xs rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={editSubmitting}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 rounded-xl px-4 shadow-xs"
+              >
+                {editSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                {editSubmitting ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
+      {/* ── Create Credit Note (CN) Modal ── */}
+      {cnModalOpen && (
+        <Dialog
+          open={true}
+          onClose={() => {
+            setCnModalOpen(false);
+            setCnFile(null);
+            setCnVendorFilter('');
+          }}
+          title="Record Credit Note (CN)"
+          maxWidth="max-w-lg"
+        >
+          <form onSubmit={handleCreateCnSubmit} className="space-y-4">
+            {/* Vendor Filter */}
+            <div>
+              <label className="text-xs text-foreground font-bold block mb-1">Select Vendor (To Filter POs)</label>
+              <SearchableVendorSelect
+                vendors={allAvailableVendors}
+                value={cnVendorFilter}
+                onChange={(val) => {
+                  setCnVendorFilter(val);
+                  // Reset PO and Invoice if vendor changed
+                  setCnForm(prev => ({ ...prev, poNo: '', invoiceId: '' }));
+                }}
+                placeholder="All Vendors (Select to narrow POs)"
+              />
+            </div>
+
+            {/* Target PO Selection */}
+            <div>
+              <label className="text-xs text-foreground font-bold block mb-1">Target PO Number *</label>
+              <select
+                required
+                value={cnForm.poNo}
+                onChange={(e) => {
+                  const selPo = e.target.value;
+                  setCnForm(prev => ({ ...prev, poNo: selPo, invoiceId: '' }));
+                }}
+                className="w-full h-9 rounded-xl border border-border bg-background text-foreground px-3 text-xs"
+              >
+                <option value="">-- Choose PO --</option>
+                {posList
+                  .filter(p => !cnVendorFilter || String(p.vendor_name || '').toLowerCase() === cnVendorFilter.toLowerCase())
+                  .map(p => (
+                    <option key={p.po_no || p.poNo} value={p.po_no || p.poNo}>
+                      {p.po_no || p.poNo} — {p.vendor_name || 'Vendor'} (Val: ₹{Number(p.revised_po_value || p.po_value || 0).toLocaleString('en-IN')})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Optional Linked Invoice */}
+            {cnForm.poNo && (
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Linked Invoice (Optional)</label>
+                <select
+                  value={cnForm.invoiceId}
+                  onChange={(e) => setCnForm({ ...cnForm, invoiceId: e.target.value })}
+                  className="w-full h-9 rounded-xl border border-border bg-background text-foreground px-3 text-xs"
+                >
+                  <option value="">General Adjustment / No specific invoice</option>
+                  {invoices
+                    .filter(inv => String(inv.po_no || '').trim().toLowerCase() === String(cnForm.poNo).trim().toLowerCase())
+                    .map(inv => (
+                      <option key={inv.invoice_id} value={inv.invoice_id}>
+                        Invoice #{inv.invoice_number} — ₹{Number(inv.invoice_total || 0).toLocaleString('en-IN')} ({inv.status})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Credit Note # *</label>
+                <Input
+                  type="text"
+                  required
+                  value={cnForm.cnNumber}
+                  onChange={(e) => setCnForm({ ...cnForm, cnNumber: e.target.value })}
+                  placeholder="e.g. CN-2026-001"
+                  className="bg-background border-border text-xs font-mono rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">CN Date *</label>
+                <Input
+                  type="date"
+                  required
+                  value={cnForm.cnDate}
+                  onChange={(e) => setCnForm({ ...cnForm, cnDate: e.target.value })}
+                  className="bg-background border-border text-xs rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-foreground font-bold block mb-1">Reason for Credit Note *</label>
+              <select
+                value={cnForm.reason}
+                onChange={(e) => setCnForm({ ...cnForm, reason: e.target.value })}
+                className="w-full h-9 rounded-xl border border-border bg-background text-foreground px-3 text-xs"
+              >
+                <option value="Rate Difference / Price Correction">Rate Difference / Price Correction</option>
+                <option value="Damaged / Defective Goods">Damaged / Defective Goods</option>
+                <option value="Quantity Shortage / Return">Quantity Shortage / Return</option>
+                <option value="Discount / Commercial Rebate">Discount / Commercial Rebate</option>
+                <option value="Invoice Cancellation / Re-issue">Invoice Cancellation / Re-issue</option>
+                <option value="Other Adjustment">Other Adjustment</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Subtotal (₹)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={cnForm.subtotal}
+                  onChange={(e) => handleCnAmountChange('subtotal', e.target.value)}
+                  placeholder="0.00"
+                  className="bg-background border-border text-xs font-mono rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Tax (₹)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={cnForm.taxAmount}
+                  onChange={(e) => handleCnAmountChange('taxAmount', e.target.value)}
+                  placeholder="0.00"
+                  className="bg-background border-border text-xs font-mono rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-foreground font-bold block mb-1">Total CN (₹) *</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={cnForm.totalAmount}
+                  onChange={(e) => handleCnAmountChange('totalAmount', e.target.value)}
+                  placeholder="0.00"
+                  className="bg-background border-border text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-foreground font-bold block mb-1">Credit Note Document (PDF / Image)</label>
+              <input
+                type="file"
+                accept="application/pdf,image/*"
+                onChange={(e) => setCnFile(e.target.files?.[0] || null)}
+                className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-indigo-500/10 file:text-indigo-600 dark:file:text-indigo-400 hover:file:bg-indigo-500/20 cursor-pointer"
+              />
+              {cnFile && (
+                <div className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 font-mono font-bold">
+                  ✓ Attached: {cnFile.name} ({(cnFile.size / 1024).toFixed(1)} KB)
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs text-foreground font-bold block mb-1">Remarks</label>
+              <Textarea
+                rows={2}
+                value={cnForm.remarks}
+                onChange={(e) => setCnForm({ ...cnForm, remarks: e.target.value })}
+                placeholder="Optional adjustment notes..."
+                className="bg-background border-border text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setCnModalOpen(false);
+                  setCnFile(null);
+                  setCnVendorFilter('');
+                }}
+                disabled={cnSubmitting}
+                className="text-xs rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={cnSubmitting}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 rounded-xl px-4 shadow-xs"
+              >
+                {cnSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Receipt className="w-3.5 h-3.5" />}
+                {cnSubmitting ? 'Recording CN...' : 'Record Credit Note'}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
+      {/* ── Delete Credit Note Modal ── */}
+      {cnToDelete && (
+        <Dialog open={true} onClose={() => setCnToDelete(null)} title="Delete Credit Note" maxWidth="max-w-md">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm">Delete Credit Note #{cnToDelete.cn_number}?</h4>
+                <p className="text-xs text-muted-foreground font-mono">
+                  PO: {cnToDelete.po_no} | Value: {formatCurrency(cnToDelete.total_amount)}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to delete this credit note? This will restore the vendor balance and remove all associated attachments.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <Button type="button" variant="ghost" onClick={() => setCnToDelete(null)} disabled={cnDeleting} className="text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDeleteCnConfirm}
+                disabled={cnDeleting}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 rounded-xl shadow-xs"
+              >
+                {cnDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {cnDeleting ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }

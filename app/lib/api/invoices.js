@@ -99,3 +99,7 @@ export async function listActiveInvitations(session) {
   return VendorOnboardingService.listActiveInvitations(session);
 }
 
+
+export async function updateInvoice(invoiceId, payload, session) {
+  return InvoiceService.updateInvoice(invoiceId, payload, session);
+}

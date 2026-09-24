@@ -398,6 +398,76 @@ export class InvoiceService {
   /**
    * Internal ERP — Delete an invoice line item / record.
    */
+  /**
+   * Internal ERP - Edit an existing invoice record.
+   */
+  static async updateInvoice(invoiceId: string, updates: any, session: any): Promise<{ ok: boolean }> {
+    AuthService.requireAuth(session);
+    const invoice = await InvoiceRepository.findById(invoiceId);
+    if (!invoice) throw new Error("Invoice record not found");
+
+    const newInvoiceNumber = updates.invoiceNumber ? String(updates.invoiceNumber).trim() : invoice.invoice_number;
+    if (newInvoiceNumber !== invoice.invoice_number) {
+      const duplicate = await InvoiceRepository.checkDuplicateInvoice(invoice.vendor_code, newInvoiceNumber, invoice.invoice_id);
+      if (duplicate) {
+        throw new Error(`Invoice Number "${newInvoiceNumber}" already exists for vendor "${invoice.vendor_name}".`);
+      }
+    }
+
+    let invoice_total = updates.invoiceTotal !== undefined && updates.invoiceTotal !== null && updates.invoiceTotal !== '' 
+      ? Number(updates.invoiceTotal) 
+      : invoice.invoice_total;
+    let subtotal = updates.subtotal !== undefined && updates.subtotal !== null && updates.subtotal !== ''
+      ? Number(updates.subtotal) 
+      : invoice.subtotal;
+    let tax_amount = updates.taxAmount !== undefined && updates.taxAmount !== null && updates.taxAmount !== ''
+      ? Number(updates.taxAmount) 
+      : invoice.tax_amount;
+
+    if (!Number.isFinite(invoice_total) || invoice_total <= 0) throw new Error('Valid Invoice Total amount is required.');
+
+    // Validate fields
+    validateInvoiceFields({
+      invoiceNumber: newInvoiceNumber,
+      invoiceDate: updates.invoiceDate || invoice.invoice_date,
+      subtotal,
+      taxAmount: tax_amount,
+      invoiceTotal: invoice_total
+    }, { partial: true });
+
+    // Optional replacement attachment
+    if (updates.fileName && updates.fileData) {
+      try {
+        await deleteEntityAttachments('invoice', invoice.invoice_id);
+        await uploadAttachment({
+          entityType: 'invoice',
+          entityId: invoice.invoice_id,
+          fileName: updates.fileName,
+          fileType: updates.fileType || 'application/pdf',
+          fileSize: updates.fileSize || 0,
+          fileData: updates.fileData
+        }, session);
+      } catch (uploadErr: any) {
+        throw new Error(`Failed to upload updated attachment: ${uploadErr.message}`);
+      }
+    }
+
+    await InvoiceRepository.update(invoice.invoice_id, {
+      invoice_number: newInvoiceNumber,
+      invoice_date: updates.invoiceDate || invoice.invoice_date,
+      subtotal,
+      tax_amount,
+      invoice_total,
+      remarks: updates.remarks !== undefined ? updates.remarks : invoice.remarks
+    });
+
+    if (session?.email) {
+      await logAudit(session.email, 'Invoice Updated', `Updated invoice ${newInvoiceNumber} (${invoice.invoice_id})`, 'Invoices');
+    }
+
+    return { ok: true };
+  }
+
   static async deleteInvoice(invoiceId: string, session: any): Promise<{ ok: boolean }> {
     AuthService.requireAuth(session);
     const invoice = await InvoiceRepository.findById(invoiceId);

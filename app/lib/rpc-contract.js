@@ -185,5 +185,9 @@ export const RPC_CONTRACT = Object.freeze({
   toggleVendorPortalAccess: {"args":2,"sessionIndex":2,"access":"internal"},
   updateInvoiceStatus: {"args":3,"sessionIndex":3,"access":"internal"},
   deleteInvoice: {"args":1,"sessionIndex":1,"access":"internal"},
+  updateInvoice: {"args":2,"sessionIndex":2,"access":"internal"},
+  createCreditNote: {"args":1,"sessionIndex":1,"access":"internal"},
+  listCreditNotes: {"args":1,"sessionIndex":1,"access":"internal"},
+  deleteCreditNote: {"args":1,"sessionIndex":1,"access":"internal"},
   listActiveInvitations: {"args":0,"sessionIndex":0,"access":"internal"},
 });
