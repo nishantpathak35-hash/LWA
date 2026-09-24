@@ -25,13 +25,16 @@ export function isPOAcceptingInvoices(po: any): boolean {
     'billed',
     'partially paid',
     'in execution',
-    'in progress'
+    'in progress',
+    'short closed',
+    'short_closed',
+    'closed'
   ];
 
-  if (['rejected', 'cancelled', 'canceled', 'closed', 'short closed', 'draft'].includes(approvalSt)) {
+  if (['rejected', 'cancelled', 'canceled', 'draft'].includes(approvalSt)) {
     return false;
   }
-  if (['rejected', 'cancelled', 'canceled', 'closed', 'short closed'].includes(statusSt)) {
+  if (['rejected', 'cancelled', 'canceled'].includes(statusSt)) {
     return false;
   }
 
@@ -81,7 +84,7 @@ export class InvoiceService {
     }
 
     if (!isPOAcceptingInvoices(po)) {
-      throw new Error(`Invoices can only be uploaded against Open or Approved Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
+      throw new Error(`Invoices can only be uploaded against Open, Approved, or Short Closed Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
     }
 
     // Server-side Duplicate Invoice Prevention
@@ -161,7 +164,7 @@ export class InvoiceService {
     if (!po) throw new Error(`Purchase Order "${cleanPoNo}" not found.`);
 
     if (!isPOAcceptingInvoices(po)) {
-      throw new Error(`Invoices can only be uploaded against Open or Approved Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
+      throw new Error(`Invoices can only be uploaded against Open, Approved, or Short Closed Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
     }
 
     let targetVendor = null;
@@ -368,8 +371,38 @@ export class InvoiceService {
     const { getAttachments } = await import('../../../../app/lib/api/attachments.js');
     const attachments = await getAttachments({ entityType: 'invoice', entityId: inv.invoice_id }, session);
 
+    const { PORepository } = await import('../../purchase-orders/repositories/PORepository.ts');
+    const { VendorRepository } = await import('../../vendors/repositories/VendorRepository.ts');
+
+    let po: any = null;
+    let items: any[] = [];
+    if (inv.po_no) {
+      try {
+        po = await PORepository.findById(inv.po_no);
+        items = await PORepository.findItemsByPoNo(inv.po_no);
+      } catch (e) {
+        console.warn('Failed to load PO/items:', e);
+      }
+    }
+
+    let vendor: any = null;
+    if (inv.vendor_code || inv.vendor_name) {
+      try {
+        vendor = await VendorRepository.findByNameOrCode(inv.vendor_code || inv.vendor_name);
+      } catch (e) {
+        console.warn('Failed to load vendor:', e);
+      }
+    }
+
+    const isPaid = String(inv.status).toLowerCase() === 'paid';
+    const balanceDue = isPaid ? 0 : Number(inv.invoice_total || 0);
+
     return {
       ...inv,
+      po,
+      items: items || [],
+      vendor,
+      balance_due: balanceDue,
       attachments: attachments || []
     };
   }

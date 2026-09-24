@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button, Input } from '../../ui/core';
-import { Search, ChevronDown, ChevronUp, Eye, Send, Edit2, Clock, CheckCircle, XCircle, Copy, Trash2, Wallet, History, MessageSquare, Download, Layers, Filter } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Eye, Send, Edit2, Clock, CheckCircle, XCircle, Copy, Trash2, Wallet, History, MessageSquare, Download, Layers, Filter, Receipt } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import SortableHeader from '../../ui/SortableHeader';
 import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
@@ -30,12 +30,13 @@ export default function POListTable({
   const statusFilter = propStatusFilter !== undefined ? propStatusFilter : internalStatusFilter;
   const setStatusFilter = propSetStatusFilter || setInternalStatusFilter;
   const [selectedPOForDrawer, setSelectedPOForDrawer] = useState(null);
+  const [drawerInitialTab, setDrawerInitialTab] = useState('items');
 
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortDir(field);
+      setSortField(field);
       setSortDir('asc');
     }
   };
@@ -80,6 +81,7 @@ export default function POListTable({
       { label: 'Status', key: 'status', formatter: (v, r) => r.status || r.approval_status },
       { label: 'Payment Status', key: 'payment_status' },
       { label: 'PO Value', key: 'po_value', formatter: (v) => Number(v || 0) },
+      { label: 'Invoice Received', key: 'total_invoiced', formatter: (v) => Number(v || 0) },
       { label: 'Paid Amount', key: 'paid', formatter: (v) => Number(v || 0) },
       { label: 'Balance', key: 'balance', formatter: (v, r) => Math.max(0, Number(r.po_value || 0) - Number(r.paid || 0)) }
     ];
@@ -205,6 +207,13 @@ export default function POListTable({
                         <span className="text-muted-foreground">PO: {formatCurrency(poValue)}</span>
                         <span className="text-emerald-600 dark:text-emerald-400 font-bold">Paid: {formatCurrency(paid)} ({paidPct}%)</span>
                       </div>
+                      <div className="flex justify-between text-[11px] font-medium tabular-nums">
+                        <span className="text-muted-foreground">Invoice Received:</span>
+                        <span className={`font-mono font-bold ${Number(po.total_invoiced || 0) > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground font-normal"}`}>
+                          {formatCurrency(Number(po.total_invoiced || 0))}
+                          {Number(po.invoice_count || 0) > 0 && ` (${po.invoice_count} ${po.invoice_count === 1 ? 'bill' : 'bills'})`}
+                        </span>
+                      </div>
                       <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                         <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${paidPct}%` }} />
                       </div>
@@ -216,14 +225,24 @@ export default function POListTable({
 
                     {/* Actions Row */}
                     <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border" onClick={e => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedPOForDrawer(po)}
-                        className="h-7 px-2.5 text-[11px] text-amber-600 dark:text-amber-400 font-semibold"
-                      >
-                        <Eye className="w-3 h-3 mr-1" /> Quick View
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setDrawerInitialTab('items'); setSelectedPOForDrawer(po); }}
+                          className="h-7 px-2 text-[11px] text-amber-600 dark:text-amber-400 font-semibold"
+                        >
+                          <Eye className="w-3 h-3 mr-1" /> View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setDrawerInitialTab('invoices'); setSelectedPOForDrawer(po); }}
+                          className="h-7 px-2 text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1"
+                        >
+                          <Receipt className="w-3 h-3" /> Book Inv
+                        </Button>
+                      </div>
 
                       <div className="flex items-center gap-1">
                         {canApprove && isPending && (
@@ -276,6 +295,7 @@ export default function POListTable({
                     <SortableHeader field="status" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
                     <SortableHeader field="payment_status" label="Payment" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
                     <SortableHeader field="po_value" label="PO Value" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="total_invoiced" label="Invoice Received" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-32" />
                     <SortableHeader field="paid" label="Paid Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <SortableHeader field="balance" label="Balance" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <TableHead className="text-center w-28 py-3 px-4 font-medium text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
@@ -301,7 +321,7 @@ export default function POListTable({
                     return (
                       <TableRow
                         key={idx}
-                        onClick={() => setSelectedPOForDrawer(po)}
+                        onClick={() => { setDrawerInitialTab('items'); setSelectedPOForDrawer(po); }}
                         className="border-b border-border/50 hover:bg-muted/30 transition-colors duration-150 cursor-pointer group"
                       >
                         <TableCell className="pl-5 py-3.5 font-mono text-xs font-bold text-foreground group-hover:text-primary transition-colors">
@@ -328,6 +348,18 @@ export default function POListTable({
                         <TableCell className="px-3 py-3.5 text-right font-bold text-foreground font-mono tabular-nums text-xs">
                           {formatCurrency(Number(po.po_value || 0))}
                         </TableCell>
+                        <TableCell className="px-3 py-3.5 text-right font-mono tabular-nums text-xs">
+                          <div className="flex flex-col items-end">
+                            <span className={Number(po.total_invoiced || 0) > 0 ? "font-bold text-indigo-600 dark:text-indigo-400" : "text-muted-foreground font-normal"}>
+                              {formatCurrency(Number(po.total_invoiced || 0))}
+                            </span>
+                            {Number(po.invoice_count || 0) > 0 && (
+                              <span className="text-[10px] text-muted-foreground font-medium">
+                                {po.invoice_count} {po.invoice_count === 1 ? 'bill' : 'bills'}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="px-3 py-3.5 text-right font-semibold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-xs">
                           {formatCurrency(Number(po.paid || 0))}
                         </TableCell>
@@ -339,7 +371,7 @@ export default function POListTable({
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => setSelectedPOForDrawer(po)}
+                              onClick={() => { setDrawerInitialTab('items'); setSelectedPOForDrawer(po); }}
                               title="Quick Inspect PO"
                               className="h-7 w-7 text-muted-foreground hover:text-amber-500 hover:bg-muted"
                             >
@@ -367,11 +399,23 @@ export default function POListTable({
                                       type="button"
                                       onClick={() => {
                                         setOpenActionMenuPoNo(null);
+                                        setDrawerInitialTab('items');
                                         setSelectedPOForDrawer(po);
                                       }}
                                       className="flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors text-left font-medium"
                                     >
                                       <Eye className="w-3.5 h-3.5 text-amber-500" /> Side-Drawer View
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenActionMenuPoNo(null);
+                                        setDrawerInitialTab('invoices');
+                                        setSelectedPOForDrawer(po);
+                                      }}
+                                      className="flex items-center gap-2 px-3 py-2 text-xs text-indigo-700 dark:text-indigo-300 hover:bg-muted transition-colors text-left font-medium"
+                                    >
+                                      <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Book / View Invoices
                                     </button>
                                     <button
                                       type="button"
@@ -529,6 +573,7 @@ export default function POListTable({
         po={selectedPOForDrawer}
         isOpen={Boolean(selectedPOForDrawer)}
         onClose={() => setSelectedPOForDrawer(null)}
+        initialTab={drawerInitialTab}
         call={call}
         canApprove={canApprove}
         canCreate={canCreate}

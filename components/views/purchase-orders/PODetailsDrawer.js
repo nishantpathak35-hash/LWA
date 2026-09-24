@@ -10,11 +10,13 @@ import {
 import { Badge, Button } from '../../ui/core';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import CopyButton from '../../ui/CopyButton';
+import POInvoicesTab from './POInvoicesTab';
 
 export default function PODetailsDrawer({
   po,
   isOpen,
   onClose,
+  initialTab = 'items',
   call,
   canApprove,
   canCreate,
@@ -33,7 +35,7 @@ export default function PODetailsDrawer({
 
   useEffect(() => {
     if (!isOpen || !po?.po_no) return;
-    setActiveTab('items');
+    setActiveTab(initialTab || 'items');
     
     async function loadData() {
       setLoading(true);
@@ -169,33 +171,53 @@ export default function PODetailsDrawer({
             </div>
 
             {/* Quick Metrics Bar */}
-            <div className="mt-4 pt-3 border-t border-border grid grid-cols-3 gap-2 text-center bg-muted/40 p-2.5 rounded-xl">
+            <div className="mt-4 pt-3 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-2 text-center bg-muted/40 p-2.5 rounded-xl">
               <div>
                 <span className="text-[10px] uppercase font-semibold text-muted-foreground block">PO Value</span>
                 <span className="font-mono text-sm font-bold text-foreground">{formatCurrency(poValue)}</span>
               </div>
-              <div className="border-x border-border px-2">
+              <div className="border-l border-border px-2">
+                <span className="text-[10px] uppercase font-semibold text-indigo-600 dark:text-indigo-400 block">Invoiced</span>
+                <span className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(Number(data.total_invoiced || 0))}</span>
+              </div>
+              <div className="border-l border-border px-2">
                 <span className="text-[10px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Paid ({paidPercent}%)</span>
                 <span className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(paidAmount)}</span>
               </div>
-              <div>
+              <div className="border-l border-border px-2">
                 <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Remaining</span>
                 <span className="font-mono text-sm font-bold text-foreground">{formatCurrency(balance)}</span>
               </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-1 mt-4 border-b border-border -mb-5 px-1">
+            <div className="flex items-center gap-1 mt-4 border-b border-border -mb-5 px-1 overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveTab('items')}
-                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'items'
                     ? 'border-amber-500 text-amber-600 dark:text-amber-400'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Line Items ({items.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('invoices')}
+                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  activeTab === 'invoices'
+                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Receipt className="w-3.5 h-3.5" /> Invoices & Bills
+                {Number(data.invoice_count || 0) > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-500/20">
+                    {data.invoice_count}
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -241,6 +263,17 @@ export default function PODetailsDrawer({
               </div>
             ) : (
               <>
+                {/* ── TAB: Invoices & Bills ── */}
+                {activeTab === 'invoices' && (
+                  <div className="space-y-4">
+                    <POInvoicesTab
+                      poNo={data.po_no}
+                      poValue={poValue}
+                      vendorName={data.vendor_name || data.vendor_key}
+                    />
+                  </div>
+                )}
+
                 {/* ── TAB 1: Line Items ── */}
                 {activeTab === 'items' && (
                   <div className="space-y-4">
@@ -464,6 +497,19 @@ export default function PODetailsDrawer({
                 className="text-xs font-medium h-9 rounded-xl"
               >
                 <Eye className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Full PDF
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('invoices')}
+                className={`text-xs font-medium h-9 rounded-xl flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'invoices'
+                    ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                    : 'border-indigo-500/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/10'
+                }`}
+              >
+                <Receipt className="w-3.5 h-3.5" /> Book / View Invoices
               </Button>
             </div>
 

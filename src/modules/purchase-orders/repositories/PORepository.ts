@@ -10,7 +10,19 @@ export class PORepository {
     const offset = options?.offset ?? 0;
     return queryAll(`
       SELECT p.*,
-        p.legacy_paid as paid
+        p.legacy_paid as paid,
+        COALESCE((
+          SELECT SUM(inv.invoice_total)
+          FROM invoices inv
+          WHERE LOWER(TRIM(inv.po_no)) = LOWER(TRIM(p.po_no))
+            AND LOWER(inv.status) != 'rejected'
+        ), 0) as total_invoiced,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM invoices inv
+          WHERE LOWER(TRIM(inv.po_no)) = LOWER(TRIM(p.po_no))
+            AND LOWER(inv.status) != 'rejected'
+        ), 0) as invoice_count
       FROM purchase_orders p
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
@@ -28,7 +40,19 @@ export class PORepository {
   static async findById(poNo: string): Promise<IPO | null> {
     return queryGet(`
       SELECT p.*,
-        p.legacy_paid as paid
+        p.legacy_paid as paid,
+        COALESCE((
+          SELECT SUM(inv.invoice_total)
+          FROM invoices inv
+          WHERE LOWER(TRIM(inv.po_no)) = LOWER(TRIM(p.po_no))
+            AND LOWER(inv.status) != 'rejected'
+        ), 0) as total_invoiced,
+        COALESCE((
+          SELECT COUNT(*)
+          FROM invoices inv
+          WHERE LOWER(TRIM(inv.po_no)) = LOWER(TRIM(p.po_no))
+            AND LOWER(inv.status) != 'rejected'
+        ), 0) as invoice_count
       FROM purchase_orders p
       WHERE p.po_no = ?
     `, [poNo]);

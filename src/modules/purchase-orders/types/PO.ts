@@ -36,6 +36,8 @@ export interface IPO {
   expected_delivery_date?: string;
   created_at?: string;
   paid?: number; // Fetched from sum of payments in some views
+  total_invoiced?: number;
+  invoice_count?: number;
   payment_status?: string;
 }
 

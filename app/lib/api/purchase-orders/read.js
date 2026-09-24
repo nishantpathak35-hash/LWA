@@ -205,6 +205,8 @@ export async function getPOFullDetails(poNo, session) {
   const items = await POService.getPOItems(poNo);
   return {
     ...po,
+    total_invoiced: Number(po.total_invoiced || 0),
+    invoice_count: Number(po.invoice_count || 0),
     vendor_key: po.vendor_key || '',
     approval_status: po.approval_status || po.status || 'Draft',
     status: po.approval_status || po.status || 'Draft',
