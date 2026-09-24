@@ -1831,12 +1831,19 @@ export default function InvoicesView() {
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4 bg-muted/20">
               
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div><span className="text-muted-foreground block">Vendor</span><strong>{inspectInvoice.vendor_name || '—'}</strong></div>
-                <div><span className="text-muted-foreground block">Invoice date</span><strong>{inspectInvoice.invoice_date ? formatDate(inspectInvoice.invoice_date) : '—'}</strong></div>
-                <div><span className="text-muted-foreground block">Invoice amount</span><strong className="font-mono">{formatCurrency(inspectInvoice.invoice_total)}</strong></div>
-                <div><span className="text-muted-foreground block">Project</span><strong>{inspectInvoice.project || '—'}</strong></div>
-              </div>
+              <section aria-label="Invoice summary" className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="flex flex-wrap justify-between gap-x-6 gap-y-2 px-4 py-3 border-b border-border text-xs">
+                  <div><span className="text-muted-foreground mr-2">Vendor</span><strong>{inspectInvoice.vendor_name || '—'}</strong></div>
+                  <div><span className="text-muted-foreground mr-2">Project</span><strong>{inspectInvoice.project || '—'}</strong></div>
+                </div>
+                <dl className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 p-4 text-xs">
+                  <div className="min-w-0"><dt className="text-muted-foreground mb-1">Invoice number</dt><dd className="font-semibold font-mono text-sm break-words">{inspectInvoice.invoice_number || '—'}</dd></div>
+                  <div><dt className="text-muted-foreground mb-1">Invoice date</dt><dd className="font-semibold text-sm">{inspectInvoice.invoice_date ? formatDate(inspectInvoice.invoice_date) : '—'}</dd></div>
+                  <div><dt className="text-muted-foreground mb-1">Taxable value</dt><dd className="font-semibold font-mono text-sm">{inspectInvoice.subtotal != null ? formatCurrency(inspectInvoice.subtotal) : '—'}</dd></div>
+                  <div><dt className="text-muted-foreground mb-1">GST / Tax amount</dt><dd className="font-semibold font-mono text-sm">{inspectInvoice.tax_amount != null ? formatCurrency(inspectInvoice.tax_amount) : '—'}</dd></div>
+                  <div><dt className="text-muted-foreground mb-1">Total invoice value</dt><dd className="font-bold font-mono text-base text-primary">{inspectInvoice.invoice_total != null ? formatCurrency(inspectInvoice.invoice_total) : '—'}</dd></div>
+                </dl>
+              </section>
 
               {/* Purchase Orders Link Accordion */}
               {inspectInvoice.po_no && (
