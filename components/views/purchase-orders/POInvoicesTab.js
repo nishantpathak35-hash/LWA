@@ -1,3 +1,4 @@
+import { mergeOcrFields } from '../../../app/lib/invoiceOcrFields';
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../../StateProvider';
 import { Card, CardContent, Button, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Dialog, Input, Textarea } from '../../ui/core';
@@ -65,11 +66,11 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
     if (!selectedFile) return;
     setAiLoading(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 35000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
       // Preprocess file for OCR (renders PDF page 1 to crisp ~200KB image or downscales large photo)
-      const { fileData, fileType } = await prepareInvoiceForOcr(selectedFile);
+      const { fileData, fileType, additionalImages } = await prepareInvoiceForOcr(selectedFile);
 
       const token = localStorage.getItem('lx_auth_token');
       const res = await fetch('/api/ai/parse-invoice', {
@@ -80,12 +81,11 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
         },
         body: JSON.stringify({
           fileData,
+          additionalImages,
           fileType
         }),
         signal: controller.signal
       });
-
-      clearTimeout(timeoutId);
 
       const rawText = await res.text();
       let result;
@@ -100,14 +100,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
       }
       const data = result.data || {};
       
-      setFormData(prev => ({
-        ...prev,
-        invoiceNumber: data.invoiceNumber || prev.invoiceNumber,
-        invoiceDate: data.invoiceDate || prev.invoiceDate,
-        subtotal: data.subtotal ? String(data.subtotal) : prev.subtotal,
-        taxAmount: data.taxAmount ? String(data.taxAmount) : prev.taxAmount,
-        invoiceTotal: data.invoiceTotal ? String(data.invoiceTotal) : prev.invoiceTotal
-      }));
+      setFormData(prev => mergeOcrFields(prev, data));
       const hasAnyData = Boolean(data.invoiceNumber || (data.invoiceTotal && Number(data.invoiceTotal) > 0));
       if (result.isEmpty || !hasAnyData) {
         toast.warning(result.warning || 'Could not auto-read fields from this document. Please enter details manually.');
@@ -122,6 +115,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
         toast.error("AI parsing failed: " + (err.message || 'Unknown error'));
       }
     } finally {
+      clearTimeout(timeoutId);
       setAiLoading(false);
     }
   };
