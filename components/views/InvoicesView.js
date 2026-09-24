@@ -337,8 +337,29 @@ export default function InvoicesView() {
         invoiceTotal: data.invoiceTotal !== undefined && data.invoiceTotal !== null ? String(data.invoiceTotal) : prev.invoiceTotal
       }));
 
-      // Auto-match vendor if detected
-      if (data.vendorName && !uploadVendorFilter) {
+      // 1. Auto-match PO Number if detected
+      let matchedPO = null;
+      if (data.poNumber) {
+        const poClean = String(data.poNumber).toLowerCase().replace(/[^a-z0-9]/g, '');
+        matchedPO = posList.find(p => {
+          const pNo = String(p.po_no || p.poNo || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          return pNo && (pNo.includes(poClean) || poClean.includes(pNo));
+        });
+        if (matchedPO) {
+          const finalPoNo = matchedPO.po_no || matchedPO.poNo;
+          setUploadForm(prev => ({ ...prev, poNo: finalPoNo }));
+          toast.info(`Auto-matched PO: ${finalPoNo}`);
+        }
+      }
+
+      // 2. Auto-match vendor if detected or from matched PO
+      if (matchedPO) {
+        const vCode = matchedPO.vendor_code || matchedPO.vendorCode || matchedPO.vendor_name || matchedPO.vendor;
+        if (vCode) {
+          setUploadVendorFilter(vCode);
+          toast.info(`Auto-selected Vendor: ${matchedPO.vendor_name || matchedPO.vendor}`);
+        }
+      } else if (data.vendorName) {
         const vNameLower = String(data.vendorName).toLowerCase();
         const matched = allAvailableVendors.find(v => 
           vNameLower.includes(String(v.name || '').toLowerCase()) ||

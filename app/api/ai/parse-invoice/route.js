@@ -588,6 +588,58 @@ async function extractTextFromBuffer(buffer, fileType) {
   return '';
 }
 
+
+async function parseWithGroq(text, groqApiKey) {
+  if (!text || text.trim().length < 15 || !groqApiKey) return null;
+  try {
+    const res = await withTimeout(
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-oss-120b',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert invoice parser. Extract the following fields from the given invoice text into a JSON object: vendorName (string), invoiceNumber (string), invoiceDate (YYYY-MM-DD), poNumber (string), subtotal (number), taxAmount (number), invoiceTotal (number). CRITICAL: LUXEWORX / LUXEWORX ATELIER INTERIORS is the BUYER/CUSTOMER (Consignee/Bill-To). NEVER return Luxeworx as vendorName. The vendor is the supplier/seller company issuing the invoice. Ensure subtotal and taxAmount sum to invoiceTotal. If a field is missing, return empty string or 0. Return ONLY valid JSON.'
+            },
+            {
+              role: 'user',
+              content: text.slice(0, 6000)
+            }
+          ],
+          response_format: { type: 'json_object' }
+        })
+      }),
+      8000,
+      'Groq API'
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content) {
+        const parsed = JSON.parse(content);
+        return {
+          vendorName: String(parsed.vendorName || '').trim(),
+          invoiceNumber: String(parsed.invoiceNumber || '').trim(),
+          invoiceDate: String(parsed.invoiceDate || '').trim(),
+          poNumber: String(parsed.poNumber || '').trim(),
+          subtotal: Number(parsed.subtotal || 0),
+          taxAmount: Number(parsed.taxAmount || 0),
+          invoiceTotal: Number(parsed.invoiceTotal || 0)
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Groq parse error:', err.message);
+  }
+  return null;
+}
+
 export async function POST(request) {
   try {
     const token = request.headers.get('x-lwa-token') || request.headers.get('X-LWA-Token');
@@ -703,16 +755,58 @@ export async function POST(request) {
       });
     }
 
-    const parsedData = parseInvoiceText(rawText);
-    const validated = validateInvoiceFields(parsedData, { partial: true });
+    const groqKey = process.env.GROQ_API_KEY;
+    let parsedData = null;
+    let engineUsed = 'local_ocr';
+
+    if (groqKey && rawText && rawText.length > 20) {
+      parsedData = await parseWithGroq(rawText, groqKey);
+      if (parsedData && (parsedData.invoiceNumber || parsedData.invoiceTotal || parsedData.vendorName)) {
+        engineUsed = 'groq_ai';
+      }
+    }
+
+    if (!parsedData || (!parsedData.invoiceNumber && !parsedData.invoiceTotal)) {
+      parsedData = parseInvoiceText(rawText);
+    }
+
+    // Ensure subtotal and tax sum to invoiceTotal to satisfy validateInvoiceFields
+    let cleanTot = parsedData.invoiceTotal ? Number(Number(parsedData.invoiceTotal).toFixed(2)) : 0;
+    let cleanSub = parsedData.subtotal ? Number(Number(parsedData.subtotal).toFixed(2)) : 0;
+    let cleanTax = parsedData.taxAmount ? Number(Number(parsedData.taxAmount).toFixed(2)) : 0;
+
+    if (cleanTot > 0) {
+      if (cleanSub > 0 && cleanTax > 0) {
+        cleanSub = Number((cleanTot - cleanTax).toFixed(2));
+      } else if (cleanSub > 0 && !cleanTax) {
+        cleanTax = Number((cleanTot - cleanSub).toFixed(2));
+        if (cleanTax < 0) cleanTax = 0;
+      } else if (cleanTax > 0 && !cleanSub) {
+        cleanSub = Number((cleanTot - cleanTax).toFixed(2));
+      } else {
+        cleanSub = cleanTot;
+        cleanTax = 0;
+      }
+    } else if (cleanSub > 0) {
+      cleanTot = Number((cleanSub + cleanTax).toFixed(2));
+    }
+
+    const reconciled = {
+      ...parsedData,
+      subtotal: cleanSub,
+      taxAmount: cleanTax,
+      invoiceTotal: cleanTot
+    };
+
+    const validated = validateInvoiceFields(reconciled, { partial: true });
     return NextResponse.json({ 
       ok: true, 
       data: { 
         ...validated, 
-        vendorName: parsedData.vendorName || '', 
-        poNumber: parsedData.poNumber || '' 
+        vendorName: reconciled.vendorName || '', 
+        poNumber: reconciled.poNumber || '' 
       }, 
-      engine: 'local_ocr' 
+      engine: engineUsed 
     });
 
   } catch (error) {
