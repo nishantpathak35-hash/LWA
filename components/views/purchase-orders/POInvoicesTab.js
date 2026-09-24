@@ -3,6 +3,7 @@ import { useAppState } from '../../StateProvider';
 import { Card, CardContent, Button, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Dialog, Input, Textarea } from '../../ui/core';
 import { Receipt, Download, FilePlus, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, Trash2, FileText, UploadCloud, Sparkles, ExternalLink } from 'lucide-react';
 import { toast } from '../../ui/Toast';
+import { prepareInvoiceForOcr } from '../../../app/lib/invoiceOcrClient';
 
 export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
   const { call } = useAppState();
@@ -35,19 +36,8 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
     const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const res = e.target?.result;
-          if (typeof res === 'string') {
-            resolve(res.includes(',') ? res.split(',')[1] : res);
-          } else {
-            reject(new Error('Failed to read file data'));
-          }
-        };
-        reader.onerror = () => reject(new Error('File reading failed'));
-        reader.readAsDataURL(selectedFile);
-      });
+      // Preprocess file for OCR (renders PDF page 1 to crisp ~200KB image or downscales large photo)
+      const { fileData, fileType } = await prepareInvoiceForOcr(selectedFile);
 
       const token = localStorage.getItem('lx_auth_token');
       const res = await fetch('/api/ai/parse-invoice', {
@@ -57,8 +47,8 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
           'x-lwa-token': token || ''
         },
         body: JSON.stringify({
-          fileData: base64Data,
-          fileType: selectedFile.type || 'application/pdf'
+          fileData,
+          fileType
         }),
         signal: controller.signal
       });
@@ -86,7 +76,12 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
         taxAmount: data.taxAmount ? String(data.taxAmount) : prev.taxAmount,
         invoiceTotal: data.invoiceTotal ? String(data.invoiceTotal) : prev.invoiceTotal
       }));
-      toast.success("AI auto-filled invoice details successfully!");
+      const hasAnyData = Boolean(data.invoiceNumber || (data.invoiceTotal && Number(data.invoiceTotal) > 0));
+      if (result.isEmpty || !hasAnyData) {
+        toast.warning(result.warning || 'Could not auto-read fields from this document. Please enter details manually.');
+      } else {
+        toast.success("OCR auto-filled invoice details successfully!");
+      }
     } catch (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {

@@ -45,7 +45,7 @@ const MONTH_MAP = {
 };
 
 function normalizeDate(raw) {
-  if (!raw) return '';
+  if (!raw || typeof raw !== 'string') return '';
   raw = raw.trim().replace(/[,\.]/g, '-').replace(/\//g, '-');
 
   // 1. DD-Mon-YYYY or DD-Mon-YY (e.g. 13-Jul-26, 15-Jul-2026, 5-Jul-26)
@@ -125,7 +125,7 @@ function extractImagesFromPdf(buffer) {
   return images;
 }
 
-// 100% pure JavaScript PDF text extractor using Node built-in zlib & standard CMap decoding
+// Pure JavaScript PDF text extractor using Node built-in zlib
 function extractNativePdfText(buffer) {
   try {
     const raw = buffer.toString('latin1');
@@ -314,28 +314,6 @@ function parseInvoiceText(text) {
     }
   }
 
-  if (!vendorName) {
-    for (let i = 0; i < Math.min(15, lines.length); i++) {
-      const line = lines[i];
-      if (/gstin|pan\s*no/i.test(line) && !line.toLowerCase().includes('luxeworx')) {
-        if (i > 0 && lines[i - 1].length >= 3 && !noiseVendorRegex.test(lines[i - 1])) {
-          vendorName = lines[i - 1].replace(/[-|:]\s*$/, '').trim();
-          break;
-        }
-      }
-    }
-  }
-
-  if (!vendorName) {
-    for (let i = 0; i < Math.min(6, lines.length); i++) {
-      const line = lines[i];
-      if (line.length >= 4 && !noiseVendorRegex.test(line) && !line.includes(':') && !line.toLowerCase().includes('luxeworx')) {
-        vendorName = line.replace(/[-|:]\s*$/, '').trim();
-        break;
-      }
-    }
-  }
-
   // 2. Extract Invoice Number, Date, PO Number
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -350,7 +328,7 @@ function parseInvoiceText(text) {
       }
     }
 
-    // Invoice Number: First check structured fiscal patterns (e.g. AGL/26-27/164, KEW/26-27/1212)
+    // Invoice Number
     if (!invoiceNumber) {
       const fiscalMatch = line.match(/\b([A-Za-z]{1,6}[\/-]\d{2,4}[-\/]\d{2,4}[\/-][A-Za-z0-9]+)\b/);
       if (fiscalMatch && !fiscalMatch[1].toUpperCase().includes('PO') && !fiscalMatch[1].toUpperCase().includes('LAIPL')) {
@@ -358,7 +336,6 @@ function parseInvoiceText(text) {
       }
     }
 
-    // Invoice Number standard labels
     if (!invoiceNumber) {
       const invMatch = line.match(/(?:invoice\s*no\.?|inv\s*no\.?|bill\s*no\.?|invoice\s*#|bill\s*#|inv\s*#|invoice\s*number)\s*[:#-]?\s*([A-Za-z0-9\/._-]+)?/i);
       if (invMatch) {
@@ -400,7 +377,7 @@ function parseInvoiceText(text) {
     const cleanLine = line.replace(/,/g, '');
     const nextLine = i + 1 < lines.length ? lines[i + 1].replace(/,/g, '') : '';
 
-    // Total / Grand Total / Amount Chargeable
+    // Total
     if (!invoiceTotal && /(?:grand\s+total|total\s+amount|invoice\s+(?:total|value)|total\s+payable|net\s+payable|amount\s+chargeable)\b/i.test(line)) {
       const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:\u20B9RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
       if (amtMatch) {
@@ -415,7 +392,7 @@ function parseInvoiceText(text) {
       }
     }
 
-    // Subtotal / Taxable Value
+    // Subtotal
     if (!subtotal && /(?:taxable\s+(?:value|amount)|sub\s*total|basic\s+amount|total\s+before\s+tax)\b/i.test(line)) {
       const amtMatch = cleanLine.match(/(\d+\.\d{2}|\d+)\s*$/) || cleanLine.match(/[:\u20B9RsINR\s]+(\d+(?:\.\d{1,2})?)/i);
       if (amtMatch) {
@@ -434,7 +411,7 @@ function parseInvoiceText(text) {
     }
   }
 
-  // Word amount fallback (e.g. INR Forty Six Thousand Sixty Seven Only)
+  // Word amount fallback
   if (!invoiceTotal) {
     const wordAmtMatch = text.match(/(?:INR|Rs\.?)\s+([A-Za-z\s]+?)\s+Only/i);
     if (wordAmtMatch && wordAmtMatch[1]) {
@@ -443,153 +420,80 @@ function parseInvoiceText(text) {
     }
   }
 
-  // Fallback for simple 'Total: 46,067.00' or 'Total | 30.000'
-  if (!invoiceTotal) {
-    const totalMatch = text.match(/\bTotal\s*[:#| -]\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d{2,6})\b/i);
-    if (totalMatch) {
-      let rawNum = totalMatch[1].replace(/,/g, '');
-      if (/^\d{2}\.\d{3}$/.test(rawNum)) rawNum = rawNum.replace('.', '');
-      invoiceTotal = parseFloat(rawNum) || 0;
-    }
-  }
-
-  // 4. Strict Reconciliation to satisfy validateInvoiceFields
-  let cleanTot = invoiceTotal ? Number(Number(invoiceTotal).toFixed(2)) : 0;
-  let cleanSub = subtotal ? Number(Number(subtotal).toFixed(2)) : 0;
-  let cleanTax = taxAmount ? Number(Number(taxAmount).toFixed(2)) : 0;
-
-  if (cleanTot > 0) {
-    if (cleanSub > 0 && cleanTax > 0) {
-      cleanSub = Number((cleanTot - cleanTax).toFixed(2));
-    } else if (cleanSub > 0 && !cleanTax) {
-      cleanTax = Number((cleanTot - cleanSub).toFixed(2));
-      if (cleanTax < 0) cleanTax = 0;
-    } else if (cleanTax > 0 && !cleanSub) {
-      cleanSub = Number((cleanTot - cleanTax).toFixed(2));
-    } else {
-      cleanSub = cleanTot;
-      cleanTax = 0;
-    }
-  } else if (cleanSub > 0) {
-    cleanTot = Number((cleanSub + cleanTax).toFixed(2));
-  }
-
   return {
     vendorName: vendorName || '',
     invoiceNumber: invoiceNumber ? invoiceNumber.trim() : '',
     invoiceDate: invoiceDate || '',
-    subtotal: cleanSub,
-    taxAmount: cleanTax,
-    invoiceTotal: cleanTot,
+    subtotal: subtotal || 0,
+    taxAmount: taxAmount || 0,
+    invoiceTotal: invoiceTotal || 0,
     poNumber: poNumber || ''
   };
 }
 
-async function extractTextFromBuffer(buffer, fileType) {
-  // 1. PDF files
-  if (fileType === 'application/pdf') {
-    // A. Fast pure JS native text stream extractor (15ms)
-    try {
-      const pureText = extractNativePdfText(buffer);
-      if (isReadableText(pureText)) {
-        return pureText;
-      }
-    } catch (e) {
-      console.warn('Native PDF extraction failed:', e.message);
-    }
+async function parseWithGroqVision(base64Image, groqApiKey) {
+  if (!base64Image || !groqApiKey) return null;
+  try {
+    const res = await withTimeout(
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'qwen/qwen3.8-27b',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert Indian GST tax invoice parser. Extract the following fields from the given invoice image into a JSON object: vendorName (string), invoiceNumber (string), invoiceDate (YYYY-MM-DD), poNumber (string), subtotal (number), taxAmount (number), invoiceTotal (number). CRITICAL: LUXEWORX / LUXEWORX ATELIER INTERIORS is the BUYER/CUSTOMER (Consignee/Bill-To). NEVER return Luxeworx as vendorName. The vendor is the supplier company issuing the invoice. Ensure subtotal and taxAmount sum to invoiceTotal. If a field is missing, return empty string or 0. Return ONLY valid JSON.'
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Extract invoice fields into JSON. Ensure numbers are numbers, not strings.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${base64Image}`
+                  }
+                }
+              ]
+            }
+          ],
+          response_format: { type: 'json_object' }
+        })
+      }),
+      12000,
+      'Groq Vision API'
+    );
 
-    // B. PDFParse load and getText (digital PDF fallback)
-    let screenshotBuffer = null;
-    try {
-      const { PDFParse } = await import('pdf-parse');
-      if (typeof PDFParse === 'function') {
-        const parser = new PDFParse({ data: buffer });
-        await withTimeout(parser.load(), 5000, 'PDF load');
-        
-        try {
-          const textObj = await withTimeout(parser.getText(), 4000, 'PDF text extraction');
-          const raw = (textObj?.text || '').trim();
-          if (isReadableText(raw)) {
-            return raw;
-          }
-        } catch (tErr) {
-          console.warn('PDF text extraction error:', tErr.message);
-        }
-
-        // Render page screenshot for OCR
-        try {
-          const screenshot = await withTimeout(parser.getScreenshot({ pageNumber: 1 }), 8000, 'PDF screenshot');
-          const p0 = screenshot?.pages?.[0];
-          if (p0?.data) {
-            screenshotBuffer = Buffer.from(p0.data);
-          }
-        } catch (ssErr) {
-          console.warn('PDF screenshot failed:', ssErr.message);
-        }
-      }
-    } catch (pdfErr) {
-      console.warn('PDFParse failed:', pdfErr.message);
-    }
-
-    // C. If screenshotBuffer not obtained from PDFParse, try embedded JPEG streams
-    if (!screenshotBuffer) {
-      const imgs = extractImagesFromPdf(buffer);
-      imgs.sort((a, b) => b.length - a.length);
-      if (imgs.length > 0) {
-        screenshotBuffer = imgs[0];
-      }
-    }
-
-    // D. Run OCR on the page screenshot / extracted image
-    if (screenshotBuffer) {
-      try {
-        const tessModule = await import('tesseract.js');
-        const Tesseract = tessModule.default || tessModule;
-        if (Tesseract && typeof Tesseract.recognize === 'function') {
-          const textRes = await withTimeout(
-            Tesseract.recognize(screenshotBuffer, 'eng'),
-            25000,
-            'Scanned PDF OCR'
-          );
-          const ocrText = textRes?.data?.text || '';
-          if (ocrText && ocrText.trim().length > 10) {
-            return ocrText;
-          }
-        }
-      } catch (ocrErr) {
-        console.warn('Scanned PDF OCR error:', ocrErr.message);
+    if (res.ok) {
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content) {
+        const parsed = JSON.parse(content);
+        return {
+          vendorName: String(parsed.vendorName || '').trim(),
+          invoiceNumber: String(parsed.invoiceNumber || '').trim(),
+          invoiceDate: normalizeDate(String(parsed.invoiceDate || '')),
+          poNumber: String(parsed.poNumber || '').trim(),
+          subtotal: Number(parsed.subtotal || 0),
+          taxAmount: Number(parsed.taxAmount || 0),
+          invoiceTotal: Number(parsed.invoiceTotal || 0)
+        };
       }
     }
-
-    return '';
+  } catch (err) {
+    console.warn('Groq Vision parse error:', err.message);
   }
-
-  // 2. Direct Image files (JPEG, PNG, WEBP)
-  if (fileType && (fileType.startsWith('image/') || fileType === 'image/jpeg' || fileType === 'image/png' || fileType === 'image/webp')) {
-    try {
-      const tessModule = await import('tesseract.js');
-      const Tesseract = tessModule.default || tessModule;
-      if (Tesseract && typeof Tesseract.recognize === 'function') {
-        const textRes = await withTimeout(
-          Tesseract.recognize(buffer, 'eng'),
-          25000,
-          'Image OCR'
-        );
-        const text = textRes?.data?.text || '';
-        if (text && text.trim().length > 10) {
-          return text;
-        }
-      }
-    } catch (ocrErr) {
-      console.warn('Image OCR error:', ocrErr.message);
-    }
-  }
-
-  return '';
+  return null;
 }
 
-
-async function parseWithGroq(text, groqApiKey) {
+async function parseWithGroqText(text, groqApiKey) {
   if (!text || text.trim().length < 15 || !groqApiKey) return null;
   try {
     const res = await withTimeout(
@@ -604,7 +508,7 @@ async function parseWithGroq(text, groqApiKey) {
           messages: [
             {
               role: 'system',
-              content: 'You are an expert invoice parser. Extract the following fields from the given invoice text into a JSON object: vendorName (string), invoiceNumber (string), invoiceDate (YYYY-MM-DD), poNumber (string), subtotal (number), taxAmount (number), invoiceTotal (number). CRITICAL: LUXEWORX / LUXEWORX ATELIER INTERIORS is the BUYER/CUSTOMER (Consignee/Bill-To). NEVER return Luxeworx as vendorName. The vendor is the supplier/seller company issuing the invoice. Ensure subtotal and taxAmount sum to invoiceTotal. If a field is missing, return empty string or 0. Return ONLY valid JSON.'
+              content: 'You are an expert invoice parser. Extract the following fields from the given invoice text into a JSON object: vendorName (string), invoiceNumber (string), invoiceDate (YYYY-MM-DD), poNumber (string), subtotal (number), taxAmount (number), invoiceTotal (number). CRITICAL: LUXEWORX / LUXEWORX ATELIER INTERIORS is the BUYER/CUSTOMER (Consignee/Bill-To). NEVER return Luxeworx as vendorName. The vendor is the supplier company issuing the invoice. Ensure subtotal and taxAmount sum to invoiceTotal. If a field is missing, return empty string or 0. Return ONLY valid JSON.'
             },
             {
               role: 'user',
@@ -615,7 +519,7 @@ async function parseWithGroq(text, groqApiKey) {
         })
       }),
       8000,
-      'Groq API'
+      'Groq Text API'
     );
 
     if (res.ok) {
@@ -626,7 +530,7 @@ async function parseWithGroq(text, groqApiKey) {
         return {
           vendorName: String(parsed.vendorName || '').trim(),
           invoiceNumber: String(parsed.invoiceNumber || '').trim(),
-          invoiceDate: String(parsed.invoiceDate || '').trim(),
+          invoiceDate: normalizeDate(String(parsed.invoiceDate || '')),
           poNumber: String(parsed.poNumber || '').trim(),
           subtotal: Number(parsed.subtotal || 0),
           taxAmount: Number(parsed.taxAmount || 0),
@@ -635,7 +539,7 @@ async function parseWithGroq(text, groqApiKey) {
       }
     }
   } catch (err) {
-    console.warn('Groq parse error:', err.message);
+    console.warn('Groq text parse error:', err.message);
   }
   return null;
 }
@@ -676,108 +580,85 @@ export async function POST(request) {
     }
 
     const cleanBase64 = fileData.includes(',') ? fileData.split(',')[1] : fileData;
-    const fileBuffer = Buffer.from(cleanBase64, 'base64');
-    const geminiKey = process.env.GEMINI_API_KEY;
+    const isImage = (fileType && fileType.startsWith('image/')) || cleanBase64.startsWith('/9j/') || cleanBase64.startsWith('iVBORw');
+    const groqKey = process.env.GROQ_API_KEY;
 
-    // 1. Try Gemini AI if configured with 8s timeout
-    if (geminiKey) {
-      try {
-        const mime = fileType || 'application/pdf';
-        const response = await withTimeout(
-          fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      {
-                        inlineData: {
-                          mimeType: mime,
-                          data: cleanBase64
-                        }
-                      },
-                      {
-                        text: 'Extract invoice details. Return a JSON object with keys: vendorName, invoiceNumber, invoiceDate (YYYY-MM-DD), poNumber, subtotal (number), taxAmount (number), invoiceTotal (number). Return raw JSON only.'
-                      }
-                    ]
-                  }
-                ],
-                generationConfig: {
-                  responseMimeType: 'application/json'
-                }
-              })
-            }
-          ),
-          8000,
-          'Gemini API'
-        );
+    let parsedData = null;
+    let engineUsed = 'fallback';
 
-        if (response.ok) {
-          const data = await response.json();
-          const textResult = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (textResult) {
-            const cleanedText = textResult.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-            const parsed = JSON.parse(cleanedText);
-            const validated = validateInvoiceFields(parsed, { partial: true });
-            return NextResponse.json({ 
-              ok: true, 
-              data: { ...validated, vendorName: parsed.vendorName || '', poNumber: parsed.poNumber || '' }, 
-              engine: 'gemini' 
-            });
+    // 1. Direct Image or Rendered Canvas Page -> Groq Vision AI (Ultra-fast & accurate)
+    if (isImage && groqKey) {
+      parsedData = await parseWithGroqVision(cleanBase64, groqKey);
+      if (parsedData && (parsedData.invoiceNumber || parsedData.invoiceTotal || parsedData.vendorName)) {
+        engineUsed = 'groq_vision';
+      }
+    }
+
+    // 2. If PDF buffer sent
+    if (!parsedData && !isImage) {
+      const fileBuffer = Buffer.from(cleanBase64, 'base64');
+
+      // A. Try embedded JPEG images from PDF with Groq Vision
+      if (groqKey) {
+        const embeddedImages = extractImagesFromPdf(fileBuffer);
+        if (embeddedImages.length > 0) {
+          // Sort by size to pick the primary page scan
+          embeddedImages.sort((a, b) => b.length - a.length);
+          const firstImgB64 = embeddedImages[0].toString('base64');
+          parsedData = await parseWithGroqVision(firstImgB64, groqKey);
+          if (parsedData && (parsedData.invoiceNumber || parsedData.invoiceTotal || parsedData.vendorName)) {
+            engineUsed = 'groq_vision_pdf_image';
           }
         }
-      } catch (geminiErr) {
-        console.warn('Gemini extraction warning:', geminiErr.message);
+      }
+
+      // B. Try pure JS native text extraction with Groq Text
+      if (!parsedData) {
+        const pureText = extractNativePdfText(fileBuffer);
+        if (isReadableText(pureText) && groqKey) {
+          parsedData = await parseWithGroqText(pureText, groqKey);
+          if (parsedData && (parsedData.invoiceNumber || parsedData.invoiceTotal || parsedData.vendorName)) {
+            engineUsed = 'groq_text';
+          }
+        }
+
+        // C. Local regex fallback on text
+        if (!parsedData && isReadableText(pureText)) {
+          parsedData = parseInvoiceText(pureText);
+          if (parsedData && (parsedData.invoiceNumber || parsedData.invoiceTotal)) {
+            engineUsed = 'regex_local';
+          }
+        }
       }
     }
 
-    // 2. High-performance local PDF / Image OCR extraction engine
-    const rawText = await extractTextFromBuffer(fileBuffer, fileType || 'application/pdf');
-    
-    // Graceful fallback if OCR text is empty: return blank partial fields instead of blocking with 422 error
-    if (!rawText || rawText.trim().length === 0) {
-      return NextResponse.json({ 
-        ok: true,
-        data: {
-          invoiceNumber: '',
-          invoiceDate: '',
-          subtotal: 0,
-          taxAmount: 0,
-          invoiceTotal: 0,
-          vendorName: '',
-          poNumber: ''
-        },
-        engine: 'fallback',
-        warning: 'Document could not be auto-read completely. Please review details in the side window.'
-      });
+    // 3. Fallback blank object if nothing matched
+    if (!parsedData) {
+      parsedData = {
+        vendorName: '',
+        invoiceNumber: '',
+        invoiceDate: '',
+        subtotal: 0,
+        taxAmount: 0,
+        invoiceTotal: 0,
+        poNumber: ''
+      };
     }
 
-    const groqKey = process.env.GROQ_API_KEY;
-    let parsedData = null;
-    let engineUsed = 'local_ocr';
+    // 4. Robust reconciliation to ensure subtotal + taxAmount === invoiceTotal
+    let cleanTot = Number(parsedData.invoiceTotal) || 0;
+    let cleanSub = Number(parsedData.subtotal) || 0;
+    let cleanTax = Number(parsedData.taxAmount) || 0;
 
-    if (groqKey && rawText && rawText.length > 20) {
-      parsedData = await parseWithGroq(rawText, groqKey);
-      if (parsedData && (parsedData.invoiceNumber || parsedData.invoiceTotal || parsedData.vendorName)) {
-        engineUsed = 'groq_ai';
-      }
-    }
-
-    if (!parsedData || (!parsedData.invoiceNumber && !parsedData.invoiceTotal)) {
-      parsedData = parseInvoiceText(rawText);
-    }
-
-    // Ensure subtotal and tax sum to invoiceTotal to satisfy validateInvoiceFields
-    let cleanTot = parsedData.invoiceTotal ? Number(Number(parsedData.invoiceTotal).toFixed(2)) : 0;
-    let cleanSub = parsedData.subtotal ? Number(Number(parsedData.subtotal).toFixed(2)) : 0;
-    let cleanTax = parsedData.taxAmount ? Number(Number(parsedData.taxAmount).toFixed(2)) : 0;
+    cleanTot = Number(cleanTot.toFixed(2));
+    cleanSub = Number(cleanSub.toFixed(2));
+    cleanTax = Number(cleanTax.toFixed(2));
 
     if (cleanTot > 0) {
       if (cleanSub > 0 && cleanTax > 0) {
-        cleanSub = Number((cleanTot - cleanTax).toFixed(2));
+        if (Math.abs(cleanSub + cleanTax - cleanTot) > 0.05) {
+          cleanSub = Number((cleanTot - cleanTax).toFixed(2));
+        }
       } else if (cleanSub > 0 && !cleanTax) {
         cleanTax = Number((cleanTot - cleanSub).toFixed(2));
         if (cleanTax < 0) cleanTax = 0;
@@ -791,28 +672,56 @@ export async function POST(request) {
       cleanTot = Number((cleanSub + cleanTax).toFixed(2));
     }
 
+    const cleanDate = normalizeDate(parsedData.invoiceDate);
+
     const reconciled = {
-      ...parsedData,
+      vendorName: String(parsedData.vendorName || '').trim(),
+      invoiceNumber: String(parsedData.invoiceNumber || '').trim(),
+      invoiceDate: cleanDate,
       subtotal: cleanSub,
       taxAmount: cleanTax,
-      invoiceTotal: cleanTot
+      invoiceTotal: cleanTot,
+      poNumber: String(parsedData.poNumber || '').trim()
     };
 
-    const validated = validateInvoiceFields(reconciled, { partial: true });
-    return NextResponse.json({ 
-      ok: true, 
-      data: { 
-        ...validated, 
-        vendorName: reconciled.vendorName || '', 
-        poNumber: reconciled.poNumber || '' 
-      }, 
-      engine: engineUsed 
+    // Filter out "LUXEWORX" as vendor name if returned erroneously
+    if (reconciled.vendorName.toLowerCase().includes('luxeworx')) {
+      reconciled.vendorName = '';
+    }
+
+    // Clean PO number delimiters (e.g. "LA|PL" -> "LAIPL")
+    if (reconciled.poNumber) {
+      reconciled.poNumber = reconciled.poNumber.replace(/\|/g, 'I').replace(/\s+/g, '').toUpperCase();
+    }
+
+    // Check if any meaningful fields were detected
+    const hasData = Boolean(reconciled.invoiceNumber || reconciled.invoiceTotal > 0 || reconciled.vendorName);
+
+    let validated = reconciled;
+    try {
+      validated = validateInvoiceFields(reconciled, { partial: true });
+    } catch (vErr) {
+      console.warn('Field validation warning:', vErr.message);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      isEmpty: !hasData,
+      data: {
+        ...reconciled,
+        ...validated,
+        vendorName: reconciled.vendorName,
+        poNumber: reconciled.poNumber
+      },
+      engine: engineUsed,
+      warning: !hasData ? 'Could not auto-read fields from this document. Please enter invoice details manually.' : null
     });
 
   } catch (error) {
     console.error('Invoice parse error:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       ok: true,
+      isEmpty: true,
       data: {
         invoiceNumber: '',
         invoiceDate: '',
@@ -822,7 +731,7 @@ export async function POST(request) {
         vendorName: '',
         poNumber: ''
       },
-      warning: error.message || 'Invoice auto-fill encountered an issue. Please enter invoice details manually.' 
+      warning: error.message || 'Invoice auto-fill encountered an issue. Please enter invoice details manually.'
     });
   }
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Building2, ShoppingBag, Receipt, LogOut, Download, FilePlus, Loader2, CheckCircle2, Clock, XCircle, Eye, ShieldCheck, UserCheck, Search, Sparkles } from 'lucide-react';
 import { Button, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge } from '../ui/core';
 import { toast } from '../ui/Toast';
+import { prepareInvoiceForOcr } from '../../app/lib/invoiceOcrClient';
 
 export default function VendorPortalApp() {
   const [token, setToken] = useState(() => {
@@ -49,19 +50,8 @@ export default function VendorPortalApp() {
     const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const res = e.target?.result;
-          if (typeof res === 'string') {
-            resolve(res.includes(',') ? res.split(',')[1] : res);
-          } else {
-            reject(new Error('Failed to read file data'));
-          }
-        };
-        reader.onerror = () => reject(new Error('File reading failed'));
-        reader.readAsDataURL(selectedFile);
-      });
+      // Preprocess file for OCR (renders PDF page 1 to crisp ~200KB image or downscales large photo)
+      const { fileData, fileType } = await prepareInvoiceForOcr(selectedFile);
 
       const res = await fetch('/api/ai/parse-invoice', {
         method: 'POST',
@@ -70,8 +60,8 @@ export default function VendorPortalApp() {
           'x-lwa-token': token || ''
         },
         body: JSON.stringify({
-          fileData: base64Data,
-          fileType: selectedFile.type || 'application/pdf'
+          fileData,
+          fileType
         }),
         signal: controller.signal
       });
@@ -99,7 +89,12 @@ export default function VendorPortalApp() {
         taxAmount: data.taxAmount ? String(data.taxAmount) : prev.taxAmount,
         invoiceTotal: data.invoiceTotal ? String(data.invoiceTotal) : prev.invoiceTotal
       }));
-      toast.success("AI auto-filled invoice details successfully!");
+      const hasAnyData = Boolean(data.invoiceNumber || (data.invoiceTotal && Number(data.invoiceTotal) > 0));
+      if (result.isEmpty || !hasAnyData) {
+        toast.warning(result.warning || 'Could not auto-read fields from this document. Please enter details manually.');
+      } else {
+        toast.success("OCR auto-filled invoice details successfully!");
+      }
     } catch (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {

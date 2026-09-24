@@ -14,6 +14,7 @@ import { toast } from '../ui/Toast';
 import { exportToCSV } from '../../app/lib/exportUtils';
 import { formatDate } from '../../app/lib/utils';
 import SearchableVendorSelect from '../ui/SearchableVendorSelect';
+import { prepareInvoiceForOcr } from '../../app/lib/invoiceOcrClient';
 
 export default function InvoicesView() {
   const { call, setActiveView, vendors = [] } = useAppState();
@@ -284,19 +285,8 @@ export default function InvoicesView() {
     const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const res = e.target?.result;
-          if (typeof res === 'string') {
-            resolve(res.includes(',') ? res.split(',')[1] : res);
-          } else {
-            reject(new Error('Failed to read file data'));
-          }
-        };
-        reader.onerror = () => reject(new Error('File reading failed'));
-        reader.readAsDataURL(file);
-      });
+      // Preprocess file for OCR (renders PDF page 1 to crisp ~200KB image or downscales large photo)
+      const { fileData, fileType } = await prepareInvoiceForOcr(file);
 
       const token = localStorage.getItem('lx_auth_token') || localStorage.getItem('auth_token');
       const res = await fetch('/api/ai/parse-invoice', {
@@ -306,8 +296,8 @@ export default function InvoicesView() {
           'x-lwa-token': token || ''
         },
         body: JSON.stringify({
-          fileData: base64Data,
-          fileType: file.type || 'application/pdf'
+          fileData,
+          fileType
         }),
         signal: controller.signal
       });
@@ -406,12 +396,26 @@ export default function InvoicesView() {
         }
       }
 
+      const hasAnyData = Boolean(
+        data.invoiceNumber || 
+        (data.invoiceTotal && Number(data.invoiceTotal) > 0) || 
+        data.vendorName
+      );
+
+      if (result.isEmpty || !hasAnyData) {
+        setOcrSuccess(false);
+        toast.warning(result.warning || 'Could not auto-read invoice fields from this document. Please enter details manually.');
+        return;
+      }
+
       setOcrSuccess(true);
       const fields = [];
-      if (data.invoiceNumber) fields.push('Invoice #');
+      if (data.vendorName) fields.push('Vendor');
+      if (data.invoiceNumber) fields.push(`Invoice #${data.invoiceNumber}`);
       if (data.invoiceDate) fields.push('Date');
-      if (data.invoiceTotal) fields.push('Total');
-      toast.success(`OCR auto-filled: ${fields.join(', ') || 'details'} successfully!`);
+      if (data.invoiceTotal) fields.push(`Total (₹${Number(data.invoiceTotal).toLocaleString('en-IN')})`);
+      if (data.poNumber) fields.push('PO');
+      toast.success(`OCR auto-filled ${fields.join(', ')} successfully!`);
     } catch (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
