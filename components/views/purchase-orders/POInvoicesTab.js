@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../../StateProvider';
 import { Card, CardContent, Button, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Dialog, Input, Textarea } from '../../ui/core';
-import { Receipt, Download, FilePlus, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, Trash2, FileText, UploadCloud, Sparkles } from 'lucide-react';
+import { Receipt, Download, FilePlus, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, Trash2, FileText, UploadCloud, Sparkles, ExternalLink } from 'lucide-react';
 import { toast } from '../../ui/Toast';
 
 export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
@@ -10,6 +10,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
@@ -321,8 +322,49 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
 
       {/* Upload Internal Invoice Modal */}
       {uploadModalOpen && (
-        <Dialog open={true} onClose={() => setUploadModalOpen(false)} title={`Upload Internal Invoice — PO ${poNo}`} maxWidth="max-w-md">
+        <Dialog open={true} onClose={() => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl); setFilePreviewUrl(null); setUploadModalOpen(false); }} title={`Upload Internal Invoice — PO ${poNo}`} maxWidth={filePreviewUrl ? "max-w-6xl" : "max-w-md"}>
           <form onSubmit={handleUploadSubmit} className="space-y-4">
+            <div className={`grid ${filePreviewUrl ? 'grid-cols-1 lg:grid-cols-12 gap-5' : 'grid-cols-1'}`}>
+              {filePreviewUrl && (
+                <div className="lg:col-span-6 flex flex-col space-y-2 border border-border/80 rounded-2xl p-3 bg-muted/20">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Live Invoice Preview</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => window.open(filePreviewUrl, '_blank', 'width=900,height=1000')}
+                      className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                      title="Open invoice in side window"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Open in Side Window
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-[520px] w-full rounded-xl overflow-hidden border border-border bg-neutral-900 flex items-center justify-center">
+                    {selectedFile?.type === 'application/pdf' ? (
+                      <iframe
+                        src={filePreviewUrl}
+                        title="Invoice Document Preview"
+                        className="w-full h-full min-h-[520px] rounded-xl"
+                      />
+                    ) : (
+                      <div className="w-full h-full min-h-[520px] overflow-auto flex items-center justify-center p-2">
+                        <img
+                          src={filePreviewUrl}
+                          alt="Invoice Preview"
+                          className="max-w-full max-h-[500px] object-contain rounded-lg shadow-md"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    Inspect document here or pop out in a side window to cross-check fields while validating.
+                  </p>
+                </div>
+              )}
+              <div className={filePreviewUrl ? 'lg:col-span-6 space-y-4' : 'space-y-4'}>
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-300">
               <p><span className="text-muted-foreground">Target Vendor:</span> <strong>{vendorName || 'Selected Vendor'}</strong></p>
               <p><span className="text-muted-foreground">PO Total Value:</span> <strong className="font-mono">{formatCurrency(poValue)}</strong></p>
@@ -426,6 +468,9 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
                 placeholder="Optional internal notes..."
                 className="bg-background border-border text-xs"
               />
+            </div>
+
+            </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">

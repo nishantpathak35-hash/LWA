@@ -149,7 +149,7 @@ function extractNativePdfText(buffer) {
     while ((match = bfrangeRegex.exec(raw)) !== null) {
       const lines = match[1].trim().split('\n');
       for (const line of lines) {
-        const singleMatch = line.match(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>/);
+        const singleMatch = line.match(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>/);
         if (singleMatch) {
           const start = parseInt(singleMatch[1], 16);
           const end = parseInt(singleMatch[2], 16);
@@ -289,7 +289,6 @@ function parseInvoiceText(text) {
   const legalEntityRegex = /\b(?:llp|pvt\.?\s*ltd\.?|private\s+limited|limited|ltd\.?|enterprises|sons|emporium|traders|industries|services|landscape|marbles|sanitary|tiles|hardware|solutions|electricals|interiors)\b/i;
 
   // 1. Detect Vendor Name
-  // Priority A: email domain (e.g. sales@interiomart.in -> Interio Mart)
   const emailMatch = text.match(/([a-zA-Z0-9._-]+@([a-zA-Z0-9_-]+)\.[a-zA-Z0-9._-]+)/);
   if (emailMatch && emailMatch[2]) {
     const domainPart = emailMatch[2].toLowerCase();
@@ -298,7 +297,6 @@ function parseInvoiceText(text) {
     }
   }
 
-  // Priority B: Check lines near top with legal entity keywords
   if (!vendorName) {
     for (let i = 0; i < Math.min(15, lines.length); i++) {
       const line = lines[i];
@@ -316,7 +314,6 @@ function parseInvoiceText(text) {
     }
   }
 
-  // Priority C: Line above GSTIN / PAN
   if (!vendorName) {
     for (let i = 0; i < Math.min(15, lines.length); i++) {
       const line = lines[i];
@@ -329,7 +326,6 @@ function parseInvoiceText(text) {
     }
   }
 
-  // Priority D: Fallback non-empty clean line
   if (!vendorName) {
     for (let i = 0; i < Math.min(6, lines.length); i++) {
       const line = lines[i];
@@ -452,7 +448,7 @@ function parseInvoiceText(text) {
     const totalMatch = text.match(/\bTotal\s*[:#| -]\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d{2,6})\b/i);
     if (totalMatch) {
       let rawNum = totalMatch[1].replace(/,/g, '');
-      if (/^\d{2}\.\d{3}$/.test(rawNum)) rawNum = rawNum.replace('.', ''); // 30.000 -> 30000
+      if (/^\d{2}\.\d{3}$/.test(rawNum)) rawNum = rawNum.replace('.', '');
       invoiceTotal = parseFloat(rawNum) || 0;
     }
   }
@@ -490,24 +486,68 @@ function parseInvoiceText(text) {
 }
 
 async function extractTextFromBuffer(buffer, fileType) {
-  // 1. PDF files: Check if native text is readable, else extract embedded scanned image for OCR
+  // 1. PDF files
   if (fileType === 'application/pdf') {
-    const pureText = extractNativePdfText(buffer);
-    if (isReadableText(pureText)) {
-      return pureText;
+    // A. Fast pure JS native text stream extractor (15ms)
+    try {
+      const pureText = extractNativePdfText(buffer);
+      if (isReadableText(pureText)) {
+        return pureText;
+      }
+    } catch (e) {
+      console.warn('Native PDF extraction failed:', e.message);
     }
 
-    // Scanned PDF: extract embedded image(s) and run OCR
-    const imgs = extractImagesFromPdf(buffer);
-    imgs.sort((a, b) => b.length - a.length);
+    // B. PDFParse load and getText (digital PDF fallback)
+    let screenshotBuffer = null;
+    try {
+      const { PDFParse } = await import('pdf-parse');
+      if (typeof PDFParse === 'function') {
+        const parser = new PDFParse({ data: buffer });
+        await withTimeout(parser.load(), 5000, 'PDF load');
+        
+        try {
+          const textObj = await withTimeout(parser.getText(), 4000, 'PDF text extraction');
+          const raw = (textObj?.text || '').trim();
+          if (isReadableText(raw)) {
+            return raw;
+          }
+        } catch (tErr) {
+          console.warn('PDF text extraction error:', tErr.message);
+        }
 
-    if (imgs.length > 0) {
+        // Render page screenshot for OCR
+        try {
+          const screenshot = await withTimeout(parser.getScreenshot({ pageNumber: 1 }), 8000, 'PDF screenshot');
+          const p0 = screenshot?.pages?.[0];
+          if (p0?.data) {
+            screenshotBuffer = Buffer.from(p0.data);
+          }
+        } catch (ssErr) {
+          console.warn('PDF screenshot failed:', ssErr.message);
+        }
+      }
+    } catch (pdfErr) {
+      console.warn('PDFParse failed:', pdfErr.message);
+    }
+
+    // C. If screenshotBuffer not obtained from PDFParse, try embedded JPEG streams
+    if (!screenshotBuffer) {
+      const imgs = extractImagesFromPdf(buffer);
+      imgs.sort((a, b) => b.length - a.length);
+      if (imgs.length > 0) {
+        screenshotBuffer = imgs[0];
+      }
+    }
+
+    // D. Run OCR on the page screenshot / extracted image
+    if (screenshotBuffer) {
       try {
         const tessModule = await import('tesseract.js');
         const Tesseract = tessModule.default || tessModule;
         if (Tesseract && typeof Tesseract.recognize === 'function') {
           const textRes = await withTimeout(
-            Tesseract.recognize(imgs[0], 'eng'),
+            Tesseract.recognize(screenshotBuffer, 'eng'),
             25000,
             'Scanned PDF OCR'
           );
@@ -517,24 +557,8 @@ async function extractTextFromBuffer(buffer, fileType) {
           }
         }
       } catch (ocrErr) {
-        console.warn('Scanned PDF OCR warning:', ocrErr.message);
+        console.warn('Scanned PDF OCR error:', ocrErr.message);
       }
-    }
-
-    // Secondary fallback: pdf-parse if available
-    try {
-      const pdfModule = await import('pdf-parse');
-      const PDFParse = pdfModule.PDFParse || pdfModule.default || pdfModule;
-      if (typeof PDFParse === 'function') {
-        const parser = new PDFParse({ data: buffer });
-        const res = await withTimeout(parser.getText(), 4000, 'PDF text extraction');
-        const clean = (res?.text || '').replace(/-- \d+ of \d+ --/g, '').trim();
-        if (isReadableText(clean)) {
-          return clean;
-        }
-      }
-    } catch (pdfErr) {
-      console.warn('PDF text extraction warning:', pdfErr.message);
     }
 
     return '';
@@ -557,7 +581,7 @@ async function extractTextFromBuffer(buffer, fileType) {
         }
       }
     } catch (ocrErr) {
-      console.warn('Image OCR warning:', ocrErr.message);
+      console.warn('Image OCR error:', ocrErr.message);
     }
   }
 
@@ -624,7 +648,7 @@ export async function POST(request) {
                         }
                       },
                       {
-                        text: 'Extract the following details from this invoice image/PDF. Return a JSON object with keys: vendorName, invoiceNumber, invoiceDate (in YYYY-MM-DD format), poNumber, subtotal (number), taxAmount (number), invoiceTotal (number). Subtotal and taxAmount must sum to invoiceTotal. If a value is missing or unreadable, return empty string or 0. Return ONLY the raw JSON, no markdown code blocks, no backticks, no markdown wrapping.'
+                        text: 'Extract invoice details. Return a JSON object with keys: vendorName, invoiceNumber, invoiceDate (YYYY-MM-DD), poNumber, subtotal (number), taxAmount (number), invoiceTotal (number). Return raw JSON only.'
                       }
                     ]
                   }
@@ -660,10 +684,23 @@ export async function POST(request) {
 
     // 2. High-performance local PDF / Image OCR extraction engine
     const rawText = await extractTextFromBuffer(fileBuffer, fileType || 'application/pdf');
+    
+    // Graceful fallback if OCR text is empty: return blank partial fields instead of blocking with 422 error
     if (!rawText || rawText.trim().length === 0) {
       return NextResponse.json({ 
-        error: 'This invoice document could not be auto-read. Please enter the invoice details manually.' 
-      }, { status: 422 });
+        ok: true,
+        data: {
+          invoiceNumber: '',
+          invoiceDate: '',
+          subtotal: 0,
+          taxAmount: 0,
+          invoiceTotal: 0,
+          vendorName: '',
+          poNumber: ''
+        },
+        engine: 'fallback',
+        warning: 'Document could not be auto-read completely. Please review details in the side window.'
+      });
     }
 
     const parsedData = parseInvoiceText(rawText);
@@ -681,7 +718,17 @@ export async function POST(request) {
   } catch (error) {
     console.error('Invoice parse error:', error);
     return NextResponse.json({ 
-      error: error.message || 'Invoice auto-fill processing failed. Please enter invoice details manually.' 
-    }, { status: 500 });
+      ok: true,
+      data: {
+        invoiceNumber: '',
+        invoiceDate: '',
+        subtotal: 0,
+        taxAmount: 0,
+        invoiceTotal: 0,
+        vendorName: '',
+        poNumber: ''
+      },
+      warning: error.message || 'Invoice auto-fill encountered an issue. Please enter invoice details manually.' 
+    });
   }
 }

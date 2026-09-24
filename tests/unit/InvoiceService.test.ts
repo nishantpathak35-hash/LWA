@@ -78,6 +78,34 @@ describe('InvoiceService Unit & Security Tests', () => {
     ).rejects.toThrow(/Approved Purchase Orders/);
   });
 
+  
+  it('allows invoice upload if PO status is Partially Billed', async () => {
+    vi.spyOn(PORepository, 'findById').mockResolvedValue({
+      po_no: 'PO-PARTIAL-101',
+      vendor_id: 101,
+      vendor_code: 'VND-001',
+      vendor_name: 'ABC Suppliers Ltd',
+      approval_status: 'Approved',
+      status: 'Partially Billed',
+      po_value: 100000
+    } as any);
+
+    vi.spyOn(InvoiceRepository, 'checkDuplicateInvoice').mockResolvedValue(null);
+    vi.spyOn(attachmentsApi, 'uploadAttachment').mockResolvedValue({ ok: true, url: 'https://res.cloudinary.com/test/inv.pdf' } as any);
+    vi.spyOn(InvoiceRepository, 'create').mockResolvedValue({
+      invoice_id: 'INV-NEW-PARTIAL',
+      invoice_number: 'INV-103',
+      po_no: 'PO-PARTIAL-101',
+      status: 'Submitted'
+    } as any);
+
+    const res = await InvoiceService.submitVendorInvoice(
+      { invoiceNumber: 'INV-103', invoiceDate: '2026-08-11', poNo: 'PO-PARTIAL-101', invoiceTotal: 25000, fileName: 'inv.pdf', fileData: 'base64...' },
+      mockVendorSession
+    );
+    expect(res.ok).toBe(true);
+  });
+
   it('allows invoice upload if PO status is Open', async () => {
     vi.spyOn(PORepository, 'findById').mockResolvedValue({
       po_no: 'PO-OPEN-101',

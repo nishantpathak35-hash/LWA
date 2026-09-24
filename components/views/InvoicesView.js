@@ -60,6 +60,7 @@ export default function InvoicesView() {
 
   // Manual Upload Modal
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
   const [posList, setPosList] = useState([]);
   const [selectedVendorFilter, setSelectedVendorFilter] = useState('');
   const [uploadVendorFilter, setUploadVendorFilter] = useState('');
@@ -1442,6 +1443,15 @@ export default function InvoicesView() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => window.open(`/api/attachments/${inspectInvoice.invoice_id}`, '_blank', 'width=900,height=1000')}
+                  className="px-3 py-1.5 text-xs text-amber-600 dark:text-primary hover:bg-amber-500/10 font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Open invoice in side window to validate"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Side Window
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleDownloadAttachment(inspectInvoice.invoice_id, inspectInvoice.file_name || `invoice-${inspectInvoice.invoice_id}.pdf`)}
                   disabled={downloadingId === inspectInvoice.invoice_id}
                   className="px-3 py-1.5 text-xs text-amber-600 dark:text-primary hover:bg-amber-500/10 font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 transition-colors disabled:opacity-50"
@@ -1697,8 +1707,49 @@ export default function InvoicesView() {
 
       {/* ── 7. Internal Invoice Upload Modal ── */}
       {uploadModalOpen && (
-        <Dialog open={true} onClose={() => { setUploadModalOpen(false); setUploadVendorFilter(''); setOcrSuccess(false); }} title="Upload Internal Invoice" maxWidth="max-w-lg">
+        <Dialog open={true} onClose={() => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl); setFilePreviewUrl(null); setUploadModalOpen(false); setUploadVendorFilter(''); setOcrSuccess(false); }} title="Upload Internal Invoice" maxWidth={filePreviewUrl ? "max-w-6xl" : "max-w-lg"}>
           <form onSubmit={handleManualUploadSubmit} className="space-y-4">
+            <div className={`grid ${filePreviewUrl ? 'grid-cols-1 lg:grid-cols-12 gap-5' : 'grid-cols-1'}`}>
+              {filePreviewUrl && (
+                <div className="lg:col-span-6 flex flex-col space-y-2 border border-border/80 rounded-2xl p-3 bg-muted/20">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Live Invoice Preview</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => window.open(filePreviewUrl, '_blank', 'width=900,height=1000')}
+                      className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                      title="Open invoice in side window"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Open in Side Window
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-[540px] w-full rounded-xl overflow-hidden border border-border bg-neutral-900 flex items-center justify-center">
+                    {selectedFile?.type === 'application/pdf' ? (
+                      <iframe
+                        src={filePreviewUrl}
+                        title="Invoice Document Preview"
+                        className="w-full h-full min-h-[540px] rounded-xl"
+                      />
+                    ) : (
+                      <div className="w-full h-full min-h-[540px] overflow-auto flex items-center justify-center p-2">
+                        <img
+                          src={filePreviewUrl}
+                          alt="Invoice Preview"
+                          className="max-w-full max-h-[520px] object-contain rounded-lg shadow-md"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    Inspect document here or pop out in a side window to cross-check fields while validating.
+                  </p>
+                </div>
+              )}
+              <div className={filePreviewUrl ? 'lg:col-span-6 space-y-4' : 'space-y-4'}>
             {/* ── 1. OCR Document Dropzone ── */}
             <div className="bg-muted/30 border border-border/80 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
               <div className="flex items-center justify-between">
@@ -1720,7 +1771,11 @@ export default function InvoicesView() {
                 onDrop={(e) => {
                   handleDrop(e);
                   if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    handleAiAutoFill(e.dataTransfer.files[0]);
+                    const dropped = e.dataTransfer.files[0];
+                    setSelectedFile(dropped);
+                    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+                    setFilePreviewUrl(URL.createObjectURL(dropped));
+                    handleAiAutoFill(dropped);
                   }
                 }}
                 className={`border-2 border-dashed rounded-xl p-4 text-center transition-all ${
@@ -1737,7 +1792,11 @@ export default function InvoicesView() {
                   onChange={(e) => {
                     const f = e.target.files?.[0] || null;
                     setSelectedFile(f);
-                    if (f) handleAiAutoFill(f);
+                    if (f) {
+                      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+                      setFilePreviewUrl(URL.createObjectURL(f));
+                      handleAiAutoFill(f);
+                    }
                   }}
                   className="mt-2 text-xs text-muted-foreground file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-500/10 file:text-amber-600 dark:file:text-amber-400 hover:file:bg-amber-500/20 cursor-pointer"
                 />
@@ -1911,9 +1970,11 @@ export default function InvoicesView() {
                 className="bg-background border-border text-xs rounded-xl"
               />
             </div>
+              </div>
+            </div>
 
             <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-              <Button type="button" variant="ghost" onClick={() => { setUploadModalOpen(false); setUploadVendorFilter(''); setOcrSuccess(false); }} disabled={uploading} className="text-xs rounded-xl">
+              <Button type="button" variant="ghost" onClick={() => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl); setFilePreviewUrl(null); setUploadModalOpen(false); setUploadVendorFilter(''); setOcrSuccess(false); }} disabled={uploading} className="text-xs rounded-xl">
                 Cancel
               </Button>
               <Button

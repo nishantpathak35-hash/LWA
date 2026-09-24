@@ -8,6 +8,37 @@ import { logAudit } from '../../../../app/lib/api.js';
 import { uploadAttachment, deleteEntityAttachments } from '../../../../app/lib/api/attachments.js';
 import { validateInvoiceFields, belongsToVendor } from './invoiceValidation.js';
 
+/**
+ * Verifies whether a Purchase Order is in an active/approved state capable of accepting invoices.
+ * Allows Open, Approved, Active, Partially Billed, Billed, Partially Paid, and In Execution.
+ */
+export function isPOAcceptingInvoices(po: any): boolean {
+  if (!po) return false;
+  const approvalSt = String(po.approval_status || '').trim().toLowerCase();
+  const statusSt = String(po.status || '').trim().toLowerCase();
+
+  const validStatuses = [
+    'approved',
+    'active',
+    'open',
+    'partially billed',
+    'billed',
+    'partially paid',
+    'in execution',
+    'in progress'
+  ];
+
+  if (['rejected', 'cancelled', 'canceled', 'closed', 'short closed', 'draft'].includes(approvalSt)) {
+    return false;
+  }
+  if (['rejected', 'cancelled', 'canceled', 'closed', 'short closed'].includes(statusSt)) {
+    return false;
+  }
+
+  return validStatuses.includes(approvalSt) || validStatuses.includes(statusSt);
+}
+
+
 export class InvoiceService {
   /**
    * Generates a stable internal invoice ID: INV-YYYY-XXXX
@@ -49,8 +80,7 @@ export class InvoiceService {
       throw new Error(`AUTH: Unauthorized. Purchase Order "${cleanPoNo}" does not belong to your vendor account.`);
     }
 
-    const st = String(po.approval_status || po.status || '').trim().toLowerCase();
-    if (!['approved', 'active', 'open'].includes(st)) {
+    if (!isPOAcceptingInvoices(po)) {
       throw new Error(`Invoices can only be uploaded against Open or Approved Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
     }
 
@@ -130,8 +160,9 @@ export class InvoiceService {
     const po = await PORepository.findById(cleanPoNo);
     if (!po) throw new Error(`Purchase Order "${cleanPoNo}" not found.`);
 
-    const status = String(po.approval_status || po.status || '').trim().toLowerCase();
-    if (!['approved', 'active', 'open'].includes(status)) throw new Error('Invoices can only be uploaded against Open or Approved Purchase Orders.');
+    if (!isPOAcceptingInvoices(po)) {
+      throw new Error(`Invoices can only be uploaded against Open or Approved Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
+    }
 
     let targetVendor = null;
     const vQuery = vendorCode || po.vendor_code || po.vendor_key;
@@ -231,8 +262,7 @@ export class InvoiceService {
     const vendorPOs = allPOs.filter(po => {
       const vCode = (po.vendor_code || po.vendor_key || '').trim().toLowerCase();
       const belongs = belongsToVendor(po, cleanVendorCode, vendor_id);
-      const st = (po.approval_status || po.status || '').trim().toLowerCase();
-      const isApproved = ['approved', 'active', 'open'].includes(st);
+      const isApproved = isPOAcceptingInvoices(po);
       return belongs && isApproved;
     });
 
@@ -267,8 +297,7 @@ export class InvoiceService {
       throw new Error('AUTH: Unauthorized access to PO');
     }
 
-    const st = (po.approval_status || po.status || '').trim().toLowerCase();
-    if (!['approved', 'active', 'open'].includes(st)) {
+    if (!isPOAcceptingInvoices(po)) {
       throw new Error('AUTH: PO is not open or approved');
     }
 
