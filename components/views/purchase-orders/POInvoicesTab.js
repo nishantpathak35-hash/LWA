@@ -31,7 +31,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
     if (!selectedFile) return;
     setAiLoading(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
       const base64Data = await new Promise((resolve, reject) => {

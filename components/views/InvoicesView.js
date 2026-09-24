@@ -280,7 +280,7 @@ export default function InvoicesView() {
     setAiLoading(true);
     setOcrSuccess(false);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
       const base64Data = await new Promise((resolve, reject) => {
