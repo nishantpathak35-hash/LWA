@@ -6,7 +6,7 @@ export function validateInvoiceFields(input, { partial = false } = {}) {
   const amounts = {};
   for (const key of ['subtotal', 'taxAmount', 'invoiceTotal']) {
     const value = input[key];
-    if (value === undefined && key !== 'invoiceTotal' && !partial) continue;
+    if (value === undefined && (partial || key !== 'invoiceTotal')) continue;
     if ((typeof value !== 'number' && typeof value !== 'string') || value === '' || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > Number.MAX_SAFE_INTEGER / 100) throw new Error(`${key} must be a finite nonnegative amount`);
     amounts[key] = Number(value);
   }

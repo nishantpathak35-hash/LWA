@@ -227,14 +227,42 @@ export default function InvoicesView() {
 
   const handleExportCSV = () => {
     const columns = [
-      { label: 'Entered Date', key: 'created_at', formatter: (v, r) => formatDate(v || r.submitted_at || r.invoice_date) },
+      { label: 'S.No', key: 's_no', formatter: (v, r, idx) => idx + 1 },
       { label: 'Vendor Name', key: 'vendor_name' },
-      { label: 'Invoice Date', key: 'invoice_date', formatter: (v) => formatDate(v) },
-      { label: 'P.O Number', key: 'po_no' },
+      { label: 'P.O No', key: 'po_no' },
+      { 
+        label: 'P.O Value', 
+        key: 'po_value', 
+        formatter: (v, r) => {
+          const m = posList.find(p => String(p.po_no || p.poNo).trim().toLowerCase() === String(r.po_no || '').trim().toLowerCase());
+          return m ? Number(m.po_value || m.poValue || 0) : 0;
+        } 
+      },
+      { 
+        label: 'Invoice Received', 
+        key: 'invoice_received', 
+        formatter: (v, r) => {
+          const poTotal = invoices
+            .filter(i => i.po_no && String(i.po_no).trim().toLowerCase() === String(r.po_no || '').trim().toLowerCase() && String(i.status).toLowerCase() !== 'rejected')
+            .reduce((sum, i) => sum + (Number(i.invoice_total) || 0), 0);
+          return poTotal > 0 ? poTotal : Number(r.invoice_total || 0);
+        }
+      },
+      { 
+        label: 'Pending Invoice Collection', 
+        key: 'pending_collection', 
+        formatter: (v, r) => {
+          const m = posList.find(p => String(p.po_no || p.poNo).trim().toLowerCase() === String(r.po_no || '').trim().toLowerCase());
+          const poVal = m ? Number(m.po_value || m.poValue || 0) : 0;
+          const poTotal = invoices
+            .filter(i => i.po_no && String(i.po_no).trim().toLowerCase() === String(r.po_no || '').trim().toLowerCase() && String(i.status).toLowerCase() !== 'rejected')
+            .reduce((sum, i) => sum + (Number(i.invoice_total) || 0), 0);
+          const rcvd = poTotal > 0 ? poTotal : Number(r.invoice_total || 0);
+          return poVal > 0 ? Math.max(0, poVal - rcvd) : 0;
+        }
+      },
       { label: 'Invoice Number', key: 'invoice_number' },
-      { label: 'Basic Value', key: 'subtotal', formatter: (v, r) => Number(v || (r.invoice_total - (r.tax_amount || 0)) || 0) },
-      { label: 'Tax', key: 'tax_amount', formatter: (v) => Number(v || 0) },
-      { label: 'Total', key: 'invoice_total', formatter: (v) => Number(v || 0) },
+      { label: 'Invoice Date', key: 'invoice_date', formatter: (v) => formatDate(v) },
       { label: 'Status', key: 'status' }
     ];
     exportToCSV('Invoices_Ledger_Report.csv', columns, filteredInvoices);
@@ -782,14 +810,42 @@ export default function InvoicesView() {
   const handleBulkExportSelected = () => {
     if (selectedInvoicesData.length === 0) return;
     const columns = [
-      { label: 'Invoice ID', key: 'invoice_id' },
+      { label: 'S.No', key: 's_no', formatter: (v, r, idx) => idx + 1 },
       { label: 'Vendor Name', key: 'vendor_name' },
+      { label: 'P.O No', key: 'po_no' },
+      { 
+        label: 'P.O Value', 
+        key: 'po_value', 
+        formatter: (v, r) => {
+          const m = posList.find(p => String(p.po_no || p.poNo).trim().toLowerCase() === String(r.po_no || '').trim().toLowerCase());
+          return m ? Number(m.po_value || m.poValue || 0) : 0;
+        } 
+      },
+      { 
+        label: 'Invoice Received', 
+        key: 'invoice_received', 
+        formatter: (v, r) => {
+          const poTotal = invoices
+            .filter(i => i.po_no && String(i.po_no).trim().toLowerCase() === String(r.po_no || '').trim().toLowerCase() && String(i.status).toLowerCase() !== 'rejected')
+            .reduce((sum, i) => sum + (Number(i.invoice_total) || 0), 0);
+          return poTotal > 0 ? poTotal : Number(r.invoice_total || 0);
+        }
+      },
+      { 
+        label: 'Pending Invoice Collection', 
+        key: 'pending_collection', 
+        formatter: (v, r) => {
+          const m = posList.find(p => String(p.po_no || p.poNo).trim().toLowerCase() === String(r.po_no || '').trim().toLowerCase());
+          const poVal = m ? Number(m.po_value || m.poValue || 0) : 0;
+          const poTotal = invoices
+            .filter(i => i.po_no && String(i.po_no).trim().toLowerCase() === String(r.po_no || '').trim().toLowerCase() && String(i.status).toLowerCase() !== 'rejected')
+            .reduce((sum, i) => sum + (Number(i.invoice_total) || 0), 0);
+          const rcvd = poTotal > 0 ? poTotal : Number(r.invoice_total || 0);
+          return poVal > 0 ? Math.max(0, poVal - rcvd) : 0;
+        }
+      },
       { label: 'Invoice Number', key: 'invoice_number' },
-      { label: 'PO Number', key: 'po_no' },
-      { label: 'Invoice Date', key: 'invoice_date' },
-      { label: 'Basic Amount', key: 'subtotal', formatter: (v, r) => Number(r.subtotal || (Number(r.invoice_total || 0) - Number(r.tax_amount || 0))) },
-      { label: 'Tax Amount', key: 'tax_amount', formatter: (v) => Number(v || 0) },
-      { label: 'Total Amount', key: 'invoice_total', formatter: (v) => Number(v || 0) },
+      { label: 'Invoice Date', key: 'invoice_date', formatter: (v) => formatDate(v) },
       { label: 'Status', key: 'status' }
     ];
     exportToCSV('Selected_Invoices_Report.csv', columns, selectedInvoicesData);
@@ -1084,30 +1140,196 @@ export default function InvoicesView() {
 
       ) : (
 
-        <div className="border border-border rounded-xl overflow-hidden bg-card">
+        <div className="border border-border rounded-xl overflow-hidden bg-card shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-muted/40 text-xs text-muted-foreground border-b border-border">
+              <thead className="bg-muted/50 text-xs text-muted-foreground border-b border-border">
                 <tr>
-                  <th className="px-4 py-3 w-10"><input type="checkbox" aria-label="Select all filtered invoices" checked={allFilteredSelected} onChange={e => handleSelectAllInvoices(e.target.checked)} /></th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Invoice date</th>
-                  <th className="px-4 py-3 font-medium">Invoice #</th>
-                  <th className="px-4 py-3 font-medium">PO reference</th>
-                  <th className="px-4 py-3 font-medium">Vendor</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium text-right">Amount</th>
+                  <th className="px-3 py-3.5 w-10 text-center">
+                    <input 
+                      type="checkbox" 
+                      aria-label="Select all filtered invoices" 
+                      checked={allFilteredSelected} 
+                      onChange={e => handleSelectAllInvoices(e.target.checked)} 
+                      className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer"
+                    />
+                  </th>
+                  <th className="px-3 py-3.5 font-bold text-muted-foreground whitespace-nowrap text-center">S.No</th>
+                  <th className="px-4 py-3.5 font-bold text-muted-foreground min-w-[180px]">Vendor Name</th>
+                  <th className="px-4 py-3.5 font-bold text-muted-foreground whitespace-nowrap">P.O No</th>
+                  <th className="px-4 py-3.5 font-bold text-muted-foreground text-right whitespace-nowrap">P.O Value</th>
+                  <th className="px-4 py-3.5 font-bold text-muted-foreground text-right whitespace-nowrap">Invoice Received</th>
+                  <th className="px-4 py-3.5 font-bold text-muted-foreground text-right whitespace-nowrap">Pending Invoice Collection</th>
+                  <th className="px-4 py-3.5 font-bold text-muted-foreground whitespace-nowrap">Invoice #</th>
+                  <th className="px-3 py-3.5 font-bold text-muted-foreground whitespace-nowrap">Date</th>
+                  <th className="px-3 py-3.5 font-bold text-muted-foreground text-center">Status</th>
+                  <th className="px-3 py-3.5 font-bold text-muted-foreground text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {pagedInvoices.map(inv => <tr key={inv.invoice_id} className={`hover:bg-muted/30 ${selectedInvoiceIds.includes(inv.invoice_id) ? 'bg-blue-500/5' : ''}`}>
-                  <td className="px-4 py-4"><input type="checkbox" aria-label={`Select invoice ${inv.invoice_number}`} checked={selectedInvoiceIds.includes(inv.invoice_id)} onChange={() => handleToggleSelectInvoice(inv.invoice_id)} /></td>
-                  <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">{inv.invoice_date ? formatDate(inv.invoice_date) : '—'}</td>
-                  <td className="px-4 py-4"><button type="button" onClick={() => { setDrawerTab('overview'); setInspectInvoice(inv); }} className="font-medium text-blue-600 dark:text-blue-400 hover:underline text-left break-words">{inv.invoice_number || 'Unnumbered invoice'}</button></td>
-                  <td className="px-4 py-4 text-muted-foreground text-xs">{inv.po_no || '—'}</td>
-                  <td className="px-4 py-4 min-w-[180px] max-w-[280px]"><span className="block font-medium text-foreground">{inv.vendor_name || 'Unassigned vendor'}</span>{inv.project && <span className="text-xs text-muted-foreground">{inv.project}</span>}</td>
-                  <td className="px-4 py-4">{getStatusBadge(inv.status)}</td>
-                  <td className="px-4 py-4 text-right tabular-nums font-medium whitespace-nowrap">{formatCurrency(inv.invoice_total)}</td>
-                </tr>)}
+                {pagedInvoices.map((inv, idx) => {
+                  const sNo = ((safeInvoicePage - 1) * invoicePageSize) + idx + 1;
+                  const isSelected = selectedInvoiceIds.includes(inv.invoice_id);
+
+                  // Lookup PO Data
+                  const matchedPO = posList.find(p => 
+                    inv.po_no && String(p.po_no || p.poNo).trim().toLowerCase() === String(inv.po_no).trim().toLowerCase()
+                  );
+                  const poVal = matchedPO ? Number(matchedPO.po_value || matchedPO.poValue || 0) : 0;
+
+                  // Total invoices received against this PO
+                  const poTotalInvoiced = invoices
+                    .filter(i => i.po_no && String(i.po_no).trim().toLowerCase() === String(inv.po_no || '').trim().toLowerCase() && String(i.status).toLowerCase() !== 'rejected')
+                    .reduce((sum, i) => sum + (Number(i.invoice_total) || 0), 0);
+
+                  const invReceived = poTotalInvoiced > 0 ? poTotalInvoiced : Number(inv.invoice_total || 0);
+                  const pendingCollection = poVal > 0 ? Math.max(0, poVal - invReceived) : 0;
+
+                  return (
+                    <tr 
+                      key={inv.invoice_id} 
+                      className={`hover:bg-muted/40 transition-colors ${isSelected ? 'bg-amber-500/5 dark:bg-amber-500/10' : ''}`}
+                    >
+                      {/* Checkbox */}
+                      <td className="px-3 py-3.5 text-center">
+                        <input 
+                          type="checkbox" 
+                          aria-label={`Select invoice ${inv.invoice_number}`} 
+                          checked={isSelected} 
+                          onChange={() => handleToggleSelectInvoice(inv.invoice_id)} 
+                          className="rounded border-border text-amber-600 focus:ring-amber-500/30 cursor-pointer"
+                        />
+                      </td>
+
+                      {/* 1. S.No */}
+                      <td className="px-3 py-3.5 text-center font-mono text-xs text-muted-foreground">
+                        {sNo}
+                      </td>
+
+                      {/* 2. Vendor Name */}
+                      <td className="px-4 py-3.5 min-w-[180px] max-w-[260px]">
+                        <span className="block font-semibold text-foreground text-xs leading-snug">
+                          {inv.vendor_name || 'Unassigned vendor'}
+                        </span>
+                        {inv.project && (
+                          <span className="text-[11px] text-muted-foreground block truncate">
+                            {inv.project}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 3. P.O No */}
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        {inv.po_no ? (
+                          <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted/80 border border-border text-foreground">
+                            {inv.po_no}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                      {/* 4. P.O Value */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap font-mono text-xs font-semibold text-foreground tabular-nums">
+                        {poVal > 0 ? formatCurrency(poVal) : (inv.po_no ? '—' : 'N/A')}
+                      </td>
+
+                      {/* 5. Invoice Received */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap tabular-nums">
+                        <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
+                          {formatCurrency(invReceived)}
+                        </span>
+                        {poTotalInvoiced > 0 && poTotalInvoiced !== Number(inv.invoice_total) && (
+                          <span className="text-[10px] text-muted-foreground block font-mono">
+                            (Bill: {formatCurrency(inv.invoice_total)})
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 6. Pending Invoice Collection */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap tabular-nums">
+                        {poVal > 0 ? (
+                          pendingCollection === 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                              Fully Invoiced
+                            </span>
+                          ) : (
+                            <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
+                              {formatCurrency(pendingCollection)}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                      {/* Invoice # */}
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <button 
+                          type="button" 
+                          onClick={() => { setDrawerTab('overview'); setInspectInvoice(inv); }} 
+                          className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400 hover:underline text-left inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          {inv.invoice_number || 'Unnumbered invoice'}
+                          <ArrowUpRight className="w-3 h-3 opacity-60" />
+                        </button>
+                      </td>
+
+                      {/* Date */}
+                      <td className="px-3 py-3.5 whitespace-nowrap text-xs text-muted-foreground font-mono">
+                        {inv.invoice_date ? formatDate(inv.invoice_date) : '—'}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-3 py-3.5 text-center whitespace-nowrap">
+                        {getStatusBadge(inv.status)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => { setDrawerTab('overview'); setInspectInvoice(inv); }}
+                            className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                            title="Quick Inspect"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadAttachment(inv.invoice_id, inv.file_name || `invoice-${inv.invoice_id}.pdf`)}
+                            disabled={downloadingId === inv.invoice_id}
+                            className="inline-flex items-center text-xs text-amber-600 dark:text-primary hover:underline p-1.5 hover:bg-amber-500/10 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                            title="Download Invoice PDF"
+                          >
+                            <Download className={`w-3.5 h-3.5 ${downloadingId === inv.invoice_id ? 'animate-pulse' : ''}`} />
+                          </button>
+
+                          {(String(inv.status).toLowerCase() === 'submitted' || String(inv.status).toLowerCase() === 'under review') && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => { setSelectedInvoice(inv); setStatusAction('Approved'); }}
+                                className="inline-flex items-center text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold px-2 py-1 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors cursor-pointer shadow-xs"
+                              >
+                                <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setSelectedInvoice(inv); setStatusAction('Rejected'); }}
+                                className="inline-flex items-center text-[11px] text-rose-700 dark:text-rose-400 font-semibold px-2 py-1 rounded-lg border border-rose-500/30 hover:bg-rose-500/10 transition-colors cursor-pointer shadow-xs"
+                              >
+                                <XCircle className="w-3 h-3 mr-1" /> Reject
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

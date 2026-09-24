@@ -243,13 +243,19 @@ function parseInvoiceText(text) {
     invoiceTotal = subtotal + taxAmount;
   }
 
+  const cleanSub = subtotal !== undefined && subtotal !== null ? Number(Number(subtotal).toFixed(2)) : 0;
+  const cleanTax = taxAmount !== undefined && taxAmount !== null ? Number(Number(taxAmount).toFixed(2)) : 0;
+  let cleanTot = invoiceTotal !== undefined && invoiceTotal !== null ? Number(Number(invoiceTotal).toFixed(2)) : 0;
+  if (!cleanTot && cleanSub) {
+    cleanTot = Number((cleanSub + cleanTax).toFixed(2));
+  }
   return {
-    vendorName,
-    invoiceNumber,
-    invoiceDate,
-    subtotal: subtotal ? Number(subtotal.toFixed(2)) : undefined,
-    taxAmount: taxAmount ? Number(taxAmount.toFixed(2)) : undefined,
-    invoiceTotal: invoiceTotal ? Number(invoiceTotal.toFixed(2)) : undefined
+    vendorName: vendorName || '',
+    invoiceNumber: invoiceNumber ? invoiceNumber.trim() : '',
+    invoiceDate: invoiceDate || '',
+    subtotal: cleanSub,
+    taxAmount: cleanTax,
+    invoiceTotal: cleanTot
   };
 }
 
