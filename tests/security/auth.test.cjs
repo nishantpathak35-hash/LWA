@@ -6,9 +6,18 @@ const load = require('./load-module.cjs');
 function authFixture() {
   const user = { email: 'user@example.test', name: 'User', roles: '["maker"]', active: 1, password_hash: '$2b$test' };
   const settings = new Map();
+  const revokedTokenHashes = new Set();
   const db = {
-    queryGet: async (sql, args) => sql.includes('app_settings') ? (settings.has(args[0]) ? { value: settings.get(args[0]) } : undefined) : { ...user },
-    queryRun: async (sql, args) => { if (sql.includes('app_settings')) settings.set(args[0], args[1]); return { rowsAffected: 1 }; },
+    queryGet: async (sql, args) => {
+      if (sql.includes('app_settings')) return settings.has(args[0]) ? { value: settings.get(args[0]) } : undefined;
+      if (sql.includes('revoked_auth_tokens')) return revokedTokenHashes.has(args[0]) ? { token_hash: args[0] } : undefined;
+      return { ...user };
+    },
+    queryRun: async (sql, args) => {
+      if (sql.includes('app_settings')) settings.set(args[0], args[1]);
+      if (sql.includes('revoked_auth_tokens') && sql.includes('INSERT')) revokedTokenHashes.add(args[0]);
+      return { rowsAffected: 1 };
+    },
     queryAll: async () => []
   };
   db.queryTransaction = async callback => callback(db);
@@ -23,7 +32,7 @@ function authFixture() {
   const api = load('app/lib/api/auth.js', mocks);
   const token = extra => JSON.stringify({ email: user.email, user_type: 'internal', exp: Date.now() + 60000,
     credentialVersion: crypto.createHash('sha256').update(user.password_hash).digest('hex'), ...extra });
-  return { api, user, token, settings };
+  return { api, user, token, settings, revokedTokenHashes, mocks };
 }
 test('internal auth rejects vendor sessions', () => {
   const { AuthService } = load('src/modules/core/services/AuthService.ts');
@@ -52,6 +61,16 @@ test('logout revokes token on subsequent lookup', async () => {
   const session = await api.getMySession(value);
   await api.logoutUser(value, session);
   await assert.rejects(api.getMySession(value), /AUTH:/);
+});
+test('logout persists a token hash so another server instance rejects it', async () => {
+  const { api, token, revokedTokenHashes, mocks } = authFixture();
+  const value = token();
+  const session = await api.getMySession(value);
+  await api.logoutUser(value, session);
+  assert.equal(revokedTokenHashes.size, 1);
+
+  const freshApi = load('app/lib/api/auth.js', mocks);
+  await assert.rejects(freshApi.getMySession(value), /AUTH:/);
 });
 test('invite acceptance validates password before writing', async () => {
   const { api } = authFixture();

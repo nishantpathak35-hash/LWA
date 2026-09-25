@@ -138,10 +138,47 @@ export async function loginUser(email, password, meta = {}) {
 
 const sessionCache = new Map();
 const revokedTokens = new Set();
+let _revokedTokensTablePromise = null;
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
+async function ensureRevokedTokensTable() {
+  if (_revokedTokensTablePromise) return _revokedTokensTablePromise;
+  _revokedTokensTablePromise = queryRun(`
+    CREATE TABLE IF NOT EXISTS revoked_auth_tokens (
+      token_hash TEXT PRIMARY KEY,
+      user_email TEXT,
+      expires_at INTEGER,
+      revoked_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).catch(error => {
+    _revokedTokensTablePromise = null;
+    throw error;
+  });
+  return _revokedTokensTablePromise;
+}
+
+async function isTokenRevoked(token) {
+  if (revokedTokens.has(token)) return true;
+  const tokenHash = hashToken(token);
+  try {
+    await ensureRevokedTokensTable();
+    const row = await queryGet(`SELECT token_hash FROM revoked_auth_tokens WHERE token_hash = ? LIMIT 1`, [tokenHash]);
+    if (row) {
+      revokedTokens.add(token);
+      return true;
+    }
+  } catch (error) {
+    console.warn('Could not check persistent auth token revocation:', error.message);
+  }
+  return false;
+}
 
 export async function getMySession(token) {
   if (!token) throw new Error('AUTH:No token provided');
-  if (revokedTokens.has(token)) throw new Error('AUTH:Token revoked');
+  if (await isTokenRevoked(token)) throw new Error('AUTH:Token revoked');
   
   try {
     const payload = decryptToken(token);
@@ -338,6 +375,19 @@ export async function logoutUser(token, session) {
     revokedTokens.add(token);
     sessionCache.delete(token);
     if (revokedTokens.size > 5000) revokedTokens.delete(revokedTokens.values().next().value);
+    try {
+      const payload = decryptToken(token);
+      await ensureRevokedTokensTable();
+      await queryRun(
+        `INSERT OR REPLACE INTO revoked_auth_tokens (token_hash, user_email, expires_at, revoked_at) VALUES (?, ?, ?, ?)`,
+        [hashToken(token), payload?.email || session?.email || null, Number(payload?.exp) || null, new Date().toISOString()]
+      );
+      if (payload?.exp) {
+        await queryRun(`DELETE FROM revoked_auth_tokens WHERE expires_at IS NOT NULL AND expires_at <= ?`, [Date.now()]);
+      }
+    } catch (error) {
+      console.warn('Could not persist auth token revocation:', error.message);
+    }
   }
   if (session?.email) {
     await logAudit(session.email, 'Logout', 'User logged out', 'Auth');
