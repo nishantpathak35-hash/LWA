@@ -449,10 +449,49 @@ export class InvoiceService {
     if (!invoice) throw new Error("Invoice record not found");
 
     const newInvoiceNumber = updates.invoiceNumber ? String(updates.invoiceNumber).trim() : invoice.invoice_number;
-    if (newInvoiceNumber !== invoice.invoice_number) {
-      const duplicate = await InvoiceRepository.checkDuplicateInvoice(invoice.vendor_code, newInvoiceNumber, invoice.invoice_id);
+
+    let targetPoNo = invoice.po_no;
+    let targetProject = invoice.project;
+    let targetVendorId = invoice.vendor_id;
+    let targetVendorCode = invoice.vendor_code;
+    let targetVendorName = invoice.vendor_name;
+
+    if (updates.poNo && String(updates.poNo).trim() !== invoice.po_no) {
+      const cleanPoNo = String(updates.poNo).trim();
+      const po = await PORepository.findById(cleanPoNo);
+      if (!po) {
+        throw new Error(`Purchase Order "${cleanPoNo}" not found.`);
+      }
+
+      if (!isPOAcceptingInvoices(po)) {
+        throw new Error(`Invoices can only be mapped to Open, Approved, or Short Closed Purchase Orders. PO "${cleanPoNo}" status is "${po.approval_status || po.status}".`);
+      }
+
+      targetPoNo = po.po_no;
+      targetProject = po.project || po.project_name || invoice.project || '';
+
+      if (po.vendor_code || po.vendor_key) {
+        targetVendorCode = po.vendor_code || po.vendor_key;
+      }
+      if (po.vendor_name || po.vendor) {
+        targetVendorName = po.vendor_name || po.vendor;
+      }
+      if (po.vendor_id) {
+        targetVendorId = po.vendor_id;
+      } else if (targetVendorCode) {
+        try {
+          const v = await VendorRepository.findByNameOrCode(targetVendorCode);
+          if (v?.id) targetVendorId = v.id;
+        } catch {
+          // Keep existing vendor_id if lookup fails or mock unneeded
+        }
+      }
+    }
+
+    if (newInvoiceNumber !== invoice.invoice_number || targetVendorCode !== invoice.vendor_code) {
+      const duplicate = await InvoiceRepository.checkDuplicateInvoice(targetVendorCode, newInvoiceNumber, invoice.invoice_id);
       if (duplicate) {
-        throw new Error(`Invoice Number "${newInvoiceNumber}" already exists for vendor "${invoice.vendor_name}".`);
+        throw new Error(`Invoice Number "${newInvoiceNumber}" already exists for vendor "${targetVendorName}".`);
       }
     }
 
@@ -494,17 +533,28 @@ export class InvoiceService {
       }
     }
 
-    await InvoiceRepository.update(invoice.invoice_id, {
+    const repoUpdates: Partial<IInvoice> = {
       invoice_number: newInvoiceNumber,
       invoice_date: updates.invoiceDate || invoice.invoice_date,
       subtotal,
       tax_amount,
       invoice_total,
       remarks: updates.remarks !== undefined ? updates.remarks : invoice.remarks
-    });
+    };
+
+    if (targetPoNo !== invoice.po_no) {
+      repoUpdates.po_no = targetPoNo;
+      repoUpdates.project = targetProject;
+      repoUpdates.vendor_id = targetVendorId;
+      repoUpdates.vendor_code = targetVendorCode;
+      repoUpdates.vendor_name = targetVendorName;
+    }
+
+    await InvoiceRepository.update(invoice.invoice_id, repoUpdates);
 
     if (session?.email) {
-      await logAudit(session.email, 'Invoice Updated', `Updated invoice ${newInvoiceNumber} (${invoice.invoice_id})`, 'Invoices');
+      const poChangeNote = targetPoNo !== invoice.po_no ? ` (PO remapped from ${invoice.po_no} to ${targetPoNo})` : '';
+      await logAudit(session.email, 'Invoice Updated', `Updated invoice ${newInvoiceNumber} (${invoice.invoice_id})${poChangeNote}`, 'Invoices');
     }
 
     return { ok: true };

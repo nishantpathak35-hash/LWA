@@ -52,7 +52,9 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editSelectedFile, setEditSelectedFile] = useState(null);
   const [editFilePreviewUrl, setEditFilePreviewUrl] = useState(null);
+  const [availablePOs, setAvailablePOs] = useState([]);
   const [editForm, setEditForm] = useState({
+    poNo: '',
     invoiceNumber: '',
     invoiceDate: '',
     subtotal: '',
@@ -137,6 +139,10 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
 
   useEffect(() => {
     fetchPOInvoices();
+    call('getPOsOnly').then(res => {
+      const list = Array.isArray(res) ? res : (res?.pos || []);
+      setAvailablePOs(list.filter(p => !['rejected', 'cancelled', 'canceled'].includes(String(p.status || p.approval_status || '').toLowerCase())));
+    }).catch(() => {});
   }, [poNo]);
 
   const handleDeleteInvoiceConfirm = async () => {
@@ -170,6 +176,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
   const handleOpenEditModal = (inv) => {
     setInvoiceToEdit(inv);
     setEditForm({
+      poNo: inv.po_no || poNo || '',
       invoiceNumber: inv.invoice_number || '',
       invoiceDate: inv.invoice_date ? String(inv.invoice_date).split('T')[0] : new Date().toISOString().split('T')[0],
       subtotal: inv.subtotal != null ? String(inv.subtotal) : '',
@@ -230,6 +237,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
       }
 
       const payload = {
+        poNo: editForm.poNo ? editForm.poNo.trim() : (invoiceToEdit.po_no || poNo),
         invoiceNumber: editForm.invoiceNumber.trim(),
         invoiceDate: editForm.invoiceDate,
         subtotal: editForm.subtotal ? Number(editForm.subtotal) : 0,
@@ -831,6 +839,47 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
           maxWidth={editFilePreviewUrl ? "max-w-5xl" : "max-w-md"}
         >
           <form onSubmit={handleEditInvoiceSubmit} className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-foreground block font-bold">Linked Purchase Order (P.O. Mapping) *</label>
+                {editForm.poNo && editForm.poNo !== (invoiceToEdit.po_no || poNo) && (
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                    Remapping from {invoiceToEdit.po_no || poNo}
+                  </span>
+                )}
+              </div>
+              {availablePOs.length > 0 ? (
+                <select
+                  required
+                  value={editForm.poNo}
+                  onChange={(e) => setEditForm({ ...editForm, poNo: e.target.value })}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-mono"
+                >
+                  <option value="">-- Select Purchase Order --</option>
+                  {editForm.poNo && !availablePOs.some(p => String(p.po_no || p.poNo) === String(editForm.poNo)) && (
+                    <option value={editForm.poNo}>{editForm.poNo} (Current Linked PO)</option>
+                  )}
+                  {availablePOs.map(p => {
+                    const pNum = p.po_no || p.poNo;
+                    return (
+                      <option key={pNum} value={pNum}>
+                        {pNum} — {p.vendor_name || p.vendor || ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <Input
+                  type="text"
+                  required
+                  value={editForm.poNo}
+                  onChange={(e) => setEditForm({ ...editForm, poNo: e.target.value })}
+                  placeholder="e.g. LAIPL/PO/26-27/001"
+                  className="bg-background border-border text-xs font-mono"
+                />
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-foreground block mb-1 font-bold">Invoice Number *</label>

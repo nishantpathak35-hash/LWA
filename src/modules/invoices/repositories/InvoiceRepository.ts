@@ -115,7 +115,7 @@ export class InvoiceRepository {
 
     const allowed = [
       'invoice_number', 'invoice_date', 'subtotal', 'tax_amount', 'invoice_total',
-      'status', 'remarks', 'rejection_reason', 'reviewed_at', 'approved_at', 'updated_at'
+      'status', 'remarks', 'rejection_reason', 'reviewed_at', 'approved_at', 'updated_at', 'po_no', 'project', 'vendor_id', 'vendor_code', 'vendor_name'
     ];
 
     Object.entries(updates).forEach(([k, v]) => {

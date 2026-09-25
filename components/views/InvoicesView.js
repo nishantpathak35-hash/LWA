@@ -53,7 +53,9 @@ export default function InvoicesView() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editFilePreviewUrl, setEditFilePreviewUrl] = useState(null);
   const [editSelectedFile, setEditSelectedFile] = useState(null);
+  const [editVendorFilter, setEditVendorFilter] = useState('');
   const [editForm, setEditForm] = useState({
+    poNo: '',
     invoiceNumber: '',
     invoiceDate: '',
     subtotal: '',
@@ -199,7 +201,9 @@ export default function InvoicesView() {
 
   const handleOpenEditModal = (inv) => {
     setInvoiceToEdit(inv);
+    setEditVendorFilter(inv.vendor_code || inv.vendor_name || '');
     setEditForm({
+      poNo: inv.po_no || '',
       invoiceNumber: inv.invoice_number || '',
       invoiceDate: inv.invoice_date ? String(inv.invoice_date).split('T')[0] : new Date().toISOString().split('T')[0],
       subtotal: inv.subtotal != null ? String(inv.subtotal) : '',
@@ -260,6 +264,7 @@ export default function InvoicesView() {
       }
 
       const payload = {
+        poNo: editForm.poNo ? editForm.poNo.trim() : invoiceToEdit.po_no,
         invoiceNumber: editForm.invoiceNumber.trim(),
         invoiceDate: editForm.invoiceDate,
         subtotal: editForm.subtotal ? Number(editForm.subtotal) : 0,
@@ -280,8 +285,13 @@ export default function InvoicesView() {
       setEditModalOpen(false);
       setInvoiceToEdit(null);
       if (inspectInvoice && (inspectInvoice.invoice_id === invoiceToEdit.invoice_id)) {
+        const matchedPO = posList.find(p => String(p.po_no || p.poNo) === String(payload.poNo));
         setInspectInvoice(prev => ({
           ...prev,
+          po_no: payload.poNo,
+          vendor_name: matchedPO ? (matchedPO.vendor_name || matchedPO.vendor) : prev.vendor_name,
+          vendor_code: matchedPO ? (matchedPO.vendor_code || matchedPO.vendor_key) : prev.vendor_code,
+          project: matchedPO?.project || prev.project,
           invoice_number: payload.invoiceNumber,
           invoice_date: payload.invoiceDate,
           subtotal: payload.subtotal,
@@ -291,6 +301,7 @@ export default function InvoicesView() {
         }));
       }
       await fetchInvoices();
+      await fetchPOs();
     } catch (err) {
       toast.error(err.message || 'Failed to update invoice');
     } finally {
@@ -776,6 +787,44 @@ export default function InvoicesView() {
 
     return filtered.length > 0 ? filtered : validPOs;
   }, [posList, uploadVendorFilter, allAvailableVendors]);
+
+  // Filtered POs for Edit Invoice modal based on editVendorFilter
+  const availableEditPOs = useMemo(() => {
+    if (!Array.isArray(posList)) return [];
+    const validPOs = posList.filter(p => {
+      const st = String(p.status || p.approval_status || '').toLowerCase();
+      return !['rejected', 'cancelled', 'canceled'].includes(st);
+    });
+    if (!editVendorFilter) return validPOs;
+    const vFilter = editVendorFilter.trim().toLowerCase();
+    const cleanFilter = vFilter.replace(/[^a-z0-9]/g, '');
+
+    const vObj = allAvailableVendors.find(v => {
+      const vc = String(v.code || v.vendor_code || '').trim().toLowerCase();
+      const vn = String(v.name || v.legal_name || '').trim().toLowerCase();
+      return (vc && vc === vFilter) || (vn && vn === vFilter) || 
+             (vc && cleanFilter.includes(vc.replace(/[^a-z0-9]/g, ''))) ||
+             (vn && cleanFilter.includes(vn.replace(/[^a-z0-9]/g, '')));
+    });
+
+    const targetCode = vObj ? String(vObj.code || vObj.vendor_code || '').trim().toLowerCase() : '';
+    const targetName = vObj ? String(vObj.name || vObj.legal_name || '').trim().toLowerCase() : '';
+
+    const filtered = validPOs.filter(p => {
+      const code = String(p.vendor_code || p.vendorCode || p.vendor_key || '').trim().toLowerCase();
+      const name = String(p.vendor_name || p.vendor || '').trim().toLowerCase();
+      const cleanCode = code.replace(/[^a-z0-9]/g, '');
+      const cleanName = name.replace(/[^a-z0-9]/g, '');
+
+      if (code && (code === vFilter || cleanCode === cleanFilter || cleanFilter.includes(cleanCode) || cleanCode.includes(cleanFilter))) return true;
+      if (name && (name === vFilter || cleanName === cleanFilter || cleanFilter.includes(cleanName) || cleanName.includes(cleanFilter))) return true;
+      if (targetCode && code && (code === targetCode || cleanCode === targetCode.replace(/[^a-z0-9]/g, ''))) return true;
+      if (targetName && name && (name === targetName || cleanName === targetName.replace(/[^a-z0-9]/g, ''))) return true;
+      return false;
+    });
+
+    return filtered.length > 0 ? filtered : validPOs;
+  }, [posList, editVendorFilter, allAvailableVendors]);
 
   // Filtered List
   const filteredInvoices = useMemo(() => {
@@ -2436,18 +2485,119 @@ export default function InvoicesView() {
           maxWidth={editFilePreviewUrl ? "max-w-5xl" : "max-w-lg"}
         >
           <form onSubmit={handleEditInvoiceSubmit} className="space-y-4">
-            <div className="p-3 bg-muted/30 border border-border rounded-xl text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Vendor:</span>
-                <span className="font-bold text-foreground">{invoiceToEdit.vendor_name} ({invoiceToEdit.vendor_code})</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">PO Number:</span>
-                <span className="font-mono font-bold text-foreground">{invoiceToEdit.po_no}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Current Status:</span>
+            <div className="p-3 bg-muted/30 border border-border rounded-xl text-xs space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-semibold">Current Invoice Status:</span>
                 <span className="font-semibold text-foreground">{invoiceToEdit.status}</span>
+              </div>
+
+              {/* PO Mapping selection & change */}
+              <div className="pt-2 border-t border-border/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-foreground font-bold flex items-center gap-1">
+                    <span>Purchase Order (P.O. Mapping)</span>
+                    <span className="text-red-500">*</span>
+                  </label>
+                  {editForm.poNo && editForm.poNo !== invoiceToEdit.po_no && (
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                      Remapping from {invoiceToEdit.po_no}
+                    </span>
+                  )}
+                </div>
+
+                {/* Optional Vendor filter */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] text-muted-foreground">Filter POs by Vendor:</span>
+                    {editVendorFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setEditVendorFilter('')}
+                        className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                      >
+                        Show all POs
+                      </button>
+                    )}
+                  </div>
+                  <SearchableVendorSelect
+                    vendors={allAvailableVendors}
+                    value={editVendorFilter}
+                    onChange={(val) => setEditVendorFilter(val)}
+                    placeholder="Type vendor name or code to filter POs..."
+                  />
+                </div>
+
+                {/* PO Select */}
+                <div>
+                  <select
+                    required
+                    value={editForm.poNo}
+                    onChange={(e) => {
+                      const selectedVal = e.target.value;
+                      setEditForm(prev => ({ ...prev, poNo: selectedVal }));
+                      if (selectedVal) {
+                        const matchedPO = posList.find(p => String(p.po_no || p.poNo) === String(selectedVal));
+                        if (matchedPO) {
+                          const vCode = matchedPO.vendor_code || matchedPO.vendor_key || '';
+                          const vName = matchedPO.vendor_name || matchedPO.vendor || '';
+                          const foundV = allAvailableVendors.find(v => {
+                            const vc = String(v.code || v.vendor_code || '').toLowerCase();
+                            const vn = String(v.name || v.legal_name || '').toLowerCase();
+                            return (vCode && vc === vCode.toLowerCase()) || (vName && vn === vName.toLowerCase());
+                          });
+                          const finalV = foundV ? (foundV.code || foundV.name) : (vCode || vName);
+                          if (finalV) setEditVendorFilter(finalV);
+                        }
+                      }
+                    }}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500 font-medium cursor-pointer shadow-xs"
+                  >
+                    <option value="">
+                      {availableEditPOs.length > 0 
+                        ? `-- Choose Purchase Order (${availableEditPOs.length} available) --` 
+                        : '-- No open or approved POs found --'}
+                    </option>
+                    {/* Preserve existing PO if not in currently filtered list */}
+                    {invoiceToEdit.po_no && !availableEditPOs.some(p => String(p.po_no || p.poNo) === String(invoiceToEdit.po_no)) && (
+                      <option value={invoiceToEdit.po_no}>
+                        {invoiceToEdit.po_no} — {invoiceToEdit.vendor_name} (Current Linked PO)
+                      </option>
+                    )}
+                    {availableEditPOs.map(p => {
+                      const poNum = p.po_no || p.poNo;
+                      const poStatus = p.approval_status || p.status || 'Open';
+                      return (
+                        <option key={poNum} value={poNum}>
+                          {poNum} — {p.vendor_name || p.vendor} ({formatCurrency(p.po_value || p.poValue)}) [{poStatus}]
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Selected PO preview */}
+                {(() => {
+                  const currentSelectedPO = posList.find(p => String(p.po_no || p.poNo) === String(editForm.poNo));
+                  if (!currentSelectedPO) return null;
+                  return (
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[11px] space-y-1 text-amber-800 dark:text-amber-300">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Mapped Vendor:</span>
+                        <strong className="text-foreground">{currentSelectedPO.vendor_name || currentSelectedPO.vendor} ({currentSelectedPO.vendor_code || currentSelectedPO.vendor_key || '—'})</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">PO Value:</span>
+                        <strong className="font-mono text-foreground">{formatCurrency(currentSelectedPO.po_value || currentSelectedPO.poValue)}</strong>
+                      </div>
+                      {currentSelectedPO.project && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Project:</span>
+                          <span className="font-medium text-foreground">{currentSelectedPO.project}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
