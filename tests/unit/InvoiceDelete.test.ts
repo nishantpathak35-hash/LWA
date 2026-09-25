@@ -24,12 +24,27 @@ describe('Invoice Deletion Unit & Security Tests', () => {
       .rejects.toThrow('Finance permission required');
   });
 
+  it('rejects deletion of an invoice that is already settled/paid', async () => {
+    vi.spyOn(InvoiceRepository, 'findById').mockResolvedValue({
+      id: 99,
+      invoice_id: 'INV-PAID-01',
+      invoice_number: 'INV-PAID-01',
+      status: 'Paid',
+      invoice_total: 50000
+    } as any);
+
+    await expect(
+      InvoiceService.deleteInvoice('INV-PAID-01', { email: 'finance@luxeworx.com', roles: ['finance'] })
+    ).rejects.toThrow('Cannot delete a paid or settled invoice');
+  });
+
   it('deletes existing invoice record and writes audit log', async () => {
     vi.spyOn(InvoiceRepository, 'findById').mockResolvedValue({
       id: 99,
       invoice_id: 'INV-2026-9999',
       invoice_number: 'INV-TEST-DEL',
       po_no: 'PO-TEST-001',
+      status: 'Submitted',
       invoice_total: 50000
     } as any);
 

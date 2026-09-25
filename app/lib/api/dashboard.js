@@ -76,8 +76,8 @@ export async function clearCacheAndGetMaster(session) {
 export async function getDashboardKPIs(session) {
   requireAuth(session);
 
-  const [poResult, prResult, outflowRow] = await Promise.all([
-    queryAll(`SELECT po_no, po_value FROM purchase_orders`),
+  const [poSummary, prResult, outflowRow] = await Promise.all([
+    queryGet(`SELECT COUNT(*) AS poCount, COALESCE(SUM(po_value), 0) AS totalPOValue FROM purchase_orders`),
     queryAll(`SELECT pr_id, amount_requested, approved_amount, tds_amount, stage, remittance FROM payment_requests`),
     // Authoritative total outflow:
     // system_payments linked to a PR → use Gross Approved PR amount (Vendor Paid + TDS); else use raw sp.amount (manual payments)
@@ -91,11 +91,9 @@ export async function getDashboardKPIs(session) {
        FROM system_payments sp
        LEFT JOIN payment_requests pr ON CAST(pr.pr_id AS TEXT) = CAST(sp.pr_key AS TEXT)`
     ),
-
   ]);
 
-  let totalPOValue = 0;
-  poResult.forEach(p => { totalPOValue += Number(p.po_value) || 0; });
+  const totalPOValue = Number(poSummary?.totalPOValue) || 0;
 
   const totalPaid   = Number(outflowRow?.total) || 0;
 
@@ -105,7 +103,7 @@ export async function getDashboardKPIs(session) {
   const pendingApproval = stageMap.pendingProc + stageMap.pendingFinance + stageMap.pendingDirector + stageMap.readyToRemit;
 
   return {
-    pos: poResult.length,
+    pos: Number(poSummary?.poCount) || 0,
     prs: prResult.length,
     totalPOValue,
     totalPaid,

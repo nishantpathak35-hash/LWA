@@ -1,4 +1,5 @@
 import { InvoiceRepository } from '../repositories/InvoiceRepository.ts';
+import { queryGet } from '../../../../app/lib/db.js';
 import { IInvoiceInput, IInvoice } from '../types/Invoice';
 import { PORepository } from '../../purchase-orders/repositories/PORepository.ts';
 import { VendorRepository } from '../../vendors/repositories/VendorRepository.ts';
@@ -554,8 +555,21 @@ export class InvoiceService {
     await InvoiceRepository.update(invoice.invoice_id, repoUpdates);
 
     if (session?.email) {
-      const poChangeNote = targetPoNo !== invoice.po_no ? ` (PO remapped from ${invoice.po_no} to ${targetPoNo})` : '';
-      await logAudit(session.email, 'Invoice Updated', `Updated invoice ${newInvoiceNumber} (${invoice.invoice_id})${poChangeNote}`, 'Invoices');
+      const diffs: string[] = [];
+      if (newInvoiceNumber !== invoice.invoice_number) diffs.push(`Invoice #: ${invoice.invoice_number} → ${newInvoiceNumber}`);
+      if (targetPoNo !== invoice.po_no) diffs.push(`PO: ${invoice.po_no} → ${targetPoNo}`);
+      if (updates.invoiceDate && updates.invoiceDate !== invoice.invoice_date) diffs.push(`Date: ${invoice.invoice_date} → ${updates.invoiceDate}`);
+      if (invoice_total !== invoice.invoice_total) diffs.push(`Total: ₹${invoice.invoice_total} → ₹${invoice_total}`);
+      if (subtotal !== invoice.subtotal) diffs.push(`Subtotal: ₹${invoice.subtotal} → ₹${subtotal}`);
+      if (tax_amount !== invoice.tax_amount) diffs.push(`Tax: ₹${invoice.tax_amount} → ₹${tax_amount}`);
+      if (updates.remarks !== undefined && updates.remarks !== invoice.remarks) diffs.push(`Remarks: "${invoice.remarks || ''}" → "${updates.remarks}"`);
+      if (updates.fileName) diffs.push(`Replaced attachment with: ${updates.fileName}`);
+
+      const auditDetail = diffs.length > 0 
+        ? `Updated invoice ${newInvoiceNumber} (${invoice.invoice_id}): ${diffs.join('; ')}`
+        : `Updated invoice ${newInvoiceNumber} (${invoice.invoice_id})`;
+
+      await logAudit(session.email, 'Invoice Updated', auditDetail, 'Invoices');
     }
 
     return { ok: true };
@@ -565,6 +579,34 @@ export class InvoiceService {
     requireInvoiceFinancePermission(session);
     const invoice = await InvoiceRepository.findById(invoiceId);
     if (!invoice) throw new Error("Invoice record not found");
+
+    if (invoice.status === 'Paid') {
+      throw new Error('Cannot delete a paid or settled invoice. Please record a credit note or adjustment instead.');
+    }
+
+    try {
+      const linkedPR = await queryGet(
+        `SELECT pr_id FROM payment_requests WHERE invoice_id = ? AND stage != 'Rejected' LIMIT 1`,
+        [invoice.invoice_id]
+      );
+      if (linkedPR?.pr_id) {
+        throw new Error(`Cannot delete invoice "${invoice.invoice_number}" because Payment Request #${linkedPR.pr_id} is linked to it.`);
+      }
+    } catch (e: any) {
+      if (e.message?.includes('Cannot delete invoice')) throw e;
+    }
+
+    try {
+      const linkedCN = await queryGet(
+        `SELECT cn_number FROM credit_notes WHERE invoice_id = ? AND status != 'Deleted' LIMIT 1`,
+        [invoice.invoice_id]
+      );
+      if (linkedCN?.cn_number) {
+        throw new Error(`Cannot delete invoice "${invoice.invoice_number}" because Credit Note "${linkedCN.cn_number}" is linked to it.`);
+      }
+    } catch (e: any) {
+      if (e.message?.includes('Cannot delete invoice')) throw e;
+    }
 
     await InvoiceRepository.delete(invoice.invoice_id || invoiceId);
 

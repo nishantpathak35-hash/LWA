@@ -226,6 +226,22 @@ export async function deletePOFull(poNo, session) {
     throw new Error(`Purchase Order not found: ${targetPoNo}`);
   }
 
+  // P0 Financial Guard: Never allow deleting a PO that has recorded payments or booked invoices
+  const paidRow = await queryGet(
+    `SELECT 
+       (SELECT COUNT(*) FROM system_payments WHERE po_no = ?) + 
+       (SELECT COUNT(*) FROM manual_payments WHERE po_no = ?) AS paidCount`,
+    [targetPoNo, targetPoNo]
+  );
+  if (Number(paidRow?.paidCount || 0) > 0) {
+    throw new Error(`Cannot delete Purchase Order "${targetPoNo}" because financial payments have already been executed against it. Please short-close the PO instead.`);
+  }
+
+  const invRow = await queryGet(`SELECT COUNT(*) AS invCount FROM invoices WHERE po_no = ?`, [targetPoNo]);
+  if (Number(invRow?.invCount || 0) > 0) {
+    throw new Error(`Cannot delete Purchase Order "${targetPoNo}" because vendor invoices are linked to it. Please remove or re-map the invoices first, or short-close the PO.`);
+  }
+
   const paymentRequests = await queryAll(`SELECT pr_id FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
   const requestIds = paymentRequests.map(pr => String(pr.pr_id)).filter(id => id !== undefined && id !== null && id !== 'undefined');
 
