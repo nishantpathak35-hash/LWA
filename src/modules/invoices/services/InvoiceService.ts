@@ -468,13 +468,14 @@ export class InvoiceService {
       }
 
       targetPoNo = po.po_no;
-      targetProject = po.project || po.project_name || invoice.project || '';
+      const rawPo = po as any;
+      targetProject = po.project || rawPo.project_name || invoice.project || '';
 
       if (po.vendor_code || po.vendor_key) {
         targetVendorCode = po.vendor_code || po.vendor_key;
       }
-      if (po.vendor_name || po.vendor) {
-        targetVendorName = po.vendor_name || po.vendor;
+      if (po.vendor_name || rawPo.vendor) {
+        targetVendorName = po.vendor_name || rawPo.vendor;
       }
       if (po.vendor_id) {
         targetVendorId = po.vendor_id;
