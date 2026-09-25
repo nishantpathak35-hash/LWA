@@ -119,13 +119,25 @@ export function StateProvider({ children }) {
     }
   }, [token]);
 
+  // Sanitize arguments to prevent circular React/DOM SyntheticEvents from crashing JSON.stringify
+  const sanitizeRpcArgs = (args) => {
+    return args.map(arg => {
+      if (arg && typeof arg === 'object') {
+        if (arg.nativeEvent || arg._reactName || typeof arg.preventDefault === 'function' || (typeof Element !== 'undefined' && arg instanceof Element)) {
+          return undefined;
+        }
+      }
+      return arg;
+    });
+  };
+
   // Direct un-gated server call (no x-lwa-token header required, e.g., loginUser, getMySession)
   const callDirect = useCallback(async (method, ...args) => {
     try {
       const response = await fetch('/api/rpc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method, args })
+        body: JSON.stringify({ method, args: sanitizeRpcArgs(args) })
       });
       const data = await response.json();
       if (!response.ok || (data && data.error)) {
@@ -155,7 +167,7 @@ export function StateProvider({ children }) {
           'Content-Type': 'application/json',
           'x-lwa-token': currentToken
         },
-        body: JSON.stringify({ method, args })
+        body: JSON.stringify({ method, args: sanitizeRpcArgs(args) })
       });
       const data = await response.json();
       if (!response.ok || (data && data.error)) {

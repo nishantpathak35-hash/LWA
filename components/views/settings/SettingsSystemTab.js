@@ -620,14 +620,25 @@ export default function SettingsSystemTab({
                           className="bg-background text-foreground text-xs"
                         />
                       </div>
-                      <Button
-                        variant="primary"
-                        onClick={handleCorrectLegacyPO}
-                        disabled={legacySubmitting || !legacyNewPaid || !legacyReason}
-                        className="text-xs"
-                      >
-                        {legacySubmitting ? 'Updating...' : 'Apply Correction & Log Audit'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="primary"
+                          onClick={() => handleCorrectLegacyPO(false)}
+                          disabled={legacySubmitting || !legacyNewPaid || !legacyReason}
+                          className="text-xs"
+                        >
+                          {legacySubmitting ? 'Updating...' : 'Apply Correction & Log Audit'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleCorrectLegacyPO(true)}
+                          disabled={legacySubmitting || !legacyReason}
+                          className="text-xs"
+                          title="Automatically recalculate paid amount from system payments"
+                        >
+                          Auto-Recalculate
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

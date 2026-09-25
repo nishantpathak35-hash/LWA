@@ -461,24 +461,29 @@ export default function SettingsView() {
     }
   };
 
-  const handleCorrectLegacyPO = async (autoRecalculate) => {
+  const handleCorrectLegacyPO = async (autoRecalculate = false) => {
+    const isAuto = autoRecalculate === true;
+    if (!legacyPO) {
+      toast.error('Please search and select a PO first.');
+      return;
+    }
     if (!legacyReason.trim()) {
       toast.error('A detailed reason is required for audit logging.');
       return;
     }
-    if (!autoRecalculate && legacyNewPaid === '') {
+    if (!isAuto && legacyNewPaid === '') {
       toast.error('Please enter a new paid amount.');
       return;
     }
     
     // Yield to the main thread to avoid Next.js INP Issue warnings before pausing execution with confirm
     setTimeout(async () => {
-      const conf = window.confirm(`Are you sure you want to ${autoRecalculate ? 'auto-recalculate' : 'manually update'} the paid amount for ${legacyPO.po_no}?`);
+      const conf = window.confirm(`Are you sure you want to ${isAuto ? 'auto-recalculate' : 'manually update'} the paid amount for ${legacyPO.po_no}?`);
       if (!conf) return;
 
       setLegacySubmitting(true);
       try {
-        await call('correctLegacyPOPaidAmount', legacyPO.po_no, legacyNewPaid, autoRecalculate, legacyReason.trim());
+        await call('correctLegacyPOPaidAmount', legacyPO.po_no, Number(legacyNewPaid) || 0, isAuto, legacyReason.trim());
         await call('clearAllCaches');
         toast.success('PO paid amount corrected successfully.');
         setLegacyPO(null);
