@@ -19,6 +19,11 @@ describe('Invoice Deletion Unit & Security Tests', () => {
     await expect(InvoiceService.deleteInvoice('INV-123', null)).rejects.toThrow('AUTH:Unauthenticated');
   });
 
+  it('rejects invoice deletion from users without finance permission', async () => {
+    await expect(InvoiceService.deleteInvoice('INV-123', { email: 'site@luxeworx.com', roles: ['procurement'] }))
+      .rejects.toThrow('Finance permission required');
+  });
+
   it('deletes existing invoice record and writes audit log', async () => {
     vi.spyOn(InvoiceRepository, 'findById').mockResolvedValue({
       id: 99,
@@ -30,7 +35,7 @@ describe('Invoice Deletion Unit & Security Tests', () => {
 
     const deleteSpy = vi.spyOn(InvoiceRepository, 'delete').mockResolvedValue(undefined);
 
-    const userSession = { email: 'finance@luxeworx.com' };
+    const userSession = { email: 'finance@luxeworx.com', roles: ['finance'] };
     const res = await InvoiceService.deleteInvoice('INV-2026-9999', userSession);
 
     expect(res.ok).toBe(true);

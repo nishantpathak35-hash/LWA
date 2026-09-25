@@ -41,6 +41,15 @@ export function isPOAcceptingInvoices(po: any): boolean {
   return validStatuses.includes(approvalSt) || validStatuses.includes(statusSt);
 }
 
+function requireInvoiceFinancePermission(session: any): void {
+  AuthService.requireAuth(session);
+  if (AuthService.isSuperAdmin(session?.email)) return;
+  const roles = (session?.roles || []).map((role: string) => String(role || '').toLowerCase());
+  if (!roles.some((role: string) => ['admin', 'director', 'finance', 'accountant'].includes(role))) {
+    throw new Error('AUTH:Unauthorized - Finance permission required');
+  }
+}
+
 
 export class InvoiceService {
   /**
@@ -226,7 +235,7 @@ export class InvoiceService {
    * Internal ERP — Update invoice status (e.g. Approved, Rejected, Under Review).
    */
   static async updateInvoiceStatus(invoiceId: string, status: 'Submitted' | 'Under Review' | 'Approved' | 'Rejected' | 'Paid', rejectionReason?: string, userSession?: any): Promise<{ ok: boolean }> {
-    AuthService.requireAuth(userSession);
+    requireInvoiceFinancePermission(userSession);
     if (!['Submitted', 'Under Review', 'Approved', 'Rejected', 'Paid'].includes(status)) throw new Error('Invalid invoice status');
 
     const invoice = await InvoiceRepository.findById(invoiceId);
@@ -435,7 +444,7 @@ export class InvoiceService {
    * Internal ERP - Edit an existing invoice record.
    */
   static async updateInvoice(invoiceId: string, updates: any, session: any): Promise<{ ok: boolean }> {
-    AuthService.requireAuth(session);
+    requireInvoiceFinancePermission(session);
     const invoice = await InvoiceRepository.findById(invoiceId);
     if (!invoice) throw new Error("Invoice record not found");
 
@@ -502,7 +511,7 @@ export class InvoiceService {
   }
 
   static async deleteInvoice(invoiceId: string, session: any): Promise<{ ok: boolean }> {
-    AuthService.requireAuth(session);
+    requireInvoiceFinancePermission(session);
     const invoice = await InvoiceRepository.findById(invoiceId);
     if (!invoice) throw new Error("Invoice record not found");
 

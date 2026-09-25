@@ -16,7 +16,7 @@ describe('InvoiceService Unit & Security Tests', () => {
     vi.spyOn(InvoiceRepository, 'findById').mockResolvedValue({ invoice_id: 'I1', status: 'Submitted' } as any);
     vi.spyOn(InvoiceRepository, 'update').mockResolvedValue(undefined);
     const remove = vi.spyOn(attachmentsApi, 'deleteEntityAttachments').mockResolvedValue({ ok: true, deleted: 1 } as any);
-    await InvoiceService.updateInvoiceStatus('I1', 'Rejected', 'Wrong amount', { email: 'finance@test.com' });
+    await InvoiceService.updateInvoiceStatus('I1', 'Rejected', 'Wrong amount', { email: 'finance@test.com', roles: ['finance'] });
     expect(remove).not.toHaveBeenCalled();
   });
   const mockVendorSession = {
@@ -232,9 +232,15 @@ describe('InvoiceService Unit & Security Tests', () => {
       updatedFields = updates;
     });
 
-    const res = await InvoiceService.updateInvoiceStatus('INV-2026-001', 'Approved', undefined, { email: 'finance@test.com' });
+    const res = await InvoiceService.updateInvoiceStatus('INV-2026-001', 'Approved', undefined, { email: 'finance@test.com', roles: ['finance'] });
     expect(res.ok).toBe(true);
     expect(updatedFields.status).toBe('Approved');
     expect(updatedFields.approved_at).toBeDefined();
+  });
+
+  it('rejects invoice status changes from users without finance permission', async () => {
+    await expect(
+      InvoiceService.updateInvoiceStatus('INV-2026-001', 'Approved', undefined, { email: 'site@test.com', roles: ['procurement'] })
+    ).rejects.toThrow('Finance permission required');
   });
 });

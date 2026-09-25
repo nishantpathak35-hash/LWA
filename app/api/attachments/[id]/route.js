@@ -54,6 +54,8 @@ export async function GET(request, { params }) {
         if (!po || vCode !== String(session.vendor_code).trim().toLowerCase()) {
           return new NextResponse('Forbidden: Access Denied', { status: 403 });
         }
+      } else {
+        return new NextResponse('Forbidden: Access Denied', { status: 403 });
       }
     }
 
@@ -108,7 +110,7 @@ export async function GET(request, { params }) {
         const headers = new Headers();
         headers.set('Content-Type', contentType);
         headers.set('Content-Disposition', `${disposition}; filename="${attachment.file_name || 'attachment.pdf'}"; filename*=UTF-8''${safeFilename}`);
-        headers.set('Cache-Control', 'public, max-age=86400');
+        headers.set('Cache-Control', 'private, no-store');
         headers.set('Content-Length', String(remoteBuffer.length));
 
         return new NextResponse(remoteBuffer, { status: 200, headers });
@@ -128,7 +130,7 @@ export async function GET(request, { params }) {
     headers.set('Content-Type', attachment.file_type || 'application/octet-stream');
     const safeFilename = encodeURIComponent(attachment.file_name || 'attachment');
     headers.set('Content-Disposition', `${disposition}; filename="${attachment.file_name || 'attachment'}"; filename*=UTF-8''${safeFilename}`);
-    headers.set('Cache-Control', 'public, max-age=86400');
+    headers.set('Cache-Control', 'private, no-store');
     headers.set('Content-Length', String(buffer.length));
 
     return new NextResponse(buffer, {

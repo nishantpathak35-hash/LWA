@@ -11,16 +11,33 @@ const CORE_TABLES = [
   'system_payments',
   'manual_payments',
   'invoices',
+  'attachments',
+  'credit_notes',
   'users',
   'audit_logs',
+  'approval_history_v2',
   'project_financials',
   'tds_sections',
+  'tds_challan_281',
   'approval_workflows',
   'approval_workflow_stages',
   'number_series',
+  'number_series_transactions',
   'app_settings',
   'clients',
-  'item_master'
+  'item_master',
+  'vendor_portal_users',
+  'vendor_onboarding_invitations',
+  'vendor_onboarding_submissions',
+  'dpr_reports',
+  'dpr_templates',
+  'wpr_reports',
+  'wpr_schedules',
+  'tasks',
+  'user_tasks',
+  'record_comments',
+  'activity_logs',
+  'notifications'
 ];
 
 /**
@@ -39,9 +56,7 @@ export async function createDatabaseBackup(userEmail = 'admin@luxeworx.com') {
       tableCounts[table] = (rows || []).length;
       totalRecords += (rows || []).length;
     } catch (err) {
-      console.warn(`Backup: skipped or failed table "${table}":`, err.message);
-      backupData[table] = [];
-      tableCounts[table] = 0;
+      throw new Error(`Backup failed for table "${table}": ${err.message}`);
     }
   }
 

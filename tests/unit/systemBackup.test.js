@@ -47,6 +47,16 @@ describe('System Database Backup & Health Diagnostics', () => {
     expect(typeof backup.data).toBe('object');
   });
 
+  it('fails backup when any required table cannot be read', async () => {
+    vi.mocked(db.queryAll).mockImplementation(async (sql) => {
+      if (String(sql).includes('attachments')) throw new Error('table missing');
+      return [];
+    });
+
+    await expect(createDatabaseBackup('test-admin@luxeworx.com'))
+      .rejects.toThrow(/Backup failed for table "attachments"/);
+  });
+
   it('runs system health and relational integrity diagnostics', async () => {
     const health = await getSystemHealthAndDiagnostics('test-admin@luxeworx.com');
 

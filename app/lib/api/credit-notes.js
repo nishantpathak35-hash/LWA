@@ -4,6 +4,17 @@ import { uploadAttachment, deleteEntityAttachments } from './attachments.js';
 import { PORepository } from '../../../src/modules/purchase-orders/repositories/PORepository.ts';
 import { VendorRepository } from '../../../src/modules/vendors/repositories/VendorRepository.ts';
 import { InvoiceRepository } from '../../../src/modules/invoices/repositories/InvoiceRepository.ts';
+import { AuthService } from '../../../src/modules/core/services/AuthService.ts';
+
+function requireFinancePermission(session) {
+  if (!session?.email) throw new Error('AUTH: Not signed in');
+  AuthService.requireAuth(session);
+  if (AuthService.isSuperAdmin(session.email)) return;
+  const roles = (session.roles || []).map(role => String(role || '').toLowerCase());
+  if (!roles.some(role => ['admin', 'director', 'finance', 'accountant'].includes(role))) {
+    throw new Error('AUTH:Unauthorized - Finance permission required');
+  }
+}
 
 let _creditNotesTablePromise = null;
 export async function ensureCreditNotesTable() {
@@ -50,7 +61,7 @@ function generateCnId() {
 }
 
 export async function createCreditNote(payload, session) {
-  if (!session?.email) throw new Error('AUTH: Not signed in');
+  requireFinancePermission(session);
   await ensureCreditNotesTable();
 
   const {
@@ -80,6 +91,11 @@ export async function createCreditNote(payload, session) {
 
   const cleanSubtotal = Number(subtotal) || 0;
   const cleanTax = Number(taxAmount) || 0;
+  if (cleanSubtotal < 0 || cleanTax < 0) throw new Error('Credit Note subtotal and tax cannot be negative.');
+  const expectedTotal = Math.round((cleanSubtotal + cleanTax) * 100) / 100;
+  if (expectedTotal > 0 && Math.abs(expectedTotal - cleanTotal) > 0.01) {
+    throw new Error('Credit Note total must match subtotal plus tax.');
+  }
 
   // Resolve PO & Vendor details
   const po = await PORepository.findById(poNo.trim());
@@ -93,10 +109,25 @@ export async function createCreditNote(payload, session) {
   let linkedInvoiceNum = '';
   if (invoiceId) {
     const inv = await InvoiceRepository.findById(invoiceId);
-    if (inv) {
-      linkedInvoiceNum = inv.invoice_number;
+    if (!inv) {
+      throw new Error(`Linked invoice "${invoiceId}" not found.`);
     }
+    const invPo = String(inv.po_no || '').trim().toLowerCase();
+    const invVendor = String(inv.vendor_code || '').trim().toLowerCase();
+    if (invPo && invPo !== String(po.po_no || '').trim().toLowerCase()) {
+      throw new Error('Linked invoice must belong to the selected Purchase Order.');
+    }
+    if (invVendor && invVendor !== String(vCode || '').trim().toLowerCase()) {
+      throw new Error('Linked invoice vendor must match the selected Purchase Order vendor.');
+    }
+    linkedInvoiceNum = inv.invoice_number;
   }
+
+  const existing = await queryGet(
+    `SELECT cn_id FROM credit_notes WHERE LOWER(TRIM(vendor_code)) = ? AND LOWER(TRIM(cn_number)) = ? AND status != 'Deleted' LIMIT 1`,
+    [String(vCode || '').trim().toLowerCase(), cnNumber.trim().toLowerCase()]
+  );
+  if (existing) throw new Error(`Credit Note Number "${cnNumber.trim()}" already exists for vendor "${vName}".`);
 
   const cnId = generateCnId();
 
@@ -188,7 +219,7 @@ export async function listCreditNotes(filters = {}, session) {
 }
 
 export async function deleteCreditNote(cnId, session) {
-  if (!session?.email) throw new Error('AUTH: Not signed in');
+  requireFinancePermission(session);
   await ensureCreditNotesTable();
 
   const cn = await queryGet(`SELECT * FROM credit_notes WHERE cn_id = ? OR id = ?`, [cnId, Number(cnId) || -1]);

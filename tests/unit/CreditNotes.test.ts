@@ -19,7 +19,7 @@ describe('Credit Notes Unit & Security Tests', () => {
   });
 
   it('validates required fields for credit note', async () => {
-    const session = { email: 'admin@luxeworx.com' };
+    const session = { email: 'admin@luxeworx.com', roles: ['admin'] };
     await expect(createCreditNote({}, session)).rejects.toThrow('Credit Note Number is required');
     await expect(createCreditNote({ cnNumber: 'CN-1' }, session)).rejects.toThrow('Credit Note Date is required');
     await expect(createCreditNote({ cnNumber: 'CN-1', cnDate: '2026-03-24' }, session)).rejects.toThrow('Linked PO Number is required');
@@ -32,5 +32,15 @@ describe('Credit Notes Unit & Security Tests', () => {
 
   it('requires authentication to delete credit note', async () => {
     await expect(deleteCreditNote('CN-123', null)).rejects.toThrow('AUTH: Not signed in');
+  });
+
+  it('rejects credit note creation from users without finance permission', async () => {
+    await expect(createCreditNote({}, { email: 'site@luxeworx.com', roles: ['procurement'] }))
+      .rejects.toThrow('Finance permission required');
+  });
+
+  it('rejects credit note deletion from users without finance permission', async () => {
+    await expect(deleteCreditNote('CN-123', { email: 'site@luxeworx.com', roles: ['procurement'] }))
+      .rejects.toThrow('Finance permission required');
   });
 });

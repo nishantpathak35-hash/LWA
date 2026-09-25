@@ -20,8 +20,13 @@ describe('Invoice Editing Unit & Security Tests', () => {
 
   it('throws error if invoice record is not found', async () => {
     vi.spyOn(InvoiceRepository, 'findById').mockResolvedValue(null);
-    await expect(InvoiceService.updateInvoice('INV-NON-EXISTENT', {}, { email: 'admin@luxeworx.com' }))
+    await expect(InvoiceService.updateInvoice('INV-NON-EXISTENT', {}, { email: 'admin@luxeworx.com', roles: ['admin'] }))
       .rejects.toThrow('Invoice record not found');
+  });
+
+  it('rejects invoice edits from users without finance permission', async () => {
+    await expect(InvoiceService.updateInvoice('INV-10', {}, { email: 'site@luxeworx.com', roles: ['procurement'] }))
+      .rejects.toThrow('Finance permission required');
   });
 
   it('prevents duplicate invoice number for the same vendor', async () => {
@@ -40,7 +45,7 @@ describe('Invoice Editing Unit & Security Tests', () => {
 
     await expect(InvoiceService.updateInvoice('INV-10', {
       invoiceNumber: 'INV-DUPLICATE'
-    }, { email: 'admin@luxeworx.com' })).rejects.toThrow('already exists for vendor');
+    }, { email: 'admin@luxeworx.com', roles: ['admin'] })).rejects.toThrow('already exists for vendor');
   });
 
   it('successfully updates invoice details when valid', async () => {
@@ -67,7 +72,7 @@ describe('Invoice Editing Unit & Security Tests', () => {
       taxAmount: 360,
       invoiceTotal: 2360,
       remarks: 'Updated remarks'
-    }, { email: 'admin@luxeworx.com' });
+    }, { email: 'admin@luxeworx.com', roles: ['admin'] });
 
     expect(res.ok).toBe(true);
     expect(updateSpy).toHaveBeenCalledWith('INV-10', {
