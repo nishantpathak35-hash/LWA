@@ -58,3 +58,23 @@ test('notifications use server email and roles', async () => {
   assert.equal((await request('getUnreadCount', ['other', ['admin']], 'valid')).status, 200);
   assert.deepEqual(calls[0][1], [user.email, user.roles, user]);
 });
+test('accepts valid session from lx_auth_token cookie when header is absent', async () => {
+  const user = { email: 'cookie-user@example.test', roles: ['maker'], active: true };
+  const calls = [];
+  const { POST } = loadModule('app/api/rpc/route.js', {
+    '../../lib/api.js': new Proxy({
+      getMySession: async token => { if (token === 'cookie-valid') return user; throw new Error('AUTH:Invalid'); },
+    }, { get: (target, name) => target[name] || (async (...args) => { calls.push([name, args]); return { ok: true }; }) }),
+    'next/server': { NextResponse: Response }
+  });
+  const req = new Request('http://localhost/api/rpc', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'cookie': 'lx_auth_token=cookie-valid'
+    },
+    body: JSON.stringify({ method: 'listInvoices', args: [] })
+  });
+  const res = await POST(req);
+  assert.equal(res.status, 200);
+});

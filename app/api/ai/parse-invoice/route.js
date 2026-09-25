@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import zlib from 'zlib';
 import * as api from '../../../lib/api.js';
+import { ocrRateLimiter } from '../../../lib/rateLimit.js';
 import { validateInvoiceFields } from '../../../../src/modules/invoices/services/invoiceValidation.js';
 export const maxDuration = 60;
 
@@ -551,7 +552,12 @@ async function parseWithGroqText(text, groqApiKey) {
 
 export async function POST(request) {
   try {
-    const token = request.headers.get('x-lwa-token') || request.headers.get('X-LWA-Token');
+    const cookieToken = request.cookies?.get?.('lx_auth_token')?.value
+      || (request.headers.get('cookie') || '').match(/(?:^|;\s*)lx_auth_token=([^;]*)/)?.[1];
+    const token = request.headers.get('x-lwa-token')
+      || request.headers.get('X-LWA-Token')
+      || (cookieToken ? decodeURIComponent(cookieToken) : null);
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized: Missing Token' }, { status: 401 });
     }
@@ -569,6 +575,25 @@ export async function POST(request) {
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized: Invalid Token' }, { status: 401 });
+    }
+
+    // Rate Limiting: 20 requests per minute per user/IP
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown-ip';
+    const rateLimitKey = `ocr:${session.email || clientIp}`;
+    const rateCheck = ocrRateLimiter.check(rateLimitKey, 20, 60000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait before scanning more invoices.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateCheck.retryAfterSec),
+            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(Math.ceil(rateCheck.resetTime / 1000))
+          }
+        }
+      );
     }
 
     let body;

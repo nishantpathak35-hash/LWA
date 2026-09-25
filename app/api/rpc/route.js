@@ -14,7 +14,19 @@ export async function POST(request) {
     const result = await dispatchRpc(api, body, request);
     const payload = JSON.parse(JSON.stringify(result ?? { success: true }, (_, value) =>
       typeof value === 'bigint' ? (value <= BigInt(Number.MAX_SAFE_INTEGER) && value >= BigInt(Number.MIN_SAFE_INTEGER) ? Number(value) : value.toString()) : value));
-    return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } });
+    const response = NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } });
+    if (body.method === 'loginUser' && result?.token) {
+      response.cookies.set('lx_auth_token', result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 86400 * 7,
+      });
+    } else if (body.method === 'logoutUser') {
+      response.cookies.delete('lx_auth_token');
+    }
+    return response;
   } catch (error) {
     const message = error.message || 'Request failed';
     const status = error.status || (/AUTH:.*(Unauthenticated|Not signed in|expired|No token)/i.test(message) ? 401

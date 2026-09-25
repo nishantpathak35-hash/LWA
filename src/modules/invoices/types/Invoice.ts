@@ -14,6 +14,10 @@ export interface IInvoice {
   project?: string | null;
   subtotal?: number;
   tax_amount?: number;
+  cgst_amount?: number;
+  sgst_amount?: number;
+  igst_amount?: number;
+  place_of_supply?: string;
   invoice_total: number;
   status: InvoiceStatus;
   source: InvoiceSource;
@@ -37,6 +41,10 @@ export interface IInvoiceInput {
   vendorId?: number;
   subtotal?: number;
   taxAmount?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  placeOfSupply?: string;
   invoiceTotal: number;
   remarks?: string;
   fileName?: string;

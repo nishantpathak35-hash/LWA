@@ -4,7 +4,7 @@ export function validateInvoiceFields(input, { partial = false } = {}) {
   if (typeof invoiceNumber !== 'string' || invoiceNumber.length > 200 || (!partial && !invoiceNumber.trim())) throw new Error('Valid Invoice Number is required');
   if (typeof invoiceDate !== 'string' || (!partial || invoiceDate !== '') && (!/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate) || !Number.isFinite(Date.parse(invoiceDate)) || new Date(invoiceDate).toISOString().slice(0, 10) !== invoiceDate)) throw new Error('Valid Invoice Date is required (YYYY-MM-DD)');
   const amounts = {};
-  for (const key of ['subtotal', 'taxAmount', 'invoiceTotal']) {
+  for (const key of ['subtotal', 'taxAmount', 'invoiceTotal', 'cgstAmount', 'sgstAmount', 'igstAmount']) {
     const value = input[key];
     if (value === undefined && (partial || key !== 'invoiceTotal')) continue;
     if ((typeof value !== 'number' && typeof value !== 'string') || value === '' || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > Number.MAX_SAFE_INTEGER / 100) throw new Error(`${key} must be a finite nonnegative amount`);

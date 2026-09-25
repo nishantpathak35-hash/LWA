@@ -25,7 +25,11 @@ export async function dispatchRpc(api, body, request) {
   if (typeof api[method] !== 'function') fail('Method unavailable', 404);
 
   let session = null;
-  const token = request.headers.get('x-lwa-token') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+  const cookieToken = request.cookies?.get?.('lx_auth_token')?.value
+    || (request.headers.get('cookie') || '').match(/(?:^|;\s*)lx_auth_token=([^;]*)/)?.[1];
+  const token = request.headers.get('x-lwa-token')
+    || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+    || (cookieToken ? decodeURIComponent(cookieToken) : null);
   if (contract.access !== 'public') {
     if (!token) fail('AUTH:Not signed in', 401);
     try { session = await api.getMySession(token); }

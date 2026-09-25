@@ -232,12 +232,12 @@ export function StateProvider({ children }) {
           setPos(loadedPOs);
           setProjects(bundle.master.projects || []);
           setTdsSections(bundle.master.tdsSections || []);
-          setHasMoreVendors(false);
-          setHasMorePOs(false);
+          setHasMoreVendors(bundle.master.hasMoreVendors ?? (loadedVendors.length >= 100));
+          setHasMorePOs(bundle.master.hasMorePOs ?? (loadedPOs.length >= 100));
         }
         const loadedPayments = bundle.payments || [];
         setPayments(loadedPayments);
-        setHasMorePayments(false);
+        setHasMorePayments(bundle.hasMorePayments ?? (loadedPayments.length >= 100));
         if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
           setFeaturePermissions(bundle.featurePermissions);
         }
@@ -378,12 +378,12 @@ export function StateProvider({ children }) {
             setPos(loadedPOs);
             setProjects(bundle.master.projects || []);
             setTdsSections(bundle.master.tdsSections || []);
-            setHasMoreVendors(false);
-            setHasMorePOs(false);
+            setHasMoreVendors(bundle.master.hasMoreVendors ?? (loadedVendors.length >= 100));
+            setHasMorePOs(bundle.master.hasMorePOs ?? (loadedPOs.length >= 100));
           }
           const loadedPayments = bundle.payments || [];
           setPayments(loadedPayments);
-          setHasMorePayments(false);
+          setHasMorePayments(bundle.hasMorePayments ?? (loadedPayments.length >= 100));
           if (bundle.featurePermissions && typeof bundle.featurePermissions === 'object') {
             setFeaturePermissions(bundle.featurePermissions);
           }

@@ -52,8 +52,8 @@ export async function getBootBundle(session) {
   }
   const [kpis, master, payments, featurePermissions] = await Promise.all([
     getDashboardKPIs(session),
-    getMasterData(session, { limit: 0, offset: 0 }),
-    listPaymentRequests({ limit: 0, offset: 0 }, session),
+    getMasterData(session, { limit: 150, offset: 0 }),
+    listPaymentRequests({ limit: 100, offset: 0 }, session),
     getFeaturePermissions(session)
   ]);
   
@@ -63,6 +63,7 @@ export async function getBootBundle(session) {
     kpis,
     master,
     payments,
+    hasMorePayments: payments.length >= 100,
     featurePermissions
   };
 }
@@ -125,9 +126,14 @@ export async function getDashboardKPIs(session) {
 
 
 
-export async function getMasterData(session, options = { limit: 0, offset: 0 }) {
+export async function getMasterData(session, options = { limit: 150, offset: 0 }) {
   requireAuth(session);
-  const [vendors, pos] = await Promise.all([VendorService.getAllVendors(options), POService.getAllPOs(options)]);
+  const [vendors, pos, totalVendors, totalPOs] = await Promise.all([
+    VendorService.getAllVendors(options),
+    POService.getAllPOs(options),
+    VendorService.getVendorCount(),
+    POService.getPOCount()
+  ]);
   let tdsSections = [];
   try {
     tdsSections = await queryAll(`SELECT * FROM tds_sections WHERE is_active = 1 ORDER BY sort_order ASC, section_code ASC`);
@@ -181,9 +187,15 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
   // Fetch default PO general terms from in-memory cache
   const defaultGeneralTerms = await getSetting('default_po_general_terms', '');
 
+  const offset = options?.offset ?? 0;
+  const isNoLimit = options?.limit === 0;
   return {
     vendors: masterVendors,
+    totalVendors,
+    hasMoreVendors: isNoLimit ? false : (offset + masterVendors.length < totalVendors),
     defaultGeneralTerms,
+    totalPOs,
+    hasMorePOs: isNoLimit ? false : (offset + pos.length < totalPOs),
     pos: pos.map(p => ({
       po_no: p.po_no,
       vendor_id: p.vendor_id,
