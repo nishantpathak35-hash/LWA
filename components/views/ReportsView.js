@@ -113,7 +113,7 @@ export default function ReportsView() {
         result = await call('getApprovalAuditReport', startDate, endDate);
       } else if (reportType === 'Day_Wise') {
         result = await call('getDayWiseApprovalReport', startDate, endDate);
-      } else if (['All', 'Approved', 'Rejected', 'Remit', 'Remitted'].includes(reportType)) {
+      } else if (['All', 'Approved', 'Rejected', 'Remit', 'Remitted', 'Manual'].includes(reportType)) {
         result = await call('getPaymentReportRows', {
           type: reportType,
           vendor: vendorFilter,
@@ -399,6 +399,7 @@ export default function ReportsView() {
     { id: 'Rejected', label: 'Rejected' },
     { id: 'Remit', label: 'Remit' },
     { id: 'Remitted', label: 'Remitted' },
+    { id: 'Manual', label: 'Manual Entries' },
     { id: 'TDS_Quarter_Tracker', label: 'TDS Form 16A Tracker' },
     { id: 'Day_Wise', label: 'Day-Wise Approval' },
     { id: 'TDS_Register', label: 'TDS Register' },

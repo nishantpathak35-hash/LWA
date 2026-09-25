@@ -22,6 +22,19 @@ export class PaymentRepository {
 
   static async deleteRequestWithAudit(prId: string | number, reason: string, email: string): Promise<void> {
     await queryTransaction(async (db: any) => {
+      const prIdStr = String(prId || '').trim();
+      if (prIdStr.startsWith('M-')) {
+        const manualId = Number(prIdStr.replace('M-', ''));
+        const mp = await db.queryGet('SELECT * FROM manual_payments WHERE id = ?', [manualId]);
+        if (!mp) throw new Error('Manual payment entry not found.');
+        await db.queryRun('INSERT INTO audit_logs (user, action_type, details, department, timestamp) VALUES (?, ?, ?, ?, ?)',
+          [email, 'DELETE_MANUAL_PAYMENT', JSON.stringify({ manualId, reason, payment: mp }), 'Finance', new Date().toISOString()]);
+        await db.queryRun("DELETE FROM system_payments WHERE pr_key = ?", [`MANUAL-${manualId}`]);
+        await db.queryRun('DELETE FROM manual_payments WHERE id = ?', [manualId]);
+        if (mp.po_no) await this.recomputePO(mp.po_no, db);
+        return;
+      }
+
       const pr = await db.queryGet('SELECT * FROM payment_requests WHERE pr_id = ?', [prId]);
       if (!pr) throw new Error('Payment request not found.');
       const payments = await db.queryAll('SELECT * FROM system_payments WHERE CAST(pr_key AS TEXT) = ?', [String(prId)]);

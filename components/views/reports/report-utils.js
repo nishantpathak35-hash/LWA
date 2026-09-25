@@ -13,7 +13,10 @@ export function fmtLakhs(amount) {
   return lakhs.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' L';
 }
 
-export function stageBadge(stage) {
+export function stageBadge(stage, status, isManual) {
+  if (isManual || String(stage || '').toLowerCase() === 'manual' || stage === 'Manual Entry') {
+    return <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30">Manual Entry</Badge>;
+  }
   const s = String(stage || '').toLowerCase();
   if (s === 'remitted') return <Badge variant="remitted">Remitted</Badge>;
   if (s === 'rejected') return <Badge variant="rejected">Rejected</Badge>;
@@ -23,6 +26,9 @@ export function stageBadge(stage) {
 }
 
 export function wfSteps(p) {
+  if (p?.is_manual || p?.payment_type === 'manual' || String(p?.id || '').startsWith('M-')) {
+    return <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium italic">Direct Settlement</span>;
+  }
   const steps = [];
   const roles = p.stageRoles || [];
   const current = String(p.stage || '').toLowerCase();

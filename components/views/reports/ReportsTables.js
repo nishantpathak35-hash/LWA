@@ -474,7 +474,7 @@ export default function ReportsTables({
                   <TableCell className="font-mono text-[11px] text-amber-700 dark:text-amber-300 font-medium max-w-[120px] truncate" title={p.remittance_ref || p.utr}>
                     {p.remittance_ref || p.utr || '—'}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">{stageBadge(p.stage)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{stageBadge(p.stage, p.status, p.is_manual)}</TableCell>
                   <TableCell className="whitespace-nowrap">{wfSteps(p)}</TableCell>
                   <TableCell className={`text-xs whitespace-nowrap ${p.rejectedBy ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground'}`}>
                     {rejBy}

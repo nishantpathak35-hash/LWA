@@ -12,6 +12,7 @@ export default function ReportsHeader({
     { id: 'Approved', label: 'Approved' },
     { id: 'Remit', label: 'Ready to Remit' },
     { id: 'Remitted', label: 'Remitted' },
+    { id: 'Manual', label: 'Manual Entries' },
     { id: 'Rejected', label: 'Rejected' },
   ];
 

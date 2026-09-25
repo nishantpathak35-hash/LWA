@@ -89,19 +89,94 @@ export { getAuditLogs as listAuditLog };
 export async function getPaymentReportRows(filters = {}, session) {
   requireAuth(session);
   // P0-7: Reports must fetch ALL records — pass limit: 0 to disable the default 100-row cap
-  const all = await listPaymentRequests({ limit: 0 }, session);
+  const [prRows, manualRows] = await Promise.all([
+    listPaymentRequests({ limit: 0 }, session),
+    queryAll(`
+      SELECT
+        mp.id,
+        mp.po_no,
+        mp.payment_date,
+        mp.amount,
+        mp.amount AS amount_requested,
+        mp.amount AS approved_amount,
+        0 AS tds_amount,
+        mp.payment_mode,
+        mp.utr_ref,
+        mp.bank_name,
+        mp.reference_no,
+        mp.remarks,
+        mp.payment_type,
+        mp.recorded_by,
+        mp.created_at,
+        po.project AS po_project,
+        po.project,
+        po.category AS po_category,
+        po.vendor_name,
+        po.vendor_code,
+        po.vendor_key,
+        COALESCE(v.legal_name, po.vendor_name) AS joined_vendor_name
+      FROM manual_payments mp
+      LEFT JOIN purchase_orders po ON mp.po_no = po.po_no
+      LEFT JOIN vendors v ON (v.vendor_code = po.vendor_code OR v.legal_name = po.vendor_name)
+      ORDER BY mp.created_at DESC, mp.id DESC
+    `)
+  ]);
+
+  const formattedManual = (manualRows || []).map(mp => ({
+    id: `M-${mp.id}`,
+    pr_id: `M-${mp.id}`,
+    sNo: `M-${mp.id}`,
+    rowNumber: `M-${mp.id}`,
+    manual_id: mp.id,
+    is_manual: true,
+    po_no: mp.po_no || '',
+    poNo: mp.po_no || '',
+    vendor: mp.joined_vendor_name || mp.vendor_name || 'Direct Vendor',
+    vendor_name: mp.joined_vendor_name || mp.vendor_name || 'Direct Vendor',
+    joined_vendor_name: mp.joined_vendor_name || mp.vendor_name || 'Direct Vendor',
+    vendor_code: mp.vendor_code || mp.vendor_key || '',
+    project: mp.project || mp.po_project || 'General',
+    po_project: mp.project || mp.po_project || 'General',
+    po_category: mp.po_category || '',
+    amount: Number(mp.amount || 0),
+    amount_requested: Number(mp.amount || 0),
+    amountRequested: Number(mp.amount || 0),
+    approved_amount: Number(mp.amount || 0),
+    approvedAmount: Number(mp.amount || 0),
+    tds_amount: 0,
+    tdsAmount: 0,
+    stage: 'Remitted',
+    remittance: 'Remitted',
+    remittance_ref: mp.utr_ref || mp.reference_no || '',
+    remittance_date: mp.payment_date || mp.created_at || '',
+    payment_mode: mp.payment_mode || 'Manual',
+    status: 'approved',
+    proc_approval: 'Approved',
+    finance_approval: 'Approved',
+    director_approval: 'Approved',
+    recorded_by: mp.recorded_by || 'Admin',
+    created_at: mp.created_at || mp.payment_date || '',
+    remarks: mp.remarks || 'Manual Payment Entry'
+  }));
+
+  const all = [...(prRows || []), ...formattedManual];
+
   return all.filter(r => {
     const type = String(filters.type || 'All').toLowerCase();
     if (filters.type && filters.type !== 'All') {
-      if (type === 'approved' && r.status !== 'approved') return false;
-      if (type === 'rejected' && r.status !== 'rejected') return false;
-      if (type === 'remit') {
-        const isReadyToRemit = String(r.stage || '').toLowerCase() === 'ready to remit';
-        if (!isReadyToRemit) return false;
-      }
-      if (type === 'remitted') {
-        const isRemitted = String(r.stage || '').toLowerCase().trim() === 'remitted' || String(r.remittance || '').toLowerCase().trim() === 'remitted';
-        if (!isRemitted) return false;
+      if (type === 'manual') {
+        if (!r.is_manual) return false;
+      } else {
+        if (type === 'approved' && r.status !== 'approved') return false;
+        if (type === 'rejected' && r.status !== 'rejected') return false;
+        if (type === 'remit') {
+          const isReadyToRemit = String(r.stage || '').toLowerCase() === 'ready to remit';
+          if (!isReadyToRemit) return false;
+        }
+        if (type === 'remitted') {
+          const isRemitted = String(r.stage || '').toLowerCase().trim() === 'remitted' || String(r.remittance || '').toLowerCase().trim() === 'remitted';
+          if (!isRemitted) return false;
+        }
       }
     }
     if (filters.vendor) {
