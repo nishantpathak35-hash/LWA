@@ -53,5 +53,13 @@ next-env.d.ts
 *.sqlite3
 dev.sqlite3
 lx.sqlite
+/backend/*.sqlite
+/backend/*.sqlite3
+
+# local rescue exports and data backups
+/rescue_data/
+/rescue_*.json
+/rescue_*.ps1
+/scratch/backup*
 
 .env*
