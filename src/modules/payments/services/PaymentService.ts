@@ -20,6 +20,39 @@ function validateAmounts(gross: number, tds: number, percentage: number) {
   if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) throw new Error('TDS percentage must be between zero and 100');
 }
 
+function normalizeStage(value: any): string {
+  return String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+}
+
+function isClosedPaymentRequest(request: any): boolean {
+  const stage = normalizeStage(request?.stage);
+  const remittance = normalizeStage(request?.remittance);
+  return ['remitted', 'paid', 'settled', 'rejected', 'cancelled', 'canceled'].includes(stage)
+    || ['remitted', 'paid', 'settled', 'rejected', 'cancelled', 'canceled'].includes(remittance);
+}
+
+async function enforcePoBalanceLimit(poNo: string, amount: number, excludePrId?: string | number, linkedPO?: any): Promise<void> {
+  const controlPolicies = await loadControlPolicies();
+  if (!controlPolicies.block_payment_over_po_balance) return;
+
+  const po = linkedPO || await POService.getPO(poNo);
+  const poValue = Number(po?.revised_po_value || po?.po_value || 0);
+  if (poValue <= 0) return;
+
+  const paidValue = Number(po?.legacy_paid || po?.paid || 0);
+  const requests = await PaymentRepository.findAllRequests({ po_no: poNo }, { limit: 0 });
+  const excluded = String(excludePrId ?? '');
+  const reservedOpenValue = (requests || []).reduce((sum: number, request: any) => {
+    if (excluded && String(request.pr_id) === excluded) return sum;
+    if (isClosedPaymentRequest(request)) return sum;
+    return sum + (Number(request.approved_amount || request.amount_requested || 0) || 0);
+  }, 0);
+  const remaining = Math.max(0, poValue - paidValue - reservedOpenValue);
+  if (amount > remaining) {
+    throw new Error('Payment amount exceeds the remaining PO balance');
+  }
+}
+
 export class PaymentService {
   static requireFinance(session: any): void {
     AuthService.requireAuth(session);
@@ -46,11 +79,7 @@ export class PaymentService {
     }
 
     const controlPolicies = await loadControlPolicies();
-    const poValue = Number(linkedPO.revised_po_value || linkedPO.po_value || 0);
-    const paidValue = Number((linkedPO as any).legacy_paid || 0);
-    if (controlPolicies.block_payment_over_po_balance && poValue > 0 && reqAmt > Math.max(0, poValue - paidValue)) {
-      throw new Error('Payment amount exceeds the remaining PO balance');
-    }
+    await enforcePoBalanceLimit(payload.poNo, reqAmt, undefined, linkedPO);
     if (controlPolicies.require_supporting_document && !(payload.invoice_id || payload.invoiceId)) {
       throw new Error('A supporting invoice/document is required for this payment request');
     }
@@ -125,6 +154,10 @@ export class PaymentService {
       if (!payload.adminOverride && !editableStages.includes(pr.stage)) {
         throw new Error(`Payment request cannot be edited in stage: ${pr.stage}`);
       }
+      const isCreator = String(pr.created_by || '').trim().toLowerCase() === String(userEmail || '').trim().toLowerCase();
+      if (!payload.adminOverride && !isDirOrAdmin && !isFinance && !isCreator) {
+        throw new Error('AUTH:Unauthorized - Only creator, Admin, Director, or Finance can edit pending payment requests');
+      }
     }
 
     const reqAmt = payload.amountRequested !== undefined ? Number(payload.amountRequested || payload.gross_amount || 0) : Number(pr.amount_requested || 0);
@@ -147,6 +180,9 @@ export class PaymentService {
 
     validateAmounts(reqAmt, 0, 0);
     validateAmounts(approvedAmt, tdsAmt, tdsPct);
+    if (!isRemitted) {
+      await enforcePoBalanceLimit(pr.po_no, approvedAmt, prId);
+    }
     const remarks = payload.remarks !== undefined ? payload.remarks : (pr.remarks || '');
 
     const updates: Record<string, any> = {
@@ -191,6 +227,9 @@ export class PaymentService {
     const tdsSec = tdsConfig.section !== undefined ? String(tdsConfig.section) : (pr.tds_section || '');
 
     validateAmounts(Number(approvedAmount), Number(tdsAmount), Number(tdsPct));
+    if (pr.po_no) {
+      await enforcePoBalanceLimit(pr.po_no, Number(approvedAmount), prId);
+    }
     const oldStage = pr.stage || 'Pending Procurement';
     const isSuper = AuthService.isSuperAdmin(userEmail);
     const effectiveRoles = isSuper
