@@ -1,4 +1,5 @@
 import { mergeOcrFields } from '../../../app/lib/invoiceOcrFields';
+import GstTaxSection from '../invoices/GstTaxSection';
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../../StateProvider';
 import { Card, CardContent, Button, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Dialog, Input, Textarea } from '../../ui/core';
@@ -24,6 +25,11 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
     invoiceDate: new Date().toISOString().split('T')[0],
     subtotal: '',
     taxAmount: '',
+    cgstAmount: '',
+    sgstAmount: '',
+    igstAmount: '',
+    gstMode: 'intra',
+    placeOfSupply: '',
     invoiceTotal: '',
     remarks: ''
   });
@@ -59,6 +65,11 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
     invoiceDate: '',
     subtotal: '',
     taxAmount: '',
+    cgstAmount: '',
+    sgstAmount: '',
+    igstAmount: '',
+    gstMode: 'intra',
+    placeOfSupply: '',
     invoiceTotal: '',
     remarks: ''
   });
@@ -242,6 +253,10 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
         invoiceDate: editForm.invoiceDate,
         subtotal: editForm.subtotal ? Number(editForm.subtotal) : 0,
         taxAmount: editForm.taxAmount ? Number(editForm.taxAmount) : 0,
+        cgstAmount: editForm.cgstAmount ? Number(editForm.cgstAmount) : 0,
+        sgstAmount: editForm.sgstAmount ? Number(editForm.sgstAmount) : 0,
+        igstAmount: editForm.igstAmount ? Number(editForm.igstAmount) : 0,
+        placeOfSupply: editForm.placeOfSupply || '',
         invoiceTotal: Number(editForm.invoiceTotal),
         remarks: editForm.remarks,
         fileName,
@@ -382,6 +397,10 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
             invoiceDate: formData.invoiceDate,
             subtotal: Number(formData.subtotal || 0),
             taxAmount: Number(formData.taxAmount || 0),
+            cgstAmount: Number(formData.cgstAmount || 0),
+            sgstAmount: Number(formData.sgstAmount || 0),
+            igstAmount: Number(formData.igstAmount || 0),
+            placeOfSupply: formData.placeOfSupply || '',
             invoiceTotal: Number(formData.invoiceTotal),
             remarks: formData.remarks,
             fileName: selectedFile.name,
@@ -396,6 +415,11 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
             invoiceDate: new Date().toISOString().split('T')[0],
             subtotal: '',
             taxAmount: '',
+            cgstAmount: '',
+            sgstAmount: '',
+            igstAmount: '',
+            gstMode: 'intra',
+            placeOfSupply: '',
             invoiceTotal: '',
             remarks: ''
           });

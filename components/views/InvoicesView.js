@@ -2,6 +2,7 @@
 
 import InvoiceDocumentPreview from './InvoiceDocumentPreview';
 import { mergeOcrFields } from '../../app/lib/invoiceOcrFields';
+import GstTaxSection from './invoices/GstTaxSection';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppState } from '../StateProvider';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Button, Input, Dialog, Textarea } from '../ui/core';
@@ -60,6 +61,11 @@ export default function InvoicesView() {
     invoiceDate: '',
     subtotal: '',
     taxAmount: '',
+    cgstAmount: '',
+    sgstAmount: '',
+    igstAmount: '',
+    gstMode: 'intra',
+    placeOfSupply: '',
     invoiceTotal: '',
     remarks: ''
   });
@@ -109,6 +115,11 @@ export default function InvoicesView() {
     invoiceDate: new Date().toISOString().split('T')[0],
     subtotal: '',
     taxAmount: '',
+    cgstAmount: '',
+    sgstAmount: '',
+    igstAmount: '',
+    gstMode: 'intra',
+    placeOfSupply: '',
     invoiceTotal: '',
     remarks: ''
   });
@@ -208,6 +219,11 @@ export default function InvoicesView() {
       invoiceDate: inv.invoice_date ? String(inv.invoice_date).split('T')[0] : new Date().toISOString().split('T')[0],
       subtotal: inv.subtotal != null ? String(inv.subtotal) : '',
       taxAmount: inv.tax_amount != null ? String(inv.tax_amount) : '',
+      cgstAmount: inv.cgst_amount != null ? String(inv.cgst_amount) : '',
+      sgstAmount: inv.sgst_amount != null ? String(inv.sgst_amount) : '',
+      igstAmount: inv.igst_amount != null ? String(inv.igst_amount) : '',
+      gstMode: (inv.igst_amount && Number(inv.igst_amount) > 0) ? 'inter' : 'intra',
+      placeOfSupply: inv.place_of_supply || '',
       invoiceTotal: inv.invoice_total != null ? String(inv.invoice_total) : '',
       remarks: inv.remarks || ''
     });
@@ -221,8 +237,20 @@ export default function InvoicesView() {
     const updated = { ...editForm, [field]: val };
     const s = parseFloat(field === 'subtotal' ? val : updated.subtotal) || 0;
     const t = parseFloat(field === 'taxAmount' ? val : updated.taxAmount) || 0;
-    if (field !== 'invoiceTotal' && s > 0) {
+    if (field !== 'invoiceTotal' && (s > 0 || t > 0)) {
       updated.invoiceTotal = (s + t).toFixed(2);
+    }
+    if (field === 'taxAmount') {
+      if (updated.gstMode === 'intra') {
+        const half = t > 0 ? (t / 2).toFixed(2) : '';
+        updated.cgstAmount = half;
+        updated.sgstAmount = half;
+        updated.igstAmount = '';
+      } else {
+        updated.igstAmount = t > 0 ? t.toFixed(2) : '';
+        updated.cgstAmount = '';
+        updated.sgstAmount = '';
+      }
     }
     setEditForm(updated);
   };
@@ -269,6 +297,10 @@ export default function InvoicesView() {
         invoiceDate: editForm.invoiceDate,
         subtotal: editForm.subtotal ? Number(editForm.subtotal) : 0,
         taxAmount: editForm.taxAmount ? Number(editForm.taxAmount) : 0,
+        cgstAmount: editForm.cgstAmount ? Number(editForm.cgstAmount) : 0,
+        sgstAmount: editForm.sgstAmount ? Number(editForm.sgstAmount) : 0,
+        igstAmount: editForm.igstAmount ? Number(editForm.igstAmount) : 0,
+        placeOfSupply: editForm.placeOfSupply || '',
         invoiceTotal: Number(editForm.invoiceTotal),
         remarks: editForm.remarks,
         fileName,
@@ -463,6 +495,10 @@ export default function InvoicesView() {
             invoiceDate: uploadForm.invoiceDate,
             subtotal: Number(uploadForm.subtotal || 0),
             taxAmount: Number(uploadForm.taxAmount || 0),
+            cgstAmount: Number(uploadForm.cgstAmount || 0),
+            sgstAmount: Number(uploadForm.sgstAmount || 0),
+            igstAmount: Number(uploadForm.igstAmount || 0),
+            placeOfSupply: uploadForm.placeOfSupply || '',
             invoiceTotal: Number(uploadForm.invoiceTotal),
             remarks: uploadForm.remarks,
             fileName: selectedFile.name,
@@ -480,6 +516,11 @@ export default function InvoicesView() {
             invoiceDate: new Date().toISOString().split('T')[0],
             subtotal: '',
             taxAmount: '',
+            cgstAmount: '',
+            sgstAmount: '',
+            igstAmount: '',
+            gstMode: 'intra',
+            placeOfSupply: '',
             invoiceTotal: '',
             remarks: ''
           });
@@ -1091,6 +1132,18 @@ export default function InvoicesView() {
     const tax = Number(nextForm.taxAmount || 0);
     if (field === 'subtotal' || field === 'taxAmount') {
       nextForm.invoiceTotal = (sub + tax).toFixed(2);
+    }
+    if (field === 'taxAmount') {
+      if (nextForm.gstMode === 'intra') {
+        const half = tax > 0 ? (tax / 2).toFixed(2) : '';
+        nextForm.cgstAmount = half;
+        nextForm.sgstAmount = half;
+        nextForm.igstAmount = '';
+      } else {
+        nextForm.igstAmount = tax > 0 ? tax.toFixed(2) : '';
+        nextForm.cgstAmount = '';
+        nextForm.sgstAmount = '';
+      }
     }
     setUploadForm(nextForm);
   };
@@ -1995,6 +2048,37 @@ export default function InvoicesView() {
               <p><strong className="text-muted-foreground">PO Number:</strong> {selectedInvoice.po_no}</p>
               <p><strong className="text-muted-foreground">Invoice Total:</strong> <span className="text-amber-600 dark:text-amber-400 font-bold font-mono">{formatCurrency(selectedInvoice.invoice_total)}</span></p>
             </div>
+
+            {(selectedInvoice.subtotal != null || selectedInvoice.tax_amount != null || selectedInvoice.place_of_supply) && (
+              <div className="bg-muted/30 border border-border/80 rounded-xl p-3 text-xs space-y-1.5">
+                <div className="font-semibold text-foreground flex items-center justify-between border-b border-border/60 pb-1.5 mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    Tax & GST Breakdown
+                  </span>
+                  {selectedInvoice.place_of_supply && (
+                    <span className="text-[11px] text-muted-foreground font-medium">POS: {selectedInvoice.place_of_supply}</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono">
+                  {selectedInvoice.subtotal != null && (
+                    <div><span className="text-muted-foreground block text-[10px]">Subtotal</span>{formatCurrency(selectedInvoice.subtotal)}</div>
+                  )}
+                  {selectedInvoice.tax_amount != null && (
+                    <div><span className="text-muted-foreground block text-[10px]">Tax Amount</span>{formatCurrency(selectedInvoice.tax_amount)}</div>
+                  )}
+                  {Number(selectedInvoice.cgst_amount || 0) > 0 && (
+                    <div><span className="text-muted-foreground block text-[10px]">CGST</span>{formatCurrency(selectedInvoice.cgst_amount)}</div>
+                  )}
+                  {Number(selectedInvoice.sgst_amount || 0) > 0 && (
+                    <div><span className="text-muted-foreground block text-[10px]">SGST</span>{formatCurrency(selectedInvoice.sgst_amount)}</div>
+                  )}
+                  {Number(selectedInvoice.igst_amount || 0) > 0 && (
+                    <div><span className="text-muted-foreground block text-[10px]">IGST</span>{formatCurrency(selectedInvoice.igst_amount)}</div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {statusAction === 'Rejected' ? (
               <div>

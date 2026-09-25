@@ -552,6 +552,19 @@ export class InvoiceService {
       remarks: updates.remarks !== undefined ? updates.remarks : invoice.remarks
     };
 
+    if (updates.cgstAmount !== undefined || updates.cgst_amount !== undefined) {
+      repoUpdates.cgst_amount = Number(updates.cgstAmount ?? updates.cgst_amount ?? 0);
+    }
+    if (updates.sgstAmount !== undefined || updates.sgst_amount !== undefined) {
+      repoUpdates.sgst_amount = Number(updates.sgstAmount ?? updates.sgst_amount ?? 0);
+    }
+    if (updates.igstAmount !== undefined || updates.igst_amount !== undefined) {
+      repoUpdates.igst_amount = Number(updates.igstAmount ?? updates.igst_amount ?? 0);
+    }
+    if (updates.placeOfSupply !== undefined || updates.place_of_supply !== undefined) {
+      repoUpdates.place_of_supply = updates.placeOfSupply ?? updates.place_of_supply ?? '';
+    }
+
     if (targetPoNo !== invoice.po_no) {
       repoUpdates.po_no = targetPoNo;
       repoUpdates.project = targetProject;

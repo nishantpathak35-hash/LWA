@@ -199,4 +199,37 @@ describe('Invoice Editing Unit & Security Tests', () => {
       poNo: 'PO-NEW-02'
     }, { email: 'admin@luxeworx.com', roles: ['admin'] })).rejects.toThrow('already exists for vendor "Vendor Two"');
   });
+
+  it('updates invoice with GST breakdown and place of supply', async () => {
+    vi.spyOn(InvoiceRepository, 'findById').mockResolvedValue({
+      id: 10,
+      invoice_id: 'INV-10',
+      invoice_number: 'INV-2026-GST',
+      po_no: 'PO-TEST-01',
+      vendor_code: 'VEND001',
+      vendor_name: 'Vendor One',
+      subtotal: 1000,
+      tax_amount: 180,
+      invoice_total: 1180
+    } as any);
+
+    const updateSpy = vi.spyOn(InvoiceRepository, 'update').mockResolvedValue(undefined as any);
+
+    await InvoiceService.updateInvoice('INV-10', {
+      invoiceNumber: 'INV-2026-GST',
+      invoiceDate: '2026-09-01',
+      subtotal: 1000,
+      taxAmount: 180,
+      cgstAmount: 90,
+      sgstAmount: 90,
+      placeOfSupply: '07-Delhi',
+      invoiceTotal: 1180
+    }, { email: 'admin@luxeworx.com', roles: ['admin'] });
+
+    expect(updateSpy).toHaveBeenCalledWith('INV-10', expect.objectContaining({
+      cgst_amount: 90,
+      sgst_amount: 90,
+      place_of_supply: '07-Delhi'
+    }));
+  });
 });
