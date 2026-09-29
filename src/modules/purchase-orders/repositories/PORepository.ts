@@ -24,7 +24,7 @@ export class PORepository {
             AND LOWER(inv.status) != 'rejected'
         ), 0) as invoice_count
       FROM purchase_orders p
-      ORDER BY p.created_at DESC
+      ORDER BY COALESCE(p.po_date, p.created_at) DESC, p.created_at DESC
       LIMIT ? OFFSET ?
     `, [limit, offset]);
   }

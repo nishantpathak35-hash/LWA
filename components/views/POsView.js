@@ -87,6 +87,7 @@ export default function POsView() {
   const [openActionMenuPoNo, setOpenActionMenuPoNo] = useState(null);
   const [poDateSortDir, setPoDateSortDir] = useState('desc');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [exportingPOs, setExportingPOs] = useState(false);
 
   // ── PO Form Modal ──
   const [modalOpen, setModalOpen]       = useState(false);
@@ -196,59 +197,105 @@ export default function POsView() {
   const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
   const handleExportPOs = async () => {
-    const headers = [
-      'PO No',
-      'Project',
-      'Vendor',
-      'Status',
-      'Payment Status',
-      'PO Value',
-      'Paid',
-      'Balance',
-      'PO Date',
-      'Expected Delivery',
-      'Category',
-      'Line Items'
-    ];
-    const rows = await Promise.all(filteredPOs.map(async po => {
-      const poValue = Number(po.po_value || 0);
-      const paid = Number(po.paid || 0);
-      let lineItems = '';
-      try {
-        const details = await call('getPOFullDetails', po.po_no);
-        lineItems = (details?.items || [])
-          .map(item => `${item.description || ''} (${item.quantity || item.qty || 0} ${item.unit || item.uom || 'Nos'})`)
-          .join('; ');
-      } catch {
-        lineItems = '';
+    setExportingPOs(true);
+    try {
+      let fullList = [];
+      if (typeof call === 'function') {
+        const res = await call('getPOsOnly', { limit: 0, offset: 0 });
+        if (res && Array.isArray(res.pos) && res.pos.length > 0) {
+          fullList = res.pos;
+        }
       }
-      return [
-        po.po_no || '',
-        po.project || '',
-        po.vendor_name || po.vendor_key || '',
-        po.status || po.approval_status || 'Draft',
-        po.payment_status || 'Unpaid',
-        poValue,
-        paid,
-        Math.max(0, poValue - paid),
-        po.po_date || '',
-        po.expected_delivery_date || '',
-        po.category || '',
-        lineItems
-      ];
-    }));
+      if (!fullList.length) fullList = pos || [];
 
-    const csv = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Purchase_Orders_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const q = (searchQuery || '').trim().toLowerCase();
+      let list = fullList.filter(po => {
+        if (!q) return true;
+        return (po.po_no || '').toLowerCase().includes(q) ||
+               (po.vendor_name || '').toLowerCase().includes(q) ||
+               (po.project || '').toLowerCase().includes(q);
+      });
+
+      if (statusFilter === 'pending') {
+        list = list.filter(p => {
+          const s = String(p.status || '').toLowerCase();
+          const as = String(p.approval_status || '').toLowerCase();
+          return s.includes('pending') || s.includes('submitted') || s === 'under approval' ||
+                 as.includes('pending') || as.includes('submitted') || as === 'under approval';
+        });
+      } else if (statusFilter === 'approved') {
+        list = list.filter(p => {
+          const s = String(p.status || '').toLowerCase();
+          const as = String(p.approval_status || '').toLowerCase();
+          return as === 'approved' || s === 'approved' || s === 'active' || s === 'open' || s === 'partially billed' || s === 'billed';
+        });
+      } else if (statusFilter === 'paid') {
+        list = list.filter(p => {
+          const ps = String(p.payment_status || '').toLowerCase();
+          return ps === 'fully paid' || ps === 'paid';
+        });
+      } else if (statusFilter === 'closed') {
+        list = list.filter(p => {
+          const s = String(p.status || '').toLowerCase();
+          const as = String(p.approval_status || '').toLowerCase();
+          return s === 'short closed' || s === 'short_closed' || s === 'closed' || as === 'short closed' || as === 'short_closed' || as === 'closed';
+        });
+      }
+
+      list = list.sort((a, b) => {
+        const aTime = new Date(a.po_date || '1900-01-01').getTime() || 0;
+        const bTime = new Date(b.po_date || '1900-01-01').getTime() || 0;
+        if (aTime === bTime) return String(b.po_no || '').localeCompare(String(a.po_no || ''));
+        return poDateSortDir === 'desc' ? bTime - aTime : aTime - bTime;
+      });
+
+      const headers = [
+        'PO No',
+        'Project',
+        'Vendor',
+        'Status',
+        'Payment Status',
+        'PO Value',
+        'Paid',
+        'Balance',
+        'PO Date',
+        'Expected Delivery',
+        'Category'
+      ];
+      const rows = list.map(po => {
+        const poValue = Number(po.po_value || 0);
+        const paid = Number(po.paid || 0);
+        return [
+          po.po_no || '',
+          po.project || '',
+          po.vendor_name || po.vendor_key || '',
+          po.status || po.approval_status || 'Draft',
+          po.payment_status || 'Unpaid',
+          poValue,
+          paid,
+          Math.max(0, poValue - paid),
+          po.po_date || '',
+          po.expected_delivery_date || '',
+          po.category || ''
+        ];
+      });
+
+      const csv = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Purchase_Orders_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setExportingPOs(false);
+    }
   };
 
   // ─── Open Create / Edit Modal ──────────────────────────────────────────────
@@ -731,6 +778,7 @@ export default function POsView() {
         canCreate={canCreate}
         filteredPOs={filteredPOs}
         handleExportPOs={handleExportPOs}
+        exportingPOs={exportingPOs}
         handleOpenModal={handleOpenModal}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}

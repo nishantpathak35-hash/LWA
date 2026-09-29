@@ -7,6 +7,7 @@ export default function POFilters({
   canCreate,
   filteredPOs = [],
   handleExportPOs,
+  exportingPOs = false,
   handleOpenModal,
   pos = [],
   statusFilter = 'all',
@@ -124,10 +125,10 @@ export default function POFilters({
             variant="outline"
             size="sm"
             onClick={handleExportPOs}
-            disabled={filteredPOs.length === 0}
+            disabled={filteredPOs.length === 0 || exportingPOs}
             className="h-8 text-xs font-semibold border-border"
           >
-            <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> Export
+            <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> {exportingPOs ? 'Exporting...' : 'Export'}
           </Button>
           {canCreate && (
             <Button

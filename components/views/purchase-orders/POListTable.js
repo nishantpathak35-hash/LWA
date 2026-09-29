@@ -24,6 +24,7 @@ export default function POListTable({
   call
 }) {
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exportingCSV, setExportingCSV] = useState(false);
   const [sortField, setSortField] = useState('po_date');
   const [sortDir, setSortDir] = useState('desc');
   const [internalStatusFilter, setInternalStatusFilter] = useState('all');
@@ -72,20 +73,74 @@ export default function POListTable({
     return sortData(list, sortField, sortDir);
   }, [filteredPOs, statusFilter, sortField, sortDir]);
 
-  const handleExportCSV = () => {
-    const columns = [
-      { label: 'PO Number', key: 'po_no' },
-      { label: 'PO Date', key: 'po_date', formatter: (v) => formatDate(v) },
-      { label: 'Vendor', key: 'vendor_name', formatter: (v, r) => r.vendor_name || r.vendor_key },
-      { label: 'Project', key: 'project' },
-      { label: 'Status', key: 'status', formatter: (v, r) => r.status || r.approval_status },
-      { label: 'Payment Status', key: 'payment_status' },
-      { label: 'PO Value', key: 'po_value', formatter: (v) => Number(v || 0) },
-      { label: 'Invoice Received', key: 'total_invoiced', formatter: (v) => Number(v || 0) },
-      { label: 'Paid Amount', key: 'paid', formatter: (v) => Number(v || 0) },
-      { label: 'Balance', key: 'balance', formatter: (v, r) => Math.max(0, Number(r.po_value || 0) - Number(r.paid || 0)) }
-    ];
-    exportToCSV('Purchase_Orders_Database.csv', columns, displayPOs);
+  const handleExportCSV = async () => {
+    setExportingCSV(true);
+    try {
+      let fullList = [];
+      if (typeof call === 'function') {
+        const res = await call('getPOsOnly', { limit: 0, offset: 0 });
+        if (res && Array.isArray(res.pos) && res.pos.length > 0) {
+          fullList = res.pos;
+        }
+      }
+      if (!fullList.length) {
+        fullList = filteredPOs || [];
+      }
+
+      const q = (searchQuery || '').trim().toLowerCase();
+      let list = fullList.filter(po => {
+        if (!q) return true;
+        return (po.po_no || '').toLowerCase().includes(q) ||
+               (po.vendor_name || '').toLowerCase().includes(q) ||
+               (po.project || '').toLowerCase().includes(q);
+      });
+
+      if (statusFilter === 'pending') {
+        list = list.filter(p => {
+          const s = String(p.status || '').toLowerCase();
+          const as = String(p.approval_status || '').toLowerCase();
+          return s.includes('pending') || s.includes('submitted') || s === 'under approval' ||
+                 as.includes('pending') || as.includes('submitted') || as === 'under approval';
+        });
+      } else if (statusFilter === 'approved') {
+        list = list.filter(p => {
+          const s = String(p.status || '').toLowerCase();
+          const as = String(p.approval_status || '').toLowerCase();
+          return as === 'approved' || s === 'approved' || s === 'active' || s === 'open' || s === 'partially billed' || s === 'billed';
+        });
+      } else if (statusFilter === 'paid') {
+        list = list.filter(p => {
+          const ps = String(p.payment_status || '').toLowerCase();
+          return ps === 'fully paid' || ps === 'paid';
+        });
+      } else if (statusFilter === 'closed') {
+        list = list.filter(p => {
+          const s = String(p.status || '').toLowerCase();
+          const as = String(p.approval_status || '').toLowerCase();
+          return s === 'short closed' || s === 'short_closed' || s === 'closed' || as === 'short closed' || as === 'short_closed' || as === 'closed';
+        });
+      }
+
+      const sortedList = sortData(list, sortField, sortDir);
+
+      const columns = [
+        { label: 'PO Number', key: 'po_no' },
+        { label: 'PO Date', key: 'po_date', formatter: (v) => formatDate(v) },
+        { label: 'Vendor', key: 'vendor_name', formatter: (v, r) => r.vendor_name || r.vendor_key },
+        { label: 'Project', key: 'project' },
+        { label: 'Status', key: 'status', formatter: (v, r) => r.status || r.approval_status },
+        { label: 'Payment Status', key: 'payment_status' },
+        { label: 'PO Value', key: 'po_value', formatter: (v) => Number(v || 0) },
+        { label: 'Invoice Received', key: 'total_invoiced', formatter: (v) => Number(v || 0) },
+        { label: 'Paid Amount', key: 'paid', formatter: (v) => Number(v || 0) },
+        { label: 'Balance', key: 'balance', formatter: (v, r) => Math.max(0, Number(r.po_value || 0) - Number(r.paid || 0)) }
+      ];
+      exportToCSV('Purchase_Orders_Database.csv', columns, sortedList);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setExportingCSV(false);
+    }
   };
 
   const handleLoadMore = async () => {
@@ -140,10 +195,11 @@ export default function POListTable({
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
+            disabled={exportingCSV}
             className="h-8 px-3 text-xs font-semibold rounded-lg border-border shrink-0"
           >
             <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-            Export
+            {exportingCSV ? 'Exporting...' : 'Export'}
           </Button>
         </div>
 
