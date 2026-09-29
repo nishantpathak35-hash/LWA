@@ -52,7 +52,7 @@ export async function getBootBundle(session) {
   }
   const [kpis, master, payments, featurePermissions] = await Promise.all([
     getDashboardKPIs(session),
-    getMasterData(session, { limit: 150, offset: 0 }),
+    getMasterData(session, { limit: 0, offset: 0 }),
     listPaymentRequests({ limit: 100, offset: 0 }, session),
     getFeaturePermissions(session)
   ]);
@@ -126,7 +126,7 @@ export async function getDashboardKPIs(session) {
 
 
 
-export async function getMasterData(session, options = { limit: 150, offset: 0 }) {
+export async function getMasterData(session, options = { limit: 0, offset: 0 }) {
   requireAuth(session);
   const [vendors, pos, totalVendors, totalPOs] = await Promise.all([
     VendorService.getAllVendors(options),
