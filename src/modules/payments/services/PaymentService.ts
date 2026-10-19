@@ -48,8 +48,13 @@ async function enforcePoBalanceLimit(poNo: string, amount: number, excludePrId?:
     return sum + (Number(request.approved_amount || request.amount_requested || 0) || 0);
   }, 0);
   const remaining = Math.max(0, poValue - paidValue - reservedOpenValue);
-  if (amount > remaining) {
-    throw new Error('Payment amount exceeds the remaining PO balance');
+  if (amount > remaining + 0.05) {
+    const formattedReq = Math.round(amount).toLocaleString('en-IN');
+    const formattedRem = Math.round(remaining).toLocaleString('en-IN');
+    const details = reservedOpenValue > 0
+      ? ` (PO Total: ₹${Math.round(poValue).toLocaleString('en-IN')}, Paid: ₹${Math.round(paidValue).toLocaleString('en-IN')}, Reserved in pending requests: ₹${Math.round(reservedOpenValue).toLocaleString('en-IN')})`
+      : ` (PO Total: ₹${Math.round(poValue).toLocaleString('en-IN')}, Paid: ₹${Math.round(paidValue).toLocaleString('en-IN')})`;
+    throw new Error(`Payment amount exceeds the remaining PO balance of ₹${formattedRem}${details}.`);
   }
 }
 
@@ -101,12 +106,29 @@ export class PaymentService {
     validateAmounts(reqAmt, tdsAmount, tdsPct);
     const invoiceId = payload.invoice_id || payload.invoiceId;
     if (invoiceId) await PaymentRepository.validateInvoiceLink(invoiceId, payload.poNo);
-    if (payload.vendorCode && linkedPO.vendor_code && payload.vendorCode !== linkedPO.vendor_code) throw new Error('Vendor must match the purchase order');
+    const poVendorCode = String(linkedPO.vendor_code || linkedPO.vendor_key || '').trim().toLowerCase();
+    const payloadVendorCode = String(payload.vendorCode || '').trim().toLowerCase();
+    const poVendorKey = String(linkedPO.vendor_key || '').trim().toLowerCase();
+    const poVendorName = String(linkedPO.vendor_name || '').trim().toLowerCase();
+    const payloadVendorName = String(payload.vendor || '').trim().toLowerCase();
+
+    const matchesCode = !payloadVendorCode || !poVendorCode || 
+      payloadVendorCode === poVendorCode || 
+      payloadVendorCode === poVendorKey;
+    
+    const matchesName = !payloadVendorName || !poVendorName || 
+      payloadVendorName === poVendorName || 
+      payloadVendorName.includes(poVendorName) || 
+      poVendorName.includes(payloadVendorName);
+
+    if (!matchesCode && !matchesName) {
+      throw new Error(`Vendor must match the purchase order (PO vendor: "${linkedPO.vendor_name || poVendorCode}")`);
+    }
 
     await PaymentRepository.createRequest({
       po_no: payload.poNo,
       vendor_id: linkedPO.vendor_id || undefined,
-      vendor_code: linkedPO.vendor_code || linkedPO.vendor_key || payload.vendorCode || '',
+      vendor_code: (matchesCode && payload.vendorCode) || linkedPO.vendor_code || linkedPO.vendor_key || '',
       vendor_name: linkedPO.vendor_name || payload.vendor,
       project: linkedPO.project || '',
       category: payload.category || linkedPO.category || '',

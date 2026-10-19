@@ -65,8 +65,8 @@ export class PaymentRepository {
     let sql = `SELECT * FROM payment_requests WHERE 1=1`;
     const params: any[] = [];
     if (filters.po_no) {
-      sql += ` AND po_no = ?`;
-      params.push(filters.po_no);
+      sql += ` AND LOWER(TRIM(po_no)) = LOWER(TRIM(?))`;
+      params.push(String(filters.po_no).trim());
     }
     if (filters.vendor_id) {
       sql += ` AND vendor_id = ?`;

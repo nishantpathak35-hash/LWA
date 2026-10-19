@@ -183,10 +183,23 @@ export class POService {
       await logAudit(userEmail, 'PO Re-submitted for Approval', `PO#${originalPoNo} edited after approval - status set to Pending Approval for re-approval`, 'Procurement');
     }
 
+    let vendorRecord = null;
+    const vQuery = payload.vendor_id || payload.vendorId || payload.vendorCode || payload.vendor_code || payload.vendor_key || payload.vendorName || payload.vendor;
+    if (vQuery) {
+      const { VendorRepository } = await import('../../vendors/repositories/VendorRepository');
+      vendorRecord = await VendorRepository.findByNameOrCode(String(vQuery));
+    }
+
+    const vendorName = vendorRecord ? vendorRecord.legal_name : (payload.vendorName || payload.vendor || existing.vendor_name);
+    const vendorCode = vendorRecord ? vendorRecord.vendor_code : (payload.vendorCode || payload.vendor_code || payload.vendor_key || existing.vendor_code || existing.vendor_key);
+    const vendorId = vendorRecord ? vendorRecord.id : (payload.vendor_id || payload.vendorId || existing.vendor_id || null);
+
     await PORepository.update(originalPoNo, {
       po_no: nextPoNo,
-      vendor_key: payload.vendorCode || payload.vendor_key || existing.vendor_key,
-      vendor_name: payload.vendorName || payload.vendor || existing.vendor_name,
+      vendor_id: vendorId || undefined,
+      vendor_code: vendorCode,
+      vendor_key: vendorCode,
+      vendor_name: vendorName,
       project: payload.project || existing.project,
       po_value: totalVal,
       revised_po_value: totalVal,

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Dialog, Button, Input, Select } from '../../ui/core';
 import { ShieldAlert, CreditCard, Landmark, FileText, IndianRupee, Layers, CheckCircle2 } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
@@ -14,7 +14,7 @@ export default function PaymentFormModal({
 }) {
   const selectedPO = vendorPOs?.find(p => p.po_no === poNo) || null;
 
-  const { activeLocks, user, call } = useAppState();
+  const { activeLocks, user, call, payments } = useAppState();
   const lockKey = `payment:${editingPrId}`;
   const currentLock = editingPrId ? activeLocks[lockKey] : null;
   const isLockedByOthers = currentLock && currentLock.email !== user?.email;
@@ -57,8 +57,23 @@ export default function PaymentFormModal({
 
   const poTotal = Number(selectedPO?.po_value || 0);
   const poPaid = Number(selectedPO?.paid || 0);
-  const poRemaining = Math.max(0, poTotal - poPaid);
+  const poPending = React.useMemo(() => {
+    if (!poNo || !payments) return 0;
+    return payments
+      .filter(p => {
+        if (p.po_no !== poNo) return false;
+        if (editingPrId && (p.id === editingPrId || p.pr_id === editingPrId)) return false;
+        const s = String(p.approval_stage || p.stage || p.status || '').toLowerCase();
+        const r = String(p.remittance || '').toLowerCase();
+        return !['remitted', 'paid', 'settled', 'rejected', 'cancelled', 'canceled'].includes(s) &&
+               !['remitted', 'paid', 'settled', 'rejected', 'cancelled', 'canceled'].includes(r);
+      })
+      .reduce((sum, p) => sum + Number(p.approved_amount ?? p.amount_requested ?? p.gross_amount ?? 0), 0);
+  }, [poNo, payments, editingPrId]);
+
+  const poRemaining = Math.max(0, poTotal - poPaid - poPending);
   const paidPct = poTotal > 0 ? Math.min(100, Math.round((poPaid / poTotal) * 100)) : 0;
+  const isAmountExceeded = Number(grossAmount || 0) > poRemaining + 0.05 && poTotal > 0;
 
   return (
     <Dialog 
@@ -127,7 +142,7 @@ export default function PaymentFormModal({
 
             {selectedPO && (
               <div className="mt-3 pt-3 border-t border-border/60">
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className={`grid ${poPending > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} gap-2.5 text-center`}>
                   <div className="p-2 rounded-lg bg-card border border-border/60">
                     <span className="text-[10px] uppercase font-semibold text-muted-foreground block">PO Budget</span>
                     <span className="font-mono text-xs font-bold text-foreground tabular-nums">{formatCurrency(poTotal)}</span>
@@ -136,9 +151,17 @@ export default function PaymentFormModal({
                     <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Paid ({paidPct}%)</span>
                     <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">{formatCurrency(poPaid)}</span>
                   </div>
-                  <div className="p-2 rounded-lg bg-card border border-border/60">
+                  {poPending > 0 && (
+                    <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                      <span className="text-[10px] uppercase font-semibold text-amber-700 dark:text-amber-400 block">Pending Appr.</span>
+                      <span className="font-mono text-xs font-bold text-amber-750 dark:text-amber-300 tabular-nums">{formatCurrency(poPending)}</span>
+                    </div>
+                  )}
+                  <div className={`p-2 rounded-lg border ${poRemaining > 0 ? 'bg-card border-border/60' : 'bg-rose-500/10 border-rose-500/30'}`}>
                     <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Available Buffer</span>
-                    <span className="font-mono text-xs font-bold text-amber-700 dark:text-primary tabular-nums">{formatCurrency(poRemaining)}</span>
+                    <span className={`font-mono text-xs font-bold tabular-nums ${poRemaining > 0 ? 'text-amber-700 dark:text-primary' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {formatCurrency(poRemaining)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -165,9 +188,14 @@ export default function PaymentFormModal({
                     placeholder="50,000"
                     value={grossAmount === 0 || grossAmount === '' || grossAmount == null ? '' : grossAmount}
                     onChange={(e) => handleGrossAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="pl-7 font-mono text-sm font-semibold"
+                    className={`pl-7 font-mono text-sm font-semibold ${isAmountExceeded ? 'border-rose-500 text-rose-600 focus-visible:ring-rose-500' : ''}`}
                   />
                 </div>
+                {isAmountExceeded && (
+                  <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium mt-1">
+                    Exceeds available PO balance of {formatCurrency(poRemaining)}
+                  </p>
+                )}
               </div>
 
               <div>

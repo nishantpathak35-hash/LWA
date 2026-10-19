@@ -30,20 +30,7 @@ function requireAuth(session) {
   AuthService.requireAuth(session);
 }
 
-// Ensure updatePOPaymentStatus is available or implement it
-async function updatePOPaymentStatus(poNo) {
-  const po = await queryGet('SELECT * FROM purchase_orders WHERE po_no = ?', [poNo]);
-  if (!po) return { outstanding: 0 };
-  const sysSum = await queryGet('SELECT COALESCE(SUM(COALESCE(amount, 0)), 0) AS total FROM system_payments WHERE po_no = ?', [poNo]);
-  const totalPaid = Number(sysSum?.total) || 0;
-  const poVal = Number(po.revised_po_value || po.po_value || 0);
-  const outstanding = Math.max(0, poVal - totalPaid);
-  let paymentStatus = 'Unpaid';
-  if (totalPaid >= poVal && poVal > 0) paymentStatus = 'Fully Paid';
-  else if (totalPaid > 0) paymentStatus = 'Partially Paid';
-  await queryRun('UPDATE purchase_orders SET legacy_paid=?, final_payable=?, payment_status=? WHERE po_no=?', [totalPaid, outstanding, paymentStatus, po.po_no]);
-  return { outstanding, totalPaid, paymentStatus };
-}
+import { updatePOPaymentStatus } from '../shared.js';
 
 export async function addManualPayment(payload, session) {
   requireAuth(session);

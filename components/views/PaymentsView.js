@@ -165,9 +165,17 @@ export default function PaymentsView() {
 
   const getVendorPOs = (vCode) => {
     if (!vCode) return [];
+    const vObj = vendors.find(v => v.code === vCode || v.vendor_code === vCode || v.id === vCode);
+    const vNames = [vObj?.name, vObj?.legalName, vObj?.legal_name, vObj?.tradeName, vObj?.trade_name]
+      .filter(Boolean)
+      .map(s => String(s).trim().toLowerCase());
+
     return pos.filter(po => {
-      const pKey = po.vendor_key || po.vendorCode || po.vendor_code;
-      const matchesVendor = pKey === vCode || po.vendor_name === vCode || po.vendor === vCode;
+      const pKey = String(po.vendor_key || po.vendorCode || po.vendor_code || '').trim().toLowerCase();
+      const pName = String(po.vendor_name || po.vendor || '').trim().toLowerCase();
+      const codeMatches = pKey === String(vCode).trim().toLowerCase();
+      const nameMatches = pName && vNames.some(vn => vn === pName || vn.includes(pName) || pName.includes(vn));
+      const matchesVendor = codeMatches || nameMatches;
       return matchesVendor && isPOEligibleForPayment(po);
     });
   };
@@ -448,6 +456,26 @@ export default function PaymentsView() {
     try {
       const v = vendors.find(x => x.code === vendorCode) || {};
       const selectedPO = pos.find(p => p.po_no === poNo);
+      const poTotal = Number(selectedPO?.po_value || 0);
+      const poPaid = Number(selectedPO?.paid || 0);
+      const poPending = payments
+        .filter(p => {
+          if (p.po_no !== poNo) return false;
+          if (editingPrId && (p.id === editingPrId || p.pr_id === editingPrId)) return false;
+          const s = String(p.approval_stage || p.stage || p.status || '').toLowerCase();
+          const r = String(p.remittance || '').toLowerCase();
+          return !['remitted', 'paid', 'settled', 'rejected', 'cancelled', 'canceled'].includes(s) &&
+                 !['remitted', 'paid', 'settled', 'rejected', 'cancelled', 'canceled'].includes(r);
+        })
+        .reduce((sum, p) => sum + Number(p.approved_amount ?? p.amount_requested ?? p.gross_amount ?? 0), 0);
+      const poRemaining = Math.max(0, poTotal - poPaid - poPending);
+
+      if (poTotal > 0 && numGross > poRemaining + 0.05) {
+        setFormError(`Requested amount (₹${numGross.toLocaleString('en-IN')}) exceeds available buffer of ₹${Math.round(poRemaining).toLocaleString('en-IN')} on PO #${poNo}.${poPending > 0 ? ` (₹${Math.round(poPending).toLocaleString('en-IN')} is currently reserved in pending requests awaiting approval).` : ''}`);
+        setSubmitting(false);
+        return;
+      }
+
       const payload = {
         vendor: v.name || v.legalName || v.vendor_name || vendorCode,
         vendorCode: v.code || vendorCode,
