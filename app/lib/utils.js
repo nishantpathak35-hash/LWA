@@ -67,3 +67,35 @@ export function formatDate(dateString) {
   }
 }
 
+/** Convert number to Indian words: 250000 -> "Two Lakh Fifty Thousand Rupees Only" */
+export function formatIndianWords(n) {
+  const num = Math.round(Number(n) || 0);
+  if (num <= 0) return '';
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+                'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  
+  function twoD(x) {
+    if (x < 20) return ones[x];
+    return tens[Math.floor(x / 10)] + (x % 10 ? ' ' + ones[x % 10] : '');
+  }
+  function threeD(x) {
+    const h = Math.floor(x / 100), r = x % 100;
+    return (h ? ones[h] + ' Hundred' + (r ? ' ' : '') : '') + (r ? twoD(r) : '');
+  }
+
+  let rem = num;
+  let out = '';
+  const crore = Math.floor(rem / 10000000); rem %= 10000000;
+  const lakh  = Math.floor(rem / 100000);   rem %= 100000;
+  const thou  = Math.floor(rem / 1000);     rem %= 1000;
+  const hund  = rem;
+
+  if (crore) out += threeD(crore) + ' Crore ';
+  if (lakh)  out += twoD(lakh) + ' Lakh ';
+  if (thou)  out += twoD(thou) + ' Thousand ';
+  if (hund)  out += threeD(hund);
+
+  return out.trim() ? out.trim() + ' Rupees Only' : '';
+}
+

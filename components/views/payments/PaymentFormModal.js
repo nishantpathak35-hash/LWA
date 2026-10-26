@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, Button, Input, Select } from '../../ui/core';
 import { ShieldAlert, CreditCard, Landmark, FileText, IndianRupee, Layers, CheckCircle2 } from 'lucide-react';
-import { formatCurrency } from '../../../app/lib/utils';
+import { formatCurrency, formatIndianWords } from '../../../app/lib/utils';
 import SearchableVendorSelect from '../../ui/SearchableVendorSelect';
 import { useAppState } from '../../StateProvider';
 
@@ -75,6 +75,11 @@ export default function PaymentFormModal({
   const paidPct = poTotal > 0 ? Math.min(100, Math.round((poPaid / poTotal) * 100)) : 0;
   const isAmountExceeded = Number(grossAmount || 0) > poRemaining + 0.05 && poTotal > 0;
 
+  // Real-time Balance after this Payment simulation
+  const reqAmountNum = Number(grossAmount || 0);
+  const balanceAfterPayment = selectedPO ? poRemaining - reqAmountNum : 0;
+  const balanceAfterPct = poTotal > 0 ? Math.max(0, Math.round((Math.max(0, balanceAfterPayment) / poTotal) * 100)) : 0;
+
   return (
     <Dialog 
       open={requestModalOpen} 
@@ -144,12 +149,12 @@ export default function PaymentFormModal({
               <div className="mt-3 pt-3 border-t border-border/60">
                 <div className={`grid ${poPending > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} gap-2.5 text-center`}>
                   <div className="p-2 rounded-lg bg-card border border-border/60">
-                    <span className="text-[10px] uppercase font-semibold text-muted-foreground block">PO Budget</span>
+                    <span className="text-[10px] uppercase font-semibold text-muted-foreground block">P.O Value</span>
                     <span className="font-mono text-xs font-bold text-foreground tabular-nums">{formatCurrency(poTotal)}</span>
                   </div>
                   <div className="p-2 rounded-lg bg-card border border-border/60">
                     <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Paid ({paidPct}%)</span>
-                    <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">{formatCurrency(poPaid)}</span>
+                    <span className="font-mono text-xs font-bold text-blue-700 dark:text-blue-400 tabular-nums">{formatCurrency(poPaid)}</span>
                   </div>
                   {poPending > 0 && (
                     <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
@@ -158,8 +163,8 @@ export default function PaymentFormModal({
                     </div>
                   )}
                   <div className={`p-2 rounded-lg border ${poRemaining > 0 ? 'bg-card border-border/60' : 'bg-rose-500/10 border-rose-500/30'}`}>
-                    <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Available Buffer</span>
-                    <span className={`font-mono text-xs font-bold tabular-nums ${poRemaining > 0 ? 'text-amber-700 dark:text-primary' : 'text-rose-600 dark:text-rose-400'}`}>
+                    <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Current Balance</span>
+                    <span className={`font-mono text-xs font-bold tabular-nums ${poRemaining > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {formatCurrency(poRemaining)}
                     </span>
                   </div>
@@ -176,9 +181,40 @@ export default function PaymentFormModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="text-xs font-bold text-foreground block mb-1.5">
-                  REQUESTED AMOUNT (INR) *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-foreground">
+                    REQUESTED AMOUNT (INR) *
+                  </label>
+                  {selectedPO && poRemaining > 0 && !isEditMode && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground mr-0.5">Quick fill:</span>
+                      <button
+                        type="button"
+                        onClick={() => handleGrossAmountChange(Math.round(poRemaining * 0.25))}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 text-foreground font-mono transition-colors"
+                        title="25% of Current Balance"
+                      >
+                        25%
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGrossAmountChange(Math.round(poRemaining * 0.5))}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 text-foreground font-mono transition-colors"
+                        title="50% of Current Balance"
+                      >
+                        50%
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGrossAmountChange(Math.round(poRemaining))}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary font-mono font-semibold transition-colors"
+                        title="Full Current Balance"
+                      >
+                        Full Balance
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono font-bold text-xs">₹</span>
                   <Input
@@ -191,9 +227,18 @@ export default function PaymentFormModal({
                     className={`pl-7 font-mono text-sm font-semibold ${isAmountExceeded ? 'border-rose-500 text-rose-600 focus-visible:ring-rose-500' : ''}`}
                   />
                 </div>
+                {/* Amount in words */}
+                {reqAmountNum > 0 && (
+                  <div className="mt-1.5 text-[11px] font-medium text-muted-foreground flex items-start gap-1">
+                    <span className="text-primary/70 shrink-0 font-semibold">In words:</span>
+                    <span className="font-medium text-foreground/85 italic leading-tight">
+                      {formatIndianWords(reqAmountNum)}
+                    </span>
+                  </div>
+                )}
                 {isAmountExceeded && (
                   <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium mt-1">
-                    Exceeds available PO balance of {formatCurrency(poRemaining)}
+                    Exceeds current balance of {formatCurrency(poRemaining)}
                   </p>
                 )}
               </div>
@@ -228,6 +273,40 @@ export default function PaymentFormModal({
                 <span className="ml-2 font-mono text-sm font-bold text-amber-700 dark:text-primary tabular-nums">{formatCurrency(netAmount || 0)}</span>
               </div>
             </div>
+
+            {/* Live Balance after Payment Simulation */}
+            {selectedPO && (
+              <div className={`p-3 rounded-lg border text-xs flex items-center justify-between transition-all ${
+                balanceAfterPayment < 0
+                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300'
+                  : balanceAfterPayment === 0 && reqAmountNum > 0
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'
+                  : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-800 dark:text-emerald-300'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${
+                    balanceAfterPayment < 0 ? 'bg-rose-500 animate-pulse' : balanceAfterPayment === 0 && reqAmountNum > 0 ? 'bg-amber-500' : 'bg-emerald-500'
+                  }`} />
+                  <div>
+                    <span className="font-bold text-[11px] block">
+                      Balance after Payment
+                    </span>
+                    <span className="text-[10px] opacity-80">
+                      {balanceAfterPayment < 0 
+                        ? `⚠️ Exceeds P.O balance by ${formatCurrency(Math.abs(balanceAfterPayment))}`
+                        : balanceAfterPayment === 0 && reqAmountNum > 0
+                        ? 'P.O will be fully completed with this request'
+                        : `${balanceAfterPct}% of P.O remaining`}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-bold text-sm tabular-nums">
+                    {formatCurrency(balanceAfterPayment)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Section 3: Documentation & Audit ── */}
