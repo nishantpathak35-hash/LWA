@@ -173,15 +173,19 @@ export default function PaymentListTable({
                       <p className="text-[11px] text-muted-foreground mt-0.5">{req.project || 'General'} • PO: <span className="font-mono font-semibold text-amber-700 dark:text-primary">{req.po_no || '—'}</span></p>
                     </div>
 
-                    {/* Row 3: Financial Summary */}
-                    <div className="grid grid-cols-3 gap-1.5 bg-muted/40 p-2.5 rounded-lg border border-border/60 text-[11px]">
+                    {/* Row 3: Financial Summary — 4 cells */}
+                    <div className="grid grid-cols-4 gap-1.5 bg-muted/40 p-2.5 rounded-lg border border-border/60 text-[11px]">
                       <div>
-                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Net Amount</span>
+                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Requested</span>
                         <span className="font-bold text-foreground font-mono tabular-nums">{compactCurrency(netValue)}</span>
                       </div>
                       <div className="text-center">
-                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Paid / Budget</span>
-                        <span className="font-medium text-muted-foreground font-mono tabular-nums text-[10px]">{compactCurrency(paidAmount)} / {compactCurrency(poValue)}</span>
+                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Paid</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-400 font-mono tabular-nums">{compactCurrency(paidAmount)}</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">P.O Value</span>
+                        <span className="font-medium text-muted-foreground font-mono tabular-nums">{compactCurrency(poValue)}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Balance</span>
@@ -228,10 +232,15 @@ export default function PaymentListTable({
                     <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-16 pl-1.5" />
                     <SortableHeader field="vendor_name" label="Vendor / Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
                     <SortableHeader field="payment_mode" label="Mode" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="center" className="w-16 text-center" />
-                    <SortableHeader field="amount_requested" label="Net Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="amount_requested" label="Requested" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
                     <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 font-semibold text-xs tracking-wider text-slate-600 dark:text-slate-400">
-                        <Wallet className="w-3 h-3" /> Paid / Budget
+                      <span className="inline-flex items-center gap-1 font-semibold text-xs tracking-wider text-blue-600 dark:text-blue-400">
+                        <Wallet className="w-3 h-3" /> Paid
+                      </span>
+                    </TableHead>
+                    <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
+                      <span className="font-semibold text-xs tracking-wider text-slate-600 dark:text-slate-400">
+                        P.O Value
                       </span>
                     </TableHead>
                     <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
@@ -305,29 +314,37 @@ export default function PaymentListTable({
                           {getPaymentModeBadge(req.payment_mode, req)}
                         </TableCell>
 
-                        {/* Net Amount (this request) */}
+                        {/* Requested Amount */}
                         <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-2.5 px-3">
                           <span className="font-mono font-bold text-foreground">
                             {formatCurrency(netAmount)}
                           </span>
                         </TableCell>
 
-                        {/* Paid / Budget (compact) */}
+                        {/* Paid */}
                         <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
                           <div className="flex flex-col items-end gap-0.5">
-                            <span className="text-xs font-mono text-muted-foreground">
+                            <span className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400">
                               {compactCurrency(paidAmount)}
-                              <span className="text-border mx-0.5">/</span>
-                              {compactCurrency(poValue)}
                             </span>
                             {/* Micro progress bar */}
-                            <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
+                            <div className="w-14 h-1 rounded-full bg-muted overflow-hidden">
                               <div 
-                                className="h-full rounded-full bg-blue-500/60 transition-all" 
+                                className="h-full rounded-full bg-blue-500/70 transition-all" 
                                 style={{ width: `${Math.min(Number(paidPct), 100)}%` }}
                               />
                             </div>
-                            <span className="text-[9px] font-mono text-muted-foreground/70">{paidPct}% utilised</span>
+                            <span className="text-[9px] font-mono text-muted-foreground/70">{paidPct}% paid</span>
+                          </div>
+                        </TableCell>
+
+                        {/* P.O Value */}
+                        <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
+                          <div className="flex flex-col items-end">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {compactCurrency(poValue)}
+                            </span>
+                            <span className="text-[9px] font-mono text-muted-foreground/60">total order</span>
                           </div>
                         </TableCell>
 
