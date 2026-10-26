@@ -182,7 +182,7 @@ export default function PaymentListTable({
                         <span className="font-medium text-muted-foreground font-mono tabular-nums">{formatCurrency(poValue)}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Balance</span>
+                        <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Balance after Payment</span>
                         <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(balanceAmount)}</span>
                       </div>
                     </div>
@@ -239,7 +239,7 @@ export default function PaymentListTable({
                     </TableHead>
                     <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
                       <span className="font-semibold text-xs tracking-wider text-emerald-600 dark:text-emerald-400">
-                        Balance
+                        Balance after Payment
                       </span>
                     </TableHead>
                     <SortableHeader field="approval_stage" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
