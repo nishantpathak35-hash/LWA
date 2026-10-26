@@ -1,6 +1,6 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button } from '../../ui/core';
-import { History, CheckSquare, Edit3, Mail, Landmark, FileText, ChevronRight, ChevronLeft, Layers, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
+import { History, CheckSquare, Edit3, Mail, Landmark, FileText, Layers, ArrowUpRight, Wallet } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import SortableHeader from '../../ui/SortableHeader';
 import { sortData } from '../../../app/lib/exportUtils';
@@ -32,44 +32,6 @@ export default function PaymentListTable({
   const actionableRequests = processedRequests.filter(canActOnReq);
   const allSelected = actionableRequests.length > 0 && actionableRequests.every(req => selectedIds.has(req.id || req.pr_id));
   const [loadingMore, setLoadingMore] = useState(false);
-  const tableContainerRef = React.useRef(null);
-
-  const scrollContainer = (dir) => {
-    if (tableContainerRef.current) {
-      tableContainerRef.current.scrollBy({ left: dir === 'left' ? -380 : 380, behavior: 'smooth' });
-    }
-  };
-
-  const renderScrollNavigator = () => (
-    <div className="flex items-center justify-between px-3.5 py-1.5 bg-muted/40 border-b border-border/70 text-[11px] text-muted-foreground select-none">
-      <div className="flex items-center gap-1.5">
-        <ArrowLeftRight className="w-3 h-3 text-primary shrink-0" />
-        <span>Operational Ledger (12 Columns): Scroll sideways or click arrows</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => scrollContainer('left')}
-          className="h-6 px-2 text-[10px] font-semibold gap-1 rounded-md"
-          title="Scroll Left"
-        >
-          <ChevronLeft className="w-3 h-3" /> Left
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => scrollContainer('right')}
-          className="h-6 px-2 text-[10px] font-semibold gap-1 rounded-md"
-          title="Scroll Right"
-        >
-          Right <ChevronRight className="w-3 h-3" />
-        </Button>
-      </div>
-    </div>
-  );
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
@@ -91,14 +53,14 @@ export default function PaymentListTable({
 
     if (isCheque) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 tracking-wider uppercase shrink-0 shadow-2xs" title="Mode: Cheque / PDC">
-          <FileText className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Cheque
+        <span className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 tracking-wider uppercase shrink-0" title="Mode: Cheque / PDC">
+          <FileText className="w-2.5 h-2.5" /> CHQ
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25 tracking-wider uppercase shrink-0 shadow-2xs" title="Mode: Direct Bank Transfer (NEFT)">
-        <Landmark className="w-3 h-3 text-sky-600 dark:text-sky-400" /> {m || 'NEFT'}
+      <span className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25 tracking-wider uppercase shrink-0" title="Mode: NEFT">
+        <Landmark className="w-2.5 h-2.5" /> {m || 'NEFT'}
       </span>
     );
   };
@@ -107,44 +69,52 @@ export default function PaymentListTable({
     const s = getPaymentStageKey(stage);
     if (s === 'remitted') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Settled / Remitted
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Settled
         </span>
       );
     }
     if (s === 'pendingDirector') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" /> Director Sign-off
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" /> Director
         </span>
       );
     }
     if (s === 'pendingFinance') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Finance Review
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Finance
         </span>
       );
     }
     if (['pending procurement', 'pending maker'].includes(String(stage || '').trim().toLowerCase())) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Procurement Check
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Procurement
         </span>
       );
     }
     if (s === 'rejected') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> {stage}
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
         {stage || 'Pending'}
       </span>
     );
+  };
+
+  // Compact currency formatter for smaller displays
+  const compactCurrency = (val) => {
+    const num = Number(val) || 0;
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+    return formatCurrency(num);
   };
 
   return (
@@ -163,7 +133,7 @@ export default function PaymentListTable({
         ) : (
           <>
             {/* ── Mobile View: Payment Cards ── */}
-            <div className="block md:hidden p-3 space-y-3">
+            <div className="block md:hidden p-3 space-y-2.5">
               {processedRequests.map((req, idx) => {
                 const relatedPO = poByNumber.get(req.po_no || req.poNo || req.po_number);
                 const poValue = Number(relatedPO ? (relatedPO.po_value || relatedPO.poValue) : (req.po_value || 0));
@@ -172,12 +142,14 @@ export default function PaymentListTable({
                 const approvedAmt = Number(req.approved_amount ?? req.approvedAmount ?? requestedAmt);
                 const tdsAmt = Number(req.tds_amount || req.tdsAmount || 0);
                 const netValue = Number(req.net_amount ?? req.net_payment_amount ?? Math.max(0, approvedAmt - tdsAmt));
+                const balanceAmount = Math.max(0, poValue - paidAmount - netValue);
                 const isChecked = selectedIds.has(req.id || req.pr_id);
                 const canAct = canActOnReq(req);
                 const reqStage = isPaymentSettled(req) ? 'Remitted' : req.stage || req.approval_stage || 'Pending';
 
                 return (
-                  <div key={req.id || req.pr_id || idx} className={`rounded-xl border ${isChecked ? 'border-primary bg-primary/5' : 'border-border/80 bg-card'} p-4 space-y-3 shadow-2xs transition-all`}>
+                  <div key={req.id || req.pr_id || idx} className={`rounded-xl border ${isChecked ? 'border-primary bg-primary/5' : 'border-border/80 bg-card'} p-3.5 space-y-2.5 shadow-2xs transition-all`}>
+                    {/* Row 1: ID, Mode, Status */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {canAct && (
@@ -195,34 +167,41 @@ export default function PaymentListTable({
                       <div>{getStageBadge(reqStage)}</div>
                     </div>
 
+                    {/* Row 2: Vendor & Project */}
                     <div>
                       <h4 className="font-bold text-foreground text-xs">{req.vendor_name || req.vendor}</h4>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{req.project || 'General'} • PO: <span className="font-mono font-semibold text-amber-700 dark:text-primary">{req.po_no || '—'}</span></p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-lg border border-border/60 text-[11px]">
+                    {/* Row 3: Financial Summary */}
+                    <div className="grid grid-cols-3 gap-1.5 bg-muted/40 p-2.5 rounded-lg border border-border/60 text-[11px]">
                       <div>
-                        <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Gross Claim</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">{formatCurrency(requestedAmt)}</span>
+                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Net Amount</span>
+                        <span className="font-bold text-foreground font-mono tabular-nums">{compactCurrency(netValue)}</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Paid / Budget</span>
+                        <span className="font-medium text-muted-foreground font-mono tabular-nums text-[10px]">{compactCurrency(paidAmount)} / {compactCurrency(poValue)}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Net Payable</span>
-                        <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(netValue)}</span>
+                        <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Balance</span>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{compactCurrency(balanceAmount)}</span>
                       </div>
                     </div>
 
+                    {/* Row 4: Actions */}
                     <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-border/60">
-                      <div className="flex items-center gap-1.5">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground">
-                          <History className="w-3 h-3 mr-1" /> Trail
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground">
+                          <History className="w-3 h-3 mr-0.5" /> Trail
                         </Button>
                         {(isAdmin || isDirector || isFinance || String(reqStage).toLowerCase().includes('procurement') || String(reqStage).toLowerCase().includes('finance')) && onEditPayment && (
-                          <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-7 px-2 text-[11px]">
+                          <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-6 px-1.5 text-[10px]">
                             Edit
                           </Button>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1">
                         {getWorkflowActionButton && getWorkflowActionButton(req)}
                       </div>
                     </div>
@@ -231,13 +210,12 @@ export default function PaymentListTable({
               })}
             </div>
 
-            {/* ── Desktop View: Modern Financial Ledger Table ── */}
+            {/* ── Desktop View: Compact Financial Ledger ── */}
             <div className="hidden md:block">
-              {renderScrollNavigator()}
-              <Table containerRef={tableContainerRef} className="min-w-[1300px]">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow className="border-b border-border/80 bg-muted/35 text-muted-foreground">
-                    <TableHead className="sticky left-0 z-20 bg-muted/95 dark:bg-muted/95 backdrop-blur-xs w-10 text-center py-3.5 px-3">
+                    <TableHead className="w-8 text-center py-2.5 px-2">
                       <input 
                         type="checkbox" 
                         className="rounded border-border text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-30"
@@ -247,17 +225,22 @@ export default function PaymentListTable({
                         onChange={(e) => onSelectAll?.(e.target.checked)}
                       />
                     </TableHead>
-                    <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="sticky left-10 z-20 bg-muted/95 dark:bg-muted/95 backdrop-blur-xs w-16 pl-2 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/60" />
-                    <SortableHeader field="created_at" label="Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-24" />
-                    <SortableHeader field="vendor_name" label="Vendor Partner" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[170px]" />
-                    <SortableHeader field="project" label="Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[130px]" />
-                    <SortableHeader field="po_no" label="PO Ref" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
-                    <SortableHeader field="payment_mode" label="Mode" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="center" className="w-24 text-center" />
-                    <SortableHeader field="po_value" label="PO Budget" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
-                    <SortableHeader field="paid" label="Paid to Date" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
+                    <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-16 pl-1.5" />
+                    <SortableHeader field="vendor_name" label="Vendor / Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
+                    <SortableHeader field="payment_mode" label="Mode" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="center" className="w-16 text-center" />
                     <SortableHeader field="amount_requested" label="Net Amount" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
-                    <SortableHeader field="approval_stage" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-36" />
-                    <TableHead className="sticky right-0 z-20 bg-muted/95 dark:bg-muted/95 backdrop-blur-xs text-right w-[210px] min-w-[210px] py-3.5 px-4 whitespace-nowrap font-semibold text-[11px] text-muted-foreground tracking-wide select-none shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/60">Actions</TableHead>
+                    <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 font-semibold text-xs tracking-wider text-slate-600 dark:text-slate-400">
+                        <Wallet className="w-3 h-3" /> Paid / Budget
+                      </span>
+                    </TableHead>
+                    <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
+                      <span className="font-semibold text-xs tracking-wider text-emerald-600 dark:text-emerald-400">
+                        Balance
+                      </span>
+                    </TableHead>
+                    <SortableHeader field="approval_stage" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
+                    <TableHead className="text-right w-[180px] min-w-[180px] py-2.5 px-3 whitespace-nowrap font-semibold text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -265,9 +248,10 @@ export default function PaymentListTable({
                     const relatedPO = poByNumber.get(req.po_no || req.poNo || req.po_number);
                     const poValue = Number(relatedPO ? (relatedPO.po_value || relatedPO.poValue) : (req.po_value || 0));
                     const paidAmount = Number(relatedPO ? (relatedPO.paid ?? relatedPO.legacy_paid ?? 0) : 0);
-                    const paidPct = poValue > 0 ? ((paidAmount / poValue) * 100).toFixed(1) : '0.0';
+                    const paidPct = poValue > 0 ? ((paidAmount / poValue) * 100).toFixed(0) : '0';
                     const netAmount = Number(req.net_amount ?? req.approved_amount ?? req.approvedAmount ?? req.amount_requested ?? req.gross_amount ?? 0);
-                    const reqPct = poValue > 0 ? ((netAmount / poValue) * 100).toFixed(1) : '0.0';
+                    const balanceAmount = Math.max(0, poValue - paidAmount - netAmount);
+                    const balancePct = poValue > 0 ? ((balanceAmount / poValue) * 100).toFixed(0) : '—';
                     const isSelected = selectedIds.has(req.id);
                     const isActionable = canActOnReq(req);
                     const reqStage = isPaymentSettled(req) ? 'Remitted' : req.stage || req.approval_stage || 'Pending';
@@ -275,9 +259,10 @@ export default function PaymentListTable({
                     return (
                       <TableRow
                         key={req.id || req.pr_id || idx}
-                        className={`border-b border-border/50 hover:bg-muted/40 transition-colors duration-150 ${isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''} ${!isActionable ? 'opacity-80' : ''}`}
+                        className={`border-b border-border/50 hover:bg-muted/40 transition-colors duration-100 ${isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''} ${!isActionable ? 'opacity-80' : ''}`}
                       >
-                        <TableCell className="sticky left-0 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs text-center py-3.5 px-3">
+                        {/* Checkbox */}
+                        <TableCell className="text-center py-2.5 px-2">
                           <input 
                             type="checkbox" 
                             className="rounded border-border text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-30"
@@ -287,65 +272,97 @@ export default function PaymentListTable({
                             disabled={!isActionable}
                           />
                         </TableCell>
-                        <TableCell className="sticky left-10 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs font-mono text-xs font-bold text-foreground py-3.5 pl-2 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/40">
-                          #{req.id}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap py-3.5 px-3">
-                          {req.created_at ? formatDate(req.created_at) : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs font-semibold text-foreground truncate max-w-[200px] py-3.5 px-3" title={req.vendor_name || ''}>
-                          <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-primary/10 text-amber-700 dark:text-primary flex items-center justify-center text-[10px] font-bold border border-primary/20 shrink-0">
-                              {(req.vendor_name || 'V').substring(0, 2).toUpperCase()}
-                            </span>
-                            <span className="truncate">{req.vendor_name}</span>
+
+                        {/* ID + Date */}
+                        <TableCell className="font-mono text-xs font-bold text-foreground py-2.5 pl-1.5">
+                          <div className="flex flex-col">
+                            <span>#{req.id}</span>
+                            <span className="text-[10px] font-normal text-muted-foreground">{req.created_at ? formatDate(req.created_at) : ''}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground truncate max-w-[140px] py-3.5 px-3" title={req.project || ''}>
-                          {req.project || 'General'}
+
+                        {/* Vendor + Project + PO (merged) */}
+                        <TableCell className="py-2.5 px-3">
+                          <div className="flex items-start gap-2 min-w-0">
+                            <span className="w-6 h-6 rounded-full bg-primary/10 text-amber-700 dark:text-primary flex items-center justify-center text-[10px] font-bold border border-primary/20 shrink-0 mt-0.5">
+                              {(req.vendor_name || 'V').substring(0, 2).toUpperCase()}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-semibold text-foreground truncate" title={req.vendor_name || ''}>{req.vendor_name}</div>
+                              <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
+                                <span className="truncate max-w-[80px]" title={req.project || 'General'}>{req.project || 'General'}</span>
+                                <span className="text-border">·</span>
+                                <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="font-mono font-semibold text-amber-700 dark:text-primary hover:underline shrink-0" title={`Open PO ${req.po_no}`}>
+                                  {req.po_no}
+                                </a>
+                              </div>
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell className="font-mono text-xs font-semibold text-amber-700 dark:text-primary py-3.5 px-3">
-                          <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="hover:underline flex items-center gap-1" title={`Open PO ${req.po_no}`}>
-                            {req.po_no}
-                          </a>
-                        </TableCell>
-                        <TableCell className="text-center py-3.5 px-2 whitespace-nowrap">
+
+                        {/* Mode */}
+                        <TableCell className="text-center py-2.5 px-1.5 whitespace-nowrap">
                           {getPaymentModeBadge(req.payment_mode, req)}
                         </TableCell>
-                        <TableCell className="text-right text-xs font-mono font-medium text-muted-foreground tabular-nums py-3.5 px-3">
-                          {formatCurrency(poValue)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-3.5 px-3">
-                          <span className="font-mono font-medium text-foreground/80">
-                            {formatCurrency(paidAmount)}
-                          </span>
-                          <span className="ml-1 text-[10px] font-mono text-muted-foreground/75">
-                            ({paidPct}%)
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-3.5 px-3">
+
+                        {/* Net Amount (this request) */}
+                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-2.5 px-3">
                           <span className="font-mono font-bold text-foreground">
                             {formatCurrency(netAmount)}
                           </span>
-                          <span className="ml-1 text-[10px] font-mono text-muted-foreground/75">
-                            ({reqPct}%)
-                          </span>
                         </TableCell>
-                        <TableCell className="py-3.5 px-3 whitespace-nowrap">
+
+                        {/* Paid / Budget (compact) */}
+                        <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {compactCurrency(paidAmount)}
+                              <span className="text-border mx-0.5">/</span>
+                              {compactCurrency(poValue)}
+                            </span>
+                            {/* Micro progress bar */}
+                            <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
+                              <div 
+                                className="h-full rounded-full bg-blue-500/60 transition-all" 
+                                style={{ width: `${Math.min(Number(paidPct), 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-[9px] font-mono text-muted-foreground/70">{paidPct}% utilised</span>
+                          </div>
+                        </TableCell>
+
+                        {/* Balance Amount */}
+                        <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
+                          <div className="flex flex-col items-end">
+                            <span className={`text-xs font-mono font-bold ${balanceAmount <= 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                              {formatCurrency(balanceAmount)}
+                            </span>
+                            {poValue > 0 && (
+                              <span className={`text-[9px] font-mono ${balanceAmount <= 0 ? 'text-rose-500/70' : 'text-emerald-600/70 dark:text-emerald-400/70'}`}>
+                                {balancePct}% remaining
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        {/* Status */}
+                        <TableCell className="py-2.5 px-3 whitespace-nowrap">
                           {getStageBadge(reqStage)}
                         </TableCell>
-                        <TableCell className="sticky right-0 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs text-right w-[210px] min-w-[210px] py-3.5 px-4 whitespace-nowrap shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/40">
-                          <div className="flex items-center justify-end gap-1.5">
+
+                        {/* Actions */}
+                        <TableCell className="text-right w-[180px] min-w-[180px] py-2.5 px-3 whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
                             {getWorkflowActionButton(req)}
                             
                             {(isAdmin || isDirector || isFinance || String(req.stage || req.approval_stage || '').toLowerCase().includes('procurement') || String(req.stage || req.approval_stage || '').toLowerCase().includes('finance')) && onEditPayment && (
-                              <Button variant="ghost" size="icon" onClick={() => onEditPayment(req)} title="Edit Order Details" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-amber-700 dark:hover:text-primary hover:bg-primary/10">
-                                <Edit3 className="w-3.5 h-3.5" />
+                              <Button variant="ghost" size="icon" onClick={() => onEditPayment(req)} title="Edit Order Details" className="h-6 w-6 rounded-md text-muted-foreground hover:text-amber-700 dark:hover:text-primary hover:bg-primary/10">
+                                <Edit3 className="w-3 h-3" />
                               </Button>
                             )}
 
-                            <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="Audit Trail & Comments" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted">
-                              <History className="w-3.5 h-3.5" />
+                            <Button variant="ghost" size="icon" onClick={() => handleViewHistory(req)} title="Audit Trail & Comments" className="h-6 w-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted">
+                              <History className="w-3 h-3" />
                             </Button>
                             
                             {(String(req.stage || '').toLowerCase().trim() === 'remitted' || String(req.remittance || '').toLowerCase().trim() === 'remitted') && (
@@ -354,9 +371,9 @@ export default function PaymentListTable({
                                 size="icon" 
                                 onClick={() => handleSendPaymentAdvice(req.id, 'email')} 
                                 title="Send Payment Advice Email"
-                                className="h-7 w-7 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                                className="h-6 w-6 rounded-md text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
                               >
-                                <Mail className="w-3.5 h-3.5" />
+                                <Mail className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
@@ -369,7 +386,7 @@ export default function PaymentListTable({
             </div>
 
             {hasMorePayments && (
-              <div className="p-4 border-t border-border flex justify-center">
+              <div className="p-3 border-t border-border flex justify-center">
                 <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="text-xs">
                   {loadingMore ? 'Loading orders...' : 'Load More Orders'}
                 </Button>
