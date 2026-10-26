@@ -167,23 +167,23 @@ export default function PaymentListTable({
                       <p className="text-[11px] text-muted-foreground mt-0.5">{req.project || 'General'} • PO: <span className="font-mono font-semibold text-amber-700 dark:text-primary">{req.po_no || '—'}</span></p>
                     </div>
 
-                    {/* Row 3: Financial Summary — 4 cells */}
+                    {/* Row 3: Financial Summary — 4 cells (P.O Value -> Paid -> Requested -> Balance) */}
                     <div className="grid grid-cols-4 gap-1.5 bg-muted/40 p-2.5 rounded-lg border border-border/60 text-[11px]">
                       <div>
-                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Requested</span>
-                        <span className="font-bold text-foreground font-mono tabular-nums">{formatCurrency(netValue)}</span>
+                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block truncate">P.O Value</span>
+                        <span className="font-medium text-foreground/85 font-mono tabular-nums text-xs">{formatCurrency(poValue)}</span>
                       </div>
                       <div className="text-center">
-                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Paid</span>
-                        <span className="font-medium text-blue-700 dark:text-blue-400 font-mono tabular-nums">{formatCurrency(paidAmount)}</span>
+                        <span className="text-[9px] uppercase font-semibold text-blue-600 dark:text-blue-400 block truncate">Paid</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-400 font-mono tabular-nums text-xs">{formatCurrency(paidAmount)}</span>
                       </div>
                       <div className="text-center">
-                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block">P.O Value</span>
-                        <span className="font-medium text-muted-foreground font-mono tabular-nums">{formatCurrency(poValue)}</span>
+                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block truncate">Requested</span>
+                        <span className="font-bold text-foreground font-mono tabular-nums text-xs">{formatCurrency(netValue)}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block truncate" title="Balance after Payment">Balance</span>
-                        <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(balanceAmount)}</span>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums text-xs">{formatCurrency(balanceAmount)}</span>
                       </div>
                     </div>
 
@@ -226,17 +226,8 @@ export default function PaymentListTable({
                     <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-14 pl-1" />
                     <SortableHeader field="vendor_name" label="Vendor / Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[190px]" />
                     <SortableHeader field="payment_mode" label="Mode" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="center" className="w-14 text-center" />
-                    <SortableHeader field="amount_requested" label="Requested" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28 min-w-[110px]" />
-                    <TableHead className="text-right py-2 px-3 whitespace-nowrap w-28 min-w-[110px]">
-                      <div className="flex flex-col items-end">
-                        <span className="inline-flex items-center gap-1 font-semibold text-xs tracking-wider text-blue-600 dark:text-blue-400">
-                          <Wallet className="w-3 h-3" /> Paid
-                        </span>
-                        <span className="text-[9px] font-normal text-muted-foreground/60 -mt-0.5">
-                          to date
-                        </span>
-                      </div>
-                    </TableHead>
+                    
+                    {/* 1. P.O Value */}
                     <TableHead className="text-right py-2 px-3 whitespace-nowrap w-28 min-w-[110px]">
                       <div className="flex flex-col items-end">
                         <span className="font-semibold text-xs tracking-wider text-slate-600 dark:text-slate-400">
@@ -247,6 +238,23 @@ export default function PaymentListTable({
                         </span>
                       </div>
                     </TableHead>
+
+                    {/* 2. Paid */}
+                    <TableHead className="text-right py-2 px-3 whitespace-nowrap w-28 min-w-[110px]">
+                      <div className="flex flex-col items-end">
+                        <span className="inline-flex items-center gap-1 font-semibold text-xs tracking-wider text-blue-600 dark:text-blue-400">
+                          <Wallet className="w-3 h-3" /> Paid
+                        </span>
+                        <span className="text-[9px] font-normal text-muted-foreground/60 -mt-0.5">
+                          to date
+                        </span>
+                      </div>
+                    </TableHead>
+
+                    {/* 3. Requested */}
+                    <SortableHeader field="amount_requested" label="Requested" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28 min-w-[110px]" />
+
+                    {/* 4. Balance after Payment */}
                     <TableHead className="text-right py-2 px-3 whitespace-nowrap w-36 min-w-[130px]">
                       <div className="flex flex-col items-end">
                         <span className="font-semibold text-xs tracking-wider text-emerald-600 dark:text-emerald-400">
@@ -257,6 +265,7 @@ export default function PaymentListTable({
                         </span>
                       </div>
                     </TableHead>
+
                     <SortableHeader field="approval_stage" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28 min-w-[110px]" />
                     <TableHead className="text-right w-[170px] min-w-[170px] py-2 px-3 whitespace-nowrap font-semibold text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
                   </TableRow>
@@ -323,17 +332,17 @@ export default function PaymentListTable({
                           {getPaymentModeBadge(req.payment_mode, req)}
                         </TableCell>
 
-                        {/* Requested Amount */}
+                        {/* 1. P.O Value */}
                         <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
                           <div className="flex flex-col items-end">
-                            <span className="font-mono font-bold text-xs text-foreground">
-                              {formatCurrency(netAmount)}
+                            <span className="text-xs font-mono font-semibold text-foreground/80">
+                              {formatCurrency(poValue)}
                             </span>
-                            <span className="text-[9px] font-mono text-muted-foreground/60">net claim</span>
+                            <span className="text-[9px] font-mono text-muted-foreground/60">total order</span>
                           </div>
                         </TableCell>
 
-                        {/* Paid */}
+                        {/* 2. Paid */}
                         <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
                           <div className="flex flex-col items-end gap-0.5">
                             <span className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400">
@@ -350,17 +359,17 @@ export default function PaymentListTable({
                           </div>
                         </TableCell>
 
-                        {/* P.O Value */}
+                        {/* 3. Requested Amount */}
                         <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
                           <div className="flex flex-col items-end">
-                            <span className="text-xs font-mono font-semibold text-foreground/80">
-                              {formatCurrency(poValue)}
+                            <span className="font-mono font-bold text-xs text-foreground">
+                              {formatCurrency(netAmount)}
                             </span>
-                            <span className="text-[9px] font-mono text-muted-foreground/60">total order</span>
+                            <span className="text-[9px] font-mono text-muted-foreground/60">net claim</span>
                           </div>
                         </TableCell>
 
-                        {/* Balance Amount */}
+                        {/* 4. Balance Amount */}
                         <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
                           <div className="flex flex-col items-end">
                             <span className={`text-xs font-mono font-bold ${balanceAmount <= 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
