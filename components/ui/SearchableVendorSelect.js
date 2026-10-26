@@ -97,7 +97,7 @@ export default function SearchableVendorSelect({
           <Building className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           {selectedVendor ? (
             <span className="truncate font-semibold text-foreground">
-              {selectedVendor.name || selectedVendor.legal_name || selectedVendor.code}
+              {selectedVendor.name || selectedVendor.legal_name || selectedVendor.legalName || selectedVendor.trade_name || selectedVendor.code}
               {(selectedVendor.code || selectedVendor.vendor_code) && (
                 <span className="ml-1.5 font-mono text-[10px] text-muted-foreground font-normal">
                   ({selectedVendor.code || selectedVendor.vendor_code})
@@ -205,7 +205,7 @@ export default function SearchableVendorSelect({
                       </span>
                       <div className="truncate">
                         <span className="block truncate text-xs text-foreground font-semibold">
-                          {vendor.name || vendor.legal_name}
+                          {vendor.name || vendor.legal_name || vendor.legalName || vendor.trade_name || vendor.code}
                         </span>
                         {(vendor.code || vendor.vendor_code || vendor.trade_name) && (
                           <span className="block text-[10px] text-muted-foreground font-mono truncate">

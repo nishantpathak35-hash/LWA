@@ -163,20 +163,57 @@ export default function PaymentsView() {
   const isAdmin = isSuper || roles.includes('admin');
   const canOnboard = isProcurement || isAdmin;
 
+  const allAvailableVendors = useMemo(() => {
+    if (!Array.isArray(vendors)) return [];
+    const map = new Map();
+    vendors.forEach(v => {
+      const key = String(v.code || v.vendor_code || v.name || v.legal_name || v.id || '').toLowerCase().trim();
+      if (key) map.set(key, v);
+    });
+    (pos || []).forEach(po => {
+      const pName = String(po.vendor_name || po.vendor || '').trim();
+      const pCode = String(po.vendor_key || po.vendorCode || po.vendor_code || '').trim();
+      const key = (pCode || pName).toLowerCase();
+      if (pName && !map.has(key) && !map.has(pName.toLowerCase())) {
+        map.set(key, {
+          recordId: po.vendor_id || undefined,
+          vendor_id: po.vendor_id || undefined,
+          code: pCode || pName,
+          vendorId: pCode || pName,
+          vendor_code: pCode || '',
+          name: pName,
+          legalName: pName,
+          tradeName: '',
+          status: 'Active'
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => 
+      String(a.name || a.legal_name || '').localeCompare(String(b.name || b.legal_name || ''))
+    );
+  }, [vendors, pos]);
+
   const getVendorPOs = (vCode) => {
     if (!vCode) return [];
-    const vObj = vendors.find(v => v.code === vCode || v.vendor_code === vCode || v.id === vCode);
-    const vNames = [vObj?.name, vObj?.legalName, vObj?.legal_name, vObj?.tradeName, vObj?.trade_name]
+    const vCodeStr = String(vCode).trim().toLowerCase();
+    const vObj = allAvailableVendors.find(v => 
+      String(v.code || v.vendor_code || v.vendorId || v.recordId || v.id || '').trim().toLowerCase() === vCodeStr ||
+      String(v.name || v.legal_name || v.legalName || '').trim().toLowerCase() === vCodeStr
+    );
+    const vNames = [vObj?.name, vObj?.legalName, vObj?.legal_name, vObj?.tradeName, vObj?.trade_name, vCode]
+      .filter(Boolean)
+      .map(s => String(s).trim().toLowerCase());
+    const vCodes = [vObj?.code, vObj?.vendor_code, vObj?.vendorId, vCode]
       .filter(Boolean)
       .map(s => String(s).trim().toLowerCase());
 
     return pos.filter(po => {
       const pKey = String(po.vendor_key || po.vendorCode || po.vendor_code || '').trim().toLowerCase();
       const pName = String(po.vendor_name || po.vendor || '').trim().toLowerCase();
-      const codeMatches = pKey === String(vCode).trim().toLowerCase();
+      const codeMatches = pKey && vCodes.includes(pKey);
       const nameMatches = pName && vNames.some(vn => vn === pName || vn.includes(pName) || pName.includes(vn));
-      const matchesVendor = codeMatches || nameMatches;
-      return matchesVendor && isPOEligibleForPayment(po);
+      const directMatch = (pKey && pKey === vCodeStr) || (pName && pName === vCodeStr);
+      return (codeMatches || nameMatches || directMatch) && isPOEligibleForPayment(po);
     });
   };
 
@@ -936,7 +973,7 @@ export default function PaymentsView() {
           setRequestModalOpen={setRequestModalOpen}
           vendorCode={vendorCode}
           setVendorCode={setVendorCode}
-          vendors={vendors}
+          vendors={allAvailableVendors}
           poNo={poNo}
           handlePOChange={handlePOChange}
           vendorPOs={vendorPOs}

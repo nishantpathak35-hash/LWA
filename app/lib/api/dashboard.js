@@ -52,7 +52,7 @@ export async function getBootBundle(session) {
   }
   const [kpis, master, payments, featurePermissions] = await Promise.all([
     getDashboardKPIs(session),
-    getMasterData(session, { limit: 150, offset: 0 }),
+    getMasterData(session, { limit: 0, offset: 0 }),
     listPaymentRequests({ limit: 100, offset: 0 }, session),
     getFeaturePermissions(session)
   ]);
@@ -126,7 +126,7 @@ export async function getDashboardKPIs(session) {
 
 
 
-export async function getMasterData(session, options = { limit: 150, offset: 0 }) {
+export async function getMasterData(session, options = { limit: 0, offset: 0 }) {
   requireAuth(session);
   const [vendors, pos, totalVendors, totalPOs] = await Promise.all([
     VendorService.getAllVendors(options),
@@ -163,6 +163,32 @@ export async function getMasterData(session, options = { limit: 150, offset: 0 }
     address: v.address || '',
     email: (v.email || v.contact_email || v.primary_contact_email || '').trim()
   }));
+
+  // Ensure all vendors appearing in POs are included in masterVendors
+  const existingVendorCodes = new Set(masterVendors.map(v => (v.code || '').toLowerCase().trim()).filter(Boolean));
+  const existingVendorNames = new Set(masterVendors.map(v => (v.name || '').toLowerCase().trim()).filter(Boolean));
+  pos.forEach(p => {
+    const vName = String(p.vendor_name || p.vendor || '').trim();
+    const vCode = String(p.vendor_code || p.vendor_key || '').trim();
+    if (vName && !existingVendorNames.has(vName.toLowerCase()) && (!vCode || !existingVendorCodes.has(vCode.toLowerCase()))) {
+      masterVendors.push({
+        recordId: p.vendor_id || undefined,
+        vendor_id: p.vendor_id || undefined,
+        code: vCode || vName,
+        vendorId: vCode || vName,
+        vendor_code: vCode || '',
+        name: vName,
+        legalName: vName,
+        tradeName: '',
+        status: 'Active',
+        gstin: '',
+        address: '',
+        email: ''
+      });
+      existingVendorNames.add(vName.toLowerCase());
+      if (vCode) existingVendorCodes.add(vCode.toLowerCase());
+    }
+  });
 
   // Build project list & pfMap from project_financials
   const pfMap = {};
