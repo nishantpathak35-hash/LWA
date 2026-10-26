@@ -182,7 +182,7 @@ export default function PaymentListTable({
                         <span className="font-medium text-muted-foreground font-mono tabular-nums">{formatCurrency(poValue)}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Balance after Payment</span>
+                        <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block truncate" title="Balance after Payment">Balance</span>
                         <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(balanceAmount)}</span>
                       </div>
                     </div>
@@ -209,11 +209,11 @@ export default function PaymentListTable({
             </div>
 
             {/* ── Desktop View: Compact Financial Ledger ── */}
-            <div className="hidden md:block">
+            <div className="hidden md:block overflow-x-auto">
               <Table className="w-full">
                 <TableHeader>
                   <TableRow className="border-b border-border/80 bg-muted/35 text-muted-foreground">
-                    <TableHead className="w-8 text-center py-2.5 px-2">
+                    <TableHead className="w-8 text-center py-2 px-2">
                       <input 
                         type="checkbox" 
                         className="rounded border-border text-primary focus:ring-primary/30 cursor-pointer disabled:opacity-30"
@@ -223,27 +223,42 @@ export default function PaymentListTable({
                         onChange={(e) => onSelectAll?.(e.target.checked)}
                       />
                     </TableHead>
-                    <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-16 pl-1.5" />
-                    <SortableHeader field="vendor_name" label="Vendor / Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[180px]" />
-                    <SortableHeader field="payment_mode" label="Mode" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="center" className="w-16 text-center" />
-                    <SortableHeader field="amount_requested" label="Requested" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28" />
-                    <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 font-semibold text-xs tracking-wider text-blue-600 dark:text-blue-400">
-                        <Wallet className="w-3 h-3" /> Paid
-                      </span>
+                    <SortableHeader field="id" label="ID" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-14 pl-1" />
+                    <SortableHeader field="vendor_name" label="Vendor / Project" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="min-w-[190px]" />
+                    <SortableHeader field="payment_mode" label="Mode" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="center" className="w-14 text-center" />
+                    <SortableHeader field="amount_requested" label="Requested" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} align="right" className="w-28 min-w-[110px]" />
+                    <TableHead className="text-right py-2 px-3 whitespace-nowrap w-28 min-w-[110px]">
+                      <div className="flex flex-col items-end">
+                        <span className="inline-flex items-center gap-1 font-semibold text-xs tracking-wider text-blue-600 dark:text-blue-400">
+                          <Wallet className="w-3 h-3" /> Paid
+                        </span>
+                        <span className="text-[9px] font-normal text-muted-foreground/60 -mt-0.5">
+                          to date
+                        </span>
+                      </div>
                     </TableHead>
-                    <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
-                      <span className="font-semibold text-xs tracking-wider text-slate-600 dark:text-slate-400">
-                        P.O Value
-                      </span>
+                    <TableHead className="text-right py-2 px-3 whitespace-nowrap w-28 min-w-[110px]">
+                      <div className="flex flex-col items-end">
+                        <span className="font-semibold text-xs tracking-wider text-slate-600 dark:text-slate-400">
+                          P.O Value
+                        </span>
+                        <span className="text-[9px] font-normal text-muted-foreground/60 -mt-0.5">
+                          total order
+                        </span>
+                      </div>
                     </TableHead>
-                    <TableHead className="text-right py-2.5 px-3 whitespace-nowrap">
-                      <span className="font-semibold text-xs tracking-wider text-emerald-600 dark:text-emerald-400">
-                        Balance after Payment
-                      </span>
+                    <TableHead className="text-right py-2 px-3 whitespace-nowrap w-36 min-w-[130px]">
+                      <div className="flex flex-col items-end">
+                        <span className="font-semibold text-xs tracking-wider text-emerald-600 dark:text-emerald-400">
+                          Balance
+                        </span>
+                        <span className="text-[9px] font-medium text-emerald-600/70 dark:text-emerald-400/70 -mt-0.5">
+                          after payment
+                        </span>
+                      </div>
                     </TableHead>
-                    <SortableHeader field="approval_stage" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
-                    <TableHead className="text-right w-[180px] min-w-[180px] py-2.5 px-3 whitespace-nowrap font-semibold text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
+                    <SortableHeader field="approval_stage" label="Status" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28 min-w-[110px]" />
+                    <TableHead className="text-right w-[170px] min-w-[170px] py-2 px-3 whitespace-nowrap font-semibold text-[11px] text-muted-foreground tracking-wide select-none">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -277,7 +292,7 @@ export default function PaymentListTable({
                         </TableCell>
 
                         {/* ID + Date */}
-                        <TableCell className="font-mono text-xs font-bold text-foreground py-2.5 pl-1.5">
+                        <TableCell className="font-mono text-xs font-bold text-foreground py-2.5 pl-1">
                           <div className="flex flex-col">
                             <span>#{req.id}</span>
                             <span className="text-[10px] font-normal text-muted-foreground">{req.created_at ? formatDate(req.created_at) : ''}</span>
@@ -285,7 +300,7 @@ export default function PaymentListTable({
                         </TableCell>
 
                         {/* Vendor + Project + PO (merged) */}
-                        <TableCell className="py-2.5 px-3">
+                        <TableCell className="py-2.5 px-3 min-w-[190px]">
                           <div className="flex items-start gap-2 min-w-0">
                             <span className="w-6 h-6 rounded-full bg-primary/10 text-amber-700 dark:text-primary flex items-center justify-center text-[10px] font-bold border border-primary/20 shrink-0 mt-0.5">
                               {(req.vendor_name || 'V').substring(0, 2).toUpperCase()}
@@ -293,7 +308,7 @@ export default function PaymentListTable({
                             <div className="min-w-0 flex-1">
                               <div className="text-xs font-semibold text-foreground truncate" title={req.vendor_name || ''}>{req.vendor_name}</div>
                               <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
-                                <span className="truncate max-w-[80px]" title={req.project || 'General'}>{req.project || 'General'}</span>
+                                <span className="truncate max-w-[120px]" title={req.project || 'General'}>{req.project || 'General'}</span>
                                 <span className="text-border">·</span>
                                 <a href={`/po/${encodeURIComponent(req.po_no)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="font-mono font-semibold text-amber-700 dark:text-primary hover:underline shrink-0" title={`Open PO ${req.po_no}`}>
                                   {req.po_no}
@@ -309,10 +324,13 @@ export default function PaymentListTable({
                         </TableCell>
 
                         {/* Requested Amount */}
-                        <TableCell className="text-right tabular-nums whitespace-nowrap text-xs py-2.5 px-3">
-                          <span className="font-mono font-bold text-foreground">
-                            {formatCurrency(netAmount)}
-                          </span>
+                        <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
+                          <div className="flex flex-col items-end">
+                            <span className="font-mono font-bold text-xs text-foreground">
+                              {formatCurrency(netAmount)}
+                            </span>
+                            <span className="text-[9px] font-mono text-muted-foreground/60">net claim</span>
+                          </div>
                         </TableCell>
 
                         {/* Paid */}
@@ -335,7 +353,7 @@ export default function PaymentListTable({
                         {/* P.O Value */}
                         <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
                           <div className="flex flex-col items-end">
-                            <span className="text-xs font-mono text-muted-foreground">
+                            <span className="text-xs font-mono font-semibold text-foreground/80">
                               {formatCurrency(poValue)}
                             </span>
                             <span className="text-[9px] font-mono text-muted-foreground/60">total order</span>
