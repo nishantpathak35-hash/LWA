@@ -109,13 +109,7 @@ export default function PaymentListTable({
     );
   };
 
-  // Compact currency formatter for smaller displays
-  const compactCurrency = (val) => {
-    const num = Number(val) || 0;
-    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
-    if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
-    return formatCurrency(num);
-  };
+
 
   return (
     <Card className="rounded-xl border-border/80 shadow-xs overflow-hidden bg-card">
@@ -177,19 +171,19 @@ export default function PaymentListTable({
                     <div className="grid grid-cols-4 gap-1.5 bg-muted/40 p-2.5 rounded-lg border border-border/60 text-[11px]">
                       <div>
                         <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Requested</span>
-                        <span className="font-bold text-foreground font-mono tabular-nums">{compactCurrency(netValue)}</span>
+                        <span className="font-bold text-foreground font-mono tabular-nums">{formatCurrency(netValue)}</span>
                       </div>
                       <div className="text-center">
                         <span className="text-[9px] uppercase font-semibold text-muted-foreground block">Paid</span>
-                        <span className="font-medium text-blue-700 dark:text-blue-400 font-mono tabular-nums">{compactCurrency(paidAmount)}</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-400 font-mono tabular-nums">{formatCurrency(paidAmount)}</span>
                       </div>
                       <div className="text-center">
                         <span className="text-[9px] uppercase font-semibold text-muted-foreground block">P.O Value</span>
-                        <span className="font-medium text-muted-foreground font-mono tabular-nums">{compactCurrency(poValue)}</span>
+                        <span className="font-medium text-muted-foreground font-mono tabular-nums">{formatCurrency(poValue)}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Balance</span>
-                        <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{compactCurrency(balanceAmount)}</span>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">{formatCurrency(balanceAmount)}</span>
                       </div>
                     </div>
 
@@ -325,7 +319,7 @@ export default function PaymentListTable({
                         <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
                           <div className="flex flex-col items-end gap-0.5">
                             <span className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400">
-                              {compactCurrency(paidAmount)}
+                              {formatCurrency(paidAmount)}
                             </span>
                             {/* Micro progress bar */}
                             <div className="w-14 h-1 rounded-full bg-muted overflow-hidden">
@@ -342,7 +336,7 @@ export default function PaymentListTable({
                         <TableCell className="text-right tabular-nums whitespace-nowrap py-2.5 px-3">
                           <div className="flex flex-col items-end">
                             <span className="text-xs font-mono text-muted-foreground">
-                              {compactCurrency(poValue)}
+                              {formatCurrency(poValue)}
                             </span>
                             <span className="text-[9px] font-mono text-muted-foreground/60">total order</span>
                           </div>
