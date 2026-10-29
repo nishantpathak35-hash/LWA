@@ -3,6 +3,7 @@ import { queryAll, queryGet, queryRun } from '../../db.js';
 import { sendPOEmail } from '../../email.js';
 import { POService } from '../../../../src/modules/purchase-orders/services/POService';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
+import { VendorRepository } from '../../../../src/modules/vendors/repositories/VendorRepository';
 import { logAudit, requireAdminConsole, ensureSettingsTable } from '../core.js';
 import { SYSTEM_FALLBACK_EMAIL } from '../../config.js';
 import { emitBroadcast } from '../../broadcast.js';
@@ -40,7 +41,6 @@ export async function updatePOFull(poNo, payload, session) {
   let vendorRecord = null;
   const vQuery = payload.vendorId || payload.vendor_id || payload.vendorCode || payload.vendor_code || payload.vendor_key || payload.vendorName || payload.vendor;
   if (vQuery) {
-    const { VendorRepository } = await import('../../../../src/modules/vendors/repositories/VendorRepository.js');
     vendorRecord = await VendorRepository.findByNameOrCode(String(vQuery));
   }
   const vendorName = vendorRecord ? vendorRecord.legal_name : String(payload.vendorName || payload.vendor || existing.vendor_name || '');
