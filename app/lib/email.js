@@ -205,63 +205,203 @@ export async function sendPaymentAdviceEmail({ toEmail, cc, vendorName, poNo, pr
 }
 
 // ── PO Email ─────────────────────────────────────────────────────────────────
-export async function sendPOEmail({ toEmail, cc, vendorName, poNo, project, poDate, items, grandTotal, terms, attachments }) {
-  const formattedTotal = Number(grandTotal || 0).toLocaleString('en-IN');
+export async function sendPOEmail({ toEmail, cc, vendorName, poNo, project, poDate, items, grandTotal, terms, paymentDeliveryTerms, generalTerms, attachments }) {
+  const formattedTotal = Number(grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const projectName = project || 'N/A';
-  
-  const html = `
-  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#111827;line-height:1.6;font-size:15px;background:#ffffff;padding:32px;">
-    
-    <h2 style="margin:0 0 24px 0;font-size:20px;font-weight:600;color:#111827;">Purchase Order</h2>
-    
-    <p style="margin:0 0 16px 0;">Dear ${vendorName},</p>
-    
-    <p style="margin:0 0 24px 0;">
-      Attached is Purchase Order <strong>${poNo}</strong> for the <strong>${projectName}</strong> project.
-    </p>
+  const formatMoney = (val) => Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+  // Compute financial summary from items (mirrors PDF generator logic)
+  const safeItems = items || [];
+  const subtotal = safeItems.reduce((sum, it) => sum + ((Number(it.qty) || 0) * (Number(it.rate) || 0)), 0);
+  const displayGrandTotal = Number(grandTotal || subtotal);
 
-    <table style="width:100%;border-collapse:collapse;margin:0 0 24px 0;">
-      <tr>
-        <td style="padding:0 0 12px 0;width:50%;">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">PO Number</div>
-          <div style="font-weight:500;">${poNo}</div>
-        </td>
-        <td style="padding:0 0 12px 0;width:50%;">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">Project</div>
-          <div style="font-weight:500;">${projectName}</div>
-        </td>
-      </tr>
-      <tr>
-        <td colspan="2" style="padding:0;">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">Order Value</div>
-          <div style="font-weight:500;">₹${formattedTotal}</div>
-        </td>
-      </tr>
-    </table>
+  // Build line items rows
+  let itemRowsHtml = '';
+  if (safeItems.length > 0) {
+    itemRowsHtml = safeItems.map((it, idx) => {
+      const lineAmt = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+      const bgColor = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+      return `<tr style="background:${bgColor}">
+        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:12px">${idx + 1}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:13px;font-weight:500">${it.desc || it.description || ''}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:center;color:#374151;font-size:12px">${it.qty || 1}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:center;color:#374151;font-size:12px">${it.unit || 'Nos'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;color:#374151;font-size:12px">₹${formatMoney(it.rate)}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;color:#111827;font-size:12px;font-weight:600">₹${formatMoney(lineAmt)}</td>
+      </tr>`;
+    }).join('');
+  }
 
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+  // Build terms preview
+  let termsPreviewHtml = '';
+  const payTerms = paymentDeliveryTerms || terms || '';
+  if (payTerms) {
+    // Truncate for email preview (first 300 chars)
+    const truncated = payTerms.length > 300 ? payTerms.substring(0, 300) + '…' : payTerms;
+    termsPreviewHtml = `
+    <tr><td style="padding:0 32px 24px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbf2;border:1px solid #f0d080;border-radius:8px;overflow:hidden">
+        <tr><td style="padding:14px 18px">
+          <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:1px">Payment &amp; Delivery Terms</p>
+          <p style="margin:0;font-size:12px;color:#78350f;line-height:1.6;white-space:pre-wrap">${truncated}</p>
+        </td></tr>
+      </table>
+    </td></tr>`;
+  }
 
-    <h3 style="margin:0 0 16px 0;font-size:16px;font-weight:600;color:#111827;">Action Required</h3>
-    <ul style="margin:0 0 32px 0;padding-left:20px;color:#374151;">
-      <li style="margin-bottom:8px;">Review the attached Purchase Order.</li>
-      <li style="margin-bottom:8px;">Confirm receipt.</li>
-      <li style="margin-bottom:0;">Contact Procurement if any clarification is required.</li>
-    </ul>
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Purchase Order ${poNo}</title></head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 16px">
+    <tr><td align="center">
+      <table width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
 
-    <p style="margin:0 0 16px 0;">Regards,</p>
-    
-    <div style="color:#4b5563;">
-      <p style="margin:0;">Procurement</p>
-      <p style="margin:0;font-weight:500;color:#111827;">${COMPANY}</p>
-    </div>
-  </div>`;
+        <!-- ═══ Header ═══ -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#b8873f,#8a6020);padding:28px 32px;text-align:center">
+            <p style="margin:0 0 4px;color:rgba(255,255,255,0.7);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:600">Purchase Order</p>
+            <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px">${COMPANY}</h1>
+          </td>
+        </tr>
+
+        <!-- ═══ PO Details Grid ═══ -->
+        <tr>
+          <td style="padding:28px 32px 0">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+              <tr>
+                <td style="padding:14px 18px;width:50%;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
+                  <p style="margin:0 0 2px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">PO Number</p>
+                  <p style="margin:0;font-size:15px;font-weight:700;color:#111827">${poNo}</p>
+                </td>
+                <td style="padding:14px 18px;width:50%;border-bottom:1px solid #e5e7eb">
+                  <p style="margin:0 0 2px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Order Date</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#111827">${poDate || '—'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 18px;width:50%;border-right:1px solid #e5e7eb">
+                  <p style="margin:0 0 2px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Project</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#111827">${projectName}</p>
+                </td>
+                <td style="padding:14px 18px;width:50%">
+                  <p style="margin:0 0 2px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Vendor</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#111827">${vendorName || '—'}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ═══ Greeting ═══ -->
+        <tr>
+          <td style="padding:24px 32px 16px">
+            <p style="margin:0 0 8px;font-size:15px;color:#111827;line-height:1.6">Dear <strong>${vendorName}</strong>,</p>
+            <p style="margin:0;font-size:14px;color:#374151;line-height:1.6">
+              Please find attached the official Purchase Order <strong style="color:#92400e">${poNo}</strong> for the <strong>${projectName}</strong> project. Kindly review the order details below and the full document in the attached PDF.
+            </p>
+          </td>
+        </tr>
+
+        <!-- ═══ Line Items Table ═══ -->
+        ${safeItems.length > 0 ? `
+        <tr>
+          <td style="padding:8px 32px 20px">
+            <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.5px">Order Items</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;border-collapse:collapse">
+              <tr style="background:#f1f5f9">
+                <th style="padding:10px;font-size:11px;color:#475569;font-weight:700;text-align:center;border-bottom:2px solid #e5e7eb;width:6%">#</th>
+                <th style="padding:10px;font-size:11px;color:#475569;font-weight:700;text-align:left;border-bottom:2px solid #e5e7eb;width:38%">Description</th>
+                <th style="padding:10px;font-size:11px;color:#475569;font-weight:700;text-align:center;border-bottom:2px solid #e5e7eb;width:10%">Qty</th>
+                <th style="padding:10px;font-size:11px;color:#475569;font-weight:700;text-align:center;border-bottom:2px solid #e5e7eb;width:10%">Unit</th>
+                <th style="padding:10px;font-size:11px;color:#475569;font-weight:700;text-align:right;border-bottom:2px solid #e5e7eb;width:18%">Rate</th>
+                <th style="padding:10px;font-size:11px;color:#475569;font-weight:700;text-align:right;border-bottom:2px solid #e5e7eb;width:18%">Amount</th>
+              </tr>
+              ${itemRowsHtml}
+            </table>
+          </td>
+        </tr>
+        ` : ''}
+
+        <!-- ═══ Grand Total Banner ═══ -->
+        <tr>
+          <td style="padding:0 32px 20px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:8px;overflow:hidden">
+              <tr>
+                <td style="padding:16px 20px">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    ${subtotal !== displayGrandTotal ? `
+                    <tr>
+                      <td style="padding:0 0 6px;font-size:12px;color:#78350f">Subtotal (Taxable)</td>
+                      <td style="padding:0 0 6px;font-size:12px;color:#78350f;text-align:right;font-weight:600">₹${formatMoney(subtotal)}</td>
+                    </tr>
+                    ` : ''}
+                    <tr>
+                      <td style="padding:4px 0 0;font-size:16px;font-weight:800;color:#92400e">Grand Total</td>
+                      <td style="padding:4px 0 0;font-size:18px;font-weight:800;color:#92400e;text-align:right">₹${formattedTotal}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ═══ Terms Preview ═══ -->
+        ${termsPreviewHtml}
+
+        <!-- ═══ Action Required ═══ -->
+        <tr>
+          <td style="padding:0 32px 28px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;overflow:hidden">
+              <tr><td style="padding:16px 18px">
+                <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#0369a1">📋 Action Required</p>
+                <table cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding:0 8px 6px 0;vertical-align:top;font-size:14px;color:#0284c7">✓</td>
+                    <td style="padding:0 0 6px;font-size:13px;color:#0c4a6e">Review the attached Purchase Order PDF document carefully.</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 8px 6px 0;vertical-align:top;font-size:14px;color:#0284c7">✓</td>
+                    <td style="padding:0 0 6px;font-size:13px;color:#0c4a6e">Confirm receipt of this order to our Procurement team.</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 8px 0 0;vertical-align:top;font-size:14px;color:#0284c7">✓</td>
+                    <td style="padding:0;font-size:13px;color:#0c4a6e">Contact Procurement for any clarification or amendments required.</td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ═══ Signature ═══ -->
+        <tr>
+          <td style="padding:0 32px 28px">
+            <p style="margin:0 0 4px;font-size:14px;color:#111827">Regards,</p>
+            <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#111827">Procurement Team</p>
+            <p style="margin:0;font-size:13px;color:#6b7280">${COMPANY}</p>
+          </td>
+        </tr>
+
+        <!-- ═══ Footer ═══ -->
+        <tr>
+          <td style="background:#f8f9fa;border-top:1px solid #e8e9eb;padding:18px 32px;text-align:center">
+            <p style="margin:0 0 4px;color:#9ca3af;font-size:11px">${COMPANY} · Procurement & Finance Operations</p>
+            <p style="margin:0;color:#d1d5db;font-size:10px">This is an automated message. Please refer to the attached PDF for the official Purchase Order document.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
   return sendEmailData({
     toEmail,
     cc,
-    subject: `Purchase Order ${poNo} — ${COMPANY}`,
+    subject: `Purchase Order ${poNo} — ₹${formattedTotal} — ${COMPANY}`,
     html,
     attachments
   });
