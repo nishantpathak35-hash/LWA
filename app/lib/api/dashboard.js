@@ -167,10 +167,16 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
   // Ensure all vendors appearing in POs are included in masterVendors
   const existingVendorCodes = new Set(masterVendors.map(v => (v.code || '').toLowerCase().trim()).filter(Boolean));
   const existingVendorNames = new Set(masterVendors.map(v => (v.name || '').toLowerCase().trim()).filter(Boolean));
+  const existingVendorIds = new Set(masterVendors.map(v => v.recordId || v.vendor_id).filter(Boolean));
   pos.forEach(p => {
     const vName = String(p.vendor_name || p.vendor || '').trim();
     const vCode = String(p.vendor_code || p.vendor_key || '').trim();
-    if (vName && !existingVendorNames.has(vName.toLowerCase()) && (!vCode || !existingVendorCodes.has(vCode.toLowerCase()))) {
+    const vId = p.vendor_id;
+    const hasNameMatch = vName && existingVendorNames.has(vName.toLowerCase());
+    const hasCodeMatch = vCode && existingVendorCodes.has(vCode.toLowerCase());
+    const hasIdMatch = vId && existingVendorIds.has(vId);
+
+    if (vName && !hasNameMatch && !hasCodeMatch && !hasIdMatch) {
       masterVendors.push({
         recordId: p.vendor_id || undefined,
         vendor_id: p.vendor_id || undefined,
@@ -187,6 +193,7 @@ export async function getMasterData(session, options = { limit: 0, offset: 0 }) 
       });
       existingVendorNames.add(vName.toLowerCase());
       if (vCode) existingVendorCodes.add(vCode.toLowerCase());
+      if (vId) existingVendorIds.add(vId);
     }
   });
 

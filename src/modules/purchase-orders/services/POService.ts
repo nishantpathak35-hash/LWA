@@ -1,6 +1,7 @@
 import { PORepository } from '../repositories/PORepository.ts';
 import { IPOInput, IPO, IPOItem } from '../types/PO';
 import { logAudit } from '../../../../app/lib/api.js';
+import { queryRun } from '../../../../app/lib/db.js';
 
 export class POService {
   static async getAllPOs(options?: { limit?: number; offset?: number }): Promise<IPO[]> {
@@ -247,6 +248,15 @@ export class POService {
         });
       }
     }
+
+    await queryRun(
+      `UPDATE payment_requests SET vendor_name = ?, vendor_code = ?, vendor_id = ? WHERE po_no = ?`,
+      [vendorName, vendorCode, vendorId, nextPoNo]
+    );
+    await queryRun(
+      `UPDATE invoices SET vendor_name = ?, vendor_code = ?, vendor_id = ? WHERE LOWER(TRIM(po_no)) = LOWER(TRIM(?))`,
+      [vendorName, vendorCode, vendorId, nextPoNo]
+    );
 
     await logAudit(userEmail, 'PO Updated', `PO#${originalPoNo} edited`, 'Procurement');
     return { ok: true, poNo: nextPoNo };

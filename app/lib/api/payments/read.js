@@ -34,7 +34,7 @@ export async function listPaymentRequests(filters = {}, session) {
       po.notes as po_notes
     FROM payment_requests pr
     LEFT JOIN purchase_orders po ON pr.po_no = po.po_no
-    LEFT JOIN vendors v ON (v.vendor_code = pr.vendor_code OR v.legal_name = po.vendor_name)
+    LEFT JOIN vendors v ON (pr.vendor_id IS NOT NULL AND v.id = pr.vendor_id) OR (pr.vendor_code IS NOT NULL AND pr.vendor_code != '' AND v.vendor_code = pr.vendor_code) OR (v.legal_name = po.vendor_name)
     ORDER BY pr.created_at DESC, pr.pr_id DESC
   `;
   const params = [];
@@ -61,10 +61,7 @@ export async function listPaymentRequests(filters = {}, session) {
       }
     }
 
-    let vName = r.vendor_name;
-    if (!vName || vName === 'Unknown') {
-      vName = r.joined_vendor_name || 'Unknown';
-    }
+    const vName = r.joined_vendor_name || r.vendor_name || 'Unknown';
 
     return {
       id: r.pr_id,

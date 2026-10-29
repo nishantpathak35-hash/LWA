@@ -156,11 +156,24 @@ export default async function POPdfPage({ params }) {
 
   // Compute values
   const subtotal = items.reduce((sum, item) => sum + (Number(item.qty) * Number(item.rate) || 0), 0);
-  const gstPct = po.tax_pct !== undefined && po.tax_pct !== null ? Number(po.tax_pct) : 18;
-  const gstAmount = Math.round(subtotal * (gstPct / 100));
+  const itemsGstTotal = items.reduce((sum, it) => {
+    const itTaxPct = (it.tax_pct !== undefined && it.tax_pct !== null) ? Number(it.tax_pct) : 0;
+    return sum + Math.round((Number(it.qty) || 0) * (Number(it.rate) || 0) * (itTaxPct / 100));
+  }, 0);
+  const gstAmount = (po.gst_total !== undefined && po.gst_total !== null)
+    ? Number(po.gst_total)
+    : itemsGstTotal;
+  let gstPct = 0;
+  if (po.tax_pct !== undefined && po.tax_pct !== null) {
+    gstPct = Number(po.tax_pct);
+  } else if (items.length > 0 && items.every(i => Number(i.tax_pct ?? 0) === Number(items[0].tax_pct ?? 0))) {
+    gstPct = Number(items[0].tax_pct ?? 0);
+  } else if (subtotal > 0 && gstAmount > 0) {
+    gstPct = Math.round((gstAmount / subtotal) * 100);
+  }
   const tdsPct = po.tds_pct !== undefined && po.tds_pct !== null ? Number(po.tds_pct) : 0;
-  const tdsAmount = Math.round(subtotal * (tdsPct / 100));
-  const grandTotal = subtotal + gstAmount - tdsAmount;
+  const tdsAmount = (po.tds_amount !== undefined && po.tds_amount !== null) ? Number(po.tds_amount) : Math.round(subtotal * (tdsPct / 100));
+  const grandTotal = Number(po.revised_po_value || po.po_value || (subtotal + gstAmount - tdsAmount));
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-6 print:p-0 print:bg-white text-gray-900 font-serif">
@@ -228,7 +241,7 @@ export default async function POPdfPage({ params }) {
           <div className="border border-gray-300 p-2.5 rounded-md bg-gray-50/50">
             <h3 className="text-[10px] font-sans font-bold text-gray-600 uppercase tracking-wider mb-0.5">Vendor / Supplier</h3>
             <div className="text-[11px] font-sans space-y-0.5">
-              <p className="font-bold text-gray-900 text-xs font-serif">{po.vendor_name}</p>
+              <p className="font-bold text-gray-900 text-xs font-serif">{vendor?.legal_name || po.vendor_name}</p>
               {vendor?.vendor_code && <p><span className="text-gray-500">Code:</span> {vendor.vendor_code}</p>}
               {vendor?.gstin && <p><span className="text-gray-500">GSTIN:</span> {vendor.gstin}</p>}
               {vendor?.pan && <p><span className="text-gray-500">PAN:</span> {vendor.pan}</p>}
@@ -319,7 +332,7 @@ export default async function POPdfPage({ params }) {
               <span className="font-semibold text-gray-900">₹{subtotal.toLocaleString('en-IN')}</span>
             </div>
             <div className="flex justify-between pb-0.5 border-b border-gray-200">
-              <span className="text-gray-600">GST (+{gstPct}%):</span>
+              <span className="text-gray-600">GST ({gstPct > 0 ? `+${gstPct}%` : '0%'}):</span>
               <span className="font-semibold text-gray-900">₹{gstAmount.toLocaleString('en-IN')}</span>
             </div>
             {tdsAmount > 0 && (

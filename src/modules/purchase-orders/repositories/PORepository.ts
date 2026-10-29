@@ -10,6 +10,7 @@ export class PORepository {
     const offset = options?.offset ?? 0;
     return queryAll(`
       SELECT p.*,
+        COALESCE(v.legal_name, p.vendor_name) as vendor_name,
         p.legacy_paid as paid,
         COALESCE((
           SELECT SUM(inv.invoice_total)
@@ -24,6 +25,9 @@ export class PORepository {
             AND LOWER(inv.status) != 'rejected'
         ), 0) as invoice_count
       FROM purchase_orders p
+      LEFT JOIN vendors v ON (p.vendor_id IS NOT NULL AND p.vendor_id = v.id)
+                          OR (p.vendor_code IS NOT NULL AND p.vendor_code != '' AND p.vendor_code = v.vendor_code)
+                          OR (p.vendor_key IS NOT NULL AND p.vendor_key != '' AND p.vendor_key = v.vendor_code)
       ORDER BY COALESCE(p.po_date, p.created_at) DESC, p.created_at DESC
       LIMIT ? OFFSET ?
     `, [limit, offset]);
@@ -40,6 +44,7 @@ export class PORepository {
   static async findById(poNo: string): Promise<IPO | null> {
     return queryGet(`
       SELECT p.*,
+        COALESCE(v.legal_name, p.vendor_name) as vendor_name,
         p.legacy_paid as paid,
         COALESCE((
           SELECT SUM(inv.invoice_total)
@@ -54,6 +59,9 @@ export class PORepository {
             AND LOWER(inv.status) != 'rejected'
         ), 0) as invoice_count
       FROM purchase_orders p
+      LEFT JOIN vendors v ON (p.vendor_id IS NOT NULL AND p.vendor_id = v.id)
+                          OR (p.vendor_code IS NOT NULL AND p.vendor_code != '' AND p.vendor_code = v.vendor_code)
+                          OR (p.vendor_key IS NOT NULL AND p.vendor_key != '' AND p.vendor_key = v.vendor_code)
       WHERE p.po_no = ?
     `, [poNo]);
   }

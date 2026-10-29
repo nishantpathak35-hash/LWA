@@ -85,6 +85,88 @@ export class VendorRepository {
     }
   }
 
+  /**
+   * Cascade updated vendor name and code to all linked tables (POs, PRs, Invoices, Credit Notes)
+   */
+  static async cascadeVendorUpdate(
+    existing: { id?: number; vendor_code?: string; legal_name?: string; trade_name?: string },
+    newValues: { legalName?: string; vendorCode?: string }
+  ): Promise<void> {
+    const newLegalName = (newValues.legalName || existing.legal_name || '').trim();
+    const newCode = (newValues.vendorCode || existing.vendor_code || '').trim();
+    const oldCode = (existing.vendor_code || '').trim();
+    const oldLegal = (existing.legal_name || '').trim();
+    const oldTrade = (existing.trade_name || '').trim();
+    const vId = existing.id ?? null;
+
+    if (!newLegalName) return;
+
+    // 1. Cascade to purchase_orders
+    await queryRun(
+      `UPDATE purchase_orders
+       SET vendor_name = ?,
+           vendor_code = ?,
+           vendor_key = ?,
+           vendor_id = COALESCE(vendor_id, ?)
+       WHERE (vendor_id IS NOT NULL AND vendor_id = ?)
+          OR (vendor_code IS NOT NULL AND vendor_code != '' AND vendor_code = ?)
+          OR (vendor_key IS NOT NULL AND vendor_key != '' AND vendor_key = ?)
+          OR (vendor_name IS NOT NULL AND LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))
+          OR (vendor_name IS NOT NULL AND ? != '' AND LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))`,
+      [newLegalName, newCode, newCode, vId, vId, oldCode, oldCode, oldLegal, oldTrade, oldTrade]
+    );
+
+    // 2. Cascade to payment_requests
+    await queryRun(
+      `UPDATE payment_requests
+       SET vendor_name = ?,
+           vendor_code = ?,
+           vendor_id = COALESCE(vendor_id, ?)
+       WHERE (vendor_id IS NOT NULL AND vendor_id = ?)
+          OR (vendor_code IS NOT NULL AND vendor_code != '' AND vendor_code = ?)
+          OR (vendor_name IS NOT NULL AND LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))
+          OR (vendor_name IS NOT NULL AND ? != '' AND LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))`,
+      [newLegalName, newCode, vId, vId, oldCode, oldLegal, oldTrade, oldTrade]
+    );
+
+    // 3. Cascade to invoices
+    await queryRun(
+      `UPDATE invoices
+       SET vendor_name = ?,
+           vendor_code = ?,
+           vendor_id = COALESCE(vendor_id, ?)
+       WHERE (vendor_id IS NOT NULL AND vendor_id = ?)
+          OR (vendor_code IS NOT NULL AND vendor_code != '' AND vendor_code = ?)
+          OR (vendor_name IS NOT NULL AND LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))
+          OR (vendor_name IS NOT NULL AND ? != '' AND LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))`,
+      [newLegalName, newCode, vId, vId, oldCode, oldLegal, oldTrade, oldTrade]
+    );
+
+    // 4. Cascade to credit_notes
+    await queryRun(
+      `UPDATE credit_notes
+       SET vendor_name = ?,
+           vendor_code = ?,
+           vendor_id = COALESCE(vendor_id, ?)
+       WHERE (vendor_id IS NOT NULL AND vendor_id = ?)
+          OR (vendor_code IS NOT NULL AND vendor_code != '' AND vendor_code = ?)
+          OR (vendor_name IS NOT NULL AND LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))
+          OR (vendor_name IS NOT NULL AND ? != '' AND LOWER(TRIM(vendor_name)) = LOWER(TRIM(?)))`,
+      [newLegalName, newCode, vId, vId, oldCode, oldLegal, oldTrade, oldTrade]
+    );
+
+    // 5. Cascade to vendor_portal_users if exists
+    if (newCode !== oldCode) {
+      await queryRun(
+        `UPDATE vendor_portal_users
+         SET vendor_code = ?
+         WHERE (vendor_id IS NOT NULL AND vendor_id = ?)
+            OR vendor_code = ?`,
+        [newCode, vId, oldCode]
+      );
+    }
+  }
+
   static async findDuplicate(
     legalName?: string,
     tradeName?: string,

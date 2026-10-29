@@ -292,7 +292,7 @@ export default function PODetailsDrawer({
                           {items.map((item, idx) => {
                             const qty = Number(item.qty || item.quantity || 1);
                             const rate = Number(item.rate || 0);
-                            const gstPct = Number(item.tax_pct !== undefined ? item.tax_pct : item.gstPct || 18);
+                            const gstPct = Number((item.tax_pct !== undefined && item.tax_pct !== null) ? item.tax_pct : ((item.gstPct !== undefined && item.gstPct !== null) ? item.gstPct : 18));
                             const gross = qty * rate;
                             const gstAmt = Number(item.gst_amount) || Math.round(gross * gstPct / 100);
                             const lineTotal = Number(item.amount) || (gross + gstAmt);

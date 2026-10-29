@@ -107,7 +107,7 @@ export function generatePOPdf(
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...darkColor);
-  doc.text(po.vendor_name || 'N/A', 18, currentY + 10);
+  doc.text(vendor?.legal_name || po.vendor_name || 'N/A', 18, currentY + 10);
   
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
@@ -181,10 +181,23 @@ export function generatePOPdf(
 
   // 4. Financial Calculations & Words Box
   const subtotal = (items || []).reduce((sum, item) => sum + ((Number(item.qty) || 0) * (Number(item.rate) || 0)), 0);
-  const gstPct = po.tax_pct !== undefined && po.tax_pct !== null ? Number(po.tax_pct) : 18;
-  const gstAmount = Math.round(subtotal * (gstPct / 100));
+  const itemsGstTotal = (items || []).reduce((sum, it) => {
+    const itTaxPct = (it.tax_pct !== undefined && it.tax_pct !== null) ? Number(it.tax_pct) : 0;
+    return sum + Math.round((Number(it.qty) || 0) * (Number(it.rate) || 0) * (itTaxPct / 100));
+  }, 0);
+  const gstAmount = (po.gst_total !== undefined && po.gst_total !== null)
+    ? Number(po.gst_total)
+    : itemsGstTotal;
+  let gstPct = 0;
+  if (po.tax_pct !== undefined && po.tax_pct !== null) {
+    gstPct = Number(po.tax_pct);
+  } else if (items.length > 0 && items.every(i => Number(i.tax_pct ?? 0) === Number(items[0].tax_pct ?? 0))) {
+    gstPct = Number(items[0].tax_pct ?? 0);
+  } else if (subtotal > 0 && gstAmount > 0) {
+    gstPct = Math.round((gstAmount / subtotal) * 100);
+  }
   const tdsPct = po.tds_pct !== undefined && po.tds_pct !== null ? Number(po.tds_pct) : 0;
-  const tdsAmount = Math.round(subtotal * (tdsPct / 100));
+  const tdsAmount = (po.tds_amount !== undefined && po.tds_amount !== null) ? Number(po.tds_amount) : Math.round(subtotal * (tdsPct / 100));
   const calcGrandTotal = subtotal + gstAmount - tdsAmount;
   const grandTotal = Number(po.revised_po_value || po.po_value || calcGrandTotal);
 
@@ -220,7 +233,7 @@ export function generatePOPdf(
   doc.text("Subtotal (Taxable):", totalsBoxX + 4, currentY + 5);
   doc.text(`Rs. ${formatMoney(subtotal)}`, totalsBoxX + totalsBoxWidth - 4, currentY + 5, { align: 'right' });
 
-  doc.text(`GST (+${gstPct}%):`, totalsBoxX + 4, currentY + 10);
+  doc.text(`GST (${gstPct > 0 ? `+${gstPct}%` : '0%'}):`, totalsBoxX + 4, currentY + 10);
   doc.text(`Rs. ${formatMoney(gstAmount)}`, totalsBoxX + totalsBoxWidth - 4, currentY + 10, { align: 'right' });
 
   if (tdsAmount > 0) {

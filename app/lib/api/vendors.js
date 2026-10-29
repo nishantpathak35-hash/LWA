@@ -86,6 +86,8 @@ export async function updateVendor(payload, session) {
   requireAuth(session);
   const result = await VendorService.updateVendor(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
   await emitBroadcast('vendor', 'updated', payload.vendor_code || payload.vendorCode || '');
+  await emitBroadcast('po', 'updated', 'all');
+  await emitBroadcast('payment', 'updated', 'all');
   return result;
 }
 

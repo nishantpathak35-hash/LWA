@@ -36,8 +36,16 @@ export async function updatePOFull(poNo, payload, session) {
   // Derive the new PO number (may be renamed via payload)
   const nextPoNo = String(payload.poNo || originalPoNo).trim();
 
-  // Resolve vendor name from payload
-  const vendorName = String(payload.vendorName || payload.vendor || existing.vendor_name || '');
+  // Resolve vendor record from payload or existing
+  let vendorRecord = null;
+  const vQuery = payload.vendorId || payload.vendor_id || payload.vendorCode || payload.vendor_code || payload.vendor_key || payload.vendorName || payload.vendor;
+  if (vQuery) {
+    const { VendorRepository } = await import('../../../../src/modules/vendors/repositories/VendorRepository.js');
+    vendorRecord = await VendorRepository.findByNameOrCode(String(vQuery));
+  }
+  const vendorName = vendorRecord ? vendorRecord.legal_name : String(payload.vendorName || payload.vendor || existing.vendor_name || '');
+  const vendorCode = vendorRecord ? vendorRecord.vendor_code : String(payload.vendorCode || payload.vendor_code || payload.vendor_key || existing.vendor_code || existing.vendor_key || '');
+  const vendorId = vendorRecord ? vendorRecord.id : (payload.vendor_id || payload.vendorId || existing.vendor_id || null);
 
   // Compute TDS fields
   const tdsSection = payload.tdsSection || payload.tds_section || existing.tds_section || '';
@@ -101,14 +109,14 @@ export async function updatePOFull(poNo, payload, session) {
   if (expectedVersion !== undefined && expectedVersion !== null) {
     const result = await queryRun(
       `UPDATE purchase_orders SET
-        po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
+        po_no = ?, vendor_id = ?, vendor_code = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
         approval_status = ?, status = ?,
         tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
         expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
         version = COALESCE(version, 1) + 1
        WHERE po_no = ? AND COALESCE(version, 1) = ?`,
       [nextPoNo,
-       payload.vendorCode || payload.vendor_key || existing.vendor_key || '',
+       vendorId, vendorCode, vendorCode,
        vendorName, payload.project || '', totalVal, totalVal,
        payload.poDate || existing.po_date || '', terms, paymentDeliveryTerms, generalTerms,
        newStatus, newStatus,
@@ -123,14 +131,14 @@ export async function updatePOFull(poNo, payload, session) {
   } else {
     await queryRun(
       `UPDATE purchase_orders SET
-        po_no = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
+        po_no = ?, vendor_id = ?, vendor_code = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
         approval_status = ?, status = ?,
         tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
         expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
         version = COALESCE(version, 1) + 1
        WHERE po_no = ?`,
       [nextPoNo,
-       payload.vendorCode || payload.vendor_key || existing.vendor_key || '',
+       vendorId, vendorCode, vendorCode,
        vendorName, payload.project || '', totalVal, totalVal,
        payload.poDate || existing.po_date || '', terms, paymentDeliveryTerms, generalTerms,
        newStatus, newStatus,
@@ -148,6 +156,16 @@ export async function updatePOFull(poNo, payload, session) {
       await queryRun(`UPDATE ${table} SET po_no = ? WHERE po_no = ?`, [nextPoNo, originalPoNo]);
     }
   }
+
+  // Cascade vendor updates to payment_requests and invoices for this PO
+  await queryRun(
+    `UPDATE payment_requests SET vendor_name = ?, vendor_code = ?, vendor_id = ? WHERE po_no = ?`,
+    [vendorName, vendorCode, vendorId, nextPoNo]
+  );
+  await queryRun(
+    `UPDATE invoices SET vendor_name = ?, vendor_code = ?, vendor_id = ? WHERE LOWER(TRIM(po_no)) = LOWER(TRIM(?))`,
+    [vendorName, vendorCode, vendorId, nextPoNo]
+  );
 
   // Replace line items
   await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [nextPoNo]);

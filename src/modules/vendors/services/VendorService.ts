@@ -146,6 +146,7 @@ export class VendorService {
       } as any);
     } else {
       await VendorRepository.update(vendorId, updateData, payload.expectedVersion);
+      await VendorRepository.cascadeVendorUpdate(existing, payload);
     }
 
     await logAudit(userEmail, 'Vendor Updated', vendorId, 'Vendors');
