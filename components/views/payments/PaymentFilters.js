@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Button, Input } from '../../ui/core';
 import { PlusCircle, Search, Download, Clock, Landmark, ArrowUpRight, X, ShieldCheck, FileCheck2, UserCheck } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
@@ -45,7 +45,7 @@ export default function PaymentFilters({
   return (
     <div className="space-y-5">
       {/* ── 1. Executive Header ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-border/60">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-border/60">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-primary/10 text-amber-700 dark:text-primary border border-primary/20">
@@ -54,7 +54,7 @@ export default function PaymentFilters({
             <span className="text-xs text-muted-foreground/60">•</span>
             <span className="text-xs text-muted-foreground font-medium">Approval Pipeline</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground font-display">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-display">
             Payment Requests
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -62,16 +62,16 @@ export default function PaymentFilters({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap w-full sm:w-auto justify-between sm:justify-start">
           {onGoToReports && (
             <Button
               variant="outline"
               size="sm"
               onClick={onGoToReports}
-              className="text-xs font-semibold h-9 rounded-xl border-border/80 hover:bg-muted/80 text-foreground transition-all gap-1.5 shadow-2xs"
+              className="text-xs font-semibold h-8 sm:h-9 rounded-xl border-border/80 hover:bg-muted/80 text-foreground transition-all gap-1.5 shadow-2xs flex-1 sm:flex-initial"
               title="Open Reports to disburse approved payments or review settled ledger"
             >
-              <span>Remittance & Reports</span>
+              <span>Reports</span>
               <ArrowUpRight className="w-3.5 h-3.5 text-primary" />
             </Button>
           )}
@@ -80,10 +80,10 @@ export default function PaymentFilters({
               variant="outline"
               size="sm"
               onClick={onExportCSV}
-              className="text-xs font-semibold h-9 rounded-xl border-border/80 hover:bg-muted/80 text-foreground transition-all gap-1.5 shadow-2xs"
+              className="text-xs font-semibold h-8 sm:h-9 rounded-xl border-border/80 hover:bg-muted/80 text-foreground transition-all gap-1.5 shadow-2xs flex-1 sm:flex-initial"
             >
               <Download className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>Export Queue</span>
+              <span>Export</span>
             </Button>
           )}
           {canOnboard && (
@@ -91,92 +91,92 @@ export default function PaymentFilters({
               variant="primary"
               size="sm"
               onClick={() => handleOpenRequestModal()}
-              className="text-xs font-semibold h-9 rounded-xl shadow-xs gap-1.5 px-4"
+              className="text-xs font-semibold h-8 sm:h-9 rounded-xl shadow-xs gap-1.5 px-3 sm:px-4 flex-1 sm:flex-initial"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>New Payment Request</span>
+              <span>New Request</span>
             </Button>
           )}
         </div>
       </div>
 
       {/* ── 2. Metric KPI Cards Bar (Approval Pipeline Tiers) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
         {/* Card 1: Total Awaiting Approval */}
-        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-4 shadow-2xs hover:border-amber-500/40 transition-all duration-200">
+        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-3 sm:p-4 shadow-2xs hover:border-amber-500/40 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Total Awaiting Sanction</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider truncate">Total Awaiting</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-amber-700 dark:text-amber-400 font-mono tabular-nums">
+          <div className="mt-2 sm:mt-3">
+            <div className="text-lg sm:text-2xl font-bold tracking-tight text-amber-700 dark:text-amber-400 font-mono tabular-nums">
               {formatCurrency(kpis.totalVal)}
             </div>
-            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                {kpis.totalCount} Orders Pending
+            <div className="flex items-center justify-between mt-1 text-[10px] sm:text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                {kpis.totalCount} Pending
               </span>
-              <span className="font-medium text-foreground/75">Full Queue</span>
+              <span className="font-medium text-foreground/75 hidden sm:inline">Full Queue</span>
             </div>
           </div>
         </div>
 
         {/* Card 2: Procurement Check */}
-        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-4 shadow-2xs hover:border-border transition-all duration-200">
+        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-3 sm:p-4 shadow-2xs hover:border-border transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Procurement Stage</span>
-            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-              <FileCheck2 className="w-4 h-4" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">Procurement</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
+              <FileCheck2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-foreground font-mono tabular-nums">
+          <div className="mt-2 sm:mt-3">
+            <div className="text-lg sm:text-2xl font-bold tracking-tight text-foreground font-mono tabular-nums">
               {formatCurrency(kpis.procVal)}
             </div>
-            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between mt-1 text-[10px] sm:text-[11px] text-muted-foreground">
               <span>{kpis.procCount} In Review</span>
-              <span className="text-muted-foreground font-medium">Initial Verification</span>
+              <span className="text-muted-foreground font-medium hidden sm:inline">Initial Check</span>
             </div>
           </div>
         </div>
 
         {/* Card 3: Finance Review */}
-        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-4 shadow-2xs hover:border-blue-500/40 transition-all duration-200">
+        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-3 sm:p-4 shadow-2xs hover:border-blue-500/40 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Finance Review</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider truncate">Finance</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-blue-700 dark:text-blue-400 font-mono tabular-nums">
+          <div className="mt-2 sm:mt-3">
+            <div className="text-lg sm:text-2xl font-bold tracking-tight text-blue-700 dark:text-blue-400 font-mono tabular-nums">
               {formatCurrency(kpis.financeVal)}
             </div>
-            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between mt-1 text-[10px] sm:text-[11px] text-muted-foreground">
               <span>{kpis.financeCount} In Review</span>
-              <span className="text-blue-700 dark:text-blue-400 font-medium">TDS & Ledger Check</span>
+              <span className="text-blue-700 dark:text-blue-400 font-medium hidden sm:inline">TDS & Ledger</span>
             </div>
           </div>
         </div>
 
         {/* Card 4: Director Sign-off */}
-        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-4 shadow-2xs hover:border-purple-500/40 transition-all duration-200">
+        <div className="group relative rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs p-3 sm:p-4 shadow-2xs hover:border-purple-500/40 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider">Director Sign-off</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-700 dark:text-purple-400 flex items-center justify-center">
-              <UserCheck className="w-4 h-4" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider truncate">Director</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-500/10 text-purple-700 dark:text-purple-400 flex items-center justify-center shrink-0">
+              <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold tracking-tight text-purple-700 dark:text-purple-400 font-mono tabular-nums">
+          <div className="mt-2 sm:mt-3">
+            <div className="text-lg sm:text-2xl font-bold tracking-tight text-purple-700 dark:text-purple-400 font-mono tabular-nums">
               {formatCurrency(kpis.directorVal)}
             </div>
-            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between mt-1 text-[10px] sm:text-[11px] text-muted-foreground">
               <span>{kpis.directorCount} Escalated</span>
-              <span className="text-purple-700 dark:text-purple-400 font-medium">Final Authorization</span>
+              <span className="text-purple-700 dark:text-purple-400 font-medium hidden sm:inline">Final Auth</span>
             </div>
           </div>
         </div>
@@ -185,7 +185,7 @@ export default function PaymentFilters({
       {/* ── 3. Stage Filter & Search Bar ── */}
       <div className="p-2 bg-card rounded-xl border border-border/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shadow-2xs">
         {/* Segmented Stage Pills */}
-        <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-lg border border-border/40 overflow-x-auto">
+        <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-lg border border-border/40 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('all')}

@@ -112,21 +112,21 @@ export default function POFilters({
   return (
     <div className="space-y-4">
       {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Purchase Orders</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Purchase Orders</h1>
           <p className="text-xs text-muted-foreground mt-0.5 font-medium">
             {allPOs.length} order{allPOs.length !== 1 ? 's' : ''} · Issue, authorize, track deliveries, and manage vendor commitments
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportPOs}
             disabled={filteredPOs.length === 0 || exportingPOs}
-            className="h-8 text-xs font-semibold border-border"
+            className="h-8 text-xs font-semibold border-border flex-1 sm:flex-initial"
           >
             <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /> {exportingPOs ? 'Exporting...' : 'Export'}
           </Button>
@@ -135,23 +135,23 @@ export default function POFilters({
               variant="primary"
               size="sm"
               onClick={() => handleOpenModal()}
-              className="h-8 text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-sm"
+              className="h-8 text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-sm flex-1 sm:flex-initial"
             >
-              <Plus className="w-3.5 h-3.5 mr-1.5" /> New Purchase Order
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> New PO
             </Button>
           )}
         </div>
       </div>
 
       {/* ── KPI Metric Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {cards.map(c => (
           <button
             key={c.id}
             type="button"
             title={c.hint}
             onClick={c.onClick}
-            className={`text-left p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 cursor-pointer overflow-hidden ${c.hover} ${c.isActive ? c.activeRing : ''}`}
+            className={`text-left p-3 sm:p-4 bg-card border border-border rounded-xl shadow-2xs flex flex-col justify-between transition-all duration-200 cursor-pointer overflow-hidden ${c.hover} ${c.isActive ? c.activeRing : ''}`}
           >
             <div className="flex items-start justify-between w-full">
               <div className="min-w-0 flex-1">
@@ -163,12 +163,12 @@ export default function POFilters({
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Active Filter" />
                   )}
                 </div>
-                <div className="text-xl font-bold text-foreground font-mono mt-1 tabular-nums">{c.value}</div>
+                <div className="text-lg sm:text-xl font-bold text-foreground font-mono mt-0.5 tabular-nums">{c.value}</div>
               </div>
-              <div className={`p-2 rounded-xl border shrink-0 ml-2 ${c.iconBg}`}>{c.icon}</div>
+              <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl border shrink-0 ml-1.5 ${c.iconBg}`}>{c.icon}</div>
             </div>
-            <div className="mt-3 pt-3 border-t border-border w-full flex items-center justify-between">
-              <span className={`text-[11px] truncate ${c.subColor}`}>{c.sub}</span>
+            <div className="mt-2.5 sm:mt-3 pt-2 sm:pt-3 border-t border-border/70 w-full flex items-center justify-between">
+              <span className={`text-[10px] sm:text-[11px] truncate ${c.subColor}`}>{c.sub}</span>
             </div>
           </button>
         ))}

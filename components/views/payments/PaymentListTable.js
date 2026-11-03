@@ -167,34 +167,38 @@ export default function PaymentListTable({
                       <p className="text-[11px] text-muted-foreground mt-0.5">{req.project || 'General'} • PO: <span className="font-mono font-semibold text-amber-700 dark:text-primary">{req.po_no || '—'}</span></p>
                     </div>
 
-                    {/* Row 3: Financial Summary — 4 cells (P.O Value -> Paid -> Requested -> Balance) */}
-                    <div className="grid grid-cols-4 gap-1.5 bg-muted/40 p-2.5 rounded-lg border border-border/60 text-[11px]">
-                      <div>
-                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block truncate">P.O Value</span>
-                        <span className="font-medium text-foreground/85 font-mono tabular-nums text-xs">{formatCurrency(poValue)}</span>
+                    {/* Row 3: Financial Summary — Balanced 2x2 Grid */}
+                    <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">P.O Value</span>
+                        <span className="font-semibold text-foreground font-mono tabular-nums text-xs block">{formatCurrency(poValue)}</span>
                       </div>
-                      <div className="text-center">
-                        <span className="text-[9px] uppercase font-semibold text-blue-600 dark:text-blue-400 block truncate">Paid</span>
-                        <span className="font-medium text-blue-700 dark:text-blue-400 font-mono tabular-nums text-xs">{formatCurrency(paidAmount)}</span>
+                      <div className="space-y-0.5 text-right">
+                        <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wider block">Paid to Date</span>
+                        <span className="font-semibold text-blue-700 dark:text-blue-400 font-mono tabular-nums text-xs block">{formatCurrency(paidAmount)}</span>
                       </div>
-                      <div className="text-center">
-                        <span className="text-[9px] uppercase font-semibold text-muted-foreground block truncate">Requested</span>
-                        <span className="font-bold text-foreground font-mono tabular-nums text-xs">{formatCurrency(netValue)}</span>
+                      <div className="pt-1.5 border-t border-border/50 space-y-0.5">
+                        <span className="text-[10px] uppercase font-bold text-foreground/80 tracking-wider block">Claim Requested</span>
+                        <span className="font-bold text-amber-700 dark:text-primary font-mono tabular-nums text-xs block">{formatCurrency(netValue)}</span>
                       </div>
-                      <div className="text-right">
-                        <span className={`text-[9px] uppercase font-semibold block truncate ${balanceAmount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`} title="Balance after Payment">Balance</span>
-                        <span className={`font-bold font-mono tabular-nums text-xs ${balanceAmount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>{formatCurrency(balanceAmount)}</span>
+                      <div className="pt-1.5 border-t border-border/50 space-y-0.5 text-right">
+                        <span className={`text-[10px] uppercase font-bold tracking-wider block ${balanceAmount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          Balance Remaining
+                        </span>
+                        <span className={`font-bold font-mono tabular-nums text-xs block ${balanceAmount < 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                          {formatCurrency(balanceAmount)}
+                        </span>
                       </div>
                     </div>
 
                     {/* Row 4: Actions */}
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-border/60">
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground">
-                          <History className="w-3 h-3 mr-0.5" /> Trail
+                    <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border/60">
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewHistory(req)} className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground">
+                          <History className="w-3.5 h-3.5 mr-1" /> Trail
                         </Button>
                         {(isAdmin || isDirector || isFinance || String(reqStage).toLowerCase().includes('procurement') || String(reqStage).toLowerCase().includes('finance')) && onEditPayment && (
-                          <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-6 px-1.5 text-[10px]">
+                          <Button variant="ghost" size="sm" onClick={() => onEditPayment(req)} className="h-7 px-2 text-xs text-amber-600 dark:text-primary font-medium">
                             Edit
                           </Button>
                         )}

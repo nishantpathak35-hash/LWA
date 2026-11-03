@@ -109,7 +109,7 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick, current
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
       {kpis.map((k, i) => {
         const isActive = currentTab === k.tab;
         return (
@@ -118,7 +118,7 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick, current
             type="button"
             title={k.hint}
             onClick={() => k.tab && onTabClick && onTabClick(k.tab)}
-            className={`text-left p-4 bg-card border border-border rounded-lg shadow-xs flex flex-col justify-between transition-all duration-200 cursor-pointer overflow-hidden ${k.hover} ${isActive ? k.activeRing : ''}`}
+            className={`text-left p-3 sm:p-4 bg-card border border-border rounded-xl shadow-2xs flex flex-col justify-between transition-all duration-200 cursor-pointer overflow-hidden ${k.hover} ${isActive ? k.activeRing : ''}`}
           >
             <div className="flex items-start justify-between w-full">
               <div className="min-w-0 flex-1">
@@ -128,14 +128,14 @@ export default function ReportsSummaryStrip({ payments = [], onTabClick, current
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Active Tab" />
                   )}
                 </div>
-                <div className="text-xl font-bold text-foreground font-mono mt-1 tabular-nums">{k.value}</div>
+                <div className="text-lg sm:text-xl font-bold text-foreground font-mono mt-0.5 tabular-nums">{k.value}</div>
               </div>
-              <div className={`p-2 rounded-xl border shrink-0 ml-2 ${k.iconBg}`}>{k.icon}</div>
+              <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl border shrink-0 ml-1.5 ${k.iconBg}`}>{k.icon}</div>
             </div>
-            <div className="flex items-end justify-between mt-3 pt-3 border-t border-border w-full">
-              <span className={`text-[11px] font-semibold truncate ${k.subColor}`}>{k.sub}</span>
+            <div className="flex items-center justify-between mt-2.5 sm:mt-3 pt-2 sm:pt-3 border-t border-border/70 w-full gap-1">
+              <span className={`text-[10px] sm:text-[11px] font-semibold truncate ${k.subColor}`}>{k.sub}</span>
               {k.spark && (
-                <div className="w-16 h-7 shrink-0 overflow-hidden relative">
+                <div className="hidden sm:block w-14 h-6 shrink-0 overflow-hidden relative">
                   <Sparkline data={k.spark} color={k.sparkColor} />
                 </div>
               )}

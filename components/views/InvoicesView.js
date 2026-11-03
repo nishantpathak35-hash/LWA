@@ -1358,12 +1358,12 @@ export default function InvoicesView() {
         </button>)}
       </div>}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+        <div className="relative flex-1 min-w-[200px] w-full">
           <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />
-          <Input aria-label="Search invoices" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice number, vendor or PO…" className="pl-9 h-10" />
+          <Input aria-label="Search invoices" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search invoice number, vendor or PO…" className="pl-9 h-10 w-full" />
         </div>
-        <div className="w-[210px] shrink-0">
+        <div className="w-full sm:w-[210px] shrink-0">
           <SearchableVendorSelect
             vendors={allAvailableVendors}
             value={selectedVendorFilter}
@@ -1371,16 +1371,18 @@ export default function InvoicesView() {
             placeholder="All Vendors (Filter)"
           />
         </div>
-        <select aria-label="Invoice source" value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm">
-          <option value="ALL">All sources</option><option value="vendor_portal">Vendor portal</option><option value="internal_upload">Internal upload</option>
-        </select>
-        <select aria-label="Invoice view" value={activeViewMode} onChange={e => setActiveViewMode(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm">
-          <option value="flat">Invoice list</option><option value="vendor">Group by vendor</option><option value="credit_notes">Credit Notes ({creditNotesList.length})</option>
-        </select>
-        <select aria-label="Sort invoices" value={invoiceSort} onChange={e => setInvoiceSort(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm">
-          <option value="date_desc">Newest invoice first</option><option value="date_asc">Oldest invoice first</option><option value="amount_desc">Highest amount first</option><option value="vendor">Vendor A–Z</option>
-        </select>
-        {(search || statusFilter !== 'ALL' || sourceFilter !== 'ALL' || selectedVendorFilter) && <button type="button" className="text-xs text-blue-600 dark:text-blue-400" onClick={() => { setSearch(''); setStatusFilter('ALL'); setSourceFilter('ALL'); setQuickFilter('ALL'); setSelectedVendorFilter(''); }}>Clear filters</button>}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
+          <select aria-label="Invoice source" value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm w-full sm:w-auto">
+            <option value="ALL">All sources</option><option value="vendor_portal">Vendor portal</option><option value="internal_upload">Internal upload</option>
+          </select>
+          <select aria-label="Invoice view" value={activeViewMode} onChange={e => setActiveViewMode(e.target.value)} className="h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm w-full sm:w-auto">
+            <option value="flat">Invoice list</option><option value="vendor">Group by vendor</option><option value="credit_notes">Credit Notes ({creditNotesList.length})</option>
+          </select>
+          <select aria-label="Sort invoices" value={invoiceSort} onChange={e => setInvoiceSort(e.target.value)} className="col-span-2 sm:col-span-1 h-10 rounded-lg border border-border bg-card text-foreground px-3 text-sm w-full sm:w-auto">
+            <option value="date_desc">Newest invoice first</option><option value="date_asc">Oldest invoice first</option><option value="amount_desc">Highest amount first</option><option value="vendor">Vendor A–Z</option>
+          </select>
+        </div>
+        {(search || statusFilter !== 'ALL' || sourceFilter !== 'ALL' || selectedVendorFilter) && <button type="button" className="text-xs text-blue-600 dark:text-blue-400 py-1" onClick={() => { setSearch(''); setStatusFilter('ALL'); setSourceFilter('ALL'); setQuickFilter('ALL'); setSelectedVendorFilter(''); }}>Clear filters</button>}
       </div>
 
       {/* ── 4. Main Views Content ── */}

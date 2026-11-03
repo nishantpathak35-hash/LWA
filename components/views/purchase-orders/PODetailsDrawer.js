@@ -91,11 +91,11 @@ export default function PODetailsDrawer({
         onClick={onClose}
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
         <div className="w-screen max-w-2xl bg-card border-l border-border shadow-2xl flex flex-col transform transition-transform duration-300 ease-out animate-slide-left">
           
           {/* Header */}
-          <div className="p-5 border-b border-border bg-card">
+          <div className="p-4 sm:p-5 border-b border-border bg-card">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -171,22 +171,22 @@ export default function PODetailsDrawer({
             </div>
 
             {/* Quick Metrics Bar */}
-            <div className="mt-4 pt-3 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-2 text-center bg-muted/40 p-2.5 rounded-xl">
-              <div>
+            <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-muted/40 p-2.5 rounded-xl border border-border/60">
+              <div className="text-left sm:text-center">
                 <span className="text-[10px] uppercase font-semibold text-muted-foreground block">PO Value</span>
-                <span className="font-mono text-sm font-bold text-foreground">{formatCurrency(poValue)}</span>
+                <span className="font-mono text-xs sm:text-sm font-bold text-foreground">{formatCurrency(poValue)}</span>
               </div>
-              <div className="border-l border-border px-2">
+              <div className="text-right sm:text-center sm:border-l sm:border-border px-1">
                 <span className="text-[10px] uppercase font-semibold text-indigo-600 dark:text-indigo-400 block">Invoiced</span>
-                <span className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(Number(data.total_invoiced || 0))}</span>
+                <span className="font-mono text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(Number(data.total_invoiced || 0))}</span>
               </div>
-              <div className="border-l border-border px-2">
+              <div className="text-left sm:text-center border-t border-border/40 sm:border-t-0 sm:border-l sm:border-border pt-1.5 sm:pt-0 px-1">
                 <span className="text-[10px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">Paid ({paidPercent}%)</span>
-                <span className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(paidAmount)}</span>
+                <span className="font-mono text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(paidAmount)}</span>
               </div>
-              <div className="border-l border-border px-2">
+              <div className="text-right sm:text-center border-t border-border/40 sm:border-t-0 sm:border-l sm:border-border pt-1.5 sm:pt-0 px-1">
                 <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Remaining</span>
-                <span className={`font-mono text-sm font-bold ${balance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>{formatCurrency(balance)}</span>
+                <span className={`font-mono text-xs sm:text-sm font-bold ${balance < 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-foreground'}`}>{formatCurrency(balance)}</span>
               </div>
             </div>
 

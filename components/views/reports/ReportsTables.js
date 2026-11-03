@@ -433,9 +433,131 @@ export default function ReportsTables({
     // Main payment reports table
     const rows = data || [];
     return (
-      <div className="space-y-0 rounded-lg overflow-hidden border border-border">
-        {renderScrollNavigator(mainTableRef, "14 Columns")}
-        <Table id="tblReports" containerRef={mainTableRef} className="min-w-[1450px]">
+      <div className="space-y-4">
+        {/* ── Mobile View: Cards Layout ── */}
+        <div className="block md:hidden space-y-3">
+          {rows.length > 0 ? (
+            rows.map((p, idx) => {
+              const gross = Number(p.amountRequested || 0);
+              const tds = Number(p.tdsAmount || p.tds_amount || 0);
+              const net = gross - tds;
+              const canSendAdvice = String(p.stage || '').toLowerCase().trim() === 'remitted' || String(p.remittance || '').toLowerCase().trim() === 'remitted';
+              const isRemitEligible = canRemit && (String(p.stage || '').toLowerCase().trim() === 'approved' || String(p.stage || '').toLowerCase().trim().includes('remit')) && !String(p.stage || '').toLowerCase().trim().includes('remitted') && String(p.remittance || '').toLowerCase().trim() !== 'remitted';
+
+              return (
+                <div
+                  key={p.rowNumber || idx}
+                  className="rounded-xl border border-border bg-card p-3.5 space-y-3 shadow-2xs hover:border-border-hover transition-all"
+                >
+                  {/* Top Bar: ID, Date, Mode, Status */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-amber-700 dark:text-primary">#{p.sNo}</span>
+                      {getPaymentModeBadge(p.payment_mode || p.paymentMode, p)}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {stageBadge(p.stage, p.status, p.is_manual)}
+                    </div>
+                  </div>
+
+                  {/* Vendor & Project */}
+                  <div>
+                    <h4 className="font-bold text-foreground text-xs">{p.vendor}</h4>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                      {p.project || 'General'} • PO: <span className="font-mono font-semibold text-foreground/80">{p.poNo || '—'}</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/75 mt-0.5">
+                      {p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}
+                    </p>
+                  </div>
+
+                  {/* 2x2 Financial Metrics Grid */}
+                  <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Gross Claim</span>
+                      <span className="font-semibold text-foreground font-mono tabular-nums text-xs block">{fmtRupees(gross)}</span>
+                    </div>
+                    <div className="space-y-0.5 text-right">
+                      <span className="text-[10px] uppercase font-bold text-violet-700 dark:text-violet-400 tracking-wider block">TDS</span>
+                      <span className="font-semibold text-violet-700 dark:text-violet-400 font-mono tabular-nums text-xs block">{fmtRupees(tds)}</span>
+                    </div>
+                    <div className="pt-1.5 border-t border-border/50 space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 tracking-wider block">Net Disbursed</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums text-xs block">{fmtRupees(net)}</span>
+                    </div>
+                    <div className="pt-1.5 border-t border-border/50 space-y-0.5 text-right">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">UTR / Ref</span>
+                      <span className="font-mono font-semibold text-[11px] text-amber-700 dark:text-amber-300 truncate block" title={p.remittance_ref || p.utr}>
+                        {p.remittance_ref || p.utr || '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border/60">
+                    <div className="flex items-center gap-1.5">
+                      {canSendAdvice && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={sendingAdviceId === p.id}
+                          onClick={() => handleSendPaymentAdvice(p)}
+                          className="h-7 px-2 text-[11px] text-sky-600 dark:text-sky-400 font-semibold"
+                          title="Send Payment Advice Email"
+                        >
+                          <Mail className="w-3.5 h-3.5 mr-1" />
+                          <span>{sendingAdviceId === p.id ? 'Sending...' : 'Advice'}</span>
+                        </Button>
+                      )}
+                      {(isAdmin || isDirector || isFinance) && handleOpenEditModal && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEditModal(p)}
+                          className="h-7 px-2 text-[11px] text-amber-600 dark:text-primary font-semibold"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {isRemitEligible && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleOpenRemitModal(p)}
+                          className="h-7 px-2.5 text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+                        >
+                          <Landmark className="w-3 h-3 mr-1" /> Remit
+                        </Button>
+                      )}
+                      {isAdmin && handleDeleteRemittedPayment && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteRemittedPayment(p)}
+                          className="h-7 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-12 text-muted-foreground text-xs font-medium bg-card rounded-xl border border-border">
+              No payment records found matching this filter.
+            </div>
+          )}
+        </div>
+
+        {/* ── Desktop View: Wide Ledger ── */}
+        <div className="hidden md:block space-y-0 rounded-lg overflow-hidden border border-border">
+          {renderScrollNavigator(mainTableRef, "14 Columns")}
+          <Table id="tblReports" containerRef={mainTableRef} className="min-w-[1450px]">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="sticky left-0 z-20 bg-muted/95 backdrop-blur-xs w-[60px] pl-3 shadow-[4px_0_8px_rgba(0,0,0,0.04)] border-r border-border/60 text-xs font-bold text-muted-foreground uppercase tracking-wider">ID</TableHead>
@@ -614,6 +736,7 @@ export default function ReportsTables({
         </TableBody>
       </Table>
       </div>
+    </div>
     );
   })()}
     </>

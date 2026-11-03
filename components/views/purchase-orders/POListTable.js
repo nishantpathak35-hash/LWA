@@ -164,7 +164,7 @@ export default function POListTable({
   return (
     <Card className="rounded-lg border-border shadow-xs overflow-hidden">
       {/* ── Toolbar & Segmented Filters ── */}
-      <div className="p-4 border-b border-border bg-card flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      <div className="p-3 sm:p-4 border-b border-border bg-card flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
         
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1 p-1 bg-muted/50 border border-border rounded-xl flex-shrink-0 overflow-x-auto no-scrollbar">
@@ -179,7 +179,7 @@ export default function POListTable({
               key={tab.id}
               type="button"
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                 statusFilter === tab.id
                   ? 'bg-amber-500 text-slate-950 shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -191,15 +191,15 @@ export default function POListTable({
         </div>
 
         {/* Search and Export Bar */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="relative w-full md:w-64">
+        <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Search PO, Vendor, Project..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs py-1.5 h-8 bg-card rounded-lg border-border"
+              className="pl-9 text-xs py-1.5 h-8 bg-card rounded-lg border-border w-full"
             />
           </div>
 
@@ -208,10 +208,10 @@ export default function POListTable({
             size="sm"
             onClick={handleExportCSV}
             disabled={exportingCSV}
-            className="h-8 px-3 text-xs font-semibold rounded-lg border-border shrink-0"
+            className="h-8 px-2.5 sm:px-3 text-xs font-semibold rounded-lg border-border shrink-0"
           >
-            <Download className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-            {exportingCSV ? 'Exporting...' : 'Export'}
+            <Download className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+            <span className="hidden sm:inline">{exportingCSV ? 'Exporting...' : 'Export'}</span>
           </Button>
         </div>
 
@@ -251,64 +251,81 @@ export default function POListTable({
                   <div
                     key={idx}
                     onClick={() => setSelectedPOForDrawer(po)}
-                    className="rounded-lg border border-border bg-card p-3.5 space-y-3 cursor-pointer hover:border-border-hover transition-all shadow-xs"
+                    className="rounded-xl border border-border bg-card p-3.5 space-y-3 cursor-pointer hover:border-border-hover transition-all shadow-2xs"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-foreground flex items-center gap-1">
-                        {po.po_no}
-                        <CopyButton text={po.po_no} label="PO Number" />
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {getStatusBadge(po.status || po.approval_status)}
-                        {getPaymentStatusBadge(po.payment_status)}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold text-foreground text-xs">{po.vendor_name || po.vendor_key}</h4>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{po.project || 'General'} • {formatDate(po.po_date)}</p>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="space-y-1.5 bg-muted/40 p-2.5 rounded-lg border border-border/70">
-                      <div className="flex justify-between text-[11px] font-medium tabular-nums">
-                        <span className="text-muted-foreground">PO: {formatCurrency(poValue)}</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">Paid: {formatCurrency(paid)} ({paidPct}%)</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] font-medium tabular-nums">
-                        <span className="text-muted-foreground">Invoice Received:</span>
-                        <span className={`font-mono font-bold ${Number(po.total_invoiced || 0) > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground font-normal"}`}>
-                          {formatCurrency(Number(po.total_invoiced || 0))}
-                          {Number(po.invoice_count || 0) > 0 && ` (${po.invoice_count} ${po.invoice_count === 1 ? 'bill' : 'bills'})`}
+                    {/* Header: PO Number, Date, Badges */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-bold text-foreground flex items-center gap-1.5 truncate">
+                          {po.po_no}
+                          <CopyButton text={po.po_no} label="PO Number" />
+                        </span>
+                        <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                          {formatDate(po.po_date)}
                         </span>
                       </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${paidPct}%` }} />
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-foreground text-xs truncate" title={po.vendor_name || po.vendor_key}>
+                            {po.vendor_name || po.vendor_key}
+                          </h4>
+                          <p className="text-[11px] text-muted-foreground truncate">{po.project || 'General'}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                          {getStatusBadge(po.status || po.approval_status)}
+                          {getPaymentStatusBadge(po.payment_status)}
+                        </div>
                       </div>
-                      <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5">
-                        <span>Balance:</span>
-                        <span className={`font-bold font-mono tabular-nums ${calcBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>{formatCurrency(calcBalance)}</span>
+                    </div>
+
+                    {/* Financial Summary — Balanced 2x2 Grid */}
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/70 space-y-2">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">PO Value</span>
+                          <span className="font-bold text-foreground font-mono tabular-nums text-xs block">{formatCurrency(poValue)}</span>
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <span className="text-[10px] uppercase font-bold text-indigo-600 dark:text-indigo-400 tracking-wider block">Invoiced</span>
+                          <span className={`font-mono font-bold text-xs block ${Number(po.total_invoiced || 0) > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground font-normal"}`}>
+                            {formatCurrency(Number(po.total_invoiced || 0))}
+                            {Number(po.invoice_count || 0) > 0 && ` (${po.invoice_count}b)`}
+                          </span>
+                        </div>
+                        <div className="pt-1.5 border-t border-border/50 space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider block">Paid ({paidPct}%)</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-xs block">{formatCurrency(paid)}</span>
+                        </div>
+                        <div className="pt-1.5 border-t border-border/50 space-y-0.5 text-right">
+                          <span className={`text-[10px] uppercase font-bold tracking-wider block ${calcBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>Balance</span>
+                          <span className={`font-bold font-mono tabular-nums text-xs block ${calcBalance < 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-foreground'}`}>{formatCurrency(calcBalance)}</span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${paidPct}%` }} />
                       </div>
                     </div>
 
                     {/* Actions Row */}
-                    <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border/60" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => { setDrawerInitialTab('items'); setSelectedPOForDrawer(po); }}
-                          className="h-7 px-2 text-[11px] text-amber-600 dark:text-amber-400 font-semibold"
+                          className="h-7 px-2.5 text-xs text-amber-600 dark:text-amber-400 font-semibold"
                         >
-                          <Eye className="w-3 h-3 mr-1" /> View
+                          <Eye className="w-3.5 h-3.5 mr-1" /> View
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => { setDrawerInitialTab('invoices'); setSelectedPOForDrawer(po); }}
-                          className="h-7 px-2 text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1"
+                          className="h-7 px-2.5 text-xs text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1"
                         >
-                          <Receipt className="w-3 h-3" /> Book Inv
+                          <Receipt className="w-3.5 h-3.5 mr-1" /> Book Inv
                         </Button>
                       </div>
 
@@ -318,7 +335,7 @@ export default function POListTable({
                             variant="primary"
                             size="sm"
                             onClick={() => handleOpenApproval(po, 'approve')}
-                            className="h-7 px-2.5 text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+                            className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
                           >
                             <CheckCircle className="w-3 h-3 mr-1" /> Approve
                           </Button>
@@ -331,7 +348,7 @@ export default function POListTable({
                             className="h-7 px-2 text-[11px] text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 font-medium"
                             title="Short Close PO"
                           >
-                            <XCircle className="w-3 h-3 mr-1 text-amber-600 dark:text-amber-400" /> Short Close
+                            <XCircle className="w-3 h-3 mr-1" /> Close
                           </Button>
                         )}
                         {canCreate && (
@@ -339,9 +356,10 @@ export default function POListTable({
                             variant="ghost"
                             size="sm"
                             onClick={() => handleOpenModal(po.po_no)}
-                            className="h-7 px-2 text-[11px]"
+                            className="h-7 px-2 text-xs"
+                            title="Edit PO"
                           >
-                            <Edit2 className="w-3 h-3 mr-1" /> Edit
+                            <Edit2 className="w-3 h-3" />
                           </Button>
                         )}
                       </div>

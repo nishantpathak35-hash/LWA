@@ -518,7 +518,62 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                 {poSearch && <p className="text-[11px]">Try adjusting your search filter.</p>}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                {/* ── Mobile View: PO Cards ── */}
+                <div className="block md:hidden p-3 space-y-3">
+                  {filteredAndSortedPOs.map((po, idx) => (
+                    <div key={idx} className="rounded-xl border border-border bg-card p-3.5 space-y-2.5 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <a href={`/po/${encodeURIComponent(po.po_no || po.poNo)}`} target="_blank" rel="noreferrer" className="hover:text-amber-500 hover:underline">
+                            {po.po_no || po.poNo}
+                          </a>
+                          <CopyButton text={po.po_no || po.poNo} label="PO Number" />
+                        </span>
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          {formatDate(po.po_date)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-semibold text-foreground text-xs truncate" title={po.vendor_name || po.vendor || ''}>
+                          {po.vendor_name || po.vendor || 'Vendor'}
+                        </h4>
+                        <div>
+                          {po.isShortClosed ? (
+                            <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px]">Short Closed</Badge>
+                          ) : (
+                            <Badge variant={String(po.status || '').toLowerCase().includes('approved') || String(po.status || '').toLowerCase().includes('active') ? 'success' : String(po.status || '').toLowerCase().includes('draft') ? 'default' : 'pending'}>
+                              {po.status || 'Active'}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">PO Value</span>
+                          <span className="font-bold text-foreground font-mono tabular-nums text-xs block">{formatCurrency(po.po_value)}</span>
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider block">Paid Outflow</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-xs block">{formatCurrency(po.paid)}</span>
+                        </div>
+                        <div className="col-span-2 pt-1.5 border-t border-border/50 flex justify-between items-center">
+                          <span className={`text-[10px] uppercase font-bold tracking-wider ${po.balance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                            Remaining Balance
+                          </span>
+                          <span className={`font-bold font-mono tabular-nums text-xs ${po.balance < 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-amber-600 dark:text-amber-400'}`}>
+                            {formatCurrency(po.balance)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Desktop View: Table ── */}
+                <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b border-border bg-muted/40">
@@ -581,6 +636,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                   </TableBody>
                 </Table>
               </div>
+            </>
             )}
           </CardContent>
         </Card>
@@ -609,7 +665,46 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                 <p>No payment disbursements recorded for this project yet.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                {/* ── Mobile View: Payment Cards ── */}
+                <div className="block md:hidden p-3 space-y-3">
+                  {projectPayments.map((pmt, idx) => (
+                    <div key={idx} className="rounded-xl border border-border bg-card p-3.5 space-y-2.5 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-bold text-foreground">
+                          PR #{pmt.pr_id || idx + 1}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          {formatDate(pmt.created_at || pmt.date)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-semibold text-foreground text-xs truncate" title={pmt.vendor_name || pmt.vendor || ''}>
+                            {pmt.vendor_name || pmt.vendor || 'Vendor'}
+                          </h4>
+                          <p className="text-[11px] text-muted-foreground truncate">PO: {pmt.po_no || '—'}</p>
+                        </div>
+                        <Badge variant="default" className="text-[10px] shrink-0">{pmt.status || 'Processed'}</Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Requested</span>
+                          <span className="font-bold text-foreground font-mono tabular-nums text-xs block">{formatCurrency(pmt.amount_requested || 0)}</span>
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider block">Approved / Paid</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-xs block">{formatCurrency(pmt.approved_amount || pmt.amount || 0)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Desktop View: Table ── */}
+                <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b border-border bg-muted/40">
@@ -644,6 +739,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                   </TableBody>
                 </Table>
               </div>
+            </>
             )}
           </CardContent>
         </Card>

@@ -276,7 +276,91 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
             </div>
           ) : (
             <>
-              <Table>
+              {/* ── Mobile View: Vendor Cards ── */}
+              <div className="block md:hidden p-3 space-y-3">
+                {processedVendors.map((v, idx) => {
+                  const isPortalEnabled = String(v.portal_access || v.portalAccess || '').toLowerCase() === 'enabled';
+                  const code = v.code || v.vendorId || v.vendor_code;
+                  return (
+                    <div key={idx} className="rounded-xl border border-border bg-card p-3.5 space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 dark:text-primary flex items-center justify-center text-[10px] font-bold border border-amber-500/20 shrink-0">
+                            {(v.name || 'V').substring(0, 2).toUpperCase()}
+                          </span>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-foreground text-xs truncate" title={v.name}>{v.name}</h4>
+                            <span className="font-mono text-[10px] text-muted-foreground block">{v.code}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            String(v.status || '').toLowerCase() === 'active'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-muted text-muted-foreground border border-border'
+                          }`}>
+                            <span className={`w-1 h-1 rounded-full ${String(v.status || '').toLowerCase() === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            {v.status || 'Active'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Legal Name</span>
+                          <span className="font-medium text-foreground text-xs truncate block" title={v.legalName || '—'}>{v.legalName || '—'}</span>
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">GSTIN</span>
+                          <span className="font-mono text-xs font-medium text-foreground truncate block">{v.gstin || '—'}</span>
+                        </div>
+                        <div className="col-span-2 pt-1.5 border-t border-border/50 flex justify-between items-center">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Portal Access</span>
+                          <Badge variant={isPortalEnabled ? 'success' : 'outline'} className="text-[10px] font-bold">
+                            {isPortalEnabled ? '● Enabled' : '○ Disabled'}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-1 pt-1 border-t border-border/60">
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(v)} className="h-7 px-2 text-xs font-medium">
+                            <Eye className="w-3.5 h-3.5 mr-1 text-muted-foreground" /> View
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenEditModal(v)} className="h-7 px-2 text-xs font-medium">
+                            <Edit2 className="w-3.5 h-3.5 mr-1 text-muted-foreground" /> Edit
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {handleTogglePortalAccess && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTogglePortalAccess(code, !isPortalEnabled)}
+                              className={`h-7 px-2 text-[11px] font-semibold ${isPortalEnabled ? 'text-amber-500 hover:bg-amber-500/10' : 'text-emerald-500 hover:bg-emerald-500/10'}`}
+                            >
+                              <Key className="w-3 h-3 mr-1" />
+                              {isPortalEnabled ? 'Revoke' : 'Grant'}
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => { setDeleteError(null); setVendorToDelete(v); }}
+                            className="h-7 px-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── Desktop View: Table ── */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
                 <TableHeader>
                   <TableRow className="border-b border-border bg-muted/40">
                     <SortableHeader field="code" label="Code" currentSortField={sortField} currentSortDir={sortDir} onSort={handleSort} className="w-28" />
@@ -358,6 +442,7 @@ export default function VendorsHeader({ canOnboard, handleOpenModal, filteredVen
                   })}
                 </TableBody>
               </Table>
+              </div>
               {hasMoreVendors && (
                 <div className="flex justify-center p-4 border-t border-border bg-muted/20">
                   <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="text-muted-foreground hover:text-foreground font-medium">

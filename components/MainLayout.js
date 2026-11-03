@@ -327,7 +327,7 @@ export default function MainLayout() {
       {/* Main content */}
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* ── Header / Topbar ── */}
-        <header className="h-12 px-4 md:px-5 border-b border-border bg-card flex items-center justify-between flex-shrink-0 sticky top-0 z-20">
+        <header className="h-12 px-3 sm:px-4 md:px-5 border-b border-border bg-card flex items-center justify-between flex-shrink-0 sticky top-0 z-20">
           <div className="flex items-center gap-2 md:gap-3">
             {/* Mobile menu trigger */}
             <Button
@@ -421,7 +421,7 @@ export default function MainLayout() {
         )}
 
         {/* ── Scrollable View Area ── */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6 bg-background">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pb-24 md:pb-6 bg-background">
           <div className="max-w-7xl mx-auto space-y-6">
             {renderActiveView()}
           </div>

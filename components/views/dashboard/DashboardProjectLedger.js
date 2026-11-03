@@ -54,12 +54,12 @@ export default function DashboardProjectLedger({
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* View Switcher Tabs */}
-            <div className="flex items-center p-1 bg-muted/60 border border-border/70 rounded-xl">
+            <div className="flex items-center p-1 bg-muted/60 border border-border/70 rounded-xl overflow-x-auto no-scrollbar max-w-full">
               <button
                 type="button"
                 onClick={() => { setActiveTab('overview'); setCurrentPage(1); }}
                 className={cn(
-                  "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer",
+                  "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap",
                   activeTab === 'overview'
                     ? "bg-card text-foreground shadow-xs font-bold border border-border"
                     : "text-muted-foreground hover:text-foreground"
@@ -71,7 +71,7 @@ export default function DashboardProjectLedger({
                 type="button"
                 onClick={() => { setActiveTab('cashflow'); setCurrentPage(1); }}
                 className={cn(
-                  "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer",
+                  "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap",
                   activeTab === 'cashflow'
                     ? "bg-card text-foreground shadow-xs font-bold border border-border"
                     : "text-muted-foreground hover:text-foreground"
@@ -83,7 +83,7 @@ export default function DashboardProjectLedger({
                 type="button"
                 onClick={() => { setActiveTab('financial'); setCurrentPage(1); }}
                 className={cn(
-                  "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer",
+                  "px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap",
                   activeTab === 'financial'
                     ? "bg-card text-foreground shadow-xs font-bold border border-border"
                     : "text-muted-foreground hover:text-foreground"
@@ -181,6 +181,141 @@ export default function DashboardProjectLedger({
 
       {/* ── Master Table ── */}
       <div className="bg-card border border-border rounded-lg overflow-hidden shadow-xs">
+        {/* ── Mobile View: Cards ── */}
+        <div className="block md:hidden divide-y divide-border/60">
+          {paginatedProjects.length > 0 ? (
+            paginatedProjects.map((r, idx) => {
+              const projectId = r.project || `proj-${idx}`;
+              const isExpanded = expandedProjectId === projectId;
+              const boq = num(r.projectValueTax || r.projectValue);
+              const inflow = num(r.inflow);
+              const outflow = num(r.outflow);
+              const bcs = num(r.bcs);
+              const plannedGM = num(r.plannedGM);
+              const actualGM = num(r.actualGM);
+              const bal = num(r.balanceAvailable);
+              const pendingInflow = num(r.pendingInflow);
+              const pendingOutflow = num(r.pendingOutflow);
+              const poIssued = num(r.poIssued);
+              const cashBuffer = inflow - outflow;
+              const collectionPct = boq > 0 ? Math.min(Math.round((inflow / boq) * 100), 100) : 0;
+              const outflowPctOfInflow = inflow > 0 ? Math.min(Math.round((outflow / inflow) * 100), 100) : (outflow > 0 ? 100 : 0);
+
+              return (
+                <div key={projectId} className="p-3.5 space-y-3 hover:bg-muted/10 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-foreground text-sm leading-snug break-words">
+                        {r.project}
+                      </div>
+                      {r.clientName && r.clientName !== r.project && (
+                        <div className="text-xs text-muted-foreground truncate">{r.clientName}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-amber-600 dark:text-primary hover:bg-amber-500/10"
+                        onClick={() => handleOpenEditModal(r)}
+                        title={`Edit financials for ${r.project}`}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(projectId)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                      >
+                        {isExpanded ? <ChevronDown className="w-4 h-4 text-amber-600 dark:text-primary" /> : <ChevronRight className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dual Bar Progress */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-semibold">
+                      <span className="text-emerald-600 dark:text-emerald-400 tabular-nums">In: {fmtLakhs(inflow)}</span>
+                      <span className="text-rose-600 dark:text-rose-400 tabular-nums">Out: {fmtLakhs(outflow)}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-emerald-500 rounded-l-full transition-all"
+                        style={{ width: `${Math.min(100, (inflow / (boq || 1)) * 100)}%` }}
+                      />
+                      <div
+                        className="h-full bg-rose-500 rounded-r-full transition-all"
+                        style={{ width: `${Math.min(100, (outflow / (boq || 1)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2x2 Metric Grid */}
+                  <div className="grid grid-cols-2 gap-2 bg-muted/30 p-2.5 rounded-xl border border-border/60 text-xs">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Contract (BOQ)</span>
+                      <span className="font-semibold text-foreground font-mono">{fmtLakhs(boq)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-bold block">Actual GM</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
+                        {fmtLakhs(actualGM)} <span className="text-[10px] font-normal">({fmtPct(pct100(r.actualGMPct))})</span>
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Cash Buffer</span>
+                      <span className={cn("font-semibold font-mono", cashBuffer >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
+                        {cashBuffer >= 0 ? `+${fmtLakhs(cashBuffer)}` : fmtLakhs(cashBuffer)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Available Bal</span>
+                      <span className={cn("font-semibold font-mono", bal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400")}>
+                        {fmtLakhs(bal)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Expanded Breakdown */}
+                  {isExpanded && (
+                    <div className="p-3 bg-card border border-border/80 rounded-xl space-y-2 text-xs">
+                      <div className="text-[11px] font-bold text-foreground">Detailed Breakdown</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">BCS Budget:</span>
+                          <span className="font-medium font-mono">{fmtLakhs(bcs)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Planned GM:</span>
+                          <span className="font-medium font-mono text-violet-600 dark:text-violet-400">{fmtLakhs(plannedGM)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">PO Issued:</span>
+                          <span className="font-medium font-mono">{fmtLakhs(poIssued)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Pending Inflow:</span>
+                          <span className="font-medium font-mono text-amber-600 dark:text-amber-500">{fmtLakhs(pendingInflow)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Pending Outflow:</span>
+                          <span className="font-medium font-mono text-amber-600 dark:text-amber-500">{fmtLakhs(pendingOutflow)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              No projects match your search criteria.
+            </div>
+          )}
+        </div>
+
+        {/* ── Desktop View: Table ── */}
+        <div className="hidden md:block overflow-x-auto">
         <Table>
           <TableHeader>
             {activeTab === 'overview' && (
@@ -471,6 +606,7 @@ export default function DashboardProjectLedger({
             )}
           </TableBody>
         </Table>
+        </div>
 
         {/* Pagination Footer */}
         <div className="p-4 border-t border-border/70">
