@@ -88,7 +88,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
       const paidVal = Number(po.paid ?? po.legacy_paid ?? po.amountPaid ?? 0);
       const rawStatus = String(po.status || '').toLowerCase();
       const isShortClosed = rawStatus.includes('short closed') || rawStatus.includes('short_closed') || rawStatus.includes('closed');
-      const balVal = isShortClosed ? 0 : Math.max(0, poVal - paidVal);
+      const balVal = isShortClosed ? 0 : (poVal - paidVal);
       return {
         ...po,
         po_value: poVal,
@@ -573,7 +573,7 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                         <TableCell className="px-3 py-3 text-right font-semibold text-xs text-emerald-600 dark:text-emerald-400 tabular-nums font-mono">
                           {formatCurrency(po.paid)}
                         </TableCell>
-                        <TableCell className="px-4 py-3 text-right font-semibold text-xs text-amber-600 dark:text-amber-400 tabular-nums font-mono">
+                        <TableCell className={`px-4 py-3 text-right font-semibold text-xs tabular-nums font-mono ${po.balance < 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-amber-600 dark:text-amber-400'}`}>
                           {formatCurrency(po.balance)}
                         </TableCell>
                       </TableRow>

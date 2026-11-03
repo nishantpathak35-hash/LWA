@@ -70,7 +70,19 @@ export default function POListTable({
         return s === 'short closed' || s === 'short_closed' || s === 'closed' || as === 'short closed' || as === 'short_closed' || as === 'closed';
       });
     }
-    return sortData(list, sortField, sortDir);
+
+    const withDerived = list.map(po => {
+      const s = String(po.status || '').toLowerCase();
+      const as = String(po.approval_status || '').toLowerCase();
+      const isShortClosed = s === 'short closed' || s === 'short_closed' || s === 'closed' || as === 'short closed' || as === 'short_closed' || as === 'closed';
+      const bal = isShortClosed ? 0 : (Number(po.po_value || 0) - Number(po.paid || 0));
+      return {
+        ...po,
+        balance: bal
+      };
+    });
+
+    return sortData(withDerived, sortField, sortDir);
   }, [filteredPOs, statusFilter, sortField, sortDir]);
 
   const handleExportCSV = async () => {
@@ -133,7 +145,7 @@ export default function POListTable({
         { label: 'PO Value', key: 'po_value', formatter: (v) => Number(v || 0) },
         { label: 'Invoice Received', key: 'total_invoiced', formatter: (v) => Number(v || 0) },
         { label: 'Paid Amount', key: 'paid', formatter: (v) => Number(v || 0) },
-        { label: 'Balance', key: 'balance', formatter: (v, r) => Math.max(0, Number(r.po_value || 0) - Number(r.paid || 0)) }
+        { label: 'Balance', key: 'balance', formatter: (v, r) => Number(r.po_value || 0) - Number(r.paid || 0) }
       ];
       exportToCSV('Purchase_Orders_Database.csv', columns, sortedList);
     } catch (err) {
@@ -232,7 +244,7 @@ export default function POListTable({
 
                 const poValue = Number(po.po_value || 0);
                 const paid = Number(po.paid || 0);
-                const calcBalance = isShortClosed ? 0 : Math.max(0, poValue - paid);
+                const calcBalance = isShortClosed ? 0 : (poValue - paid);
                 const paidPct = poValue > 0 ? Math.min(100, Math.round((paid / poValue) * 100)) : 0;
 
                 return (
@@ -275,7 +287,7 @@ export default function POListTable({
                       </div>
                       <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5">
                         <span>Balance:</span>
-                        <span className="font-bold text-foreground font-mono tabular-nums">{formatCurrency(calcBalance)}</span>
+                        <span className={`font-bold font-mono tabular-nums ${calcBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>{formatCurrency(calcBalance)}</span>
                       </div>
                     </div>
 
@@ -372,7 +384,7 @@ export default function POListTable({
                                           approvalSt === 'short closed' || approvalSt === 'short_closed' || approvalSt === 'closed';
                     const isApproved = approvalSt === 'approved' || statusSt === 'approved' || statusSt === 'open' || statusSt === 'active' || statusSt === 'partially billed' || statusSt === 'billed';
                     const canShortClose = (isApproved || (!isDraft && !isPending && !isRejected && !isCancelled)) && !isShortClosed;
-                    const calcBalance  = isShortClosed ? 0 : Math.max(0, Number(po.po_value || 0) - Number(po.paid || 0));
+                    const calcBalance  = isShortClosed ? 0 : (Number(po.po_value || 0) - Number(po.paid || 0));
 
                     return (
                       <TableRow
@@ -419,7 +431,7 @@ export default function POListTable({
                         <TableCell className="px-3 py-3.5 text-right font-semibold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums text-xs">
                           {formatCurrency(Number(po.paid || 0))}
                         </TableCell>
-                        <TableCell className="px-3 py-3.5 text-right font-medium text-foreground font-mono tabular-nums text-xs">
+                        <TableCell className={`px-3 py-3.5 text-right font-mono tabular-nums text-xs ${calcBalance < 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'font-medium text-foreground'}`}>
                           {formatCurrency(calcBalance)}
                         </TableCell>
                         <TableCell className="px-4 py-3.5 text-center relative" onClick={(e) => e.stopPropagation()}>

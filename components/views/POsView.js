@@ -265,6 +265,8 @@ export default function POsView() {
       const rows = list.map(po => {
         const poValue = Number(po.po_value || 0);
         const paid = Number(po.paid || 0);
+        const rawStatus = String(po.status || po.approval_status || '').toLowerCase();
+        const isShortClosed = rawStatus.includes('short closed') || rawStatus.includes('short_closed') || rawStatus.includes('closed');
         return [
           po.po_no || '',
           po.project || '',
@@ -273,7 +275,7 @@ export default function POsView() {
           po.payment_status || 'Unpaid',
           poValue,
           paid,
-          Math.max(0, poValue - paid),
+          isShortClosed ? 0 : (poValue - paid),
           po.po_date || '',
           po.expected_delivery_date || '',
           po.category || ''

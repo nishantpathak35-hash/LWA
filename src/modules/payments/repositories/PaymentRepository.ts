@@ -17,7 +17,7 @@ export class PaymentRepository {
     const total = Number(gross.total) + Number(manual.total);
     const value = Number(po.revised_po_value ?? po.po_value ?? 0);
     await db.queryRun('UPDATE purchase_orders SET legacy_paid = ?, final_payable = ?, payment_status = ? WHERE po_no = ?',
-      [total, Math.max(0, value - total), value > 0 && total >= value ? 'Fully Paid' : total > 0 ? 'Partially Paid' : 'Unpaid', poNo]);
+      [total, value - total, value > 0 && total >= value ? 'Fully Paid' : total > 0 ? 'Partially Paid' : 'Unpaid', poNo]);
   }
 
   static async deleteRequestWithAudit(prId: string | number, reason: string, email: string): Promise<void> {

@@ -79,7 +79,7 @@ export default function PODetailsDrawer({
 
   const poValue = Number(data.po_value || 0);
   const paidAmount = Number(data.paid || 0);
-  const balance = isShortClosed ? 0 : Math.max(0, poValue - paidAmount);
+  const balance = isShortClosed ? 0 : (poValue - paidAmount);
   const paidPercent = poValue > 0 ? Math.min(100, Math.round((paidAmount / poValue) * 100)) : 0;
   const items = Array.isArray(data.items) ? data.items : [];
 
@@ -186,7 +186,7 @@ export default function PODetailsDrawer({
               </div>
               <div className="border-l border-border px-2">
                 <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Remaining</span>
-                <span className="font-mono text-sm font-bold text-foreground">{formatCurrency(balance)}</span>
+                <span className={`font-mono text-sm font-bold ${balance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>{formatCurrency(balance)}</span>
               </div>
             </div>
 
@@ -375,7 +375,7 @@ export default function PODetailsDrawer({
                         </div>
                         <div className="bg-card p-3 rounded-lg border border-border">
                           <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Open Balance</span>
-                          <span className="text-sm font-bold font-mono text-foreground">{formatCurrency(balance)}</span>
+                          <span className={`text-sm font-bold font-mono ${balance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>{formatCurrency(balance)}</span>
                         </div>
                       </div>
                     </div>

@@ -7,19 +7,22 @@ export function cn(...inputs) {
 
 /** ₹1,23,456 (Indian locale, no decimals) */
 export function formatCurrency(amount) {
+  const val = Number(amount) || 0;
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 0
-  }).format(amount || 0);
+  }).format(val);
 }
 
 /** ₹1,23,456.78 (Indian locale, with decimals) */
 export function formatINR(amount) {
-  return '₹' + Number(amount || 0).toLocaleString('en-IN', {
+  const val = Number(amount || 0);
+  const formatted = Math.abs(val).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+  return val < 0 ? `-₹${formatted}` : `₹${formatted}`;
 }
 
 /** 12.34 L (Lakhs, 2 decimal places) */

@@ -136,7 +136,7 @@ export default function PaymentListTable({
                 const approvedAmt = Number(req.approved_amount ?? req.approvedAmount ?? requestedAmt);
                 const tdsAmt = Number(req.tds_amount || req.tdsAmount || 0);
                 const netValue = Number(req.net_amount ?? req.net_payment_amount ?? Math.max(0, approvedAmt - tdsAmt));
-                const balanceAmount = Math.max(0, poValue - paidAmount - netValue);
+                const balanceAmount = poValue - paidAmount - netValue;
                 const isChecked = selectedIds.has(req.id || req.pr_id);
                 const canAct = canActOnReq(req);
                 const reqStage = isPaymentSettled(req) ? 'Remitted' : req.stage || req.approval_stage || 'Pending';
@@ -182,8 +182,8 @@ export default function PaymentListTable({
                         <span className="font-bold text-foreground font-mono tabular-nums text-xs">{formatCurrency(netValue)}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[9px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block truncate" title="Balance after Payment">Balance</span>
-                        <span className="font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums text-xs">{formatCurrency(balanceAmount)}</span>
+                        <span className={`text-[9px] uppercase font-semibold block truncate ${balanceAmount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`} title="Balance after Payment">Balance</span>
+                        <span className={`font-bold font-mono tabular-nums text-xs ${balanceAmount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>{formatCurrency(balanceAmount)}</span>
                       </div>
                     </div>
 
@@ -277,7 +277,7 @@ export default function PaymentListTable({
                     const paidAmount = Number(relatedPO ? (relatedPO.paid ?? relatedPO.legacy_paid ?? 0) : 0);
                     const paidPct = poValue > 0 ? ((paidAmount / poValue) * 100).toFixed(0) : '0';
                     const netAmount = Number(req.net_amount ?? req.approved_amount ?? req.approvedAmount ?? req.amount_requested ?? req.gross_amount ?? 0);
-                    const balanceAmount = Math.max(0, poValue - paidAmount - netAmount);
+                    const balanceAmount = poValue - paidAmount - netAmount;
                     const balancePct = poValue > 0 ? ((balanceAmount / poValue) * 100).toFixed(0) : '—';
                     const isSelected = selectedIds.has(req.id);
                     const isActionable = canActOnReq(req);

@@ -74,7 +74,7 @@ export async function updatePOPaymentStatus(poNo) {
   if (!po) return { totalPaid: 0, outstanding: 0, paymentStatus: 'Unpaid' };
   
   const poVal = Number(po.revised_po_value || po.po_value || 0);
-  const outstanding = Math.max(0, poVal - totalPaid);
+  const outstanding = poVal - totalPaid;
 
   let paymentStatus = 'Unpaid';
   if (totalPaid >= poVal && poVal > 0) paymentStatus = 'Fully Paid';

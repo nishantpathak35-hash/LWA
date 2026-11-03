@@ -182,7 +182,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
   };
 
   const totalCreditNotes = (creditNotes || []).reduce((sum, cn) => sum + (Number(cn.total_amount) || 0), 0);
-  const effectiveRemainingBalance = Math.max(0, poValue - ((data.total_approved || 0) - totalCreditNotes));
+  const effectiveRemainingBalance = poValue - ((data.total_approved || 0) - totalCreditNotes);
 
   const handleOpenEditModal = (inv) => {
     setInvoiceToEdit(inv);
@@ -477,7 +477,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
 
         <Card className="bg-card border border-border p-4">
           <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider block">Net Remaining Balance</span>
-          <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-1 tabular-nums">{formatCurrency(effectiveRemainingBalance)}</p>
+          <p className={`text-lg font-bold mt-1 tabular-nums ${effectiveRemainingBalance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}>{formatCurrency(effectiveRemainingBalance)}</p>
         </Card>
       </div>
 

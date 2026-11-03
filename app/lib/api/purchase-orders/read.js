@@ -84,7 +84,7 @@ async function updatePOPaymentStatus(poNo) {
 
   const po = await queryGet(`SELECT po_value, revised_po_value FROM purchase_orders WHERE po_no = ?`, [poNo]);
   const poVal = Number(po?.revised_po_value || po?.po_value || 0);
-  const outstanding = Math.max(0, poVal - totalPaid);
+  const outstanding = poVal - totalPaid;
 
   let paymentStatus = 'Unpaid';
   if (totalPaid >= poVal && poVal > 0) paymentStatus = 'Fully Paid';
@@ -167,7 +167,7 @@ export async function getPOPayments(poNo, session) {
   }
 
   const poVal = Number(po.revised_po_value || po.po_value || 0);
-  const outstanding = Math.max(0, poVal - totalPaid);
+  const outstanding = poVal - totalPaid;
   let paymentStatus = 'Unpaid';
   if (totalPaid >= poVal && poVal > 0) paymentStatus = 'Fully Paid';
   else if (totalPaid > 0) paymentStatus = 'Partially Paid';

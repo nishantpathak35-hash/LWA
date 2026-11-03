@@ -113,7 +113,7 @@ export default function DashboardView() {
       const isShortClosed = st === 'short closed' || st === 'short_closed' || st === 'closed';
       const poValue = Number(po.po_value || po.poValue || 0);
       const paid = Number(po.paid || po.paid_amount || 0);
-      const balance = isShortClosed ? 0 : Math.max(0, poValue - paid);
+      const balance = isShortClosed ? 0 : (poValue - paid);
       
       const vName = po.vendor_name || po.vendor_key || po.vendor;
       if (vName) {
