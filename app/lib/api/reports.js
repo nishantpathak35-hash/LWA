@@ -181,10 +181,9 @@ export async function getPaymentReportRows(filters = {}, session) {
     }
     if (filters.vendor) {
       const vFilter = String(filters.vendor).toLowerCase().trim();
-      const matchName = String(r.vendor || r.vendor_name || '').toLowerCase().includes(vFilter);
-      const matchCode = String(r.vendor_code || r.vendor_key || '').toLowerCase().includes(vFilter);
-      const matchId = String(r.vendor_id || '') === vFilter;
-      if (!matchName && !matchCode && !matchId) return false;
+      // Match against display vendor name only — code/id matching caused cross-vendor bleed
+      const vendorDisplay = String(r.vendor || r.vendor_name || r.joined_vendor_name || '').toLowerCase();
+      if (!vendorDisplay.includes(vFilter)) return false;
     }
     if (filters.project && !String(r.project || '').toLowerCase().includes(filters.project.toLowerCase().trim())) return false;
 
