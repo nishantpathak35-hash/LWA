@@ -72,6 +72,7 @@ async function _runMigrations() {
     queryRun(`ALTER TABLE system_payments ADD COLUMN payment_mode TEXT DEFAULT 'Bank Transfer'`),
     queryRun(`ALTER TABLE system_payments ADD COLUMN remarks TEXT DEFAULT ''`),
     queryRun(`ALTER TABLE system_payments ADD COLUMN reference_no TEXT DEFAULT ''`),
+    queryRun(`ALTER TABLE system_payments ADD COLUMN payment_date TEXT DEFAULT ''`),
   ]);
   // Ensure all required columns exist (idempotent)
   const poColumns = [

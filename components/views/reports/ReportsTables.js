@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Loader2, Mail, Landmark, FileText, ChevronLeft, ChevronRight, ArrowLeftRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, Mail, Landmark, FileText, ChevronLeft, ChevronRight, ArrowLeftRight, Edit3, Trash2, ChevronDown } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Card, CardHeader, CardTitle, CardContent } from '../../ui/core';
 import { fmtRupees, fmtLakhs, stageBadge, wfSteps } from './report-utils';
 import SortableHeader from '../../ui/SortableHeader';
 import { sortData } from '../../../app/lib/exportUtils';
+import { cn } from '../../../app/lib/utils';
 
 
 const getPaymentModeBadge = (mode, req) => {
@@ -38,8 +39,27 @@ export default function ReportsTables({
 }) {
   const [sortField, setSortField] = useState('id');
   const [sortDir, setSortDir] = useState('desc');
+  const [openActionId, setOpenActionId] = useState(null);
   const mainTableRef = React.useRef(null);
   const tdsTableRef = React.useRef(null);
+
+  useEffect(() => {
+    if (!openActionId) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-action-menu]')) {
+        setOpenActionId(null);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setOpenActionId(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openActionId]);
 
   const scrollContainer = (ref, dir) => {
     if (ref.current) {
@@ -431,7 +451,7 @@ export default function ReportsTables({
               <TableHead className="w-[110px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</TableHead>
               <TableHead className="w-[80px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval</TableHead>
               <TableHead className="w-[100px] text-xs font-bold text-muted-foreground uppercase tracking-wider">Rejected</TableHead>
-              <TableHead className="sticky right-0 z-20 bg-muted/95 backdrop-blur-xs w-[170px] text-right text-xs font-bold text-muted-foreground uppercase tracking-wider pr-4 shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/60">Actions</TableHead>
+              <TableHead className="sticky right-0 z-20 bg-muted/95 backdrop-blur-xs w-[110px] text-right text-xs font-bold text-muted-foreground uppercase tracking-wider pr-4 shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/60">Actions</TableHead>
             </TableRow>
           </TableHeader>
         <TableBody>
@@ -480,50 +500,104 @@ export default function ReportsTables({
                     {rejBy}
                   </TableCell>
                   <TableCell className="sticky right-0 z-10 bg-card/95 dark:bg-card/95 backdrop-blur-xs text-right pr-4 whitespace-nowrap shadow-[-4px_0_8px_rgba(0,0,0,0.04)] border-l border-border/40">
-                    <div className="flex items-center justify-end gap-1.5">
-                      {(isAdmin || isDirector || isFinance) && handleOpenEditModal && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-[10px] px-2 font-semibold text-amber-700 dark:text-primary border-amber-500/30 hover:bg-amber-500/10"
-                          onClick={() => handleOpenEditModal(p)}
-                          title="Edit Payment Request & TDS"
+                    <div className="relative inline-block text-left" data-action-menu>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenActionId(openActionId === p.id ? null : p.id);
+                        }}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-semibold border transition-all shadow-2xs cursor-pointer",
+                          openActionId === p.id
+                            ? "bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-primary"
+                            : "bg-background hover:bg-muted/70 text-foreground border-border"
+                        )}
+                        title="Payment Actions"
+                      >
+                        <span>Actions</span>
+                        <ChevronDown className={cn("w-3 h-3 text-muted-foreground transition-transform duration-150", openActionId === p.id && "rotate-180")} />
+                      </button>
+
+                      {openActionId === p.id && (
+                        <div
+                          className={cn(
+                            "absolute right-0 w-44 rounded-lg bg-popover border border-border shadow-xl py-1 z-50 text-left animate-in fade-in zoom-in-95",
+                            idx >= rows.length - 2 && rows.length > 2 ? "bottom-full mb-1" : "top-full mt-1"
+                          )}
                         >
-                          Edit & TDS
-                        </Button>
-                      )}
-                      {canRemit && (String(p.stage || '').toLowerCase().trim() === 'approved' || String(p.stage || '').toLowerCase().trim().includes('remit')) && !String(p.stage || '').toLowerCase().trim().includes('remitted') && String(p.remittance || '').toLowerCase().trim() !== 'remitted' && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          className="h-7 text-[10px] px-2 font-semibold"
-                          onClick={() => handleOpenRemitModal(p)}
-                        >
-                          Remit
-                        </Button>
-                      )}
-                      {canSendAdvice && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleSendPaymentAdvice(p)}
-                          title="Send Payment Advice Email"
-                          disabled={sendingAdviceId === p.id}
-                          className="h-7 w-7 text-amber-600 dark:text-primary hover:bg-amber-500/10"
-                        >
-                          {sendingAdviceId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
-                        </Button>
-                      )}
-                      {(isAdmin || isDirector || isFinance) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-500/10 h-7 text-[10px] px-2"
-                          onClick={() => handleDeleteRemittedPayment(p)}
-                          title="Delete Payment Request"
-                        >
-                          Delete
-                        </Button>
+                          <div className="px-3 py-1 border-b border-border/60 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                            Payment #{p.sNo || p.id}
+                          </div>
+
+                          {(isAdmin || isDirector || isFinance) && handleOpenEditModal && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionId(null);
+                                handleOpenEditModal(p);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted font-medium transition-colors cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-amber-600 dark:text-primary shrink-0" />
+                              <span>Edit Payment</span>
+                            </button>
+                          )}
+
+                          {canRemit && (String(p.stage || '').toLowerCase().trim() === 'approved' || String(p.stage || '').toLowerCase().trim().includes('remit')) && !String(p.stage || '').toLowerCase().trim().includes('remitted') && String(p.remittance || '').toLowerCase().trim() !== 'remitted' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionId(null);
+                                handleOpenRemitModal(p);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-medium transition-colors cursor-pointer"
+                            >
+                              <Landmark className="w-3.5 h-3.5 shrink-0" />
+                              <span>Remit Payment</span>
+                            </button>
+                          )}
+
+                          {canSendAdvice && (
+                            <button
+                              type="button"
+                              disabled={sendingAdviceId === p.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionId(null);
+                                handleSendPaymentAdvice(p);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted font-medium transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {sendingAdviceId === p.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+                              ) : (
+                                <Mail className="w-3.5 h-3.5 text-amber-600 dark:text-primary shrink-0" />
+                              )}
+                              <span>Send Advice Email</span>
+                            </button>
+                          )}
+
+                          {(isAdmin || isDirector || isFinance) && (
+                            <>
+                              <div className="my-1 border-t border-border/60" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenActionId(null);
+                                  handleDeleteRemittedPayment(p);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 font-medium transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                <span>Delete Record</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                   </TableCell>

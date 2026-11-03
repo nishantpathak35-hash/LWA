@@ -147,8 +147,16 @@ export class PaymentRepository {
           sysValues.push(updates.remittance_ref);
         }
         if (updates.remittance_date !== undefined) {
-          sysUpdates.push('payment_date = ?');
+          sysUpdates.push('created_at = ?');
           sysValues.push(updates.remittance_date);
+        }
+        if (updates.po_no !== undefined) {
+          sysUpdates.push('po_no = ?');
+          sysValues.push(updates.po_no);
+        }
+        if (updates.payment_mode !== undefined) {
+          sysUpdates.push('payment_mode = ?');
+          sysValues.push(updates.payment_mode);
         }
         sysValues.push(String(prId), String(prId));
         await db.queryRun(
