@@ -4,7 +4,8 @@ import { ShieldCheck, ShieldAlert, Edit3 } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 
 export default function ReportsEditPaymentModal({
-  editModalOpen, setEditModalOpen, editingPayment, tdsSections = [], onSavePayment, submitting
+  editModalOpen, setEditModalOpen, editingPayment, tdsSections = [], onSavePayment, submitting,
+  vendors = [], pos = []
 }) {
   const [amountRequested, setAmountRequested] = useState('');
   const [approvedAmount, setApprovedAmount] = useState('');
@@ -15,6 +16,8 @@ export default function ReportsEditPaymentModal({
   const [remittanceRef, setRemittanceRef] = useState('');
   const [remittanceDate, setRemittanceDate] = useState('');
   const [paymentMode, setPaymentMode] = useState('NEFT');
+  const [selectedPoNo, setSelectedPoNo] = useState('');
+  const [selectedVendorCode, setSelectedVendorCode] = useState('');
 
   useEffect(() => {
     if (editingPayment) {
@@ -36,6 +39,8 @@ export default function ReportsEditPaymentModal({
         `${editingPayment.remarks || ''} ${editingPayment.terms || ''}`.toLowerCase().match(/cheque|chq|pdc/) ? 'Cheque' : 'NEFT'
       );
       setPaymentMode(pMode);
+      setSelectedPoNo(editingPayment.po_no || editingPayment.poNo || '');
+      setSelectedVendorCode(editingPayment.vendor_code || editingPayment.vendorCode || editingPayment.vendor_id || '');
     }
   }, [editingPayment]);
 
@@ -74,6 +79,10 @@ export default function ReportsEditPaymentModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // Resolve vendor info from selected vendor code
+    const selectedVendor = vendors.find(v =>
+      String(v.code || v.vendorId || v.vendor_code || '').trim() === String(selectedVendorCode).trim()
+    );
     onSavePayment({
       id: editingPayment?.id || editingPayment?.pr_id || editingPayment?.sNo,
       amountRequested: Number(amountRequested),
@@ -85,6 +94,13 @@ export default function ReportsEditPaymentModal({
       remarks,
       remittance_ref: remittanceRef,
       remittance_date: remittanceDate,
+      // PO & Vendor overrides
+      po_no: selectedPoNo || undefined,
+      vendor_code: selectedVendorCode || undefined,
+      vendor_id: selectedVendorCode || undefined,
+      vendor_name: selectedVendor
+        ? (selectedVendor.name || selectedVendor.legalName || selectedVendor.legal_name || '')
+        : undefined,
       adminOverride: true
     });
   };
@@ -99,18 +115,69 @@ export default function ReportsEditPaymentModal({
       maxWidth="max-w-xl"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Read-only context strip */}
         <div className="p-3.5 bg-muted/40 border border-border rounded-xl space-y-1 text-xs">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground font-medium">Vendor:</span>
-            <span className="font-bold text-foreground">{editingPayment?.vendor || editingPayment?.vendor_name}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground font-medium">PO Number:</span>
-            <span className="font-mono font-bold text-amber-700 dark:text-primary">{editingPayment?.poNo || editingPayment?.po_no}</span>
-          </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground font-medium">Current Stage:</span>
             <span className="font-semibold text-foreground">{editingPayment?.stage || editingPayment?.approval_stage || 'Completed'}</span>
+          </div>
+        </div>
+
+        {/* ── PO & Vendor (editable) ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">
+              PURCHASE ORDER
+            </label>
+            {pos && pos.length > 0 ? (
+              <Select
+                value={selectedPoNo}
+                onChange={e => setSelectedPoNo(e.target.value)}
+              >
+                <option value="">— Keep current ({editingPayment?.poNo || editingPayment?.po_no || 'None'}) —</option>
+                {pos.map(po => (
+                  <option key={po.po_no || po.poNo} value={po.po_no || po.poNo}>
+                    {po.po_no || po.poNo}{po.project ? ` · ${po.project}` : ''}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <Input
+                type="text"
+                placeholder={editingPayment?.poNo || editingPayment?.po_no || 'e.g. LAIPL/PO/26-27/001'}
+                value={selectedPoNo}
+                onChange={e => setSelectedPoNo(e.target.value)}
+              />
+            )}
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">
+              VENDOR
+            </label>
+            {vendors && vendors.length > 0 ? (
+              <Select
+                value={selectedVendorCode}
+                onChange={e => setSelectedVendorCode(e.target.value)}
+              >
+                <option value="">— Keep current ({editingPayment?.vendor || editingPayment?.vendor_name || 'None'}) —</option>
+                {vendors.map(v => {
+                  const code = v.code || v.vendorId || v.vendor_code || '';
+                  const name = v.name || v.legalName || v.legal_name || code;
+                  return (
+                    <option key={code} value={code}>
+                      {name}
+                    </option>
+                  );
+                })}
+              </Select>
+            ) : (
+              <Input
+                type="text"
+                placeholder={editingPayment?.vendor || editingPayment?.vendor_name || 'Vendor name'}
+                value={selectedVendorCode}
+                onChange={e => setSelectedVendorCode(e.target.value)}
+              />
+            )}
           </div>
         </div>
 

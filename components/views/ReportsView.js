@@ -42,7 +42,7 @@ function findVendorForPayment(payment, vendors) {
 }
 
 export default function ReportsView() {
-  const { call, user, vendors, projects, payments, tdsSections, refreshData } = useAppState();
+  const { call, user, vendors, projects, payments, pos, tdsSections, refreshData } = useAppState();
   const [reportType, setReportType] = useState('All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -455,6 +455,8 @@ export default function ReportsView() {
         tdsSections={tdsSections || []}
         onSavePayment={handleSaveEditedPayment}
         submitting={submittingEdit}
+        vendors={vendors || []}
+        pos={pos || []}
       />
 
       {/* Delete Confirmation Modal */}

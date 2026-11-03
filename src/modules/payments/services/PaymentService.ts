@@ -220,6 +220,11 @@ export class PaymentService {
     if (payload.remittance_date !== undefined) updates.remittance_date = payload.remittance_date;
     if (payload.payment_mode !== undefined) updates.payment_mode = payload.payment_mode;
     if (payload.paymentMode !== undefined) updates.payment_mode = payload.paymentMode;
+    // Allow admin to reassign PO and vendor
+    if (payload.po_no !== undefined && String(payload.po_no).trim()) updates.po_no = String(payload.po_no).trim();
+    if (payload.vendor_code !== undefined && String(payload.vendor_code).trim()) updates.vendor_code = String(payload.vendor_code).trim();
+    if (payload.vendor_id !== undefined && String(payload.vendor_id).trim()) updates.vendor_id = String(payload.vendor_id).trim();
+    if (payload.vendor_name !== undefined && String(payload.vendor_name).trim()) updates.vendor_name = String(payload.vendor_name).trim();
 
     if (isRemitted) {
       await PaymentRepository.updateRemittedRequest(prId, updates, pr.po_no, payload.expectedVersion ?? (pr as any).version ?? 1);
