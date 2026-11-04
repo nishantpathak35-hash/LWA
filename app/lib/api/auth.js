@@ -119,7 +119,7 @@ export async function loginUser(email, password, meta = {}) {
   // P2-6: ALTER TABLE statements removed — handled by ensureSettingsTable() migrations
   const loginTimestamp = new Date().toISOString();
   await queryRun(
-    `UPDATE users SET last_login = ?, last_login_ip = ?, last_login_device = ? WHERE LOWER(email) = ?`, 
+    `UPDATE users SET last_login = ?, last_login_ip = ?, last_login_device = ? WHERE LOWER(email) = ?`,
     [loginTimestamp, meta.ip || null, meta.ua || null, normEmail]
   );
 
@@ -179,7 +179,7 @@ async function isTokenRevoked(token) {
 export async function getMySession(token) {
   if (!token) throw new Error('AUTH:No token provided');
   if (await isTokenRevoked(token)) throw new Error('AUTH:Token revoked');
-  
+
   try {
     const payload = decryptToken(token);
     if (!payload || payload.user_type === 'vendor') {
@@ -188,7 +188,7 @@ export async function getMySession(token) {
     if (!Number.isFinite(Number(payload.exp)) || Number(payload.exp) <= Date.now()) {
       throw new Error('AUTH:Token expired');
     }
-    
+
     const user = await queryGet(`SELECT * FROM users WHERE email = ?`, [payload.email]);
     if (!user) {
       throw new Error('AUTH:User not found');
@@ -237,9 +237,9 @@ export async function inviteUserAdmin(payload, session) {
   const normEmail = String(payload.email).trim().toLowerCase();
   const hash = payload.password ? bcrypt.hashSync(payload.password, bcrypt.genSaltSync(12)) : null;
 
-  try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) {}
-  try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) {}
-  try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) {}
+  try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) { }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) { }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) { }
 
   // Check if user already exists
   const existing = await queryGet(`SELECT email FROM users WHERE LOWER(email) = ?`, [normEmail]);
@@ -292,9 +292,9 @@ export async function listUsersAdmin(session) {
   try { await queryRun(`ALTER TABLE users ADD COLUMN last_login TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_ip TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_device TEXT`); } catch (e) { /* already exists */ }
-  try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) {}
-  try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) {}
-  try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) {}
+  try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) { }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) { }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) { }
 
   const users = await queryAll(`SELECT email, name, roles, active, invite_token, password_hash, last_login, last_login_ip, last_login_device, mobile_number, department, employee_id FROM users`);
   return users.map(u => ({
@@ -399,29 +399,29 @@ export async function acceptInvite(token, password) {
   if (!password || String(password).length < 8) throw new Error('Password must be at least 8 characters');
   const user = await queryGet(`SELECT * FROM users WHERE invite_token = ?`, [token]);
   if (!user) throw new Error("Invalid or expired invite token");
-  
+
   const hash = bcrypt.hashSync(password, bcrypt.genSaltSync(12));
   await queryRun(
     `UPDATE users SET password_hash = ?, invite_token = NULL WHERE email = ?`,
     [hash, user.email]
   );
-  
+
   return { ok: true, email: user.email };
 }
 
 // --- EMAIL ACTIONS ---
 export async function updateUserDetailsAdmin(email, details, session) {
   requireAdminConsole(session);
-  const { mobileNumber, department, employeeId } = details || {};
-  
+  const { name, mobileNumber, department, employeeId } = details || {};
+
   // ensure columns exist
   try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) { /* already exists */ }
 
   await queryRun(
-    'UPDATE users SET mobile_number = ?, department = ?, employee_id = ? WHERE LOWER(email) = ?',
-    [mobileNumber || null, department || null, employeeId || null, String(email).trim().toLowerCase()]
+    'UPDATE users SET name = COALESCE(?, name), mobile_number = ?, department = ?, employee_id = ? WHERE LOWER(email) = ?',
+    [name !== undefined && name !== null && String(name).trim() ? String(name).trim() : null, mobileNumber || null, department || null, employeeId || null, String(email).trim().toLowerCase()]
   );
   await logAudit(session.email, 'User Details Updated', email, 'Settings');
   return { ok: true };

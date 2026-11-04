@@ -45,6 +45,7 @@ export default function SettingsView() {
   const [newMobileNumber, setNewMobileNumber] = useState('');
   
   const [editAccessRoles, setEditAccessRoles] = useState({ proc: false, finance: false, director: false });
+  const [editUserName, setEditUserName] = useState('');
   const [editEmployeeId, setEditEmployeeId] = useState('');
   const [editDepartment, setEditDepartment] = useState('');
   const [editMobileNumber, setEditMobileNumber] = useState('');
@@ -624,11 +625,12 @@ export default function SettingsView() {
     try {
       await call('setUserRolesAdmin', targetEmail, roles);
       await call('updateUserDetailsAdmin', targetEmail, {
+        name: editUserName.trim() || undefined,
         mobileNumber: editMobileNumber,
         department: editDepartment,
         employeeId: editEmployeeId
       });
-      toast.success('Access updated successfully.');
+      toast.success('User details updated successfully.');
       setAccessModalOpen(false);
       loadUsers();
     } catch (e) {
@@ -864,6 +866,7 @@ export default function SettingsView() {
           editEmployeeId={editEmployeeId} setEditEmployeeId={setEditEmployeeId}
           editDepartment={editDepartment} setEditDepartment={setEditDepartment}
           editMobileNumber={editMobileNumber} setEditMobileNumber={setEditMobileNumber}
+          editUserName={editUserName} setEditUserName={setEditUserName}
           setInviteResult={setInviteResult} setInviteModalOpen={setInviteModalOpen}
           loading={loading} filteredUsers={filteredUsers}
           setEditAccessRoles={setEditAccessRoles} setAccessModalOpen={setAccessModalOpen}
@@ -1101,10 +1104,23 @@ export default function SettingsView() {
       </Dialog>
 
       {/* Edit Access Modal */}
-      <Dialog open={accessModalOpen} onClose={() => setAccessModalOpen(false)} title="Edit Access Roles">
+      <Dialog open={accessModalOpen} onClose={() => setAccessModalOpen(false)} title="Edit User Details & Access Roles">
         <div className="space-y-4">
           <div className="text-xs text-muted-foreground">
             User: <span className="text-slate-900 dark:text-slate-100 font-bold">{targetEmail}</span>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Full Name</label>
+            <Input
+              type="text"
+              placeholder="User full name"
+              value={editUserName}
+              onChange={e => setEditUserName(e.target.value)}
+              className="bg-background text-foreground text-xs"
+            />
+          </div>
+          <div className="space-y-1.5 pt-2">
+            <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Access Roles</label>
           </div>
           <div className="grid grid-cols-1 gap-3">
             {roleKeys.map(r => (

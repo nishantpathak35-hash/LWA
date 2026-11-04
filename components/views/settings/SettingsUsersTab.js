@@ -11,6 +11,7 @@ export default function SettingsUsersTab({
   setTargetEmail, setNewUserName, setNewUserPassword, setNewUserRoles,
   newEmployeeId, setNewEmployeeId, newDepartment, setNewDepartment, newMobileNumber, setNewMobileNumber,
   editEmployeeId, setEditEmployeeId, editDepartment, setEditDepartment, editMobileNumber, setEditMobileNumber,
+  editUserName, setEditUserName,
   setInviteResult, setInviteModalOpen,
   loading, filteredUsers,
   setEditAccessRoles, setAccessModalOpen,
@@ -165,7 +166,7 @@ export default function SettingsUsersTab({
                             size="sm"
                             variant="ghost"
                             className="h-7 text-xs text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-2 font-medium"
-                            title="Edit Access Roles"
+                            title="Edit User Details"
                             onClick={() => {
                               setTargetEmail(u.email);
                               const updatedRoles = { proc: false, finance: false, director: false };
@@ -174,13 +175,14 @@ export default function SettingsUsersTab({
                                 : (typeof u.roles === 'string' ? u.roles.split(',') : []).map(r => r.trim()).filter(Boolean);
                               rs.forEach(role => { updatedRoles[role] = true; });
                               setEditAccessRoles(updatedRoles);
+                              if (setEditUserName) setEditUserName(u.name || '');
                               setEditEmployeeId(u.employee_id || '');
                               setEditDepartment(u.department || '');
                               setEditMobileNumber(u.mobile_number || '');
                               setAccessModalOpen(true);
                             }}
                           >
-                            <Shield className="w-3.5 h-3.5 mr-1" /> Edit Access
+                            <Shield className="w-3.5 h-3.5 mr-1" /> Edit User
                           </Button>
                           <Button
                             size="sm"
