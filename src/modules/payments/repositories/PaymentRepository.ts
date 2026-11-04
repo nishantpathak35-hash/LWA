@@ -11,7 +11,7 @@ export class PaymentRepository {
 
   static async recomputePO(poNo: string, db: any): Promise<void> {
     const po = await db.queryGet('SELECT po_value, revised_po_value FROM purchase_orders WHERE po_no = ?', [poNo]);
-    if (!po) throw new Error(`Purchase order not found: ${poNo}`);
+    if (!po) return;
     const gross = await db.queryGet(`SELECT COALESCE(SUM(COALESCE(approved_amount, amount_requested, 0)), 0) total FROM payment_requests WHERE po_no = ? AND (LOWER(stage) = 'remitted' OR LOWER(remittance) = 'remitted')`, [poNo]);
     const manual = await db.queryGet(`SELECT COALESCE(SUM(amount), 0) total FROM system_payments WHERE po_no = ? AND (pr_key IS NULL OR pr_key LIKE 'MANUAL-%')`, [poNo]);
     const total = Number(gross.total) + Number(manual.total);
@@ -23,7 +23,7 @@ export class PaymentRepository {
   static async deleteRequestWithAudit(prId: string | number, reason: string, email: string): Promise<void> {
     await queryTransaction(async (db: any) => {
       const prIdStr = String(prId || '').trim();
-      if (prIdStr.startsWith('M-')) {
+      if (prIdStr.toUpperCase().startsWith('M-')) {
         const manualId = Number(prIdStr.replace('M-', ''));
         const mp = await db.queryGet('SELECT * FROM manual_payments WHERE id = ?', [manualId]);
         if (!mp) throw new Error('Manual payment entry not found.');
@@ -46,11 +46,89 @@ export class PaymentRepository {
       if (pr.po_no) await this.recomputePO(pr.po_no, db);
     });
   }
+  static async updateManualPayment(manualId: number, updates: any, email: string): Promise<void> {
+    await queryTransaction(async (db: any) => {
+      try { await db.queryRun("ALTER TABLE manual_payments ADD COLUMN tds_amount REAL DEFAULT 0"); } catch (e) {}
+      try { await db.queryRun("ALTER TABLE manual_payments ADD COLUMN tds_section TEXT DEFAULT ''"); } catch (e) {}
+      try { await db.queryRun("ALTER TABLE manual_payments ADD COLUMN tds_percentage REAL DEFAULT 0"); } catch (e) {}
+
+      const mp = await db.queryGet('SELECT * FROM manual_payments WHERE id = ?', [manualId]);
+      if (!mp) throw new Error(`Manual payment entry not found: M-${manualId}`);
+
+      const oldPoNo = mp.po_no;
+      const newPoNo = updates.po_no ? String(updates.po_no).trim() : oldPoNo;
+      const newAmount = updates.amount !== undefined ? Number(updates.amount) : Number(mp.amount);
+      const newDate = updates.payment_date || mp.payment_date;
+      const newMode = updates.payment_mode || mp.payment_mode;
+      const newUtr = updates.utr_ref !== undefined ? updates.utr_ref : (mp.utr_ref || '');
+      const newRemarks = updates.remarks !== undefined ? updates.remarks : (mp.remarks || '');
+      const newTdsAmt = updates.tds_amount !== undefined ? Number(updates.tds_amount) : (Number(mp.tds_amount) || 0);
+      const newTdsSec = updates.tds_section !== undefined ? updates.tds_section : (mp.tds_section || '');
+      const newTdsPct = updates.tds_percentage !== undefined ? Number(updates.tds_percentage) : (Number(mp.tds_percentage) || 0);
+
+      await db.queryRun(
+        `UPDATE manual_payments 
+         SET po_no = ?, amount = ?, payment_date = ?, payment_mode = ?, utr_ref = ?, remarks = ?, tds_amount = ?, tds_section = ?, tds_percentage = ?
+         WHERE id = ?`,
+        [newPoNo, newAmount, newDate, newMode, newUtr, newRemarks, newTdsAmt, newTdsSec, newTdsPct, manualId]
+      );
+
+      const existingSp = await db.queryGet('SELECT id FROM system_payments WHERE pr_key = ?', [`MANUAL-${manualId}`]);
+      if (existingSp) {
+        await db.queryRun(
+          `UPDATE system_payments 
+           SET po_no = ?, amount = ?, payment_date = ?, utr_ref = ?, payment_mode = ?, remarks = ?
+           WHERE pr_key = ?`,
+          [newPoNo, newAmount, newDate, newUtr, newMode, newRemarks, `MANUAL-${manualId}`]
+        );
+      } else if (newPoNo) {
+        await db.queryRun(
+          `INSERT INTO system_payments (po_no, pr_key, amount, payment_date, utr_ref, payment_mode, remarks, remitted_by, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [newPoNo, `MANUAL-${manualId}`, newAmount, newDate, newUtr, newMode, newRemarks, email, new Date().toISOString()]
+        );
+      }
+
+      await db.queryRun(
+        'INSERT INTO audit_logs (user, action_type, details, department, timestamp) VALUES (?, ?, ?, ?, ?)',
+        [email, 'UPDATE_MANUAL_PAYMENT', JSON.stringify({ manualId, old: mp, updates }), 'Finance', new Date().toISOString()]
+      );
+
+      if (oldPoNo) await this.recomputePO(oldPoNo, db);
+      if (newPoNo && newPoNo !== oldPoNo) await this.recomputePO(newPoNo, db);
+    });
+  }
+
   /**
    * ----------------- PAYMENT REQUESTS -----------------
    */
 
   static async findRequestById(prId: string | number): Promise<IPaymentRequest | null> {
+    const prIdStr = String(prId || '').trim();
+    if (prIdStr.toUpperCase().startsWith('M-')) {
+      const manualId = Number(prIdStr.replace(/^[Mm]-/, ''));
+      const mp = await queryGet('SELECT * FROM manual_payments WHERE id = ?', [manualId]);
+      if (!mp) return null;
+      return {
+        pr_id: `M-${mp.id}` as any,
+        id: `M-${mp.id}` as any,
+        po_no: mp.po_no,
+        amount_requested: mp.amount,
+        approved_amount: mp.amount,
+        tds_amount: mp.tds_amount || 0,
+        tds_percentage: mp.tds_percentage || 0,
+        tds_section: mp.tds_section || '',
+        stage: 'Remitted',
+        remittance: 'Remitted',
+        remittance_ref: mp.utr_ref || mp.reference_no || '',
+        remittance_date: mp.payment_date || mp.created_at || '',
+        payment_mode: mp.payment_mode || 'Manual',
+        remarks: mp.remarks || 'Manual Payment Entry',
+        created_at: mp.created_at || mp.payment_date || '',
+        is_manual: true,
+        version: 1
+      } as any;
+    }
     return queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [prId]);
   }
 

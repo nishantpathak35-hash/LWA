@@ -161,6 +161,39 @@ export class PaymentService {
     const isDirOrAdmin = roles.includes('director') || roles.includes('admin') || isSuperAdmin;
     const isFinance = roles.includes('finance');
 
+    const prIdStr = String(prId || '').trim();
+    if (prIdStr.toUpperCase().startsWith('M-') || payload?.is_manual) {
+      if (!isDirOrAdmin && !isFinance) {
+        throw new Error('AUTH:Unauthorized - Only Director, Admin, or Finance can edit manual payments');
+      }
+      const manualId = Number(prIdStr.replace(/^[Mm]-/, '') || payload?.manual_id || payload?.id);
+      if (!manualId || isNaN(manualId)) {
+        throw new Error(`Invalid manual payment ID: ${prId}`);
+      }
+
+      const amt = payload.approved_amount !== undefined 
+        ? Number(payload.approved_amount) 
+        : (payload.amountRequested !== undefined 
+            ? Number(payload.amountRequested) 
+            : Number(payload.amount || 0));
+
+      const updates: any = {
+        amount: amt,
+        payment_date: payload.remittance_date || payload.payment_date || undefined,
+        payment_mode: payload.payment_mode || payload.paymentMode || undefined,
+        utr_ref: payload.remittance_ref !== undefined ? payload.remittance_ref : (payload.utr_ref || payload.utr),
+        remarks: payload.remarks,
+        po_no: payload.po_no,
+        tds_amount: payload.tds_amount !== undefined ? Number(payload.tds_amount) : (payload.tdsAmount !== undefined ? Number(payload.tdsAmount) : 0),
+        tds_section: payload.tds_section || payload.tdsSection || '',
+        tds_percentage: payload.tds_percentage !== undefined ? Number(payload.tds_percentage) : (payload.tdsPct !== undefined ? Number(payload.tdsPct) : 0)
+      };
+
+      await PaymentRepository.updateManualPayment(manualId, updates, userEmail);
+      await logAudit(userEmail, 'Update Manual Payment', `Edited manual payment #${prId}. Amount: ${amt}, PO: ${payload.po_no || 'unchanged'}`, 'Finance');
+      return { ok: true };
+    }
+
     const pr = await PaymentRepository.findRequestById(prId);
     if (!pr) throw new Error(`Payment request not found: ${prId}`);
     

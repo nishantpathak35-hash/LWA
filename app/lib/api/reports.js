@@ -88,6 +88,9 @@ export { getAuditLogs as listAuditLog };
 
 export async function getPaymentReportRows(filters = {}, session) {
   requireAuth(session);
+  try { await queryRun("ALTER TABLE manual_payments ADD COLUMN tds_amount REAL DEFAULT 0"); } catch (e) {}
+  try { await queryRun("ALTER TABLE manual_payments ADD COLUMN tds_section TEXT DEFAULT ''"); } catch (e) {}
+  try { await queryRun("ALTER TABLE manual_payments ADD COLUMN tds_percentage REAL DEFAULT 0"); } catch (e) {}
   // P0-7: Reports must fetch ALL records — pass limit: 0 to disable the default 100-row cap
   const [prRows, manualRows] = await Promise.all([
     listPaymentRequests({ limit: 0 }, session),
@@ -99,7 +102,9 @@ export async function getPaymentReportRows(filters = {}, session) {
         mp.amount,
         mp.amount AS amount_requested,
         mp.amount AS approved_amount,
-        0 AS tds_amount,
+        COALESCE(mp.tds_amount, 0) AS tds_amount,
+        COALESCE(mp.tds_section, '') AS tds_section,
+        COALESCE(mp.tds_percentage, 0) AS tds_percentage,
         mp.payment_mode,
         mp.utr_ref,
         mp.bank_name,
@@ -143,8 +148,10 @@ export async function getPaymentReportRows(filters = {}, session) {
     amountRequested: Number(mp.amount || 0),
     approved_amount: Number(mp.amount || 0),
     approvedAmount: Number(mp.amount || 0),
-    tds_amount: 0,
-    tdsAmount: 0,
+    tds_amount: Number(mp.tds_amount || 0),
+    tdsAmount: Number(mp.tds_amount || 0),
+    tds_section: mp.tds_section || '',
+    tds_percentage: Number(mp.tds_percentage || 0),
     stage: 'Remitted',
     remittance: 'Remitted',
     remittance_ref: mp.utr_ref || mp.reference_no || '',

@@ -208,6 +208,8 @@ export default function ReportsEditPaymentModal({
       vendor_name: selectedVendor
         ? (selectedVendor.name || selectedVendor.legalName || selectedVendor.legal_name || '')
         : undefined,
+      is_manual: !!(editingPayment?.is_manual || String(editingPayment?.id || '').toUpperCase().startsWith('M-')),
+      manual_id: editingPayment?.manual_id,
       adminOverride: true
     });
   };
