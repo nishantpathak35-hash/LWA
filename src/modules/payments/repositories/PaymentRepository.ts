@@ -51,6 +51,10 @@ export class PaymentRepository {
       try { await db.queryRun("ALTER TABLE manual_payments ADD COLUMN tds_amount REAL DEFAULT 0"); } catch (e) {}
       try { await db.queryRun("ALTER TABLE manual_payments ADD COLUMN tds_section TEXT DEFAULT ''"); } catch (e) {}
       try { await db.queryRun("ALTER TABLE manual_payments ADD COLUMN tds_percentage REAL DEFAULT 0"); } catch (e) {}
+      try { await db.queryRun("ALTER TABLE system_payments ADD COLUMN payment_date TEXT DEFAULT ''"); } catch (e) {}
+      try { await db.queryRun("ALTER TABLE system_payments ADD COLUMN utr_ref TEXT DEFAULT ''"); } catch (e) {}
+      try { await db.queryRun("ALTER TABLE system_payments ADD COLUMN payment_mode TEXT DEFAULT 'Bank Transfer'"); } catch (e) {}
+      try { await db.queryRun("ALTER TABLE system_payments ADD COLUMN remarks TEXT DEFAULT ''"); } catch (e) {}
 
       const mp = await db.queryGet('SELECT * FROM manual_payments WHERE id = ?', [manualId]);
       if (!mp) throw new Error(`Manual payment entry not found: M-${manualId}`);
@@ -73,20 +77,42 @@ export class PaymentRepository {
         [newPoNo, newAmount, newDate, newMode, newUtr, newRemarks, newTdsAmt, newTdsSec, newTdsPct, manualId]
       );
 
-      const existingSp = await db.queryGet('SELECT id FROM system_payments WHERE pr_key = ?', [`MANUAL-${manualId}`]);
-      if (existingSp) {
-        await db.queryRun(
-          `UPDATE system_payments 
-           SET po_no = ?, amount = ?, payment_date = ?, utr_ref = ?, payment_mode = ?, remarks = ?
-           WHERE pr_key = ?`,
-          [newPoNo, newAmount, newDate, newUtr, newMode, newRemarks, `MANUAL-${manualId}`]
-        );
-      } else if (newPoNo) {
-        await db.queryRun(
-          `INSERT INTO system_payments (po_no, pr_key, amount, payment_date, utr_ref, payment_mode, remarks, remitted_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [newPoNo, `MANUAL-${manualId}`, newAmount, newDate, newUtr, newMode, newRemarks, email, new Date().toISOString()]
-        );
+      try {
+        const existingSp = await db.queryGet('SELECT id FROM system_payments WHERE pr_key = ?', [`MANUAL-${manualId}`]);
+        if (existingSp) {
+          await db.queryRun(
+            `UPDATE system_payments 
+             SET po_no = ?, amount = ?, payment_date = ?, utr_ref = ?, payment_mode = ?, remarks = ?
+             WHERE pr_key = ?`,
+            [newPoNo, newAmount, newDate, newUtr, newMode, newRemarks, `MANUAL-${manualId}`]
+          );
+        } else if (newPoNo) {
+          await db.queryRun(
+            `INSERT INTO system_payments (po_no, pr_key, amount, payment_date, utr_ref, payment_mode, remarks, remitted_by, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [newPoNo, `MANUAL-${manualId}`, newAmount, newDate, newUtr, newMode, newRemarks, email, new Date().toISOString()]
+          );
+        }
+      } catch (spErr) {
+        try {
+          const existingSp = await db.queryGet('SELECT id FROM system_payments WHERE pr_key = ?', [`MANUAL-${manualId}`]);
+          if (existingSp) {
+            await db.queryRun(
+              `UPDATE system_payments 
+               SET po_no = ?, amount = ?, utr_ref = ?, payment_mode = ?, remarks = ?
+               WHERE pr_key = ?`,
+              [newPoNo, newAmount, newUtr, newMode, newRemarks, `MANUAL-${manualId}`]
+            );
+          } else if (newPoNo) {
+            await db.queryRun(
+              `INSERT INTO system_payments (po_no, pr_key, amount, utr_ref, payment_mode, remarks, remitted_by, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [newPoNo, `MANUAL-${manualId}`, newAmount, newUtr, newMode, newRemarks, email, new Date().toISOString()]
+            );
+          }
+        } catch (innerSpErr) {
+          console.warn('Could not mirror manual payment to system_payments:', innerSpErr);
+        }
       }
 
       await db.queryRun(
