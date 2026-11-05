@@ -48,7 +48,7 @@ export async function ensureSettingsTable() {
 }
 
 async function _runMigrations() {
-  const migrationsAppliedKey = 'migrations_applied_v2';
+  const migrationsAppliedKey = 'migrations_applied_v4';
   try {
     const check = await queryGet(`SELECT value FROM app_settings WHERE key = ?`, [migrationsAppliedKey]);
     if (check && check.value === 'true') {

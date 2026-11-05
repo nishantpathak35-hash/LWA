@@ -56,8 +56,12 @@ export async function addPaymentComment(prId, comment, session) {
   if (!comment) throw new Error('Comment text is required');
 
   await ensureSettingsTable();
-  const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [prId]);
-  if (!pr) throw new Error('Payment request not found: ' + prId);
+  let pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [prId]);
+  if (!pr && String(prId).toUpperCase().startsWith('M-')) {
+    const mId = Number(String(prId).replace(/^[Mm]-/, ''));
+    pr = await queryGet(`SELECT * FROM manual_payments WHERE id = ?`, [mId]);
+  }
+  if (!pr) throw new Error('Payment record not found: ' + prId);
 
   // audit_logs is used as the history trail for payments
   await logAudit(

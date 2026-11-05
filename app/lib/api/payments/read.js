@@ -139,16 +139,20 @@ export async function getCommandCenter(session) {
 
 export async function getApprovalHistory(requestId, session) {
   requireAuth(session);
-  const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [requestId]);
+  let pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [requestId]);
+  if (!pr && String(requestId).toUpperCase().startsWith('M-')) {
+    const mId = Number(String(requestId).replace(/^[Mm]-/, ''));
+    pr = await queryGet(`SELECT * FROM manual_payments WHERE id = ?`, [mId]);
+  }
   if (!pr) return [];
   
   // Try to get real history from audit_logs
-  // Matches "(ID: 123)" (Create) and "payment ID 123 " (Approve/Remit)
+  // Matches "(ID: 123)", "payment ID 123 ", or "#M-18"
   const logs = await queryAll(
     `SELECT * FROM audit_logs 
-     WHERE details LIKE ? OR details LIKE ? 
+     WHERE details LIKE ? OR details LIKE ? OR details LIKE ?
      ORDER BY timestamp ASC`, 
-    [`%(ID: ${requestId})%`, `%payment ID ${requestId} %`]
+    [`%(ID: ${requestId})%`, `%payment ID ${requestId} %`, `%#${requestId}%`]
   );
 
   const history = [];

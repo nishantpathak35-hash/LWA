@@ -57,6 +57,32 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
     }
   }
 
+  if (!pr && typeof targetId === 'string' && targetId.toUpperCase().startsWith('M-')) {
+    const mId = Number(targetId.replace(/^[Mm]-/, ''));
+    const mp = await queryGet(`
+      SELECT mp.*, po.project, po.vendor_name, po.vendor_code
+      FROM manual_payments mp
+      LEFT JOIN purchase_orders po ON mp.po_no = po.po_no
+      WHERE mp.id = ?
+    `, [mId]);
+    if (mp) {
+      pr = {
+        pr_id: `M-${mp.id}`,
+        po_no: mp.po_no,
+        vendor_name: mp.vendor_name,
+        vendor_code: mp.vendor_code,
+        project: mp.project || 'General',
+        approved_amount: mp.amount,
+        amount_requested: mp.amount,
+        tds_amount: mp.tds_amount || 0,
+        stage: 'Remitted',
+        remittance: 'Remitted',
+        remittance_ref: mp.utr_ref || mp.reference_no || '',
+        remittance_date: mp.payment_date || mp.created_at || ''
+      };
+    }
+  }
+
   if (!pr) throw new Error(`Payment request not found (ID: ${rowNumberOrId})`);
 
   // CRITICAL: Block Payment Advice for Rejected payouts
