@@ -11,11 +11,11 @@ import {
   Users, HardHat, MapPin, Calendar, Clock, CheckCircle2, 
   AlertTriangle, XCircle, Search, Download, Filter, Eye, 
   Camera, ArrowRightLeft, ShieldCheck, RefreshCw, Plus, 
-  Building2, ExternalLink, ShieldAlert, FileText, Check, X
+  Building2, ExternalLink, ShieldAlert, FileText, Check, X, Settings
 } from 'lucide-react';
 
 export default function SiteEmployeesView() {
-  const { user, projects: rawProjects, callRpc } = useAppState();
+  const { user, projects: rawProjects, callRpc, setActiveView } = useAppState();
 
   const [activeTab, setActiveTab] = useState('register'); // 'register' | 'employees' | 'geofence' | 'corrections'
   const [loading, setLoading] = useState(false);
@@ -276,6 +276,16 @@ export default function SiteEmployeesView() {
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveView('settings')}
+            className="text-xs font-semibold"
+          >
+            <Settings className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
+            Users & Access in Settings
           </Button>
 
           <Button

@@ -19,7 +19,7 @@ const SettingsTDSTab = dynamic(() => import('./settings/SettingsTDSTab'), { ssr:
 const SettingsNumberSeriesTab = dynamic(() => import('./settings/SettingsNumberSeriesTab'), { ssr: false });
 const SettingsApprovalWorkflowTab = dynamic(() => import('./settings/SettingsApprovalWorkflowTab'), { ssr: false });
 export default function SettingsView() {
-  const { call, user, refreshData } = useAppState();
+  const { call, user, refreshData, projects } = useAppState();
   const [activeTab, setActiveTab] = useState('users');
   const [usersList, setUsersList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -35,6 +35,18 @@ export default function SettingsView() {
   
   const generateRandomPassword = () => Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-4).toUpperCase() + '!';
   
+  // Available projects list
+  const projectList = useMemo(() => {
+    const set = new Set();
+    if (Array.isArray(projects)) {
+      projects.forEach(p => {
+        const name = typeof p === 'string' ? p : p?.project || p?.name;
+        if (name) set.add(name);
+      });
+    }
+    return Array.from(set).sort();
+  }, [projects]);
+
   // Dialog Form inputs
   const [targetEmail, setTargetEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
@@ -42,13 +54,17 @@ export default function SettingsView() {
   const [newUserPassword, setNewUserPassword] = useState(generateRandomPassword());
   const [newEmployeeId, setNewEmployeeId] = useState('');
   const [newDepartment, setNewDepartment] = useState('');
+  const [newDesignation, setNewDesignation] = useState('');
   const [newMobileNumber, setNewMobileNumber] = useState('');
+  const [newPrimaryProject, setNewPrimaryProject] = useState('');
   
   const [editAccessRoles, setEditAccessRoles] = useState({ proc: false, finance: false, director: false });
   const [editUserName, setEditUserName] = useState('');
   const [editEmployeeId, setEditEmployeeId] = useState('');
   const [editDepartment, setEditDepartment] = useState('');
+  const [editDesignation, setEditDesignation] = useState('');
   const [editMobileNumber, setEditMobileNumber] = useState('');
+  const [editPrimaryProject, setEditPrimaryProject] = useState('');
   const [resetPasswordVal, setResetPasswordVal] = useState(generateRandomPassword());
   const [inviteResult, setInviteResult] = useState(null);
 
@@ -600,7 +616,9 @@ export default function SettingsView() {
         password: newUserPassword,
         employeeId: newEmployeeId,
         department: newDepartment,
-        mobileNumber: newMobileNumber
+        designation: newDesignation,
+        mobileNumber: newMobileNumber,
+        primaryProject: newPrimaryProject
       });
       
       if (res && res.emailSent) {
@@ -628,7 +646,9 @@ export default function SettingsView() {
         name: editUserName.trim() || undefined,
         mobileNumber: editMobileNumber,
         department: editDepartment,
-        employeeId: editEmployeeId
+        designation: editDesignation,
+        employeeId: editEmployeeId,
+        primaryProject: editPrimaryProject
       });
       toast.success('User details updated successfully.');
       setAccessModalOpen(false);
@@ -862,10 +882,15 @@ export default function SettingsView() {
           setNewUserPassword={setNewUserPassword} setNewUserRoles={setNewUserRoles}
           newEmployeeId={newEmployeeId} setNewEmployeeId={setNewEmployeeId}
           newDepartment={newDepartment} setNewDepartment={setNewDepartment}
+          newDesignation={newDesignation} setNewDesignation={setNewDesignation}
           newMobileNumber={newMobileNumber} setNewMobileNumber={setNewMobileNumber}
+          newPrimaryProject={newPrimaryProject} setNewPrimaryProject={setNewPrimaryProject}
           editEmployeeId={editEmployeeId} setEditEmployeeId={setEditEmployeeId}
           editDepartment={editDepartment} setEditDepartment={setEditDepartment}
+          editDesignation={editDesignation} setEditDesignation={setEditDesignation}
           editMobileNumber={editMobileNumber} setEditMobileNumber={setEditMobileNumber}
+          editPrimaryProject={editPrimaryProject} setEditPrimaryProject={setEditPrimaryProject}
+          projectList={projectList}
           editUserName={editUserName} setEditUserName={setEditUserName}
           setInviteResult={setInviteResult} setInviteModalOpen={setInviteModalOpen}
           loading={loading} filteredUsers={filteredUsers}
@@ -1058,35 +1083,85 @@ export default function SettingsView() {
                 className="bg-background text-foreground text-xs"
               />
             </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Employee ID</label>
-                <Input
-                  type="text"
-                  placeholder="EMP-001"
-                  value={newEmployeeId}
-                  onChange={e => setNewEmployeeId(e.target.value)}
-                  className="bg-background text-foreground text-xs"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Employee ID</label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. EMP-101"
+                    value={newEmployeeId}
+                    onChange={e => setNewEmployeeId(e.target.value)}
+                    className="bg-background text-foreground text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Mobile Number</label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. +91 9876543210"
+                    value={newMobileNumber}
+                    onChange={e => setNewMobileNumber(e.target.value)}
+                    className="bg-background text-foreground text-xs"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Finance"
-                  value={newDepartment}
-                  onChange={e => setNewDepartment(e.target.value)}
-                  className="bg-background text-foreground text-xs"
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
+                  <Input
+                    type="text"
+                    list="dept-options-new"
+                    placeholder="e.g. Site Operations"
+                    value={newDepartment}
+                    onChange={e => setNewDepartment(e.target.value)}
+                    className="bg-background text-foreground text-xs"
+                  />
+                  <datalist id="dept-options-new">
+                    <option value="Site Operations" />
+                    <option value="Project Management" />
+                    <option value="Architecture & Design" />
+                    <option value="Procurement" />
+                    <option value="Finance & Accounts" />
+                    <option value="Quality & Safety" />
+                    <option value="MEP Engineering" />
+                  </datalist>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Designation</label>
+                  <Input
+                    type="text"
+                    list="desig-options-new"
+                    placeholder="e.g. Site Engineer"
+                    value={newDesignation}
+                    onChange={e => setNewDesignation(e.target.value)}
+                    className="bg-background text-foreground text-xs"
+                  />
+                  <datalist id="desig-options-new">
+                    <option value="Site Engineer" />
+                    <option value="Site Supervisor" />
+                    <option value="Senior Project Manager" />
+                    <option value="Project Coordinator" />
+                    <option value="Quantity Surveyor (QS)" />
+                    <option value="MEP Engineer" />
+                    <option value="Safety Officer" />
+                    <option value="Billing Engineer" />
+                  </datalist>
+                </div>
               </div>
+
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Mobile Number</label>
-                <Input
-                  type="text"
-                  placeholder="e.g. +919876543210"
-                  value={newMobileNumber}
-                  onChange={e => setNewMobileNumber(e.target.value)}
-                  className="bg-background text-foreground text-xs"
-                />
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Assigned Site / Project</label>
+                <select
+                  value={newPrimaryProject}
+                  onChange={e => setNewPrimaryProject(e.target.value)}
+                  className="w-full text-xs p-2 rounded-xl bg-card border border-border text-foreground"
+                >
+                  <option value="">-- No initial site allocation --</option>
+                  {projectList.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
               </div>
             <div className="text-xs text-muted-foreground pt-1">
               Share the email + temp password with the user. They should change it on first login.
@@ -1135,24 +1210,14 @@ export default function SettingsView() {
               </label>
             ))}
           </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-border">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Employee ID</label>
                 <Input
                   type="text"
-                  placeholder="EMP-001"
+                  placeholder="e.g. EMP-101"
                   value={editEmployeeId}
                   onChange={e => setEditEmployeeId(e.target.value)}
-                  className="bg-background text-foreground text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Finance"
-                  value={editDepartment}
-                  onChange={e => setEditDepartment(e.target.value)}
                   className="bg-background text-foreground text-xs"
                 />
               </div>
@@ -1160,12 +1225,70 @@ export default function SettingsView() {
                 <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Mobile Number</label>
                 <Input
                   type="text"
-                  placeholder="e.g. +919876543210"
+                  placeholder="e.g. +91 9876543210"
                   value={editMobileNumber}
                   onChange={e => setEditMobileNumber(e.target.value)}
                   className="bg-background text-foreground text-xs"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
+                <Input
+                  type="text"
+                  list="dept-options-edit"
+                  placeholder="e.g. Site Operations"
+                  value={editDepartment}
+                  onChange={e => setEditDepartment(e.target.value)}
+                  className="bg-background text-foreground text-xs"
+                />
+                <datalist id="dept-options-edit">
+                  <option value="Site Operations" />
+                  <option value="Project Management" />
+                  <option value="Architecture & Design" />
+                  <option value="Procurement" />
+                  <option value="Finance & Accounts" />
+                  <option value="Quality & Safety" />
+                  <option value="MEP Engineering" />
+                </datalist>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Designation</label>
+                <Input
+                  type="text"
+                  list="desig-options-edit"
+                  placeholder="e.g. Site Engineer"
+                  value={editDesignation}
+                  onChange={e => setEditDesignation(e.target.value)}
+                  className="bg-background text-foreground text-xs"
+                />
+                <datalist id="desig-options-edit">
+                  <option value="Site Engineer" />
+                  <option value="Site Supervisor" />
+                  <option value="Senior Project Manager" />
+                  <option value="Project Coordinator" />
+                  <option value="Quantity Surveyor (QS)" />
+                  <option value="MEP Engineer" />
+                  <option value="Safety Officer" />
+                  <option value="Billing Engineer" />
+                </datalist>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Assigned Site / Project</label>
+              <select
+                value={editPrimaryProject}
+                onChange={e => setEditPrimaryProject(e.target.value)}
+                className="w-full text-xs p-2 rounded-xl bg-card border border-border text-foreground"
+              >
+                <option value="">-- No primary site allocation --</option>
+                {projectList.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
             </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="ghost" onClick={() => setAccessModalOpen(false)} className="text-xs">

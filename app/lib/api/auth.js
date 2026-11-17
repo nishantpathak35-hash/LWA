@@ -240,6 +240,7 @@ export async function inviteUserAdmin(payload, session) {
   try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) { }
   try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) { }
   try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) { }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN designation TEXT`); } catch (e) { }
 
   // Check if user already exists
   const existing = await queryGet(`SELECT email FROM users WHERE LOWER(email) = ?`, [normEmail]);
@@ -247,20 +248,65 @@ export async function inviteUserAdmin(payload, session) {
     // Update roles, reset token, and update password if re-invited
     if (hash) {
       await queryRun(
-        `UPDATE users SET name = ?, roles = ?, invite_token = ?, password_hash = ?, department = ?, employee_id = ?, mobile_number = ? WHERE LOWER(email) = ?`,
-        [payload.name || '', JSON.stringify(payload.roles || []), token, hash, payload.department || null, payload.employeeId || null, payload.mobileNumber || null, normEmail]
+        `UPDATE users SET name = ?, roles = ?, invite_token = ?, password_hash = ?, department = ?, designation = ?, employee_id = ?, mobile_number = ? WHERE LOWER(email) = ?`,
+        [payload.name || '', JSON.stringify(payload.roles || []), token, hash, payload.department || null, payload.designation || null, payload.employeeId || null, payload.mobileNumber || null, normEmail]
       );
     } else {
       await queryRun(
-        `UPDATE users SET name = ?, roles = ?, invite_token = ?, department = ?, employee_id = ?, mobile_number = ? WHERE LOWER(email) = ?`,
-        [payload.name || '', JSON.stringify(payload.roles || []), token, payload.department || null, payload.employeeId || null, payload.mobileNumber || null, normEmail]
+        `UPDATE users SET name = ?, roles = ?, invite_token = ?, department = ?, designation = ?, employee_id = ?, mobile_number = ? WHERE LOWER(email) = ?`,
+        [payload.name || '', JSON.stringify(payload.roles || []), token, payload.department || null, payload.designation || null, payload.employeeId || null, payload.mobileNumber || null, normEmail]
       );
     }
   } else {
     await queryRun(
-      `INSERT INTO users (email, name, roles, invite_token, password_hash, active, department, employee_id, mobile_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [normEmail, payload.name || '', JSON.stringify(payload.roles || []), token, hash, true, payload.department || null, payload.employeeId || null, payload.mobileNumber || null]
+      `INSERT INTO users (email, name, roles, invite_token, password_hash, active, department, designation, employee_id, mobile_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [normEmail, payload.name || '', JSON.stringify(payload.roles || []), token, hash, true, payload.department || null, payload.designation || null, payload.employeeId || null, payload.mobileNumber || null]
     );
+  }
+
+  // Synchronize employee record into site_employees master
+  try {
+    const empId = payload.employeeId || `EMP-${Date.now().toString().slice(-4)}`;
+    const empName = payload.name || normEmail.split('@')[0];
+    const empDept = payload.department || 'Site Operations';
+    const empDesig = payload.designation || (payload.roles && payload.roles.length ? payload.roles[0] : 'Site Engineer');
+    const empPhone = payload.mobileNumber || '';
+    const nowIso = new Date().toISOString();
+
+    const existingEmp = await queryGet(
+      `SELECT id FROM site_employees WHERE employee_id = ? OR LOWER(user_email) = ? OR LOWER(email) = ?`,
+      [empId, normEmail, normEmail]
+    );
+
+    if (existingEmp) {
+      await queryRun(
+        `UPDATE site_employees
+         SET employee_id = ?, user_email = ?, name = ?, designation = ?, department = ?, phone = ?, email = ?, status = 'active', updated_at = ?
+         WHERE id = ?`,
+        [empId, normEmail, empName, empDesig, empDept, empPhone, normEmail, nowIso, existingEmp.id]
+      );
+    } else {
+      await queryRun(
+        `INSERT INTO site_employees (employee_id, user_email, name, designation, department, phone, email, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+        [empId, normEmail, empName, empDesig, empDept, empPhone, normEmail, nowIso, nowIso]
+      );
+    }
+
+    // If primary project specified, allocate employee to that project
+    if (payload.primaryProject) {
+      await queryRun(
+        `UPDATE site_project_allocations SET is_primary = 0 WHERE employee_id = ? AND status = 'active'`,
+        [empId]
+      );
+      await queryRun(
+        `INSERT INTO site_project_allocations (employee_id, project, role_at_site, is_primary, status, start_date, allocated_by, created_at, updated_at)
+         VALUES (?, ?, ?, 1, 'active', ?, ?, ?, ?)`,
+        [empId, payload.primaryProject, empDesig, nowIso.split('T')[0], session?.email || 'admin', nowIso, nowIso]
+      );
+    }
+  } catch (syncErr) {
+    console.warn('Sync to site_employees warning:', syncErr.message);
   }
 
   const inviteUrl = `https://lwa-iota.vercel.app/?invite=${token}`;
@@ -288,15 +334,23 @@ export async function sendInvite(payload, session) {
 
 export async function listUsersAdmin(session) {
   requireAdminConsole(session);
-  // Ensure last_login column exists (safe, idempotent)
+  // Ensure columns exist (safe, idempotent)
   try { await queryRun(`ALTER TABLE users ADD COLUMN last_login TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_ip TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN last_login_device TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) { }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN designation TEXT`); } catch (e) { }
   try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) { }
   try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) { }
 
-  const users = await queryAll(`SELECT email, name, roles, active, invite_token, password_hash, last_login, last_login_ip, last_login_device, mobile_number, department, employee_id FROM users`);
+  const users = await queryAll(`
+    SELECT u.email, u.name, u.roles, u.active, u.invite_token, u.password_hash, 
+           u.last_login, u.last_login_ip, u.last_login_device, u.mobile_number, 
+           u.department, u.designation, u.employee_id,
+           a.project AS primary_project
+    FROM users u
+    LEFT JOIN site_project_allocations a ON (a.employee_id = u.employee_id AND a.is_primary = 1 AND a.status = 'active')
+  `);
   return users.map(u => ({
     email: u.email,
     name: u.name,
@@ -309,7 +363,9 @@ export async function listUsersAdmin(session) {
     lastLoginDevice: u.last_login_device || null,
     mobile_number: u.mobile_number || null,
     department: u.department || null,
-    employee_id: u.employee_id || null
+    designation: u.designation || null,
+    employee_id: u.employee_id || null,
+    primary_project: u.primary_project || null
   }));
 }
 
@@ -328,14 +384,25 @@ export async function listActiveUsers(session) {
 
 export async function deleteUserAdmin(email, session) {
   requireAdminConsole(session);
-  await queryRun(`DELETE FROM users WHERE email = ?`, [email]);
+  const normEmail = String(email).trim().toLowerCase();
+  await queryRun(`DELETE FROM users WHERE LOWER(email) = ?`, [normEmail]);
+  try {
+    await queryRun(`UPDATE site_employees SET status = 'inactive' WHERE LOWER(user_email) = ? OR LOWER(email) = ?`, [normEmail, normEmail]);
+  } catch (e) { }
   return { ok: true };
 }
 
 export async function setUserActiveAdmin(email, active, session) {
   requireAdminConsole(session);
-  await queryRun(`UPDATE users SET active = ? WHERE LOWER(email) = ?`, [active ? 1 : 0, String(email).trim().toLowerCase()]);
-  await logAudit(session.email, active ? 'User Activated' : 'User Deactivated', String(email), 'Settings');
+  const normEmail = String(email).trim().toLowerCase();
+  await queryRun(`UPDATE users SET active = ? WHERE LOWER(email) = ?`, [active ? 1 : 0, normEmail]);
+  try {
+    await queryRun(
+      `UPDATE site_employees SET status = ? WHERE LOWER(user_email) = ? OR LOWER(email) = ?`,
+      [active ? 'active' : 'inactive', normEmail, normEmail]
+    );
+  } catch (e) { }
+  await logAudit(session.email, active ? 'User Activated' : 'User Deactivated', normEmail, 'Settings');
   return { ok: true };
 }
 
@@ -412,17 +479,71 @@ export async function acceptInvite(token, password) {
 // --- EMAIL ACTIONS ---
 export async function updateUserDetailsAdmin(email, details, session) {
   requireAdminConsole(session);
-  const { name, mobileNumber, department, employeeId } = details || {};
+  const { name, mobileNumber, department, designation, employeeId, primaryProject } = details || {};
+  const normEmail = String(email).trim().toLowerCase();
 
   // ensure columns exist
   try { await queryRun(`ALTER TABLE users ADD COLUMN department TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN employee_id TEXT`); } catch (e) { /* already exists */ }
   try { await queryRun(`ALTER TABLE users ADD COLUMN mobile_number TEXT`); } catch (e) { /* already exists */ }
+  try { await queryRun(`ALTER TABLE users ADD COLUMN designation TEXT`); } catch (e) { /* already exists */ }
 
   await queryRun(
-    'UPDATE users SET name = COALESCE(?, name), mobile_number = ?, department = ?, employee_id = ? WHERE LOWER(email) = ?',
-    [name !== undefined && name !== null && String(name).trim() ? String(name).trim() : null, mobileNumber || null, department || null, employeeId || null, String(email).trim().toLowerCase()]
+    'UPDATE users SET name = COALESCE(?, name), mobile_number = ?, department = ?, designation = ?, employee_id = ? WHERE LOWER(email) = ?',
+    [
+      name !== undefined && name !== null && String(name).trim() ? String(name).trim() : null,
+      mobileNumber || null,
+      department || null,
+      designation || null,
+      employeeId || null,
+      normEmail
+    ]
   );
+
+  // Synchronize updates with site_employees
+  try {
+    const nowIso = new Date().toISOString();
+    const existingEmp = await queryGet(
+      `SELECT id, employee_id FROM site_employees WHERE LOWER(user_email) = ? OR LOWER(email) = ? OR employee_id = ?`,
+      [normEmail, normEmail, employeeId || '']
+    );
+
+    if (existingEmp) {
+      await queryRun(
+        `UPDATE site_employees
+         SET name = COALESCE(?, name),
+             department = COALESCE(?, department),
+             designation = COALESCE(?, designation),
+             phone = COALESCE(?, phone),
+             employee_id = COALESCE(?, employee_id),
+             updated_at = ?
+         WHERE id = ?`,
+        [name || null, department || null, designation || null, mobileNumber || null, employeeId || null, nowIso, existingEmp.id]
+      );
+      if (primaryProject) {
+        const empId = employeeId || existingEmp.employee_id;
+        await queryRun(
+          `UPDATE site_project_allocations SET is_primary = 0 WHERE employee_id = ? AND status = 'active'`,
+          [empId]
+        );
+        await queryRun(
+          `INSERT INTO site_project_allocations (employee_id, project, role_at_site, is_primary, status, start_date, allocated_by, created_at, updated_at)
+           VALUES (?, ?, ?, 1, 'active', ?, ?, ?, ?)`,
+          [empId, primaryProject, designation || 'Staff', nowIso.split('T')[0], session?.email || 'admin', nowIso, nowIso]
+        );
+      }
+    } else {
+      const empId = employeeId || `EMP-${Date.now().toString().slice(-4)}`;
+      await queryRun(
+        `INSERT INTO site_employees (employee_id, user_email, name, designation, department, phone, email, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+        [empId, normEmail, name || normEmail.split('@')[0], designation || 'Staff', department || 'Operations', mobileNumber || '', normEmail, nowIso, nowIso]
+      );
+    }
+  } catch (syncErr) {
+    console.warn('Sync site_employees update warning:', syncErr.message);
+  }
+
   await logAudit(session.email, 'User Details Updated', email, 'Settings');
   return { ok: true };
 }

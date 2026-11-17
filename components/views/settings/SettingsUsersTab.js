@@ -9,8 +9,9 @@ export default function SettingsUsersTab({
   usersSearch, setUsersSearch,
   handleExportUsers,
   setTargetEmail, setNewUserName, setNewUserPassword, setNewUserRoles,
-  newEmployeeId, setNewEmployeeId, newDepartment, setNewDepartment, newMobileNumber, setNewMobileNumber,
-  editEmployeeId, setEditEmployeeId, editDepartment, setEditDepartment, editMobileNumber, setEditMobileNumber,
+  newEmployeeId, setNewEmployeeId, newDepartment, setNewDepartment, newDesignation, setNewDesignation, newMobileNumber, setNewMobileNumber, newPrimaryProject, setNewPrimaryProject,
+  editEmployeeId, setEditEmployeeId, editDepartment, setEditDepartment, editDesignation, setEditDesignation, editMobileNumber, setEditMobileNumber, editPrimaryProject, setEditPrimaryProject,
+  projectList,
   editUserName, setEditUserName,
   setInviteResult, setInviteModalOpen,
   loading, filteredUsers,
@@ -87,7 +88,9 @@ export default function SettingsUsersTab({
                 setNewUserPassword('ChangeMe123!');
                 setNewEmployeeId('');
                 setNewDepartment('');
+                if (setNewDesignation) setNewDesignation('');
                 setNewMobileNumber('');
+                if (setNewPrimaryProject) setNewPrimaryProject('');
                 setNewUserRoles({ proc: false, finance: true, director: false });
                 setInviteResult(null);
                 setInviteModalOpen(true);
@@ -136,8 +139,25 @@ export default function SettingsUsersTab({
                               {initials}
                             </div>
                             <div className="space-y-0.5">
-                              <div className="font-bold text-xs text-slate-900 dark:text-slate-100">{u.name || '—'}</div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-xs text-slate-900 dark:text-slate-100">{u.name || '—'}</span>
+                                {u.employee_id && (
+                                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-muted text-muted-foreground border border-border">
+                                    {u.employee_id}
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-[11px] text-slate-600 dark:text-slate-400 font-mono">{u.email}</div>
+                              {(u.designation || u.department) && (
+                                <div className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                  {[u.designation, u.department].filter(Boolean).join(' • ')}
+                                </div>
+                              )}
+                              {u.primary_project && (
+                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  Site: <span className="text-foreground font-semibold">{u.primary_project}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </TableCell>
@@ -178,7 +198,9 @@ export default function SettingsUsersTab({
                               if (setEditUserName) setEditUserName(u.name || '');
                               setEditEmployeeId(u.employee_id || '');
                               setEditDepartment(u.department || '');
+                              if (setEditDesignation) setEditDesignation(u.designation || '');
                               setEditMobileNumber(u.mobile_number || '');
+                              if (setEditPrimaryProject) setEditPrimaryProject(u.primary_project || '');
                               setAccessModalOpen(true);
                             }}
                           >

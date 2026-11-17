@@ -184,6 +184,29 @@ export async function initSiteAttendanceTables() {
     for (const sql of statements) {
       await queryRun(sql);
     }
+    // Safe sync from users table so all existing PTS users appear in site_employees
+    try {
+      await queryRun(`ALTER TABLE users ADD COLUMN designation TEXT`);
+    } catch (e) { }
+    try {
+      await queryRun(`
+        INSERT OR IGNORE INTO site_employees (employee_id, user_email, name, designation, department, phone, email, status, created_at, updated_at)
+        SELECT 
+          COALESCE(u.employee_id, 'EMP-' || substr(hex(randomblob(4)), 1, 6)),
+          u.email,
+          u.name,
+          COALESCE(u.designation, 'Site Staff'),
+          COALESCE(u.department, 'Site Operations'),
+          COALESCE(u.mobile_number, ''),
+          u.email,
+          CASE WHEN u.active = 0 THEN 'inactive' ELSE 'active' END,
+          datetime('now'),
+          datetime('now')
+        FROM users u
+        WHERE u.email NOT IN (SELECT COALESCE(user_email, '') FROM site_employees)
+      `);
+    } catch (e) { }
+
     _tablesInitialized = true;
   } catch (err) {
     console.error('Error initializing site attendance tables:', err);
@@ -390,6 +413,23 @@ export async function createOrUpdateSiteEmployee(data, session) {
       [employee_id, user_email || null, name, designation, department, phone, email || null, finalPhotoUrl, reporting_manager || null, status, now, now]
     );
   }
+
+  // Synchronize into users table
+  try {
+    const userEmailToLink = user_email || email;
+    if (userEmailToLink) {
+      await queryRun(
+        `UPDATE users
+         SET name = COALESCE(?, name),
+             department = ?,
+             designation = ?,
+             mobile_number = ?,
+             employee_id = ?
+         WHERE LOWER(email) = ?`,
+        [name, department, designation, phone, employee_id, userEmailToLink.toLowerCase()]
+      );
+    }
+  } catch (err) { }
 
   // If primary project specified, allocate
   if (primary_project) {
