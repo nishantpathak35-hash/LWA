@@ -58,7 +58,7 @@ export async function enqueueWhatsAppMessage(phone, message, mediaUrl = null) {
 
 export async function notifyQueueUsers(role, message, mediaUrl = null) {
   try {
-    const users = await queryAll(`SELECT whatsapp_number, roles FROM users WHERE is_active = 1`);
+    const users = await queryAll(`SELECT whatsapp_number, roles FROM users WHERE active = 1 OR active = 'true'`);
     for (const user of users) {
       if (user.whatsapp_number) {
         let hasRole = false;

@@ -244,7 +244,22 @@ export async function getProjectFinancialSummary(requestId, session) {
   requireAuth(session);
 
   // 1. Fetch the payment request to identify the project and creator
-  const pr = await queryGet(`SELECT * FROM payment_requests WHERE pr_id = ?`, [requestId]);
+  let pr = null;
+  const isManual = typeof requestId === 'string' && (requestId.startsWith('M-') || requestId.startsWith('#M-'));
+  if (isManual) {
+    const cleanId = requestId.replace(/^#?M-/, '');
+    const mp = await queryGet('SELECT * FROM manual_payments WHERE id = ?', [cleanId]);
+    if (mp) {
+      const po = await queryGet('SELECT vendor_code, vendor_name, project FROM purchase_orders WHERE po_no = ?', [mp.po_no]);
+      pr = {
+        pr_id: requestId,
+        project: po?.project || 'General',
+        created_by: mp.recorded_by || ''
+      };
+    }
+  } else {
+    pr = await queryGet('SELECT * FROM payment_requests WHERE pr_id = ?', [requestId]);
+  }
   if (!pr) {
     throw new Error('Payment request not found');
   }

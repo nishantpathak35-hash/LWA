@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Dialog, Button, Input } from '../../ui/core';
 import { formatCurrency, formatDate } from '../../../app/lib/utils';
 import { 
   Folder, TrendingUp, IndianRupee, Wallet, Download, ArrowLeft,
   Building2, Calendar, CheckCircle2, Clock, CreditCard, ExternalLink,
-  Layers, Search, AlertTriangle, Edit2, ShieldAlert, Sparkles, MapPin, Receipt
+  Layers, Search, AlertTriangle, Edit2, ShieldAlert, Sparkles, MapPin, Receipt,
+  HardHat, Users, Camera, ShieldCheck
 } from 'lucide-react';
 import { useAppState } from '../../StateProvider';
 import { toast } from '../../ui/Toast';
@@ -34,6 +35,81 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
   // Sorting state for project PO ledger
   const [sortField, setSortField] = useState('po_no');
   const [sortDir, setSortDir] = useState('asc');
+
+  // Site Workforce & Attendance State
+  const [workforceSummary, setWorkforceSummary] = useState(null);
+  const [workforceLoading, setWorkforceLoading] = useState(false);
+  const [workforceSelfieModal, setWorkforceSelfieModal] = useState(null);
+  const [workforceMapModal, setWorkforceMapModal] = useState(null);
+
+  // Geofence Modal State
+  const [showGeofenceModal, setShowGeofenceModal] = useState(false);
+  const [geofenceForm, setGeofenceForm] = useState({
+    site_address: '',
+    latitude: '',
+    longitude: '',
+    radius_meters: 200,
+    is_mandatory: 1
+  });
+  const [savingGeofence, setSavingGeofence] = useState(false);
+
+  // Load project workforce summary
+  const loadWorkforce = useCallback(async () => {
+    if (!selectedProject?.project) return;
+    setWorkforceLoading(true);
+    try {
+      const summary = await call('getProjectWorkforceSummary', selectedProject.project);
+      if (summary) {
+        setWorkforceSummary(summary);
+        if (summary.geofence) {
+          setGeofenceForm({
+            site_address: summary.geofence.site_address || selectedProject.site_address || '',
+            latitude: summary.geofence.latitude ?? '',
+            longitude: summary.geofence.longitude ?? '',
+            radius_meters: summary.geofence.radius_meters ?? 200,
+            is_mandatory: summary.geofence.is_mandatory ?? 1
+          });
+        } else {
+          setGeofenceForm(prev => ({
+            ...prev,
+            site_address: selectedProject.site_address || ''
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load project workforce:', err);
+    } finally {
+      setWorkforceLoading(false);
+    }
+  }, [call, selectedProject]);
+
+  useEffect(() => {
+    if (selectedProject?.project) {
+      loadWorkforce();
+    }
+  }, [selectedProject, loadWorkforce]);
+
+  const handleSaveGeofence = async (e) => {
+    e.preventDefault();
+    setSavingGeofence(true);
+    try {
+      await call('saveSiteGeofence', {
+        project: selectedProject.project,
+        site_address: geofenceForm.site_address,
+        latitude: geofenceForm.latitude ? parseFloat(geofenceForm.latitude) : null,
+        longitude: geofenceForm.longitude ? parseFloat(geofenceForm.longitude) : null,
+        radius_meters: geofenceForm.radius_meters ? parseInt(geofenceForm.radius_meters, 10) : 200,
+        is_mandatory: geofenceForm.is_mandatory ? 1 : 0
+      });
+      toast.success('Site geofence configuration updated.');
+      setShowGeofenceModal(false);
+      await loadWorkforce();
+    } catch (err) {
+      toast.error(err.message || 'Failed to save geofence.');
+    } finally {
+      setSavingGeofence(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedProject) {
@@ -480,6 +556,16 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
         >
           <MapPin className="w-3.5 h-3.5" /> Site & Contract Information
         </button>
+        <button
+          onClick={() => setActiveTab('workforce')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'workforce' 
+              ? 'bg-amber-500 text-slate-950 shadow-sm' 
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <HardHat className="w-3.5 h-3.5" /> Site Workforce ({workforceSummary?.totalAllocated ?? 0})
+        </button>
       </div>
 
       {/* ── Tab 1: Purchase Orders Ledger ── */}
@@ -793,6 +879,512 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
           </CardContent>
         </Card>
       )}
+
+      {/* ── Tab 4: Site Workforce & Attendance ── */}
+      {activeTab === 'workforce' && (
+        <div className="space-y-6">
+          {/* Workforce Summary KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="bg-card border-border shadow-xs p-4">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                Total Allocated
+              </span>
+              <span className="text-2xl font-bold font-mono text-foreground">
+                {workforceSummary?.totalAllocated ?? 0}
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-1">Active site engineers & staff</p>
+            </Card>
+
+            <Card className="bg-card border-border shadow-xs p-4">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                Present Today
+              </span>
+              <span className="text-2xl font-bold font-mono text-emerald-500">
+                {workforceSummary?.presentToday ?? 0}
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-1">Logged attendance today</p>
+            </Card>
+
+            <Card className="bg-card border-border shadow-xs p-4">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                On-Site Now
+              </span>
+              <span className="text-2xl font-bold font-mono text-amber-500 flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                {workforceSummary?.currentlyOnSite ?? 0}
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-1">Active inside site radius</p>
+            </Card>
+
+            <Card className="bg-card border-border shadow-xs p-4">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                Absent Today
+              </span>
+              <span className="text-2xl font-bold font-mono text-rose-500">
+                {workforceSummary?.absentToday ?? 0}
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-1">Pending or no check-in</p>
+            </Card>
+          </div>
+
+          {/* Project Geo-Fence & Boundary Card */}
+          <Card className="bg-card border-border shadow-xs overflow-hidden">
+            <CardHeader className="border-b border-border py-3.5 px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-muted/20">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-amber-500" />
+                <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Site Geo-Fence & Punch Boundary Configuration
+                </CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowGeofenceModal(true)}
+                className="text-xs font-semibold"
+              >
+                <Edit2 className="w-3.5 h-3.5 mr-1.5 text-amber-500" /> Configure Boundary & Radius
+              </Button>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-3 bg-muted/30 rounded-xl border border-border">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Site Address
+                  </span>
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {workforceSummary?.geofence?.site_address || selectedProject.site_address || 'No location configured'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-muted/30 rounded-xl border border-border">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                    GPS Coordinates
+                  </span>
+                  <p className="text-xs font-mono font-medium text-foreground">
+                    {workforceSummary?.geofence?.latitude != null
+                      ? `${workforceSummary.geofence.latitude.toFixed(6)}, ${workforceSummary.geofence.longitude.toFixed(6)}`
+                      : 'Not configured'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-muted/30 rounded-xl border border-border">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Allowed Punch Radius
+                  </span>
+                  <p className="text-xs font-mono font-bold text-amber-500">
+                    {workforceSummary?.geofence?.radius_meters || 200} Metres
+                  </p>
+                </div>
+
+                <div className="p-3 bg-muted/30 rounded-xl border border-border">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Geo-Fencing Enforcement
+                  </span>
+                  {workforceSummary?.geofence?.is_mandatory ? (
+                    <Badge variant="success" className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 text-[11px]">
+                      Mandatory Enforced
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-amber-500/40 text-amber-500 text-[11px]">
+                      Flexible (Flagged)
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Allocated Workforce Table */}
+          <Card className="bg-card border-border shadow-xs">
+            <CardHeader className="border-b border-border py-3.5 px-6 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-amber-500" />
+                <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Allocated Workforce & Today&apos;s Presence ({workforceSummary?.workforce?.length || 0})
+                </CardTitle>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadWorkforce} disabled={workforceLoading} className="text-xs">
+                Refresh Workforce
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              {(!workforceSummary?.workforce || workforceSummary.workforce.length === 0) ? (
+                <div className="text-center py-12 text-muted-foreground text-xs">
+                  No employees are currently allocated to {selectedProject.project}. Allocate employees in Site → Employees.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Designation & Role</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Punch In</TableHead>
+                        <TableHead>Punch Out</TableHead>
+                        <TableHead>Hours Today</TableHead>
+                        <TableHead>Verification</TableHead>
+                        <TableHead>Status Today</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workforceSummary.workforce.map(emp => (
+                        <TableRow key={emp.employee_id}>
+                          <TableCell className="font-semibold text-foreground text-xs">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-[10px] font-bold overflow-hidden">
+                                {emp.photo_url ? (
+                                  <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  emp.name.slice(0, 2).toUpperCase()
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-bold text-foreground">{emp.name}</div>
+                                <div className="text-[10px] font-mono text-muted-foreground">{emp.employee_id}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            <div className="font-medium text-foreground">{emp.role_at_site || emp.designation}</div>
+                            {emp.is_primary ? (
+                              <span className="text-[10px] text-amber-500 font-medium">Primary Site</span>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground">
+                            {emp.phone || '—'}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono whitespace-nowrap">
+                            {emp.today_record?.punch_in_time ? (
+                              new Date(emp.today_record.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono whitespace-nowrap">
+                            {emp.today_record?.punch_out_time ? (
+                              new Date(emp.today_record.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono font-bold text-amber-500">
+                            {emp.today_record?.total_hours ? `${emp.today_record.total_hours}h` : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              {emp.today_record?.punch_in_selfie && (
+                                <button
+                                  onClick={() => setWorkforceSelfieModal({
+                                    title: `${emp.name} — Today's Selfie`,
+                                    src: emp.today_record.punch_in_selfie
+                                  })}
+                                  title="View Check-In Selfie"
+                                  className="p-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
+                                >
+                                  <Camera className="w-3.5 h-3.5 text-amber-500" />
+                                </button>
+                              )}
+                              {emp.today_record?.punch_in_latitude != null && (
+                                <button
+                                  onClick={() => setWorkforceMapModal({
+                                    lat: emp.today_record.punch_in_latitude,
+                                    lng: emp.today_record.punch_in_longitude,
+                                    address: emp.today_record.punch_in_address || selectedProject.project,
+                                    title: `${emp.name} — Punch Location`
+                                  })}
+                                  title="View GPS Punch Location"
+                                  className="p-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
+                                >
+                                  <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                                </button>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {emp.today_status === 'on_site' ? (
+                              <Badge variant="success" className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> On-Site Active
+                              </Badge>
+                            ) : emp.today_status === 'checked_out' ? (
+                              <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 border border-blue-500/30">
+                                Shift Completed
+                              </Badge>
+                            ) : emp.today_status === 'half_day' ? (
+                              <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                                Half Day
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-muted-foreground">
+                                Absent Today
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Project Attendance History */}
+          <Card className="bg-card border-border shadow-xs">
+            <CardHeader className="border-b border-border py-3.5 px-6">
+              <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-500" />
+                Recent Site Attendance Register ({workforceSummary?.recentAttendance?.length || 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {(!workforceSummary?.recentAttendance || workforceSummary.recentAttendance.length === 0) ? (
+                <div className="text-center py-8 text-muted-foreground text-xs">
+                  No historical punches logged for {selectedProject.project}.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Punch In</TableHead>
+                        <TableHead>Punch Out</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Geo Status</TableHead>
+                        <TableHead>Verification</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workforceSummary.recentAttendance.map(rec => (
+                        <TableRow key={rec.id}>
+                          <TableCell className="text-xs font-semibold text-foreground whitespace-nowrap">
+                            {rec.date}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium text-foreground whitespace-nowrap">
+                            <div>{rec.employee_name}</div>
+                            <span className="text-[10px] font-mono text-muted-foreground">{rec.employee_id}</span>
+                          </TableCell>
+                          <TableCell className="text-xs font-mono whitespace-nowrap">
+                            {rec.punch_in_time ? new Date(rec.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono whitespace-nowrap">
+                            {rec.punch_out_time ? new Date(rec.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono font-bold text-amber-500 whitespace-nowrap">
+                            {rec.total_hours ? `${rec.total_hours}h` : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">
+                            {rec.punch_in_geo_status === 'within_radius' ? (
+                              <span className="text-emerald-500 font-medium">Inside Site</span>
+                            ) : rec.punch_in_geo_status ? (
+                              <span className="text-rose-500 font-medium">Outside Radius</span>
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              {rec.punch_in_selfie && (
+                                <button
+                                  onClick={() => setWorkforceSelfieModal({
+                                    title: `${rec.employee_name} (${rec.date})`,
+                                    src: rec.punch_in_selfie
+                                  })}
+                                  title="View Selfie"
+                                  className="p-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
+                                >
+                                  <Camera className="w-3.5 h-3.5 text-amber-500" />
+                                </button>
+                              )}
+                              {rec.punch_in_latitude != null && (
+                                <button
+                                  onClick={() => setWorkforceMapModal({
+                                    lat: rec.punch_in_latitude,
+                                    lng: rec.punch_in_longitude,
+                                    address: rec.punch_in_address || selectedProject.project,
+                                    title: `${rec.employee_name} — Location`
+                                  })}
+                                  title="View Location"
+                                  className="p-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
+                                >
+                                  <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                                </button>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {rec.is_flagged ? (
+                              <Badge variant="destructive">Flagged</Badge>
+                            ) : rec.status === 'present' ? (
+                              <Badge variant="success" className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                                Present
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">{rec.status}</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Modal: Configure Site Geo-Fence ── */}
+      <Dialog
+        open={showGeofenceModal}
+        onClose={() => setShowGeofenceModal(false)}
+        title={`Configure Site Geo-Fence — ${selectedProject.project}`}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveGeofence} className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Set the official GPS latitude and longitude for this site. Employees punching beyond the allowed radius will be blocked or flagged.
+          </p>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">Site Physical Address</label>
+            <Input
+              value={geofenceForm.site_address}
+              onChange={(e) => setGeofenceForm({ ...geofenceForm, site_address: e.target.value })}
+              placeholder="e.g. DLF Cyber City, Tower C, Gurugram"
+              className="text-xs"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Latitude</label>
+              <Input
+                type="number"
+                step="any"
+                value={geofenceForm.latitude}
+                onChange={(e) => setGeofenceForm({ ...geofenceForm, latitude: e.target.value })}
+                placeholder="28.4985"
+                required
+                className="text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Longitude</label>
+              <Input
+                type="number"
+                step="any"
+                value={geofenceForm.longitude}
+                onChange={(e) => setGeofenceForm({ ...geofenceForm, longitude: e.target.value })}
+                placeholder="77.0928"
+                required
+                className="text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Radius (Metres)</label>
+              <Input
+                type="number"
+                value={geofenceForm.radius_meters}
+                onChange={(e) => setGeofenceForm({ ...geofenceForm, radius_meters: e.target.value })}
+                placeholder="200"
+                min="50"
+                max="5000"
+                required
+                className="text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Enforcement</label>
+              <select
+                value={geofenceForm.is_mandatory}
+                onChange={(e) => setGeofenceForm({ ...geofenceForm, is_mandatory: parseInt(e.target.value, 10) })}
+                className="w-full text-xs p-2 rounded-xl bg-card border border-border"
+              >
+                <option value={1}>Mandatory (Block out-of-site)</option>
+                <option value={0}>Flexible (Flag for review)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <Button variant="outline" size="sm" type="button" onClick={() => setShowGeofenceModal(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" disabled={savingGeofence} className="text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950">
+              {savingGeofence ? 'Saving...' : 'Save Geofence'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* ── Modal: Workforce Selfie Preview ── */}
+      <Dialog
+        open={!!workforceSelfieModal}
+        onClose={() => setWorkforceSelfieModal(null)}
+        title={workforceSelfieModal?.title || 'Attendance Selfie Photograph'}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="aspect-4/3 rounded-2xl overflow-hidden bg-black flex items-center justify-center border border-border">
+            {workforceSelfieModal?.src && (
+              <img src={workforceSelfieModal.src} alt="Selfie" className="w-full h-full object-contain" />
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setWorkforceSelfieModal(null)}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ── Modal: Workforce GPS Map Preview ── */}
+      <Dialog
+        open={!!workforceMapModal}
+        onClose={() => setWorkforceMapModal(null)}
+        title={workforceMapModal?.title || 'GPS Verification Map'}
+        maxWidth="max-w-xl"
+      >
+        <div className="space-y-4">
+          {workforceMapModal && (
+            <>
+              <div className="h-72 rounded-2xl overflow-hidden border border-border bg-muted">
+                <iframe
+                  title="Location Map"
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${workforceMapModal.lng - 0.005},${workforceMapModal.lat - 0.005},${workforceMapModal.lng + 0.005},${workforceMapModal.lat + 0.005}&layer=mapnik&marker=${workforceMapModal.lat},${workforceMapModal.lng}`}
+                />
+              </div>
+              <div className="p-3 bg-muted/40 rounded-xl border border-border text-xs space-y-1">
+                <div className="font-semibold text-foreground">{workforceMapModal.address}</div>
+                <div className="text-muted-foreground font-mono text-[11px]">
+                  Coordinates: {workforceMapModal.lat.toFixed(6)}, {workforceMapModal.lng.toFixed(6)}
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${workforceMapModal.lat},${workforceMapModal.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-amber-500 hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Open in Google Maps
+                </a>
+                <Button variant="outline" size="sm" onClick={() => setWorkforceMapModal(null)}>
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Dialog>
 
       {/* ── Edit Settings & Financials Modal ── */}
       <Dialog

@@ -29,3 +29,24 @@ export { createDatabaseBackup, getSystemHealthAndDiagnostics, getGoogleDriveConf
 
 
 export { createCreditNote, listCreditNotes, deleteCreditNote } from './api/credit-notes.js';
+
+export {
+  initSiteAttendanceTables,
+  listSiteEmployees,
+  getSiteEmployee,
+  createOrUpdateSiteEmployee,
+  allocateEmployeeToProject,
+  transferEmployeeProject,
+  getSiteGeofence,
+  saveSiteGeofence,
+  punchAttendance,
+  getMyAttendanceToday,
+  getMyAttendanceHistory,
+  getManagementAttendanceKPIs,
+  getDailyAttendanceRegister,
+  getProjectWorkforceSummary,
+  submitAttendanceRegularisation,
+  listAttendanceRegularisations,
+  reviewAttendanceRegularisation,
+  getAttendanceAuditLogs
+} from './api/attendance.js';

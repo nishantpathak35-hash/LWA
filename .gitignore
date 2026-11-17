@@ -61,5 +61,6 @@ lx.sqlite
 /rescue_*.json
 /rescue_*.ps1
 /scratch/backup*
+/scratch/
 
 .env*

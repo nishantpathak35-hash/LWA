@@ -24,6 +24,8 @@ const VendorsView = dynamic(() => import('./views/VendorsView'), { loading: view
 const ReportsView = dynamic(() => import('./views/ReportsView'), { loading: viewLoading });
 const InvoicesView = dynamic(() => import('./views/InvoicesView'), { loading: viewLoading });
 const SettingsView = dynamic(() => import('./views/SettingsView'), { loading: viewLoading });
+const SiteEmployeesView = dynamic(() => import('./views/SiteEmployeesView'), { loading: viewLoading });
+const MyAttendanceView = dynamic(() => import('./views/MyAttendanceView'), { loading: viewLoading });
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -43,6 +45,8 @@ const VIEW_LABELS = {
   projects: 'Projects',
   vendors: 'Vendors',
   pos: 'Purchase Orders',
+  site_employees: 'Site Employees',
+  my_attendance: 'My Attendance',
   invoices: 'Invoices',
   payments: 'Payments',
   reports: 'Reports',
@@ -65,7 +69,7 @@ const SHORTCUT_MAP = {
 };
 
 
-const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'invoices', 'payments', 'reports', 'settings'];
+const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'site_employees', 'my_attendance', 'invoices', 'payments', 'reports', 'settings'];
 
 function getFirstAllowedView(hasPermission) {
   return ORDERED_VIEWS.find((viewId) => {
@@ -286,14 +290,16 @@ export default function MainLayout() {
 
     const viewLabel = VIEW_LABELS[activeView] || activeView;
     const views = {
-      dashboard: <DashboardView />,
-      projects:  <ProjectsView />,
-      vendors:   <VendorsView />,
-      pos:       <POsView />,
-      invoices:  <InvoicesView />,
-      payments:  <PaymentsView />,
-      reports:   <ReportsView />,
-      settings:  <SettingsView />,
+      dashboard:      <DashboardView />,
+      projects:       <ProjectsView />,
+      vendors:        <VendorsView />,
+      pos:            <POsView />,
+      site_employees: <SiteEmployeesView />,
+      my_attendance:  <MyAttendanceView />,
+      invoices:       <InvoicesView />,
+      payments:       <PaymentsView />,
+      reports:        <ReportsView />,
+      settings:       <SettingsView />,
     };
 
     return (

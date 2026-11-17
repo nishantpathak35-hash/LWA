@@ -45,6 +45,7 @@ const CORE_TABLES = [
  * Returns metadata and bundled table records.
  */
 export async function createDatabaseBackup(userEmail = 'admin@luxeworx.com') {
+  const email = (typeof userEmail === 'object' ? userEmail?.email : userEmail) || 'admin@luxeworx.com';
   const backupData = {};
   const tableCounts = {};
   let totalRecords = 0;
@@ -68,7 +69,7 @@ export async function createDatabaseBackup(userEmail = 'admin@luxeworx.com') {
     system: 'LWA Payment Tracking System',
     version: '2.0.0',
     timestamp,
-    exportedBy: userEmail,
+    exportedBy: email,
     totalTables: Object.keys(backupData).length,
     totalRecords,
     tableCounts,
@@ -78,7 +79,7 @@ export async function createDatabaseBackup(userEmail = 'admin@luxeworx.com') {
   // Record audit log
   try {
     await logAudit(
-      userEmail,
+      email,
       'System Backup',
       `Exported database snapshot: ${totalRecords} records across ${meta.totalTables} tables`,
       'System'
@@ -110,6 +111,7 @@ export async function createDatabaseBackup(userEmail = 'admin@luxeworx.com') {
  * and integrity diagnostics (detects orphaned payment requests, orphaned PO items, unmapped invoices).
  */
 export async function getSystemHealthAndDiagnostics(userEmail = 'admin@luxeworx.com') {
+  const email = (typeof userEmail === 'object' ? userEmail?.email : userEmail) || 'admin@luxeworx.com';
   const startTime = Date.now();
   const tableMetrics = {};
   let totalRows = 0;
@@ -256,6 +258,7 @@ export async function getGoogleDriveConfig() {
  * Saves Google Drive backup configuration. Preserves existing private key if masked/not provided.
  */
 export async function saveGoogleDriveConfig(newConfig, userEmail = 'admin@luxeworx.com') {
+  const email = (typeof userEmail === 'object' ? userEmail?.email : userEmail) || 'admin@luxeworx.com';
   const existing = await resolveDriveCredentials();
 
   let finalKey = existing.privateKey;
@@ -269,7 +272,7 @@ export async function saveGoogleDriveConfig(newConfig, userEmail = 'admin@luxewo
     folderId: (newConfig.folderId || existing.folderId || '').trim(),
     enabled: newConfig.enabled !== undefined ? Boolean(newConfig.enabled) : existing.enabled,
     updatedAt: new Date().toISOString(),
-    updatedBy: userEmail
+    updatedBy: email
   };
 
   await queryRun(

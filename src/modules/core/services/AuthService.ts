@@ -44,18 +44,28 @@ export class AuthService {
    */
   static async getLegacyPasswordHashUsers(): Promise<any[]> {
     const { queryAll } = await import('../../../../app/lib/db.js');
-    const rows = await queryAll(`SELECT id, email, name, role, last_login, password_hash FROM users WHERE password_hash IS NOT NULL`);
+    const rows = await queryAll(`SELECT email, name, roles, last_login, password_hash FROM users WHERE password_hash IS NOT NULL`);
     return rows.filter((r: any) => {
       const hash = String(r.password_hash || '');
       return !hash.startsWith('$2a$') && !hash.startsWith('$2b$');
-    }).map((r: any) => ({
-      id: r.id,
-      email: r.email,
-      name: r.name,
-      role: r.role,
-      lastLogin: r.last_login,
-      isLegacyHash: true
-    }));
+    }).map((r: any) => {
+      let primaryRole = 'staff';
+      try {
+        const parsed = JSON.parse(r.roles || '[]');
+        primaryRole = Array.isArray(parsed) ? (parsed[0] || 'staff') : String(r.roles || 'staff');
+      } catch {
+        primaryRole = String(r.roles || 'staff');
+      }
+      return {
+        id: r.email,
+        email: r.email,
+        name: r.name,
+        role: primaryRole,
+        roles: r.roles,
+        lastLogin: r.last_login,
+        isLegacyHash: true
+      };
+    });
   }
 
   /**

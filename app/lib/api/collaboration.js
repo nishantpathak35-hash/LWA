@@ -145,8 +145,8 @@ export async function requestPaymentClarification(user, paymentId, queryText) {
   const now = new Date().toISOString();
 
   await queryRun(
-    `UPDATE payment_requests SET query_status = 'hold', query_text = ?, query_asked_by = ?, query_asked_at = ? WHERE id = ? OR pr_id = ?`,
-    [queryText, `${uName} (${uEmail})`, now, paymentId, paymentId]
+    `UPDATE payment_requests SET query_status = 'hold', query_text = ?, query_asked_by = ?, query_asked_at = ? WHERE pr_id = ?`,
+    [queryText, `${uName} (${uEmail})`, now, paymentId]
   );
 
   await logActivity(user, 'requested clarification for', 'Payment Request', paymentId, queryText);
@@ -174,8 +174,8 @@ export async function answerPaymentClarification(user, paymentId, responseText) 
   const now = new Date().toISOString();
 
   await queryRun(
-    `UPDATE payment_requests SET query_status = 'answered', query_response = ?, query_answered_at = ? WHERE id = ? OR pr_id = ?`,
-    [responseText, now, paymentId, paymentId]
+    `UPDATE payment_requests SET query_status = 'answered', query_response = ?, query_answered_at = ? WHERE pr_id = ?`,
+    [responseText, now, paymentId]
   );
 
   await logActivity(user, 'answered clarification for', 'Payment Request', paymentId, responseText);
@@ -313,7 +313,7 @@ export async function getUserTasks(user) {
     const pendingPRs = await queryAll(`
       SELECT pr_id, po_no, vendor_name, project, amount_requested, approved_amount, stage,
              proc_approval, finance_approval, director_approval, query_status, query_text,
-             query_asked_by, query_asked_at, created_by, created_at, is_overbudget_approval
+             query_asked_by, query_asked_at, created_by, created_at, 0 AS is_overbudget_approval
       FROM payment_requests
       WHERE LOWER(stage) NOT LIKE '%reject%' AND LOWER(stage) NOT LIKE '%cancel%'
       ORDER BY pr_id DESC LIMIT 100

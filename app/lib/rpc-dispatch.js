@@ -9,7 +9,8 @@ const ADMIN_METHODS = new Set([
   'cloneApprovalWorkflow', 'activateApprovalWorkflow', 'deactivateApprovalWorkflow', 'reorderWorkflowStages',
   'updateNumberSeriesConfig', 'createTDSSection', 'updateTDSSection', 'deleteTDSSection',
   'setDefaultTDS', 'toggleTDSStatus', 'setDefaultTDSConfig', 'inviteVendorPortalUserAdmin',
-  'deduplicateSystemPayments', 'correctLegacyPOPaidAmount'
+  'deduplicateSystemPayments', 'correctLegacyPOPaidAmount',
+  'createDatabaseBackup', 'saveGoogleDriveConfig', 'performAutoBackupToGoogleDrive'
 ]);
 
 function fail(message, status) {

@@ -647,6 +647,7 @@ export function StateProvider({ children }) {
     login,
     logout,
     call,
+    callRpc: call,
     callDirect,
     refreshData,
     refreshVendors,

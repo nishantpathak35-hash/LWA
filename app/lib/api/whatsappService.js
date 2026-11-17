@@ -191,7 +191,24 @@ export async function whatsappPO(poNo, session, preferredContactOverride = null)
 
 export async function whatsappPaymentAdvice(prId, session) {
   const senderEmail = session?.email || 'System';
-  const pr = await queryGet(`SELECT vendor_code, vendor_name, po_no, project, approved_amount FROM payment_requests WHERE pr_id = ?`, [prId]);
+  let pr = null;
+  const isManual = typeof prId === 'string' && (prId.startsWith('M-') || prId.startsWith('#M-'));
+  if (isManual) {
+    const cleanId = prId.replace(/^#?M-/, '');
+    const mp = await queryGet(`SELECT * FROM manual_payments WHERE id = ?`, [cleanId]);
+    if (mp) {
+      const po = await queryGet(`SELECT vendor_code, vendor_name, project FROM purchase_orders WHERE po_no = ?`, [mp.po_no]);
+      pr = {
+        vendor_code: po?.vendor_code || '',
+        vendor_name: po?.vendor_name || 'Vendor',
+        po_no: mp.po_no || 'Manual Entry',
+        project: po?.project || 'General',
+        approved_amount: mp.amount || 0
+      };
+    }
+  } else {
+    pr = await queryGet(`SELECT vendor_code, vendor_name, po_no, project, approved_amount FROM payment_requests WHERE pr_id = ?`, [prId]);
+  }
   if (!pr) throw new Error("Payment request not found.");
   
   const { number, name } = await getVendorWhatsAppNumber(pr.vendor_code);
