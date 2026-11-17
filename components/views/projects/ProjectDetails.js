@@ -1188,13 +1188,27 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                               {rec.punch_in_selfie && (
                                 <button
                                   onClick={() => setWorkforceSelfieModal({
-                                    title: `${rec.employee_name} (${rec.date})`,
+                                    title: `${rec.employee_name} — Punch In Selfie (${rec.date})`,
                                     src: rec.punch_in_selfie
                                   })}
-                                  title="View Selfie"
-                                  className="p-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
+                                  title="View Punch In Selfie"
+                                  className="px-1.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer flex items-center gap-0.5 text-[10px]"
                                 >
-                                  <Camera className="w-3.5 h-3.5 text-amber-500" />
+                                  <Camera className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">In</span>
+                                </button>
+                              )}
+                              {rec.punch_out_selfie && (
+                                <button
+                                  onClick={() => setWorkforceSelfieModal({
+                                    title: `${rec.employee_name} — Punch Out Selfie (${rec.date})`,
+                                    src: rec.punch_out_selfie
+                                  })}
+                                  title="View Punch Out Selfie"
+                                  className="px-1.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer flex items-center gap-0.5 text-[10px]"
+                                >
+                                  <Camera className="w-3.5 h-3.5 text-indigo-500" />
+                                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">Out</span>
                                 </button>
                               )}
                               {rec.punch_in_latitude != null && (
@@ -1203,12 +1217,28 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                                     lat: rec.punch_in_latitude,
                                     lng: rec.punch_in_longitude,
                                     address: rec.punch_in_address || selectedProject.project,
-                                    title: `${rec.employee_name} — Location`
+                                    title: `${rec.employee_name} — Punch In Location`
                                   })}
-                                  title="View Location"
-                                  className="p-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
+                                  title="View Punch In GPS Location Map"
+                                  className="px-1.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer flex items-center gap-0.5 text-[10px]"
                                 >
                                   <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">In Map</span>
+                                </button>
+                              )}
+                              {rec.punch_out_latitude != null && (
+                                <button
+                                  onClick={() => setWorkforceMapModal({
+                                    lat: rec.punch_out_latitude,
+                                    lng: rec.punch_out_longitude,
+                                    address: rec.punch_out_address || selectedProject.project,
+                                    title: `${rec.employee_name} — Punch Out Location`
+                                  })}
+                                  title="View Punch Out GPS Location Map"
+                                  className="px-1.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer flex items-center gap-0.5 text-[10px]"
+                                >
+                                  <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">Out Map</span>
                                 </button>
                               )}
                             </div>

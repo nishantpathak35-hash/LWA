@@ -58,6 +58,74 @@ async function recordAuditLog(user, actionType, details, department = 'Site Mana
 }
 
 /**
+ * Safely unwrap parameters that might be wrapped in an array by RPC callers.
+ */
+function unwrap(val) {
+  if (Array.isArray(val)) return val[0] || {};
+  return val || {};
+}
+
+/**
+ * Reverse geocode latitude and longitude into an exact readable street/site address.
+ * Falls back gracefully to formatted coordinate string if network or geocoding is unavailable.
+ */
+export async function resolveReadableAddress(lat, lng, clientAddress = '') {
+  if (clientAddress && typeof clientAddress === 'string') {
+    const trimmed = clientAddress.trim();
+    // Use client address if it is not just blank, generic placeholder, or raw coordinates
+    if (
+      trimmed.length > 5 &&
+      trimmed !== 'GPS Captured' &&
+      trimmed !== 'GPS Coordinates Stored' &&
+      !/^[-+]?[0-9]*\.?[0-9]+,\s*[-+]?[0-9]*\.?[0-9]+$/.test(trimmed)
+    ) {
+      return trimmed;
+    }
+  }
+
+  if (lat == null || lng == null) return '';
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'PTS-Attendance/1.0 (contact@luxeworxatelier.com)'
+        },
+        signal: controller.signal
+      }
+    );
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.display_name) {
+        return data.display_name;
+      }
+    }
+  } catch {
+    // Non-fatal network fallback
+  }
+
+  return `${Number(lat).toFixed(6)}°, ${Number(lng).toFixed(6)}°`;
+}
+
+/**
+ * Public RPC endpoint to reverse-geocode coordinates from the client
+ */
+export async function reverseGeocodeLocation(params, session) {
+  requireAuth(session);
+  const data = unwrap(params);
+  const { latitude, longitude } = data;
+  if (latitude == null || longitude == null) {
+    return { address: '' };
+  }
+  const address = await resolveReadableAddress(latitude, longitude);
+  return { address };
+}
+
+/**
  * Initializes database tables for Site Employee Management & Attendance.
  * Uses atomic IF NOT EXISTS definitions and required performance indexes.
  */
@@ -276,7 +344,7 @@ export async function listSiteEmployees(filters = {}, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  const { project, status, search } = filters;
+  const { project, status, search } = unwrap(filters);
   let sql = `
     SELECT e.*, 
       a.project AS current_project,
@@ -339,9 +407,17 @@ export async function listSiteEmployees(filters = {}, session) {
 /**
  * Get detailed profile for a specific employee including allocation & history.
  */
-export async function getSiteEmployee(employeeId, session) {
+export async function getSiteEmployee(params, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
+
+  const employeeId = typeof params === 'string'
+    ? params
+    : (Array.isArray(params)
+      ? (typeof params[0] === 'string' ? params[0] : params[0]?.employee_id)
+      : params?.employee_id);
+
+  if (!employeeId) throw new Error('Employee ID is required');
 
   const employee = await queryGet(`SELECT * FROM site_employees WHERE employee_id = ?`, [employeeId]);
   if (!employee) throw new Error('Employee not found');
@@ -382,7 +458,7 @@ export async function createOrUpdateSiteEmployee(data, session) {
     reporting_manager,
     status = 'active',
     primary_project
-  } = data;
+  } = unwrap(data);
 
   if (!employee_id || !name || !designation || !phone) {
     throw new Error('Employee ID, name, designation, and contact number are required');
@@ -466,7 +542,7 @@ export async function allocateEmployeeToProject(data, session) {
     is_primary = 1,
     start_date = getLocalDateString(),
     end_date = null
-  } = data;
+  } = unwrap(data);
 
   if (!employee_id || !project) {
     throw new Error('Employee ID and project are required');
@@ -512,7 +588,7 @@ export async function transferEmployeeProject(data, session) {
     role_at_site = 'Site Engineer',
     transfer_date = getLocalDateString(),
     reason = ''
-  } = data;
+  } = unwrap(data);
 
   if (!employee_id || !new_project) {
     throw new Error('Employee ID and new project are required');
@@ -554,7 +630,15 @@ export async function getSiteGeofence(project, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  const geofence = await queryGet(`SELECT * FROM site_geofences WHERE project = ?`, [project]);
+  const proj = typeof project === 'string'
+    ? project
+    : (Array.isArray(project)
+      ? (typeof project[0] === 'string' ? project[0] : project[0]?.project)
+      : project?.project);
+
+  if (!proj) return null;
+
+  const geofence = await queryGet(`SELECT * FROM site_geofences WHERE project = ?`, [proj]);
   return geofence || null;
 }
 
@@ -569,7 +653,7 @@ export async function saveSiteGeofence(data, session) {
     longitude,
     radius_meters = 200,
     is_mandatory = 1
-  } = data;
+  } = unwrap(data);
 
   if (!project || latitude == null || longitude == null) {
     throw new Error('Project, latitude, and longitude are required');
@@ -615,31 +699,47 @@ export async function punchAttendance(punchData, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  const {
-    type, // 'in' | 'out'
-    project,
-    selfie, // base64 string
-    latitude,
-    longitude,
-    accuracy,
-    address = ''
-  } = punchData;
+  const data = unwrap(punchData);
+
+  // Normalize punch type: support 'in', 'out', 'punch_in', 'punch_out', 'checkin', 'checkout'
+  let type = String(data.type || '').trim().toLowerCase().replace(/^punch_?/, '');
+  if (type === 'checkin' || type === 'check_in') type = 'in';
+  if (type === 'checkout' || type === 'check_out') type = 'out';
 
   if (!type || !['in', 'out'].includes(type)) {
     throw new Error('Invalid punch type. Must be "in" or "out".');
   }
+
+  const {
+    project,
+    selfie, // base64 string or url
+    latitude,
+    longitude,
+    accuracy,
+    address = '',
+    allow_flagged = false
+  } = data;
+
   if (!selfie) {
     throw new Error('Live selfie photograph is required for attendance verification.');
   }
-  if (latitude == null || longitude == null) {
-    throw new Error('GPS coordinates are required. Please ensure location services are enabled.');
+
+  const numLat = Number(latitude);
+  const numLng = Number(longitude);
+  if (latitude == null || longitude == null || isNaN(numLat) || isNaN(numLng)) {
+    throw new Error('GPS coordinates are required. Exact latitude and longitude must be provided.');
   }
+
+  const numAcc = accuracy != null && !isNaN(Number(accuracy)) ? Math.round(Number(accuracy)) : null;
+
+  // Reverse geocode to exact human-readable address on server
+  const resolvedAddress = await resolveReadableAddress(numLat, numLng, address);
 
   // Resolve employee identity from session
   let employee = null;
-  if (punchData.employee_id && isManager(session)) {
+  if (data.employee_id && isManager(session)) {
     // Manager punching on behalf or testing
-    employee = await queryGet(`SELECT * FROM site_employees WHERE employee_id = ?`, [punchData.employee_id]);
+    employee = await queryGet(`SELECT * FROM site_employees WHERE employee_id = ?`, [data.employee_id]);
   } else {
     // Find employee linked to session email, or match by email
     employee = await queryGet(`SELECT * FROM site_employees WHERE user_email = ? OR email = ?`, [session.email, session.email]);
@@ -681,7 +781,7 @@ export async function punchAttendance(punchData, session) {
   let flagReason = '';
 
   if (geofence && geofence.latitude != null && geofence.longitude != null) {
-    const distMeters = calculateDistanceMeters(latitude, longitude, geofence.latitude, geofence.longitude);
+    const distMeters = calculateDistanceMeters(numLat, numLng, geofence.latitude, geofence.longitude);
     const maxRadius = geofence.radius_meters || 200;
 
     if (distMeters != null && distMeters > maxRadius) {
@@ -689,13 +789,13 @@ export async function punchAttendance(punchData, session) {
       isFlagged = 1;
       flagReason = `Punched ${distMeters}m away from site (Allowed: ${maxRadius}m)`;
 
-      if (geofence.is_mandatory && !isManager(session)) {
+      if (geofence.is_mandatory && !isManager(session) && !allow_flagged) {
         throw new Error(`PUNCH_BLOCKED: You are ${distMeters}m outside the designated site boundary. Attendance must be punched within ${maxRadius}m of the site.`);
       }
     }
   }
 
-  if (accuracy && accuracy > 100) {
+  if (numAcc && numAcc > 100) {
     if (geoStatus === 'within_radius') {
       geoStatus = 'low_accuracy';
     }
@@ -730,7 +830,7 @@ export async function punchAttendance(punchData, session) {
              punch_in_address = ?, punch_in_selfie = ?, punch_in_geo_status = ?,
              is_flagged = ?, flag_reason = ?, updated_at = ?
          WHERE id = ?`,
-        [serverTimestamp, latitude, longitude, accuracy, address, storedSelfie, geoStatus, isFlagged, flagReason, serverTimestamp, existingRecord.id]
+        [serverTimestamp, numLat, numLng, numAcc, resolvedAddress, storedSelfie, geoStatus, isFlagged, flagReason, serverTimestamp, existingRecord.id]
       );
       recordId = existingRecord.id;
     } else {
@@ -740,7 +840,7 @@ export async function punchAttendance(punchData, session) {
          (employee_id, employee_name, project, date, punch_in_time, punch_in_latitude, punch_in_longitude,
           punch_in_accuracy, punch_in_address, punch_in_selfie, punch_in_geo_status, status, is_flagged, flag_reason, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'present', ?, ?, ?, ?)`,
-        [employee.employee_id, employee.name, targetProject, today, serverTimestamp, latitude, longitude, accuracy, address, storedSelfie, geoStatus, isFlagged, flagReason, serverTimestamp, serverTimestamp]
+        [employee.employee_id, employee.name, targetProject, today, serverTimestamp, numLat, numLng, numAcc, resolvedAddress, storedSelfie, geoStatus, isFlagged, flagReason, serverTimestamp, serverTimestamp]
       );
       recordId = result.lastInsertRowid;
     }
@@ -749,7 +849,7 @@ export async function punchAttendance(punchData, session) {
     await queryRun(
       `INSERT INTO site_attendance_audit_logs (attendance_id, action, new_values, actor_email, actor_name, timestamp)
        VALUES (?, 'punch_in', ?, ?, ?, ?)`,
-      [recordId || 0, JSON.stringify({ type: 'in', timestamp: serverTimestamp, latitude, longitude, geoStatus }), session.email, employee.name, serverTimestamp]
+      [recordId || 0, JSON.stringify({ type: 'in', timestamp: serverTimestamp, latitude: numLat, longitude: numLng, accuracy: numAcc, address: resolvedAddress, geoStatus }), session.email, employee.name, serverTimestamp]
     );
 
     return {
@@ -758,6 +858,10 @@ export async function punchAttendance(punchData, session) {
       timestamp: serverTimestamp,
       project: targetProject,
       geoStatus,
+      latitude: numLat,
+      longitude: numLng,
+      accuracy: numAcc,
+      address: resolvedAddress,
       isFlagged: Boolean(isFlagged),
       flagReason
     };
@@ -780,13 +884,13 @@ export async function punchAttendance(punchData, session) {
            punch_out_address = ?, punch_out_selfie = ?, punch_out_geo_status = ?,
            total_hours = ?, status = ?, updated_at = ?
        WHERE id = ?`,
-      [serverTimestamp, latitude, longitude, accuracy, address, storedSelfie, geoStatus, totalHours, finalStatus, serverTimestamp, existingRecord.id]
+      [serverTimestamp, numLat, numLng, numAcc, resolvedAddress, storedSelfie, geoStatus, totalHours, finalStatus, serverTimestamp, existingRecord.id]
     );
 
     await queryRun(
       `INSERT INTO site_attendance_audit_logs (attendance_id, action, new_values, actor_email, actor_name, timestamp)
        VALUES (?, 'punch_out', ?, ?, ?, ?)`,
-      [existingRecord.id, JSON.stringify({ type: 'out', timestamp: serverTimestamp, totalHours, geoStatus }), session.email, employee.name, serverTimestamp]
+      [existingRecord.id, JSON.stringify({ type: 'out', timestamp: serverTimestamp, latitude: numLat, longitude: numLng, accuracy: numAcc, address: resolvedAddress, totalHours, geoStatus }), session.email, employee.name, serverTimestamp]
     );
 
     return {
@@ -795,7 +899,11 @@ export async function punchAttendance(punchData, session) {
       timestamp: serverTimestamp,
       totalHours,
       status: finalStatus,
-      geoStatus
+      geoStatus,
+      latitude: numLat,
+      longitude: numLng,
+      accuracy: numAcc,
+      address: resolvedAddress
     };
   }
 }
@@ -840,7 +948,7 @@ export async function getMyAttendanceHistory(filters = {}, session) {
   const employee = await queryGet(`SELECT employee_id FROM site_employees WHERE user_email = ? OR email = ?`, [session.email, session.email]);
   if (!employee) return [];
 
-  const { limit = 60, month, year } = filters;
+  const { limit = 60, month, year } = unwrap(filters);
   let sql = `SELECT * FROM site_attendance_records WHERE employee_id = ?`;
   const args = [employee.employee_id];
 
@@ -867,8 +975,9 @@ export async function getManagementAttendanceKPIs(filters = {}, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  const targetDate = filters.date || getLocalDateString();
-  const { project } = filters;
+  const f = unwrap(filters);
+  const targetDate = f.date || getLocalDateString();
+  const { project } = f;
 
   let totalAllocatedSql = `SELECT COUNT(DISTINCT employee_id) as total FROM site_project_allocations WHERE status = 'active'`;
   let attSql = `SELECT * FROM site_attendance_records WHERE date = ?`;
@@ -941,7 +1050,7 @@ export async function getDailyAttendanceRegister(filters = {}, session) {
     status,
     search,
     limit = 200
-  } = filters;
+  } = unwrap(filters);
 
   let sql = `SELECT * FROM site_attendance_records WHERE 1=1`;
   const args = [];
@@ -992,7 +1101,13 @@ export async function getProjectWorkforceSummary(project, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  if (!project) throw new Error('Project name is required');
+  const proj = typeof project === 'string'
+    ? project
+    : (Array.isArray(project)
+      ? (typeof project[0] === 'string' ? project[0] : project[0]?.project)
+      : project?.project);
+
+  if (!proj) throw new Error('Project name is required');
 
   const today = getLocalDateString();
 
@@ -1003,13 +1118,13 @@ export async function getProjectWorkforceSummary(project, session) {
      JOIN site_project_allocations a ON e.employee_id = a.employee_id
      WHERE a.project = ? AND a.status = 'active'
      ORDER BY e.name ASC`,
-    [project]
+    [proj]
   );
 
   // 2. Today's attendance for this project
   const todayAttendance = await queryAll(
     `SELECT * FROM site_attendance_records WHERE project = ? AND date = ?`,
-    [project, today]
+    [proj, today]
   );
 
   const attMap = new Map();
@@ -1044,14 +1159,14 @@ export async function getProjectWorkforceSummary(project, session) {
   // 3. Historical project attendance
   const history = await queryAll(
     `SELECT * FROM site_attendance_records WHERE project = ? ORDER BY date DESC LIMIT 50`,
-    [project]
+    [proj]
   );
 
   // 4. Geofence
-  const geofence = await queryGet(`SELECT * FROM site_geofences WHERE project = ?`, [project]);
+  const geofence = await queryGet(`SELECT * FROM site_geofences WHERE project = ?`, [proj]);
 
   return {
-    project,
+    project: proj,
     totalAllocated: allocatedEmployees.length,
     presentToday: presentCount,
     absentToday: Math.max(0, allocatedEmployees.length - presentCount),
@@ -1081,7 +1196,7 @@ export async function submitAttendanceRegularisation(data, session) {
     proposed_punch_in,
     proposed_punch_out,
     reason
-  } = data;
+  } = unwrap(data);
 
   if (!employee_id || !project || !date || !reason) {
     throw new Error('Employee ID, project, date, and reason are required');
@@ -1115,7 +1230,7 @@ export async function listAttendanceRegularisations(filters = {}, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  const { status = 'pending', project, employee_id } = filters;
+  const { status = 'pending', project, employee_id } = unwrap(filters);
   let sql = `
     SELECT r.*, e.name as employee_name, e.designation, e.phone
     FROM site_attendance_regularisations r
@@ -1149,7 +1264,7 @@ export async function reviewAttendanceRegularisation(data, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  const { id, decision, review_notes = '' } = data; // decision: 'approved' | 'rejected'
+  const { id, decision, review_notes = '' } = unwrap(data); // decision: 'approved' | 'rejected'
   if (!id || !['approved', 'rejected'].includes(decision)) {
     throw new Error('Valid regularisation ID and decision (approved/rejected) are required');
   }
@@ -1245,8 +1360,14 @@ export async function getAttendanceAuditLogs(attendanceId, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
+  const id = typeof attendanceId === 'number' || typeof attendanceId === 'string'
+    ? attendanceId
+    : (Array.isArray(attendanceId) ? attendanceId[0] : attendanceId?.attendance_id);
+
+  if (!id) return [];
+
   return queryAll(
     `SELECT * FROM site_attendance_audit_logs WHERE attendance_id = ? ORDER BY timestamp DESC`,
-    [attendanceId]
+    [id]
   );
 }

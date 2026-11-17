@@ -79,13 +79,13 @@ export default function SiteEmployeesView() {
     setError(null);
     try {
       const [kpiRes, regRes] = await Promise.all([
-        callRpc('getManagementAttendanceKPIs', [{ date: selectedDate, project: selectedProject || undefined }]),
-        callRpc('getDailyAttendanceRegister', [{
+        callRpc('getManagementAttendanceKPIs', { date: selectedDate, project: selectedProject || undefined }),
+        callRpc('getDailyAttendanceRegister', {
           date: selectedDate,
           project: selectedProject || undefined,
           status: selectedStatus || undefined,
           search: searchTerm || undefined
-        }])
+        })
       ]);
       if (kpiRes) setKpis(kpiRes);
       if (Array.isArray(regRes)) setRegisterRecords(regRes);
@@ -101,10 +101,10 @@ export default function SiteEmployeesView() {
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await callRpc('listSiteEmployees', [{
+      const res = await callRpc('listSiteEmployees', {
         project: selectedProject || undefined,
         search: searchTerm || undefined
-      }]);
+      });
       if (Array.isArray(res)) setEmployees(res);
     } catch (err) {
       console.error('Failed to load site employees:', err);
@@ -117,9 +117,9 @@ export default function SiteEmployeesView() {
   const loadRegularisations = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await callRpc('listAttendanceRegularisations', [{
+      const res = await callRpc('listAttendanceRegularisations', {
         project: selectedProject || undefined
-      }]);
+      });
       if (Array.isArray(res)) setRegularisations(res);
     } catch (err) {
       console.error('Failed to load regularisations:', err);
@@ -182,7 +182,7 @@ export default function SiteEmployeesView() {
     };
 
     try {
-      await callRpc('createOrUpdateSiteEmployee', [data]);
+      await callRpc('createOrUpdateSiteEmployee', data);
       setEmployeeModalOpen(false);
       setEditingEmployee(null);
       loadEmployees();
@@ -205,7 +205,7 @@ export default function SiteEmployeesView() {
     };
 
     try {
-      await callRpc('transferEmployeeProject', [data]);
+      await callRpc('transferEmployeeProject', data);
       setTransferModalOpen(false);
       setTransferData(null);
       loadEmployees();
@@ -219,7 +219,7 @@ export default function SiteEmployeesView() {
   const handleSaveGeofence = async (e) => {
     e.preventDefault();
     try {
-      await callRpc('saveSiteGeofence', [geofenceFormData]);
+      await callRpc('saveSiteGeofence', geofenceFormData);
       setGeofenceModalOpen(false);
       alert('Geofence configured successfully!');
     } catch (err) {
@@ -231,11 +231,11 @@ export default function SiteEmployeesView() {
   const handleReviewRegularisation = async (decision) => {
     if (!reviewModalData) return;
     try {
-      await callRpc('reviewAttendanceRegularisation', [{
+      await callRpc('reviewAttendanceRegularisation', {
         id: reviewModalData.id,
         decision,
         review_notes: reviewNotes
-      }]);
+      });
       setReviewModalData(null);
       setReviewNotes('');
       loadRegularisations();
@@ -647,13 +647,30 @@ export default function SiteEmployeesView() {
                                   onClick={() => setMapModalData({
                                     lat: rec.punch_in_latitude,
                                     lng: rec.punch_in_longitude,
-                                    address: rec.punch_in_address,
-                                    name: rec.employee_name,
+                                    address: rec.punch_in_address || rec.project,
+                                    name: `${rec.employee_name} (Punch In)`,
                                     project: rec.project
                                   })}
-                                  className="text-[11px] text-primary hover:underline flex items-center gap-0.5 ml-1"
+                                  className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 ml-1 font-semibold"
+                                  title="View Punch In GPS Map"
                                 >
-                                  <MapPin className="w-3 h-3" /> Map
+                                  <MapPin className="w-3 h-3 text-emerald-500" /> In Map
+                                </button>
+                              )}
+
+                              {rec.punch_out_latitude != null && (
+                                <button
+                                  onClick={() => setMapModalData({
+                                    lat: rec.punch_out_latitude,
+                                    lng: rec.punch_out_longitude,
+                                    address: rec.punch_out_address || rec.project,
+                                    name: `${rec.employee_name} (Punch Out)`,
+                                    project: rec.project
+                                  })}
+                                  className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 ml-1 font-semibold"
+                                  title="View Punch Out GPS Map"
+                                >
+                                  <MapPin className="w-3 h-3 text-indigo-500" /> Out Map
                                 </button>
                               )}
                             </div>
@@ -685,15 +702,26 @@ export default function SiteEmployeesView() {
                               className="h-7 text-[11px]"
                               onClick={() => setSelfieModalData({
                                 title: `${rec.employee_name} (${rec.date})`,
+                                employee_name: rec.employee_name,
+                                project: rec.project,
+                                date: rec.date,
                                 selfie: rec.punch_in_selfie,
                                 time: rec.punch_in_time,
+                                inAddress: rec.punch_in_address,
+                                inCoords: rec.punch_in_latitude != null ? `${rec.punch_in_latitude.toFixed(5)}, ${rec.punch_in_longitude.toFixed(5)}` : null,
+                                inAccuracy: rec.punch_in_accuracy,
+                                inLat: rec.punch_in_latitude,
+                                inLng: rec.punch_in_longitude,
                                 outSelfie: rec.punch_out_selfie,
                                 outTime: rec.punch_out_time,
-                                address: rec.punch_in_address,
+                                outAddress: rec.punch_out_address,
+                                outCoords: rec.punch_out_latitude != null ? `${rec.punch_out_latitude.toFixed(5)}, ${rec.punch_out_longitude.toFixed(5)}` : null,
+                                outAccuracy: rec.punch_out_accuracy,
+                                outLat: rec.punch_out_latitude,
+                                outLng: rec.punch_out_longitude,
                                 hours: rec.total_hours,
                                 status: rec.status,
-                                flagReason: rec.flag_reason,
-                                coords: `${rec.punch_in_latitude?.toFixed(5)}, ${rec.punch_in_longitude?.toFixed(5)}`
+                                flagReason: rec.flag_reason
                               })}
                             >
                               <Eye className="w-3 h-3 mr-1" /> View
@@ -947,29 +975,90 @@ export default function SiteEmployeesView() {
               )}
             </div>
 
-            <div className="p-3 bg-muted/40 rounded-xl border border-border space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-semibold">Location / Address:</span>
-                <span className="text-foreground text-right max-w-[280px] truncate">{selfieModalData.address || 'GPS Coordinates Stored'}</span>
+            <div className="space-y-2 text-xs">
+              {/* Check-In Geo Data */}
+              <div className="p-3 bg-muted/40 rounded-xl border border-border space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-500" /> Check-In Location
+                  </span>
+                  {selfieModalData.inLat != null && (
+                    <button
+                      type="button"
+                      onClick={() => setMapModalData({
+                        lat: selfieModalData.inLat,
+                        lng: selfieModalData.inLng,
+                        address: selfieModalData.inAddress || selfieModalData.project,
+                        name: `${selfieModalData.employee_name} (Punch In)`,
+                        project: selfieModalData.project
+                      })}
+                      className="text-primary hover:underline font-semibold flex items-center gap-0.5 cursor-pointer text-[11px]"
+                    >
+                      Open Map
+                    </button>
+                  )}
+                </div>
+                <p className="text-foreground font-medium leading-relaxed">
+                  {selfieModalData.inAddress || selfieModalData.address || 'GPS Coordinates Recorded'}
+                </p>
+                {(selfieModalData.inCoords || selfieModalData.coords) && (
+                  <div className="text-[11px] font-mono text-muted-foreground">
+                    Coords: {selfieModalData.inCoords || selfieModalData.coords}
+                    {selfieModalData.inAccuracy != null && ` • Precision: ±${selfieModalData.inAccuracy}m`}
+                  </div>
+                )}
               </div>
-              {selfieModalData.coords && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-semibold">GPS Coords:</span>
-                  <span className="font-mono text-foreground">{selfieModalData.coords}</span>
+
+              {/* Check-Out Geo Data */}
+              {selfieModalData.outTime && (
+                <div className="p-3 bg-muted/40 rounded-xl border border-border space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-500" /> Check-Out Location
+                    </span>
+                    {selfieModalData.outLat != null && (
+                      <button
+                        type="button"
+                        onClick={() => setMapModalData({
+                          lat: selfieModalData.outLat,
+                          lng: selfieModalData.outLng,
+                          address: selfieModalData.outAddress || selfieModalData.project,
+                          name: `${selfieModalData.employee_name} (Punch Out)`,
+                          project: selfieModalData.project
+                        })}
+                        className="text-primary hover:underline font-semibold flex items-center gap-0.5 cursor-pointer text-[11px]"
+                      >
+                        Open Map
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-foreground font-medium leading-relaxed">
+                    {selfieModalData.outAddress || 'GPS Coordinates Recorded'}
+                  </p>
+                  {selfieModalData.outCoords && (
+                    <div className="text-[11px] font-mono text-muted-foreground">
+                      Coords: {selfieModalData.outCoords}
+                      {selfieModalData.outAccuracy != null && ` • Precision: ±${selfieModalData.outAccuracy}m`}
+                    </div>
+                  )}
                 </div>
               )}
-              {selfieModalData.hours > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-semibold">Total Duration:</span>
-                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{selfieModalData.hours} Hours</span>
-                </div>
-              )}
-              {selfieModalData.flagReason && (
-                <div className="flex justify-between text-rose-500 font-semibold">
-                  <span>Exception Note:</span>
-                  <span>{selfieModalData.flagReason}</span>
-                </div>
-              )}
+
+              {/* Duration & Status */}
+              <div className="p-3 bg-muted/20 rounded-xl border border-border space-y-1">
+                {selfieModalData.hours > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-semibold">Total Duration:</span>
+                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{selfieModalData.hours} Hours</span>
+                  </div>
+                )}
+                {selfieModalData.flagReason && (
+                  <div className="flex justify-between text-rose-500 font-semibold">
+                    <span>Exception Note:</span>
+                    <span>{selfieModalData.flagReason}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end pt-2">
@@ -1246,7 +1335,7 @@ export default function SiteEmployeesView() {
                   setGeofenceFormData(prev => ({ ...prev, project: proj }));
                   if (proj) {
                     try {
-                      const geo = await callRpc('getSiteGeofence', [proj]);
+                      const geo = await callRpc('getSiteGeofence', proj);
                       if (geo) {
                         setGeofenceFormData({
                           project: proj,

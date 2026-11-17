@@ -214,4 +214,5 @@ export const RPC_CONTRACT = Object.freeze({
   listAttendanceRegularisations: {"args":1,"sessionIndex":1,"access":"internal"},
   reviewAttendanceRegularisation: {"args":1,"sessionIndex":1,"access":"internal"},
   getAttendanceAuditLogs: {"args":1,"sessionIndex":1,"access":"internal"},
+  reverseGeocodeLocation: {"args":1,"sessionIndex":1,"access":"internal"},
 });

@@ -50,6 +50,7 @@ export default function MyAttendanceView() {
   const [gpsCoords, setGpsCoords] = useState(null);
   const [gpsAddress, setGpsAddress] = useState('');
   const [gpsError, setGpsError] = useState(null);
+  const gpsWatchIdRef = useRef(null);
 
   // Regularisation modal state
   const [regModalOpen, setRegModalOpen] = useState(false);
@@ -96,8 +97,8 @@ export default function MyAttendanceView() {
     try {
       const [todayData, historyData, regData] = await Promise.all([
         callRpc('getMyAttendanceToday'),
-        callRpc('getMyAttendanceHistory', [{ limit: 30 }]),
-        callRpc('listAttendanceRegularisations', [{}])
+        callRpc('getMyAttendanceHistory', { limit: 30 }),
+        callRpc('listAttendanceRegularisations', {})
       ]);
 
       if (todayData) {
@@ -199,42 +200,90 @@ export default function MyAttendanceView() {
     }
   }, [stopCamera]);
 
+  const stopGpsWatching = useCallback(() => {
+    if (gpsWatchIdRef.current != null && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+      gpsWatchIdRef.current = null;
+    }
+    setGpsLoading(false);
+  }, []);
+
   const fetchGpsLocation = useCallback(() => {
     setGpsLoading(true);
     setGpsError(null);
-    if (!navigator.geolocation) {
-      setGpsError('Geolocation is not supported by your browser.');
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGpsError('Geolocation is not supported by your device or browser.');
       setGpsLoading(false);
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        const roundedAcc = Math.round(accuracy);
-        setGpsCoords({ latitude, longitude, accuracy: roundedAcc });
-        setGpsLoading(false);
+    if (gpsWatchIdRef.current != null) {
+      navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+      gpsWatchIdRef.current = null;
+    }
 
-        // Reverse geocode
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-          if (res.ok) {
-            const data = await res.json();
-            setGpsAddress(data.display_name || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-          } else {
-            setGpsAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-          }
-        } catch {
-          setGpsAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+    const onPositionSuccess = async (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      const roundedAcc = Math.round(accuracy);
+      setGpsCoords(prev => {
+        // If accuracy is better or new, update
+        if (!prev || roundedAcc <= prev.accuracy) {
+          return { latitude, longitude, accuracy: roundedAcc };
         }
-      },
-      (err) => {
-        setGpsLoading(false);
-        setGpsError(err.message || 'Unable to retrieve GPS coordinates. Please enable location permissions.');
-      },
+        return prev;
+      });
+      setGpsLoading(false);
+
+      // Reverse geocode via server RPC or fallback
+      try {
+        const geoRes = await callRpc('reverseGeocodeLocation', { latitude, longitude });
+        if (geoRes && geoRes.address) {
+          setGpsAddress(geoRes.address);
+          return;
+        }
+      } catch { }
+
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.display_name) {
+            setGpsAddress(data.display_name);
+            return;
+          }
+        }
+      } catch { }
+
+      setGpsAddress(`${latitude.toFixed(6)}°, ${longitude.toFixed(6)}°`);
+    };
+
+    const onPositionError = (err) => {
+      setGpsLoading(false);
+      let errMsg = 'Unable to retrieve GPS coordinates. Please enable location permissions.';
+      if (err.code === 1) errMsg = 'Location permission denied. Please allow location access in your browser settings.';
+      else if (err.code === 2) errMsg = 'Location unavailable. Ensure GPS is turned ON on your device.';
+      else if (err.code === 3) errMsg = 'GPS satellite lock timed out. Tap "Retry GPS" to re-acquire.';
+      setGpsError(errMsg);
+    };
+
+    // Fast initial fix
+    navigator.geolocation.getCurrentPosition(
+      onPositionSuccess,
+      onPositionError,
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
-  }, []);
+
+    // Continuous high-precision satellite tracking
+    try {
+      gpsWatchIdRef.current = navigator.geolocation.watchPosition(
+        onPositionSuccess,
+        (err) => console.warn('GPS continuous watch warning:', err.message),
+        { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
+      );
+    } catch (e) {
+      console.warn('watchPosition error:', e);
+    }
+  }, [callRpc]);
 
   // When punch modal opens: start camera & fetch GPS
   const handleOpenPunchModal = (type) => {
@@ -249,6 +298,7 @@ export default function MyAttendanceView() {
 
   const handleClosePunchModal = () => {
     stopCamera();
+    stopGpsWatching();
     setPunchModalOpen(false);
     setSelfiePreview(null);
     setGpsError(null);
@@ -256,38 +306,49 @@ export default function MyAttendanceView() {
   };
 
   // Submit Punch
-  const handleSubmitPunch = async () => {
+  const handleSubmitPunch = async (allowFlagged = false) => {
     if (!selfiePreview) {
       setCameraError('Live selfie photograph is required.');
       return;
     }
     if (!gpsCoords || gpsCoords.latitude == null) {
-      setGpsError('GPS location is required. Please wait for coordinates to lock or enable location access.');
+      setGpsError('Exact GPS coordinates are required. Please wait for coordinates to lock or enable location access.');
       return;
     }
 
     setPunchSubmitting(true);
     try {
-      const res = await callRpc('punchAttendance', [{
+      const res = await callRpc('punchAttendance', {
         type: punchType,
         project: selectedPunchProject || activeProject || 'General Project',
         selfie: selfiePreview,
         latitude: gpsCoords.latitude,
         longitude: gpsCoords.longitude,
         accuracy: gpsCoords.accuracy,
-        address: gpsAddress
-      }]);
+        address: gpsAddress,
+        allow_flagged: allowFlagged
+      });
 
       setSuccessToast(
         `Punch ${punchType === 'in' ? 'In' : 'Out'} recorded successfully! Status: ${
-          res.geoStatus === 'within_radius' ? 'Within Site Radius' : 'Flagged (Outside Site)'
+          res.geoStatus === 'within_radius' ? 'Verified (Within Site Radius)' : 'Flagged (Outside Site Radius)'
         }`
       );
       handleClosePunchModal();
       await loadAttendanceData();
     } catch (err) {
       console.error('Punch submission failed:', err);
-      alert(err.message || 'Attendance punch submission failed. Please verify site and network.');
+      const errMsg = err.message || 'Attendance punch submission failed. Please verify site and network.';
+      if (errMsg.includes('PUNCH_BLOCKED')) {
+        const confirmFlagged = window.confirm(
+          `${errMsg}\n\nDo you want to submit your punch as Out-of-Site attendance for Manager Review?`
+        );
+        if (confirmFlagged) {
+          setPunchSubmitting(false);
+          return handleSubmitPunch(true);
+        }
+      }
+      alert(errMsg);
     } finally {
       setPunchSubmitting(false);
     }
@@ -307,14 +368,14 @@ export default function MyAttendanceView() {
 
     setSubmittingReg(true);
     try {
-      await callRpc('submitAttendanceRegularisation', [{
+      await callRpc('submitAttendanceRegularisation', {
         employee_id: employeeProfile.employee_id,
         project: regFormData.project || activeProject || 'General Project',
         date: regFormData.date,
         proposed_punch_in: regFormData.proposed_punch_in ? `${regFormData.date}T${regFormData.proposed_punch_in}:00` : null,
         proposed_punch_out: regFormData.proposed_punch_out ? `${regFormData.date}T${regFormData.proposed_punch_out}:00` : null,
         reason: regFormData.reason.trim()
-      }]);
+      });
 
       setSuccessToast('Attendance correction request submitted for management review.');
       setRegModalOpen(false);
@@ -515,58 +576,135 @@ export default function MyAttendanceView() {
 
                 {/* Time & Duration Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl bg-card border border-border">
-                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                      Punch In Time
-                    </span>
-                    <span className="text-lg font-bold font-mono text-foreground">
-                      {todayRecord?.punch_in_time ? (
-                        new Date(todayRecord.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      ) : (
-                        '--:--'
-                      )}
-                    </span>
-                    {todayRecord?.punch_in_selfie && (
-                      <button
-                        onClick={() => setViewSelfieModal({ title: 'Punch In Selfie', src: todayRecord.punch_in_selfie })}
-                        className="text-[11px] text-amber-500 hover:underline mt-1.5 flex items-center gap-1 cursor-pointer"
-                      >
-                        <Camera className="w-3 h-3" /> View Selfie
-                      </button>
+                  {/* Punch In Card */}
+                  <div className="p-4 rounded-xl bg-card border border-border flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Punch In Time
+                        </span>
+                        {todayRecord?.punch_in_selfie && (
+                          <button
+                            onClick={() => setViewSelfieModal({ title: 'Punch In Selfie', src: todayRecord.punch_in_selfie })}
+                            className="text-[11px] text-amber-500 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Camera className="w-3 h-3" /> Selfie
+                          </button>
+                        )}
+                      </div>
+                      <span className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                        {todayRecord?.punch_in_time ? (
+                          new Date(todayRecord.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        ) : (
+                          '--:--'
+                        )}
+                      </span>
+                    </div>
+
+                    {todayRecord?.punch_in_time && (
+                      <div className="mt-3 pt-2.5 border-t border-border/60 text-xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground font-semibold flex items-center gap-1 text-[11px]">
+                            <MapPin className="w-3 h-3 text-emerald-500" /> In Location:
+                          </span>
+                          {todayRecord.punch_in_latitude != null && (
+                            <button
+                              onClick={() => setViewMapModal({
+                                lat: todayRecord.punch_in_latitude,
+                                lng: todayRecord.punch_in_longitude,
+                                address: todayRecord.punch_in_address || todayRecord.project,
+                                title: `Punch In Location — ${todayRecord.date}`
+                              })}
+                              className="text-primary hover:underline text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                            >
+                              View Map
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-foreground font-medium truncate" title={todayRecord.punch_in_address}>
+                          {todayRecord.punch_in_address || (todayRecord.punch_in_latitude != null ? `${todayRecord.punch_in_latitude.toFixed(5)}, ${todayRecord.punch_in_longitude.toFixed(5)}` : 'GPS Verified')}
+                        </p>
+                        {todayRecord.punch_in_accuracy != null && (
+                          <div className="text-[10px] font-mono text-muted-foreground">
+                            Precision: ±{todayRecord.punch_in_accuracy}m
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
-                  <div className="p-4 rounded-xl bg-card border border-border">
-                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                      Punch Out Time
-                    </span>
-                    <span className="text-lg font-bold font-mono text-foreground">
-                      {todayRecord?.punch_out_time ? (
-                        new Date(todayRecord.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      ) : (
-                        '--:--'
-                      )}
-                    </span>
-                    {todayRecord?.punch_out_selfie && (
-                      <button
-                        onClick={() => setViewSelfieModal({ title: 'Punch Out Selfie', src: todayRecord.punch_out_selfie })}
-                        className="text-[11px] text-amber-500 hover:underline mt-1.5 flex items-center gap-1 cursor-pointer"
-                      >
-                        <Camera className="w-3 h-3" /> View Selfie
-                      </button>
+                  {/* Punch Out Card */}
+                  <div className="p-4 rounded-xl bg-card border border-border flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Punch Out Time
+                        </span>
+                        {todayRecord?.punch_out_selfie && (
+                          <button
+                            onClick={() => setViewSelfieModal({ title: 'Punch Out Selfie', src: todayRecord.punch_out_selfie })}
+                            className="text-[11px] text-amber-500 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Camera className="w-3 h-3" /> Selfie
+                          </button>
+                        )}
+                      </div>
+                      <span className="text-lg font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                        {todayRecord?.punch_out_time ? (
+                          new Date(todayRecord.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        ) : (
+                          '--:--'
+                        )}
+                      </span>
+                    </div>
+
+                    {todayRecord?.punch_out_time && (
+                      <div className="mt-3 pt-2.5 border-t border-border/60 text-xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground font-semibold flex items-center gap-1 text-[11px]">
+                            <MapPin className="w-3 h-3 text-amber-500" /> Out Location:
+                          </span>
+                          {todayRecord.punch_out_latitude != null && (
+                            <button
+                              onClick={() => setViewMapModal({
+                                lat: todayRecord.punch_out_latitude,
+                                lng: todayRecord.punch_out_longitude,
+                                address: todayRecord.punch_out_address || todayRecord.project,
+                                title: `Punch Out Location — ${todayRecord.date}`
+                              })}
+                              className="text-primary hover:underline text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                            >
+                              View Map
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-foreground font-medium truncate" title={todayRecord.punch_out_address}>
+                          {todayRecord.punch_out_address || (todayRecord.punch_out_latitude != null ? `${todayRecord.punch_out_latitude.toFixed(5)}, ${todayRecord.punch_out_longitude.toFixed(5)}` : 'GPS Verified')}
+                        </p>
+                        {todayRecord.punch_out_accuracy != null && (
+                          <div className="text-[10px] font-mono text-muted-foreground">
+                            Precision: ±{todayRecord.punch_out_accuracy}m
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
-                  <div className="p-4 rounded-xl bg-card border border-border">
-                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                      Shift Duration
-                    </span>
-                    <span className="text-lg font-bold font-mono text-amber-500">
-                      {todayRecord?.total_hours ? `${todayRecord.total_hours} hrs` : (
-                        todayRecord?.punch_in_time ? 'In Progress' : '0.0 hrs'
-                      )}
-                    </span>
-                    <p className="text-[10px] text-muted-foreground mt-1">Standard shift: 8.0 hrs</p>
+                  {/* Shift Duration Card */}
+                  <div className="p-4 rounded-xl bg-card border border-border flex flex-col justify-between">
+                    <div>
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                        Shift Duration
+                      </span>
+                      <span className="text-lg font-bold font-mono text-amber-500">
+                        {todayRecord?.total_hours ? `${todayRecord.total_hours} hrs` : (
+                          todayRecord?.punch_in_time ? 'In Progress' : '0.0 hrs'
+                        )}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-3 pt-2.5 border-t border-border/60">
+                      Standard shift: 8.0 hrs • Real-time duration
+                    </p>
                   </div>
                 </div>
 
@@ -743,11 +881,22 @@ export default function MyAttendanceView() {
                           <div className="flex items-center gap-1.5">
                             {rec.punch_in_selfie && (
                               <button
-                                onClick={() => setViewSelfieModal({ title: `Selfie: ${rec.date} (${rec.project})`, src: rec.punch_in_selfie })}
-                                title="View In Selfie"
-                                className="p-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
+                                onClick={() => setViewSelfieModal({ title: `Punch In Selfie: ${rec.date} (${rec.project})`, src: rec.punch_in_selfie })}
+                                title="View Punch In Selfie"
+                                className="px-1.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer flex items-center gap-1 text-[11px]"
                               >
-                                <Camera className="w-3.5 h-3.5 text-amber-500" />
+                                <Camera className="w-3.5 h-3.5 text-emerald-500" />
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">In</span>
+                              </button>
+                            )}
+                            {rec.punch_out_selfie && (
+                              <button
+                                onClick={() => setViewSelfieModal({ title: `Punch Out Selfie: ${rec.date} (${rec.project})`, src: rec.punch_out_selfie })}
+                                title="View Punch Out Selfie"
+                                className="px-1.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer flex items-center gap-1 text-[11px]"
+                              >
+                                <Camera className="w-3.5 h-3.5 text-indigo-500" />
+                                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Out</span>
                               </button>
                             )}
                             {rec.punch_in_latitude != null && (
@@ -756,12 +905,28 @@ export default function MyAttendanceView() {
                                   lat: rec.punch_in_latitude,
                                   lng: rec.punch_in_longitude,
                                   address: rec.punch_in_address || rec.project,
-                                  title: `Location: ${rec.date}`
+                                  title: `Punch In Location: ${rec.date} (${rec.project})`
                                 })}
-                                title="View Location Map"
-                                className="p-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
+                                title="View Punch In Location Map"
+                                className="px-1.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer flex items-center gap-1 text-[11px]"
                               >
                                 <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">In Map</span>
+                              </button>
+                            )}
+                            {rec.punch_out_latitude != null && (
+                              <button
+                                onClick={() => setViewMapModal({
+                                  lat: rec.punch_out_latitude,
+                                  lng: rec.punch_out_longitude,
+                                  address: rec.punch_out_address || rec.project,
+                                  title: `Punch Out Location: ${rec.date} (${rec.project})`
+                                })}
+                                title="View Punch Out Location Map"
+                                className="px-1.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-pointer flex items-center gap-1 text-[11px]"
+                              >
+                                <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Out Map</span>
                               </button>
                             )}
                           </div>
@@ -925,32 +1090,44 @@ export default function MyAttendanceView() {
           </div>
 
           {/* GPS Telemetry Bar */}
-          <div className="p-3 bg-muted/30 border border-border rounded-xl space-y-1.5">
+          <div className="p-3 bg-muted/30 border border-border rounded-xl space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-amber-500" />
-                GPS Coordinates
+                GPS Coordinates & Precision
               </span>
-              {gpsLoading ? (
-                <span className="text-amber-500 text-[11px] font-mono animate-pulse">Acquiring GPS...</span>
-              ) : gpsCoords ? (
-                <span className="text-emerald-500 text-[11px] font-mono font-semibold">
-                  ±{gpsCoords.accuracy}m Accuracy Locked
-                </span>
-              ) : (
-                <button onClick={fetchGpsLocation} className="text-xs text-amber-500 hover:underline">
-                  Retry GPS
+              <div className="flex items-center gap-2">
+                {gpsLoading ? (
+                  <span className="text-amber-500 text-[11px] font-mono animate-pulse">Locking Satellites...</span>
+                ) : gpsCoords ? (
+                  <span className={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md border ${
+                    gpsCoords.accuracy <= 25
+                      ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30'
+                      : gpsCoords.accuracy <= 80
+                      ? 'text-blue-500 bg-blue-500/10 border-blue-500/30'
+                      : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
+                  }`}>
+                    ±{gpsCoords.accuracy}m {gpsCoords.accuracy <= 25 ? 'High Precision' : 'Locked'}
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={fetchGpsLocation}
+                  disabled={gpsLoading}
+                  className="text-xs text-amber-500 hover:underline flex items-center gap-1 cursor-pointer font-semibold ml-1"
+                >
+                  <RotateCcw className={`w-3 h-3 ${gpsLoading ? 'animate-spin' : ''}`} /> Refresh GPS
                 </button>
-              )}
+              </div>
             </div>
 
             {gpsCoords && (
-              <div className="text-[11px] font-mono text-muted-foreground truncate">
-                Lat: {gpsCoords.latitude.toFixed(6)}, Lng: {gpsCoords.longitude.toFixed(6)}
+              <div className="text-[11px] font-mono text-muted-foreground">
+                Lat: <span className="text-foreground font-semibold">{gpsCoords.latitude.toFixed(6)}</span>, Lng: <span className="text-foreground font-semibold">{gpsCoords.longitude.toFixed(6)}</span>
               </div>
             )}
             {gpsAddress && (
-              <div className="text-[11px] text-foreground truncate">
+              <div className="text-[11px] text-foreground font-medium leading-relaxed bg-card p-2 rounded-lg border border-border/60">
                 {gpsAddress}
               </div>
             )}

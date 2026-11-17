@@ -116,6 +116,69 @@ describe('Site Attendance Module Unit & Security Tests', () => {
         )
       ).rejects.toThrow('PUNCH_BLOCKED');
     });
+
+    it('handles array-wrapped punch payloads and normalized punch types', async () => {
+      vi.mocked(db.queryRun).mockResolvedValue({ lastInsertRowid: 99, changes: 1 });
+      vi.mocked(db.queryGet)
+        .mockResolvedValueOnce({ employee_id: 'EMP-001', name: 'Ravi Kumar' })
+        .mockResolvedValueOnce({ project: 'Tower A' })
+        .mockResolvedValueOnce(null) // no geofence
+        .mockResolvedValueOnce(null); // no existing record
+
+      // Pass array-wrapped payload with 'punch_in' type
+      const res = await punchAttendance(
+        [{
+          type: 'punch_in',
+          selfie: 'data:image/jpeg;base64,abc123',
+          latitude: 28.4985,
+          longitude: 77.0928,
+          accuracy: 12,
+          address: 'DLF Cyber City, Tower B'
+        }],
+        validSession
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.type).toBe('in');
+      expect(res.latitude).toBe(28.4985);
+      expect(res.longitude).toBe(77.0928);
+      expect(res.accuracy).toBe(12);
+      expect(res.address).toContain('DLF Cyber City');
+    });
+
+    it('records exact coordinates and location for punch out', async () => {
+      vi.mocked(db.queryRun).mockResolvedValue({ changes: 1 });
+      vi.mocked(db.queryGet)
+        .mockResolvedValueOnce({ employee_id: 'EMP-001', name: 'Ravi Kumar' })
+        .mockResolvedValueOnce({ project: 'Tower A' })
+        .mockResolvedValueOnce(null) // no geofence
+        .mockResolvedValueOnce({
+          id: 99,
+          employee_id: 'EMP-001',
+          date: '2026-11-17',
+          punch_in_time: '2026-11-17T09:00:00.000Z',
+          punch_out_time: null
+        });
+
+      const res = await punchAttendance(
+        {
+          type: 'out',
+          selfie: 'data:image/jpeg;base64,out123',
+          latitude: 28.4986,
+          longitude: 77.0929,
+          accuracy: 8,
+          address: 'DLF Cyber City, Exit Gate'
+        },
+        validSession
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.type).toBe('out');
+      expect(res.latitude).toBe(28.4986);
+      expect(res.longitude).toBe(77.0929);
+      expect(res.accuracy).toBe(8);
+      expect(res.address).toBe('DLF Cyber City, Exit Gate');
+    });
   });
 
   describe('Employee Management & Project Allocation', () => {

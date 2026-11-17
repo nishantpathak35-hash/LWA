@@ -48,5 +48,6 @@ export {
   submitAttendanceRegularisation,
   listAttendanceRegularisations,
   reviewAttendanceRegularisation,
-  getAttendanceAuditLogs
+  getAttendanceAuditLogs,
+  reverseGeocodeLocation
 } from './api/attendance.js';
