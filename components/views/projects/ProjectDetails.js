@@ -1131,34 +1131,38 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
 
           {/* Project Attendance History */}
           <Card className="bg-card border-border shadow-xs">
-            <CardHeader className="border-b border-border py-3.5 px-6">
-              <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-500" />
-                Recent Site Attendance Register ({workforceSummary?.recentAttendance?.length || 0})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {(!workforceSummary?.recentAttendance || workforceSummary.recentAttendance.length === 0) ? (
-                <div className="text-center py-8 text-muted-foreground text-xs">
-                  No historical punches logged for {selectedProject.project}.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Employee</TableHead>
-                        <TableHead>Punch In</TableHead>
-                        <TableHead>Punch Out</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead>Geo Status</TableHead>
-                        <TableHead>Verification</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workforceSummary.recentAttendance.map(rec => (
+            {(() => {
+              const recHistory = workforceSummary?.recentAttendance || workforceSummary?.recentHistory || [];
+              return (
+                <>
+                  <CardHeader className="border-b border-border py-3.5 px-6">
+                    <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-500" />
+                      Recent Site Attendance Register ({recHistory.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {recHistory.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground text-xs">
+                        No historical punches logged for {selectedProject.project}.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Employee</TableHead>
+                              <TableHead>Punch In</TableHead>
+                              <TableHead>Punch Out</TableHead>
+                              <TableHead>Duration</TableHead>
+                              <TableHead>Geo Status</TableHead>
+                              <TableHead>Verification</TableHead>
+                              <TableHead>Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {recHistory.map(rec => (
                         <TableRow key={rec.id}>
                           <TableCell className="text-xs font-semibold text-foreground whitespace-nowrap">
                             {rec.date}
@@ -1261,9 +1265,12 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                 </div>
               )}
             </CardContent>
-          </Card>
-        </div>
-      )}
+          </>
+        );
+      })()}
+    </Card>
+  </div>
+)}
 
       {/* ── Modal: Configure Site Geo-Fence ── */}
       <Dialog
@@ -1381,38 +1388,46 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
         maxWidth="max-w-xl"
       >
         <div className="space-y-4">
-          {workforceMapModal && (
-            <>
-              <div className="h-72 rounded-2xl overflow-hidden border border-border bg-muted">
-                <iframe
-                  title="Location Map"
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${workforceMapModal.lng - 0.005},${workforceMapModal.lat - 0.005},${workforceMapModal.lng + 0.005},${workforceMapModal.lat + 0.005}&layer=mapnik&marker=${workforceMapModal.lat},${workforceMapModal.lng}`}
-                />
-              </div>
-              <div className="p-3 bg-muted/40 rounded-xl border border-border text-xs space-y-1">
-                <div className="font-semibold text-foreground">{workforceMapModal.address}</div>
-                <div className="text-muted-foreground font-mono text-[11px]">
-                  Coordinates: {workforceMapModal.lat.toFixed(6)}, {workforceMapModal.lng.toFixed(6)}
+          {workforceMapModal && (() => {
+            const numLat = Number(workforceMapModal.lat) || 0;
+            const numLng = Number(workforceMapModal.lng) || 0;
+            const minLng = (numLng - 0.005).toFixed(6);
+            const minLat = (numLat - 0.005).toFixed(6);
+            const maxLng = (numLng + 0.005).toFixed(6);
+            const maxLat = (numLat + 0.005).toFixed(6);
+            return (
+              <>
+                <div className="h-72 rounded-2xl overflow-hidden border border-border bg-muted">
+                  <iframe
+                    title="Location Map"
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${minLng},${minLat},${maxLng},${maxLat}&layer=mapnik&marker=${numLat.toFixed(6)},${numLng.toFixed(6)}`}
+                  />
                 </div>
-              </div>
-              <div className="flex items-center justify-between pt-2">
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${workforceMapModal.lat},${workforceMapModal.lng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-amber-500 hover:underline flex items-center gap-1"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> Open in Google Maps
-                </a>
-                <Button variant="outline" size="sm" onClick={() => setWorkforceMapModal(null)}>
-                  Close
-                </Button>
-              </div>
-            </>
-          )}
+                <div className="p-3 bg-muted/40 rounded-xl border border-border text-xs space-y-1">
+                  <div className="font-semibold text-foreground">{workforceMapModal.address}</div>
+                  <div className="text-muted-foreground font-mono text-[11px]">
+                    Coordinates: {numLat.toFixed(6)}, {numLng.toFixed(6)}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${numLat},${numLng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-amber-500 hover:underline flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Open in Google Maps
+                  </a>
+                  <Button variant="outline" size="sm" onClick={() => setWorkforceMapModal(null)}>
+                    Close
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </Dialog>
 

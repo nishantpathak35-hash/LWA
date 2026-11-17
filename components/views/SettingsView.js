@@ -674,11 +674,11 @@ export default function SettingsView() {
 
   // Export users to CSV
   const handleExportUsers = () => {
-    let csv = "Email,Name,Roles,Status,Last Login\n";
+    let csv = "\uFEFFEmployee ID,Name,Email,Department,Designation,Mobile,Primary Project,Roles,Status,Last Login\n";
     usersList.forEach(u => {
       const status = u.locked ? 'Locked' : (u.active ? 'Active' : 'Inactive');
       const rs = (u.roles && u.roles.length) ? u.roles.join(', ') : (u.role || '');
-      csv += `"${u.email}","${u.name || ''}","${rs}","${status}","${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}"\n`;
+      csv += `"${u.employee_id || ''}","${u.name || ''}","${u.email}","${u.department || ''}","${u.designation || ''}","${u.mobile_number || ''}","${u.primary_project || ''}","${rs}","${status}","${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -689,13 +689,22 @@ export default function SettingsView() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Users Filter
   const filteredUsers = usersList.filter(u => {
     const q = usersSearch.trim().toLowerCase();
     if (!q) return true;
-    return (u.email || '').toLowerCase().includes(q) || (u.name || '').toLowerCase().includes(q);
+    return (
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.employee_id || '').toLowerCase().includes(q) ||
+      (u.department || '').toLowerCase().includes(q) ||
+      (u.designation || '').toLowerCase().includes(q) ||
+      (u.mobile_number || '').includes(q) ||
+      (u.primary_project || '').toLowerCase().includes(q)
+    );
   });
 
   const featureLabels = {

@@ -141,28 +141,52 @@ export default function SiteEmployeesView() {
   // Handle Export CSV
   const handleExportCSV = () => {
     if (registerRecords.length === 0) return;
-    const headers = ['Employee ID', 'Name', 'Project', 'Date', 'Punch In', 'Punch Out', 'Working Hours', 'Geo Status', 'Status', 'Flag Reason'];
+    const headers = [
+      'Employee ID',
+      'Name',
+      'Project',
+      'Date',
+      'Punch In Time',
+      'Punch In Coordinates',
+      'Punch In Address',
+      'Punch Out Time',
+      'Punch Out Coordinates',
+      'Punch Out Address',
+      'Working Hours',
+      'Geo Status',
+      'Attendance Status',
+      'Flagged',
+      'Flag Reason'
+    ];
+    const escapeCsv = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`;
     const rows = registerRecords.map(r => [
-      `"${r.employee_id || ''}"`,
-      `"${r.employee_name || ''}"`,
-      `"${r.project || ''}"`,
-      `"${r.date || ''}"`,
-      `"${r.punch_in_time ? new Date(r.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}"`,
-      `"${r.punch_out_time ? new Date(r.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}"`,
+      escapeCsv(r.employee_id),
+      escapeCsv(r.employee_name),
+      escapeCsv(r.project),
+      escapeCsv(r.date),
+      escapeCsv(r.punch_in_time ? new Date(r.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''),
+      escapeCsv(r.punch_in_latitude != null ? `${r.punch_in_latitude}, ${r.punch_in_longitude}` : ''),
+      escapeCsv(r.punch_in_address),
+      escapeCsv(r.punch_out_time ? new Date(r.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''),
+      escapeCsv(r.punch_out_latitude != null ? `${r.punch_out_latitude}, ${r.punch_out_longitude}` : ''),
+      escapeCsv(r.punch_out_address),
       r.total_hours || 0,
-      `"${r.punch_in_geo_status || ''}"`,
-      `"${r.status || ''}"`,
-      `"${r.flag_reason || ''}"`
+      escapeCsv(r.punch_in_geo_status),
+      escapeCsv(r.status),
+      r.is_flagged ? 'Yes' : 'No',
+      escapeCsv(r.flag_reason)
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.href = url;
     link.setAttribute('download', `Site_Attendance_${selectedDate}_${selectedProject || 'All'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Save / Update Employee
@@ -1075,44 +1099,54 @@ export default function SiteEmployeesView() {
         <Dialog
           open={Boolean(mapModalData)}
           onClose={() => setMapModalData(null)}
-          title={`Punch Location: ${mapModalData.name}`}
+          title={`Punch Location: ${mapModalData?.name || 'Employee'}`}
           maxWidth="max-w-xl"
         >
-          <div className="space-y-4">
-            <div className="p-3 bg-muted/40 rounded-xl border border-border text-xs space-y-1">
-              <p><strong>Project:</strong> {mapModalData.project}</p>
-              <p><strong>Coordinates:</strong> {mapModalData.lat}, {mapModalData.lng}</p>
-              {mapModalData.address && <p><strong>Address:</strong> {mapModalData.address}</p>}
-            </div>
+          {mapModalData && (() => {
+            const numLat = Number(mapModalData.lat) || 0;
+            const numLng = Number(mapModalData.lng) || 0;
+            const minLng = (numLng - 0.005).toFixed(6);
+            const minLat = (numLat - 0.005).toFixed(6);
+            const maxLng = (numLng + 0.005).toFixed(6);
+            const maxLat = (numLat + 0.005).toFixed(6);
+            return (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted/40 rounded-xl border border-border text-xs space-y-1">
+                  <p><strong>Project:</strong> {mapModalData.project}</p>
+                  <p><strong>Coordinates:</strong> {numLat.toFixed(6)}, {numLng.toFixed(6)}</p>
+                  {mapModalData.address && <p><strong>Address:</strong> {mapModalData.address}</p>}
+                </div>
 
-            {/* OpenStreetMap iframe embed for accurate zero-API-key map rendering */}
-            <div className="w-full h-72 rounded-xl overflow-hidden border border-border">
-              <iframe
-                title="Punch Location Map"
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                scrolling="no"
-                marginHeight="0"
-                marginWidth="0"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapModalData.lng - 0.005}%2C${mapModalData.lat - 0.005}%2C${mapModalData.lng + 0.005}%2C${mapModalData.lat + 0.005}&layer=mapnik&marker=${mapModalData.lat}%2C${mapModalData.lng}`}
-              />
-            </div>
+                {/* OpenStreetMap iframe embed for accurate zero-API-key map rendering */}
+                <div className="w-full h-72 rounded-xl overflow-hidden border border-border">
+                  <iframe
+                    title="Punch Location Map"
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    scrolling="no"
+                    marginHeight="0"
+                    marginWidth="0"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${minLng}%2C${minLat}%2C${maxLng}%2C${maxLat}&layer=mapnik&marker=${numLat.toFixed(6)}%2C${numLng.toFixed(6)}`}
+                  />
+                </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <a
-                href={`https://www.google.com/maps?q=${mapModalData.lat},${mapModalData.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> Open in Google Maps
-              </a>
-              <Button variant="outline" size="sm" onClick={() => setMapModalData(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
+                <div className="flex items-center justify-between pt-2">
+                  <a
+                    href={`https://www.google.com/maps?q=${numLat},${numLng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Open in Google Maps
+                  </a>
+                  <Button variant="outline" size="sm" onClick={() => setMapModalData(null)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </Dialog>
       )}
 

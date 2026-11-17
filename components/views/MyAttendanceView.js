@@ -285,6 +285,24 @@ export default function MyAttendanceView() {
     }
   }, [callRpc]);
 
+  // Component unmount hardware cleanup
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      stopGpsWatching();
+    };
+  }, [stopCamera, stopGpsWatching]);
+
+  // Clean re-attachment when switching back from selfie preview to active camera
+  useEffect(() => {
+    if (cameraActive && !selfiePreview && videoRef.current && streamRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(e => console.warn('Video attach play error:', e));
+      }
+    }
+  }, [cameraActive, selfiePreview]);
+
   // When punch modal opens: start camera & fetch GPS
   const handleOpenPunchModal = (type) => {
     setPunchType(type);
@@ -540,9 +558,14 @@ export default function MyAttendanceView() {
                     <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Deployment Status</span>
                     <div className="flex items-center gap-2 mt-1">
                       {todayRecord?.punch_in_time && !todayRecord?.punch_out_time ? (
-                        <div className="flex items-center gap-2 text-emerald-500 font-bold text-base">
+                        <div className="flex items-center gap-2 text-emerald-500 font-bold text-base flex-wrap">
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Checked In & Active On-Site
+                          Checked In &amp; Active On-Site
+                          {todayRecord.date && todayRecord.date !== new Date().toISOString().split('T')[0] && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                              Overnight Shift (Started {todayRecord.date})
+                            </span>
+                          )}
                         </div>
                       ) : todayRecord?.punch_out_time ? (
                         <div className="flex items-center gap-2 text-primary font-bold text-base">
@@ -1267,38 +1290,46 @@ export default function MyAttendanceView() {
         maxWidth="max-w-xl"
       >
         <div className="space-y-4">
-          {viewMapModal && (
-            <>
-              <div className="h-72 rounded-2xl overflow-hidden border border-border bg-muted">
-                <iframe
-                  title="Location Map"
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${viewMapModal.lng - 0.005},${viewMapModal.lat - 0.005},${viewMapModal.lng + 0.005},${viewMapModal.lat + 0.005}&layer=mapnik&marker=${viewMapModal.lat},${viewMapModal.lng}`}
-                />
-              </div>
-              <div className="p-3 bg-muted/40 rounded-xl border border-border text-xs space-y-1">
-                <div className="font-semibold text-foreground">{viewMapModal.address}</div>
-                <div className="text-muted-foreground font-mono text-[11px]">
-                  Coordinates: {viewMapModal.lat.toFixed(6)}, {viewMapModal.lng.toFixed(6)}
+          {viewMapModal && (() => {
+            const numLat = Number(viewMapModal.lat) || 0;
+            const numLng = Number(viewMapModal.lng) || 0;
+            const minLng = (numLng - 0.005).toFixed(6);
+            const minLat = (numLat - 0.005).toFixed(6);
+            const maxLng = (numLng + 0.005).toFixed(6);
+            const maxLat = (numLat + 0.005).toFixed(6);
+            return (
+              <>
+                <div className="h-72 rounded-2xl overflow-hidden border border-border bg-muted">
+                  <iframe
+                    title="Location Map"
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${minLng},${minLat},${maxLng},${maxLat}&layer=mapnik&marker=${numLat.toFixed(6)},${numLng.toFixed(6)}`}
+                  />
                 </div>
-              </div>
-              <div className="flex items-center justify-between pt-2">
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${viewMapModal.lat},${viewMapModal.lng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-amber-500 hover:underline flex items-center gap-1"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> Open in Google Maps
-                </a>
-                <Button variant="outline" size="sm" onClick={() => setViewMapModal(null)}>
-                  Close
-                </Button>
-              </div>
-            </>
-          )}
+                <div className="p-3 bg-muted/40 rounded-xl border border-border text-xs space-y-1">
+                  <div className="font-semibold text-foreground">{viewMapModal.address}</div>
+                  <div className="text-muted-foreground font-mono text-[11px]">
+                    Coordinates: {numLat.toFixed(6)}, {numLng.toFixed(6)}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${numLat},${numLng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-amber-500 hover:underline flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Open in Google Maps
+                  </a>
+                  <Button variant="outline" size="sm" onClick={() => setViewMapModal(null)}>
+                    Close
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </Dialog>
     </div>

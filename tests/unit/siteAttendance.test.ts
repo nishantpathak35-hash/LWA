@@ -84,13 +84,14 @@ describe('Site Attendance Module Unit & Security Tests', () => {
       ).rejects.toThrow('ALREADY_PUNCHED_IN');
     });
 
-    it('rejects punch out if no punch in exists for today', async () => {
+    it('rejects punch out if no punch in exists for today or yesterday', async () => {
       vi.mocked(db.queryRun).mockResolvedValue({ lastInsertRowid: 1, changes: 1 });
       vi.mocked(db.queryGet)
         .mockResolvedValueOnce({ employee_id: 'EMP-001', name: 'Ravi Kumar' }) // employee
         .mockResolvedValueOnce({ project: 'Tower A' }) // allocation
         .mockResolvedValueOnce(null) // geofence
-        .mockResolvedValueOnce(null); // existingRecord (none)
+        .mockResolvedValueOnce(null) // existingRecord today (none)
+        .mockResolvedValueOnce(null); // openShift overnight (none)
 
       await expect(
         punchAttendance(
@@ -98,6 +99,33 @@ describe('Site Attendance Module Unit & Security Tests', () => {
           validSession
         )
       ).rejects.toThrow('INVALID_PUNCH_OUT');
+    });
+
+    it('successfully punches out an overnight shift across midnight', async () => {
+      vi.mocked(db.queryRun).mockResolvedValue({ changes: 1 });
+      const yesterdayPunchIn = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(); // 8 hours ago
+      vi.mocked(db.queryGet)
+        .mockResolvedValueOnce({ employee_id: 'EMP-001', name: 'Ravi Kumar' }) // employee
+        .mockResolvedValueOnce({ project: 'Tower A' }) // allocation
+        .mockResolvedValueOnce(null) // geofence
+        .mockResolvedValueOnce(null) // existingRecord today is null
+        .mockResolvedValueOnce({
+          id: 55,
+          employee_id: 'EMP-001',
+          punch_in_time: yesterdayPunchIn,
+          punch_out_time: null,
+          date: '2026-11-16'
+        }); // open overnight shift
+
+      const res = await punchAttendance(
+        { type: 'out', selfie: 'data:image...', latitude: 28.49, longitude: 77.09, address: 'Cyber City' },
+        validSession
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.type).toBe('out');
+      expect(res.totalHours).toBeCloseTo(8, 0);
+      expect(res.status).toBe('present');
     });
 
     it('blocks punch if outside mandatory geofence boundary', async () => {

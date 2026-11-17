@@ -539,6 +539,13 @@ export async function updateUserDetailsAdmin(email, details, session) {
          VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
         [empId, normEmail, name || normEmail.split('@')[0], designation || 'Staff', department || 'Operations', mobileNumber || '', normEmail, nowIso, nowIso]
       );
+      if (primaryProject) {
+        await queryRun(
+          `INSERT INTO site_project_allocations (employee_id, project, role_at_site, is_primary, status, start_date, allocated_by, created_at, updated_at)
+           VALUES (?, ?, ?, 1, 'active', ?, ?, ?, ?)`,
+          [empId, primaryProject, designation || 'Staff', nowIso.split('T')[0], session?.email || 'admin', nowIso, nowIso]
+        );
+      }
     }
   } catch (syncErr) {
     console.warn('Sync site_employees update warning:', syncErr.message);

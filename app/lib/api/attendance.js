@@ -287,13 +287,18 @@ export async function initSiteAttendanceTables() {
 // -------------------------------------------------------------
 export function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
   if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (isNaN(nLat1) || isNaN(nLon1) || isNaN(nLat2) || isNaN(nLon2)) return null;
   const toRad = deg => (deg * Math.PI) / 180;
   const R = 6371000; // Earth radius in meters
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLat = toRad(nLat2 - nLat1);
+  const dLon = toRad(nLon2 - nLon1);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(toRad(nLat1)) * Math.cos(toRad(nLat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c);
 }
@@ -866,15 +871,33 @@ export async function punchAttendance(punchData, session) {
       flagReason
     };
   } else {
-    // Punch Out
-    if (!existingRecord || !existingRecord.punch_in_time) {
-      throw new Error('INVALID_PUNCH_OUT: Cannot punch out without an active punch-in for today.');
-    }
-    if (existingRecord.punch_out_time) {
-      throw new Error(`ALREADY_PUNCHED_OUT: You have already punched out today at ${new Date(existingRecord.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
+    // Punch Out: supports standard same-day punch out AND cross-midnight overnight shifts
+    let targetRecord = existingRecord;
+    if (!targetRecord || !targetRecord.punch_in_time || targetRecord.punch_out_time) {
+      // Look for an unclosed shift from within the last 24 hours (e.g. overnight shift started yesterday)
+      const openShift = await queryGet(
+        `SELECT * FROM site_attendance_records 
+         WHERE employee_id = ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL
+         ORDER BY id DESC LIMIT 1`,
+        [employee.employee_id]
+      );
+      if (openShift) {
+        const punchInMs = new Date(openShift.punch_in_time).getTime();
+        const nowMs = Date.now();
+        if (nowMs - punchInMs <= 24 * 60 * 60 * 1000) {
+          targetRecord = openShift;
+        }
+      }
     }
 
-    const totalHours = calculateWorkingHours(existingRecord.punch_in_time, serverTimestamp);
+    if (!targetRecord || !targetRecord.punch_in_time) {
+      throw new Error('INVALID_PUNCH_OUT: Cannot punch out without an active punch-in for today.');
+    }
+    if (targetRecord.punch_out_time) {
+      throw new Error(`ALREADY_PUNCHED_OUT: You have already punched out today at ${new Date(targetRecord.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
+    }
+
+    const totalHours = calculateWorkingHours(targetRecord.punch_in_time, serverTimestamp);
     let finalStatus = 'present';
     if (totalHours < 4) finalStatus = 'half_day';
 
@@ -884,13 +907,13 @@ export async function punchAttendance(punchData, session) {
            punch_out_address = ?, punch_out_selfie = ?, punch_out_geo_status = ?,
            total_hours = ?, status = ?, updated_at = ?
        WHERE id = ?`,
-      [serverTimestamp, numLat, numLng, numAcc, resolvedAddress, storedSelfie, geoStatus, totalHours, finalStatus, serverTimestamp, existingRecord.id]
+      [serverTimestamp, numLat, numLng, numAcc, resolvedAddress, storedSelfie, geoStatus, totalHours, finalStatus, serverTimestamp, targetRecord.id]
     );
 
     await queryRun(
       `INSERT INTO site_attendance_audit_logs (attendance_id, action, new_values, actor_email, actor_name, timestamp)
        VALUES (?, 'punch_out', ?, ?, ?, ?)`,
-      [existingRecord.id, JSON.stringify({ type: 'out', timestamp: serverTimestamp, latitude: numLat, longitude: numLng, accuracy: numAcc, address: resolvedAddress, totalHours, geoStatus }), session.email, employee.name, serverTimestamp]
+      [targetRecord.id, JSON.stringify({ type: 'out', timestamp: serverTimestamp, latitude: numLat, longitude: numLng, accuracy: numAcc, address: resolvedAddress, totalHours, geoStatus }), session.email, employee.name, serverTimestamp]
     );
 
     return {
@@ -910,6 +933,7 @@ export async function punchAttendance(punchData, session) {
 
 /**
  * Get current employee's attendance status today & active project.
+ * Automatically recognizes ongoing overnight shifts started within the last 24 hours.
  */
 export async function getMyAttendanceToday(session) {
   requireAuth(session);
@@ -921,10 +945,26 @@ export async function getMyAttendanceToday(session) {
   }
 
   const today = getLocalDateString();
-  const record = await queryGet(
+  let record = await queryGet(
     `SELECT * FROM site_attendance_records WHERE employee_id = ? AND date = ?`,
     [employee.employee_id, today]
   );
+
+  // If no record today, check for an unclosed overnight shift within the past 24 hours
+  if (!record) {
+    const openShift = await queryGet(
+      `SELECT * FROM site_attendance_records 
+       WHERE employee_id = ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL
+       ORDER BY id DESC LIMIT 1`,
+      [employee.employee_id]
+    );
+    if (openShift) {
+      const punchInMs = new Date(openShift.punch_in_time).getTime();
+      if (Date.now() - punchInMs <= 24 * 60 * 60 * 1000) {
+        record = openShift;
+      }
+    }
+  }
 
   const activeAllocation = await queryGet(
     `SELECT project FROM site_project_allocations WHERE employee_id = ? AND status = 'active' ORDER BY is_primary DESC LIMIT 1`,
@@ -1121,14 +1161,27 @@ export async function getProjectWorkforceSummary(project, session) {
     [proj]
   );
 
-  // 2. Today's attendance for this project
+  // 2. Today's attendance for this project (including active overnight shifts within 24 hours)
   const todayAttendance = await queryAll(
-    `SELECT * FROM site_attendance_records WHERE project = ? AND date = ?`,
+    `SELECT * FROM site_attendance_records 
+     WHERE project = ? AND (date = ? OR (punch_in_time IS NOT NULL AND punch_out_time IS NULL))`,
     [proj, today]
   );
 
   const attMap = new Map();
-  todayAttendance.forEach(a => attMap.set(a.employee_id, a));
+  const nowMs = Date.now();
+  todayAttendance.forEach(a => {
+    if (a.date === today) {
+      attMap.set(a.employee_id, a);
+    } else if (a.punch_in_time && !a.punch_out_time) {
+      const pInMs = new Date(a.punch_in_time).getTime();
+      if (nowMs - pInMs <= 24 * 60 * 60 * 1000) {
+        if (!attMap.has(a.employee_id)) {
+          attMap.set(a.employee_id, a);
+        }
+      }
+    }
+  });
 
   let presentCount = 0;
   let currentlyOnSite = 0;
@@ -1173,6 +1226,7 @@ export async function getProjectWorkforceSummary(project, session) {
     currentlyOnSite,
     geofence: geofence || null,
     workforce: workforceWithToday,
+    recentAttendance: history,
     recentHistory: history
   };
 }
@@ -1188,7 +1242,7 @@ export async function submitAttendanceRegularisation(data, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  const {
+  let {
     attendance_id,
     employee_id,
     project,
@@ -1197,6 +1251,12 @@ export async function submitAttendanceRegularisation(data, session) {
     proposed_punch_out,
     reason
   } = unwrap(data);
+
+  // Fallback to employee profile linked to user session if employee_id is omitted
+  if (!employee_id) {
+    const emp = await queryGet(`SELECT employee_id FROM site_employees WHERE user_email = ? OR email = ?`, [session.email, session.email]);
+    employee_id = emp?.employee_id;
+  }
 
   if (!employee_id || !project || !date || !reason) {
     throw new Error('Employee ID, project, date, and reason are required');
