@@ -1526,6 +1526,39 @@ export default function MyAttendanceView() {
             )}
           </div>
 
+          {/* Browser Permission Help Box if Blocked */}
+          {(cameraError?.includes('denied') || gpsError?.includes('denied') || cameraError?.includes('permission') || gpsError?.includes('permission')) && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+              <div className="flex items-start gap-2 text-amber-500 font-bold">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>Browser Permission Blocked</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground leading-relaxed space-y-1">
+                <div>Your browser has blocked Camera or Location access. To unblock:</div>
+                <div className="pl-2 space-y-0.5 text-foreground">
+                  <div>1. Click the <strong>🔒 lock or sliders icon</strong> on the left side of your browser URL bar.</div>
+                  <div>2. Set both <strong>Camera</strong> and <strong>Location</strong> to <strong>Allow</strong>.</div>
+                  <div>3. Tap the button below to re-acquire hardware.</div>
+                </div>
+              </div>
+              <div className="pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setCameraError(null);
+                    setGpsError(null);
+                    startCamera();
+                    fetchGpsLocation();
+                  }}
+                  className="text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Retry Camera & GPS Access
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Camera Control Buttons */}
           <div className="flex items-center justify-center gap-3">
             {selfiePreview ? (
@@ -1587,6 +1620,14 @@ export default function MyAttendanceView() {
             {gpsCoords && (
               <div className="text-[11px] font-mono text-muted-foreground">
                 Lat: <span className="text-foreground font-semibold">{gpsCoords.latitude.toFixed(6)}</span>, Lng: <span className="text-foreground font-semibold">{gpsCoords.longitude.toFixed(6)}</span>
+              </div>
+            )}
+            {gpsCoords && gpsCoords.accuracy > 200 && (
+              <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-400 flex items-start gap-2">
+                <span className="text-sm shrink-0">ℹ️</span>
+                <span>
+                  <strong>Desktop / Wi-Fi Estimated Location (±{Math.round(gpsCoords.accuracy > 1000 ? gpsCoords.accuracy / 1000 : gpsCoords.accuracy)}{gpsCoords.accuracy > 1000 ? 'km' : 'm'}):</strong> Laptops without GPS chips estimate location via ISP broadband. For exact ±5m satellite geofencing on site, please punch from your mobile phone.
+                </span>
               </div>
             )}
             {gpsAddress && (
