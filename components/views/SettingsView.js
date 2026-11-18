@@ -18,6 +18,61 @@ const SettingsUsersTab = dynamic(() => import('./settings/SettingsUsersTab'), { 
 const SettingsTDSTab = dynamic(() => import('./settings/SettingsTDSTab'), { ssr: false });
 const SettingsNumberSeriesTab = dynamic(() => import('./settings/SettingsNumberSeriesTab'), { ssr: false });
 const SettingsApprovalWorkflowTab = dynamic(() => import('./settings/SettingsApprovalWorkflowTab'), { ssr: false });
+
+// ── Module-level constants (stable across renders, safe in useCallback deps) ─
+const FEATURE_LABELS = {
+  'dashboard': 'Dashboard View',
+  'projects': 'Projects Master',
+  'site_employees': 'Site Employees & Allocation',
+  'site_attendance': 'Site Attendance & Geo-Punch',
+  'site_geofence': 'Configure Site Geofences',
+  'approve_attendance': 'Approve Attendance Corrections',
+  'goods_receipt': 'Goods Receipt Notes (GRN)',
+  'purchase_orders': 'Purchase Orders',
+  'create_po': 'Create Purchase Order',
+  'approve_po': 'Approve Purchase Order',
+  'vendors': 'Vendors Master',
+  'payments': 'Payment Requests',
+  'create_payment': 'Create Payment Request',
+  'approve_payment': 'Approve Payments',
+  'reject_payment': 'Reject Payments',
+  'budgets': 'Budget Tracking & BCS',
+  'documents': 'Document Storage',
+  'reports': 'Reports & Exports',
+  'export_data': 'Export CSV & Excel Data',
+  'view_analytics': 'View Financial Analytics',
+  'notifications': 'System Notifications',
+  'settings': 'Settings View',
+  'manage_users': 'Manage Users & Roles',
+  'manage_settings': 'Manage System Settings'
+};
+
+const ROLE_KEYS = ['proc', 'finance', 'accountant', 'operations', 'director', 'hr', 'pm', 'site_supervisor', 'manager'];
+const ROLE_LABELS = {
+  'proc': 'Procurement',
+  'finance': 'Finance',
+  'accountant': 'Accountant',
+  'operations': 'Operations',
+  'director': 'Director',
+  'hr': 'HR',
+  'pm': 'Project Manager',
+  'site_supervisor': 'Site Supervisor',
+  'manager': 'Manager'
+};
+
+const STANDARD_DEPARTMENTS = [
+  'Operations',
+  'Site Operations',
+  'Project Management',
+  'Procurement',
+  'Finance & Accounts',
+  'Architecture & Design',
+  'Quality & Safety',
+  'MEP Engineering',
+  'Billing & Estimation',
+  'Human Resources & Admin'
+];
+
 export default function SettingsView() {
   const { call, user, refreshData, projects } = useAppState();
   const [activeTab, setActiveTab] = useState('users');
@@ -285,14 +340,11 @@ export default function SettingsView() {
 
   // Grant or revoke all permissions for a role
   const handleToggleRoleAll = useCallback((role, selectAll) => {
-    setLocalPerms(prev => {
-      const allKeys = Object.keys(featureLabels);
-      return {
-        ...prev,
-        [role]: selectAll ? [...allKeys] : []
-      };
-    });
-  }, [featureLabels]);
+    setLocalPerms(prev => ({
+      ...prev,
+      [role]: selectAll ? [...Object.keys(FEATURE_LABELS)] : []
+    }));
+  }, []);
 
   if (!isDirector) {
     return (
@@ -718,54 +770,11 @@ export default function SettingsView() {
     );
   });
 
-  const featureLabels = {
-    'dashboard': 'Dashboard View',
-    'projects': 'Projects Master',
-    'site_employees': 'Site Employees & Allocation',
-    'site_attendance': 'Site Attendance & Geo-Punch',
-    'site_geofence': 'Configure Site Geofences',
-    'approve_attendance': 'Approve Attendance Corrections',
-    'goods_receipt': 'Goods Receipt Notes (GRN)',
-    'purchase_orders': 'Purchase Orders',
-    'create_po': 'Create Purchase Order',
-    'approve_po': 'Approve Purchase Order',
-    'vendors': 'Vendors Master',
-    'payments': 'Payment Requests',
-    'create_payment': 'Create Payment Request',
-    'approve_payment': 'Approve Payments',
-    'reject_payment': 'Reject Payments',
-    'budgets': 'Budget Tracking & BCS',
-    'documents': 'Document Storage',
-    'reports': 'Reports & Exports',
-    'export_data': 'Export CSV & Excel Data',
-    'view_analytics': 'View Financial Analytics',
-    'notifications': 'System Notifications',
-    'settings': 'Settings View',
-    'manage_users': 'Manage Users & Roles',
-    'manage_settings': 'Manage System Settings'
-  };
-
-  const roleKeys = ['proc', 'finance', 'accountant', 'operations', 'director'];
-  const roleLabels = {
-    'proc': 'Procurement',
-    'finance': 'Finance',
-    'accountant': 'Accountant',
-    'operations': 'Operations',
-    'director': 'Director'
-  };
-
-  const standardDepartments = [
-    'Operations',
-    'Site Operations',
-    'Project Management',
-    'Procurement',
-    'Finance & Accounts',
-    'Architecture & Design',
-    'Quality & Safety',
-    'MEP Engineering',
-    'Billing & Estimation',
-    'Human Resources & Admin'
-  ];
+  // Use module-level constants (avoid re-creation on every render)
+  const featureLabels = FEATURE_LABELS;
+  const roleKeys = ROLE_KEYS;
+  const roleLabels = ROLE_LABELS;
+  const standardDepartments = STANDARD_DEPARTMENTS;
 
   const categoryGroups = [
     {
