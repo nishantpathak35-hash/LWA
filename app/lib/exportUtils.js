@@ -52,6 +52,126 @@ export function exportToCSV(filename, columns, rows) {
 }
 
 /**
+ * Download a structured multi-sheet Excel workbook (.xls XML SpreadsheetML format).
+ * Opens natively in Microsoft Excel, Google Sheets, LibreOffice and Numbers with native tabs.
+ * @param {string} filename - Output file name
+ * @param {Array<{ sheetName: string, columns: Array<{label: string, key: string, formatter?: Function}>, rows: Array<Object> }>} sheets
+ */
+export function exportToMultiSheetExcel(filename, sheets) {
+  if (!sheets || !sheets.length) {
+    alert('No sheet data available to export.');
+    return;
+  }
+
+  const escapeXml = (unsafe) => {
+    if (unsafe == null) return '';
+    return String(unsafe)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
+  let xml = `<?xml version="1.0" encoding="utf-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Title>${escapeXml(filename)}</Title>
+  <Author>PTS HRMS</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="Header">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="NumberCell">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="BoldCell">
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/>
+  </Style>
+ </Styles>`;
+
+  sheets.forEach(({ sheetName, columns, rows }) => {
+    const cleanSheetName = (sheetName || 'Sheet').replace(/[:\/\\\?*\[\]]/g, '_').slice(0, 31);
+    xml += `
+ <Worksheet ss:Name="${escapeXml(cleanSheetName)}">
+  <Table>`;
+
+    // Header Row
+    xml += `
+   <Row ss:StyleID="Header">`;
+    columns.forEach(col => {
+      xml += `
+    <Cell><Data ss:Type="String">${escapeXml(col.label)}</Data></Cell>`;
+    });
+    xml += `
+   </Row>`;
+
+    // Data Rows
+    (rows || []).forEach(row => {
+      xml += `
+   <Row>`;
+      columns.forEach(col => {
+        let val = row[col.key];
+        if (col.formatter && typeof col.formatter === 'function') {
+          val = col.formatter(val, row);
+        }
+        if (val === null || val === undefined) {
+          val = '';
+        } else if (typeof val === 'object') {
+          val = JSON.stringify(val);
+        }
+
+        const isNum = typeof val === 'number' || (!isNaN(Number(val)) && val !== '' && !String(val).startsWith('0') && typeof val !== 'boolean');
+        if (isNum && typeof val !== 'string') {
+          xml += `
+    <Cell ss:StyleID="NumberCell"><Data ss:Type="Number">${val}</Data></Cell>`;
+        } else {
+          xml += `
+    <Cell><Data ss:Type="String">${escapeXml(val)}</Data></Cell>`;
+        }
+      });
+      xml += `
+   </Row>`;
+    });
+
+    xml += `
+  </Table>
+ </Worksheet>`;
+  });
+
+  xml += `
+</Workbook>`;
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  const outName = filename.endsWith('.xls') ? filename : `${filename}.xls`;
+  link.setAttribute('download', outName);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Generic sorter for array of objects.
  * Handles strings, numbers, dates, null/undefined values safely.
  */

@@ -51,3 +51,36 @@ export {
   getAttendanceAuditLogs,
   reverseGeocodeLocation
 } from './api/attendance.js';
+
+export {
+  initHrmsTables,
+  getHrmsDashboardKPIs,
+  listHrmsEmployees,
+  getHrmsEmployee,
+  saveHrmsEmployee,
+  updateEmployeeLifecycle,
+  getLeaveTypes,
+  saveLeaveType,
+  getEmployeeLeaveBalances,
+  applyLeave,
+  listLeaveRequests,
+  reviewLeaveRequest,
+  cancelLeaveRequest,
+  getHrmsShifts,
+  saveHrmsShift,
+  deleteHrmsShift,
+  getHrmsHolidays,
+  saveHrmsHoliday,
+  deleteHrmsHoliday,
+  getPendingApprovalsSummary,
+  listEmployeeDocuments,
+  uploadEmployeeDocument,
+  verifyEmployeeDocument,
+  getHrmsAnnouncements,
+  saveHrmsAnnouncement,
+  deleteHrmsAnnouncement,
+  getHrmsSettings,
+  saveHrmsSettings,
+  getMonthlyPayrollAttendance,
+  lockMonthlyAttendance
+} from './api/hrms.js';

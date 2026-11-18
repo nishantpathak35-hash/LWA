@@ -25,6 +25,7 @@ const ReportsView = dynamic(() => import('./views/ReportsView'), { loading: view
 const InvoicesView = dynamic(() => import('./views/InvoicesView'), { loading: viewLoading });
 const SettingsView = dynamic(() => import('./views/SettingsView'), { loading: viewLoading });
 const SiteEmployeesView = dynamic(() => import('./views/SiteEmployeesView'), { loading: viewLoading });
+const HrmsView = dynamic(() => import('./views/HrmsView'), { loading: viewLoading });
 const MyAttendanceView = dynamic(() => import('./views/MyAttendanceView'), { loading: viewLoading });
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
@@ -45,6 +46,7 @@ const VIEW_LABELS = {
   projects: 'Projects',
   vendors: 'Vendors',
   pos: 'Purchase Orders',
+  hrms: 'HRMS Portal',
   site_employees: 'Site Employees',
   my_attendance: 'My Attendance',
   invoices: 'Invoices',
@@ -65,11 +67,12 @@ const SHORTCUT_MAP = {
     r: { view: 'reports' },
     s: { view: 'settings' },
     j: { view: 'projects' },
+    h: { view: 'hrms' },
   }
 };
 
 
-const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'site_employees', 'my_attendance', 'invoices', 'payments', 'reports', 'settings'];
+const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'hrms', 'site_employees', 'my_attendance', 'invoices', 'payments', 'reports', 'settings'];
 
 function getFirstAllowedView(hasPermission) {
   return ORDERED_VIEWS.find((viewId) => {
@@ -294,7 +297,8 @@ export default function MainLayout() {
       projects:       <ProjectsView />,
       vendors:        <VendorsView />,
       pos:            <POsView />,
-      site_employees: <SiteEmployeesView />,
+      hrms:           <HrmsView />,
+      site_employees: <HrmsView initialTab="directory" />,
       my_attendance:  <MyAttendanceView />,
       invoices:       <InvoicesView />,
       payments:       <PaymentsView />,

@@ -58,7 +58,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen, collapsed = false, 
     { id: 'projects', label: 'Projects', icon: FolderKanban, feature: 'projects' },
     { id: 'vendors', label: 'Vendors', icon: Users, feature: 'vendors' },
     { id: 'pos', label: 'Purchase Orders', icon: ScrollText, feature: 'purchase_orders' },
-    { id: 'site_employees', label: 'Employees', icon: HardHat, roles: ['admin', 'director', 'pm', 'site_supervisor', 'manager'] },
+    { id: 'hrms', label: 'HRMS Portal', icon: HardHat, roles: ['admin', 'director', 'operations', 'hr', 'pm', 'site_supervisor', 'manager'] },
     { id: 'my_attendance', label: 'My Attendance', icon: UserCheck },
     { id: 'invoices', label: 'Invoices', icon: Receipt, feature: 'payments' },
     { 
@@ -86,14 +86,14 @@ export default function Sidebar({ mobileOpen, setMobileOpen, collapsed = false, 
 
   const GROUPS = [
     { id: 'operations', label: 'Operations', items: ['dashboard', 'projects', 'vendors', 'pos'] },
-    { id: 'site', label: 'Site', items: ['site_employees', 'my_attendance'] },
+    { id: 'hrms', label: 'HRMS', items: ['hrms', 'my_attendance'] },
     { id: 'finance', label: 'Finance', items: ['invoices', 'payments'] },
     { id: 'admin', label: 'Admin', items: ['reports', 'settings'] }
   ];
 
   const [expandedGroups, setExpandedGroups] = useState({
     operations: true,
-    site: true,
+    hrms: true,
     finance: true,
     admin: true
   });

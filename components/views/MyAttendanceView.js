@@ -11,7 +11,7 @@ import {
   Clock, MapPin, Camera, CheckCircle2, AlertTriangle, 
   XCircle, RotateCcw, Calendar, History, ShieldAlert,
   ArrowRight, ShieldCheck, User, Building2, Eye, ExternalLink,
-  ChevronRight, RefreshCw, Send, Check
+  ChevronRight, RefreshCw, Send, Check, Award, Bell, FileText, Plus
 } from 'lucide-react';
 
 export default function MyAttendanceView() {
@@ -27,7 +27,24 @@ export default function MyAttendanceView() {
   const [activeProject, setActiveProject] = useState('');
   const [historyRecords, setHistoryRecords] = useState([]);
   const [regularisations, setRegularisations] = useState([]);
-  const [activeTab, setActiveTab] = useState('punch'); // 'punch' | 'history' | 'regularisations'
+  const [activeTab, setActiveTab] = useState('punch'); // 'punch' | 'history' | 'regularisations' | 'leaves' | 'holidays' | 'announcements'
+
+  // Leaves & Policies state
+  const [leaveBalances, setLeaveBalances] = useState([]);
+  const [myLeaveRequests, setMyLeaveRequests] = useState([]);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [companyHolidays, setCompanyHolidays] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [applyLeaveModalOpen, setApplyLeaveModalOpen] = useState(false);
+  const [applyLeaveForm, setApplyLeaveForm] = useState({
+    leave_type_code: 'CL',
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: new Date().toISOString().split('T')[0],
+    is_half_day: false,
+    half_day_type: 'first_half',
+    reason: ''
+  });
+  const [applyingLeave, setApplyingLeave] = useState(false);
 
   // Live digital clock
   const [currentTime, setCurrentTime] = useState('');
@@ -95,11 +112,18 @@ export default function MyAttendanceView() {
     setLoading(true);
     setError(null);
     try {
-      const [todayData, historyData, regData] = await Promise.all([
+      const [todayData, historyData, regData, typesData, holidaysData, annData] = await Promise.all([
         callRpc('getMyAttendanceToday'),
         callRpc('getMyAttendanceHistory', { limit: 30 }),
-        callRpc('listAttendanceRegularisations', {})
+        callRpc('listAttendanceRegularisations', {}),
+        callRpc('getLeaveTypes').catch(() => []),
+        callRpc('getHrmsHolidays', { year: new Date().getFullYear() }).catch(() => []),
+        callRpc('getHrmsAnnouncements').catch(() => [])
       ]);
+
+      if (Array.isArray(typesData)) setLeaveTypes(typesData);
+      if (Array.isArray(holidaysData)) setCompanyHolidays(holidaysData);
+      if (Array.isArray(annData)) setAnnouncements(annData);
 
       if (todayData) {
         setEmployeeProfile(todayData.employee);
@@ -108,6 +132,17 @@ export default function MyAttendanceView() {
         setActiveProject(resolvedProj);
         setSelectedPunchProject(resolvedProj);
         setRegFormData(prev => ({ ...prev, project: resolvedProj }));
+
+        if (todayData.employee?.employee_id) {
+          try {
+            const [bals, reqs] = await Promise.all([
+              callRpc('getEmployeeLeaveBalances', { employee_id: todayData.employee.employee_id }),
+              callRpc('listLeaveRequests', { employee_id: todayData.employee.employee_id })
+            ]);
+            if (Array.isArray(bals)) setLeaveBalances(bals);
+            if (Array.isArray(reqs)) setMyLeaveRequests(reqs);
+          } catch (e) {}
+        }
       }
       if (Array.isArray(historyData)) {
         setHistoryRecords(historyData);
@@ -407,6 +442,49 @@ export default function MyAttendanceView() {
     }
   };
 
+  // Submit Leave Application
+  const handleApplyLeaveSubmit = async (e) => {
+    e.preventDefault();
+    if (!employeeProfile?.employee_id) {
+      alert('Employee profile is not linked to your user account.');
+      return;
+    }
+    if (!applyLeaveForm.reason || !applyLeaveForm.reason.trim()) {
+      alert('Please provide a reason for your leave request.');
+      return;
+    }
+
+    setApplyingLeave(true);
+    try {
+      await callRpc('applyLeave', {
+        employee_id: employeeProfile.employee_id,
+        leave_type_code: applyLeaveForm.leave_type_code,
+        start_date: applyLeaveForm.start_date,
+        end_date: applyLeaveForm.end_date,
+        is_half_day: applyLeaveForm.is_half_day,
+        half_day_type: applyLeaveForm.half_day_type,
+        reason: applyLeaveForm.reason.trim()
+      });
+
+      setSuccessToast('Leave request submitted successfully for approval.');
+      setApplyLeaveModalOpen(false);
+      setApplyLeaveForm({
+        leave_type_code: 'CL',
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: new Date().toISOString().split('T')[0],
+        is_half_day: false,
+        half_day_type: 'first_half',
+        reason: ''
+      });
+      await loadAttendanceData();
+    } catch (err) {
+      console.error('Leave application error:', err);
+      alert(err.message || 'Failed to submit leave application.');
+    } finally {
+      setApplyingLeave(false);
+    }
+  };
+
   // Status helper
   const renderStatusBadge = (status, isFlagged) => {
     const s = String(status || '').toLowerCase();
@@ -527,7 +605,37 @@ export default function MyAttendanceView() {
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           }`}
         >
-          <Clock className="w-3.5 h-3.5" /> Regularisation Requests ({regularisations.length})
+          <Clock className="w-3.5 h-3.5" /> Regularisations ({regularisations.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('leaves')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'leaves'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" /> Leaves & Balances ({myLeaveRequests.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('holidays')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'holidays'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Award className="w-3.5 h-3.5" /> Shift & Holidays
+        </button>
+        <button
+          onClick={() => setActiveTab('announcements')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'announcements'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Bell className="w-3.5 h-3.5" /> Notices & Policies ({announcements.length})
         </button>
       </div>
 
@@ -1042,7 +1150,280 @@ export default function MyAttendanceView() {
         </Card>
       )}
 
-      {/* ── Modal: Live Camera + GPS Attendance Punch ── */}
+      {/* ── TAB 4: Leaves & Balances ── */}
+      {activeTab === 'leaves' && (
+        <div className="space-y-6">
+          {/* Balance Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+            {leaveBalances.length === 0 ? (
+              <div className="col-span-full p-4 rounded-xl border border-border bg-card text-xs text-muted-foreground">
+                Leave balances are allocated automatically upon profile confirmation.
+              </div>
+            ) : (
+              leaveBalances.map(bal => (
+                <Card key={bal.id} className="bg-card border-border shadow-xs">
+                  <CardContent className="p-4">
+                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                      {bal.leave_type_name || bal.leave_type_code}
+                    </span>
+                    <div className="text-2xl font-bold mt-1 text-primary">{bal.balance}</div>
+                    <span className="text-[11px] text-muted-foreground">
+                      {bal.used} used • {bal.total_allocated} total
+                    </span>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* Leave Requests History */}
+          <Card className="bg-card border-border shadow-xs">
+            <CardHeader className="border-b border-border py-3.5 px-6 flex items-center justify-between">
+              <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-amber-500" />
+                My Leave Requests
+              </CardTitle>
+              <Button size="sm" onClick={() => setApplyLeaveModalOpen(true)} className="text-xs">
+                + Apply Leave
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              {myLeaveRequests.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground text-xs">
+                  No leave applications submitted yet.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Leave Type</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Days</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Approver Remarks</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {myLeaveRequests.map(lv => (
+                        <TableRow key={lv.id}>
+                          <TableCell className="text-xs font-semibold text-foreground">
+                            {lv.leave_type_name || lv.leave_type_code}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono">
+                            {lv.start_date} to {lv.end_date}
+                          </TableCell>
+                          <TableCell className="text-xs font-bold">
+                            {lv.total_days} {lv.total_days === 1 ? 'day' : 'days'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
+                            {lv.reason}
+                          </TableCell>
+                          <TableCell>
+                            {lv.status === 'approved' ? (
+                              <Badge variant="success" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                                Approved
+                              </Badge>
+                            ) : lv.status === 'rejected' ? (
+                              <Badge variant="destructive">Rejected</Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-amber-500/40 text-amber-500">
+                                Pending
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
+                            {lv.review_remarks || '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── TAB 5: Shift & Holidays ── */}
+      {activeTab === 'holidays' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="bg-card border-border shadow-xs">
+              <CardHeader className="p-4 border-b border-border">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-500" />
+                  My Working Shift & Weekly Off
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Assigned Shift:</span>
+                  <span className="font-bold text-foreground">General Shift (09:30 - 18:30)</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Standard Hours:</span>
+                  <span className="font-semibold text-foreground">8.5 hrs / day</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Grace Period:</span>
+                  <span className="font-medium text-foreground">15 minutes</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Weekly Off:</span>
+                  <span className="font-bold text-primary">{employeeProfile?.weekly_off || 'Sunday'}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-border shadow-xs">
+              <CardHeader className="p-4 border-b border-border">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                  <Award className="w-4 h-4 text-amber-500" />
+                  Official Company Holidays ({companyHolidays.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 max-h-72 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Holiday</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Day</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {companyHolidays.map(h => (
+                      <TableRow key={h.id}>
+                        <TableCell className="text-xs font-semibold text-foreground">{h.title}</TableCell>
+                        <TableCell className="text-xs font-mono">{h.date}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {new Date(h.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 6: Notices & Policies ── */}
+      {activeTab === 'announcements' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {announcements.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-muted-foreground text-xs">
+                No active company notices or HR policy bulletins at this time.
+              </div>
+            ) : (
+              announcements.map(ann => (
+                <Card key={ann.id} className="bg-card border-border shadow-xs">
+                  <CardHeader className="p-4 border-b border-border flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-primary" />
+                      {ann.title}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-semibold uppercase">
+                      {ann.category}
+                    </Badge>
+                  </CardHeader>
+                  <CardContent className="p-4 text-xs space-y-2">
+                    <p className="text-foreground whitespace-pre-wrap">{ann.content}</p>
+                    <div className="pt-2 border-t border-border text-[11px] text-muted-foreground">
+                      Published: {new Date(ann.created_at).toLocaleDateString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Apply Leave ── */}
+      {applyLeaveModalOpen && (
+        <Dialog
+          open={applyLeaveModalOpen}
+          onClose={() => setApplyLeaveModalOpen(false)}
+          title="Apply for Leave"
+          maxWidth="max-w-md"
+        >
+          <form onSubmit={handleApplyLeaveSubmit} className="space-y-3 text-xs">
+            <div>
+              <label className="font-semibold text-foreground">Leave Type</label>
+              <Select
+                value={applyLeaveForm.leave_type_code}
+                onChange={(e) => setApplyLeaveForm({ ...applyLeaveForm, leave_type_code: e.target.value })}
+                className="mt-1 h-8 text-xs"
+              >
+                {leaveTypes.map(t => (
+                  <option key={t.code} value={t.code}>
+                    {t.name} ({t.code})
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="font-semibold text-foreground">Start Date</label>
+                <Input
+                  type="date"
+                  required
+                  value={applyLeaveForm.start_date}
+                  onChange={(e) => setApplyLeaveForm({ ...applyLeaveForm, start_date: e.target.value })}
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-foreground">End Date</label>
+                <Input
+                  type="date"
+                  required
+                  value={applyLeaveForm.end_date}
+                  onChange={(e) => setApplyLeaveForm({ ...applyLeaveForm, end_date: e.target.value })}
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="isHalfDay"
+                checked={applyLeaveForm.is_half_day}
+                onChange={(e) => setApplyLeaveForm({ ...applyLeaveForm, is_half_day: e.target.checked })}
+              />
+              <label htmlFor="isHalfDay" className="font-medium text-foreground">Apply for Half Day</label>
+            </div>
+
+            <div>
+              <label className="font-semibold text-foreground">Reason *</label>
+              <Textarea
+                required
+                placeholder="State reason for absence..."
+                value={applyLeaveForm.reason}
+                onChange={(e) => setApplyLeaveForm({ ...applyLeaveForm, reason: e.target.value })}
+                className="mt-1 text-xs"
+              />
+            </div>
+
+            <div className="pt-2 border-t border-border flex items-center justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setApplyLeaveModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={applyingLeave}>
+                {applyingLeave ? 'Submitting...' : 'Submit Leave Application'}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
       <Dialog
         open={punchModalOpen}
         onClose={handleClosePunchModal}
