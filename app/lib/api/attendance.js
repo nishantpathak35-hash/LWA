@@ -66,6 +66,31 @@ function unwrap(val) {
 }
 
 /**
+ * Formats a clean, readable Indian or global address from a reverse-geocoded address object.
+ * Eliminates confusing administrative tehsil/county names (e.g. "Dadri" for Noida, "Manesar" for Gurgaon)
+ * while preserving sector, locality, city, state and postcode.
+ */
+export function formatCleanAddress(addr, displayName = '') {
+  if (!addr || typeof addr !== 'object') {
+    return displayName || '';
+  }
+  const street = addr.road || addr.pedestrian || addr.path || addr.amenity || addr.building || addr.commercial || addr.industrial || addr.residential || addr.neighbourhood || '';
+  const locality = addr.suburb || addr.neighbourhood || addr.residential || addr.subdivision || addr.quarter || addr.village || '';
+  const city = addr.city || addr.town || addr.city_district || addr.municipality || '';
+  const state = addr.state || '';
+  const pin = addr.postcode || '';
+
+  // Only use county/subdistrict if NEITHER locality nor city is available
+  const subdistrict = (!locality && !city) ? (addr.subdistrict || addr.county || '') : '';
+
+  const parts = [street, locality, subdistrict, city, state, pin].filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.join(', ');
+  }
+  return displayName || parts.join(', ') || '';
+}
+
+/**
  * Reverse geocode latitude and longitude into an exact readable street/site address.
  * Falls back gracefully to formatted coordinate string if network or geocoding is unavailable.
  */
@@ -100,6 +125,10 @@ export async function resolveReadableAddress(lat, lng, clientAddress = '') {
     clearTimeout(timer);
     if (res.ok) {
       const data = await res.json();
+      if (data && data.address) {
+        const clean = formatCleanAddress(data.address, data.display_name);
+        if (clean) return clean;
+      }
       if (data && data.display_name) {
         return data.display_name;
       }

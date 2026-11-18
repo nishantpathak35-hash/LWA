@@ -70,6 +70,7 @@ export default function MyAttendanceView() {
   const [gpsAddress, setGpsAddress] = useState('');
   const [gpsError, setGpsError] = useState(null);
   const gpsWatchIdRef = useRef(null);
+  const geoDebounceRef = useRef(null);
 
   // Regularisation modal state
   const [regModalOpen, setRegModalOpen] = useState(false);
@@ -261,39 +262,62 @@ export default function MyAttendanceView() {
       gpsWatchIdRef.current = null;
     }
 
-    const onPositionSuccess = async (pos) => {
+    const onPositionSuccess = (pos) => {
       const { latitude, longitude, accuracy } = pos.coords;
       const roundedAcc = Math.round(accuracy);
       setGpsCoords(prev => {
-        // If accuracy is better or new, update
-        if (!prev || roundedAcc <= prev.accuracy) {
-          return { latitude, longitude, accuracy: roundedAcc };
+        // If we already have a significantly more accurate fix, do not degrade to coarse cell-tower
+        if (prev && prev.accuracy < roundedAcc && (roundedAcc - prev.accuracy > 30)) {
+          return prev;
         }
-        return prev;
+        return { latitude, longitude, accuracy: roundedAcc };
       });
-      setGpsLoading(false);
+      // Stop loading spinner if we achieved high or acceptable satellite precision
+      if (roundedAcc <= 50) {
+        setGpsLoading(false);
+      } else {
+        // If coarse, mark loading complete after brief lock but keep continuous watch for satellite refinement
+        setGpsLoading(false);
+      }
 
-      // Reverse geocode via server RPC or fallback
-      try {
-        const geoRes = await callRpc('reverseGeocodeLocation', { latitude, longitude });
-        if (geoRes && geoRes.address) {
-          setGpsAddress(geoRes.address);
-          return;
-        }
-      } catch { }
-
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.display_name) {
-            setGpsAddress(data.display_name);
+      // Debounce reverse geocoding so rapid GPS fixes don't get 429 rate-limited
+      if (geoDebounceRef.current) clearTimeout(geoDebounceRef.current);
+      geoDebounceRef.current = setTimeout(async () => {
+        try {
+          const geoRes = await callRpc('reverseGeocodeLocation', { latitude, longitude });
+          if (geoRes && geoRes.address) {
+            setGpsAddress(geoRes.address);
             return;
           }
-        }
-      } catch { }
+        } catch { }
 
-      setGpsAddress(`${latitude.toFixed(6)}°, ${longitude.toFixed(6)}°`);
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.address) {
+              const a = data.address;
+              const street = a.road || a.pedestrian || a.path || a.amenity || a.building || a.commercial || a.industrial || a.residential || a.neighbourhood || '';
+              const locality = a.suburb || a.neighbourhood || a.residential || a.subdivision || a.quarter || a.village || '';
+              const city = a.city || a.town || a.city_district || a.municipality || '';
+              const state = a.state || '';
+              const pin = a.postcode || '';
+              const subdistrict = (!locality && !city) ? (a.subdistrict || a.county || '') : '';
+              const parts = [street, locality, subdistrict, city, state, pin].filter(Boolean);
+              if (parts.length >= 2) {
+                setGpsAddress(parts.join(', '));
+                return;
+              }
+            }
+            if (data && data.display_name) {
+              setGpsAddress(data.display_name);
+              return;
+            }
+          }
+        } catch { }
+
+        setGpsAddress(`${latitude.toFixed(6)}°, ${longitude.toFixed(6)}°`);
+      }, 600);
     };
 
     const onPositionError = (err) => {
@@ -1594,16 +1618,21 @@ export default function MyAttendanceView() {
               </span>
               <div className="flex items-center gap-2">
                 {gpsLoading ? (
-                  <span className="text-amber-500 text-[11px] font-mono animate-pulse">Locking Satellites...</span>
+                  <span className="text-amber-500 text-[11px] font-mono animate-pulse">Acquiring GPS Fix...</span>
                 ) : gpsCoords ? (
                   <span className={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md border ${
-                    gpsCoords.accuracy <= 25
+                    gpsCoords.accuracy <= 30
                       ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30'
                       : gpsCoords.accuracy <= 80
                       ? 'text-blue-500 bg-blue-500/10 border-blue-500/30'
                       : 'text-amber-500 bg-amber-500/10 border-amber-500/30'
                   }`}>
-                    ±{gpsCoords.accuracy}m {gpsCoords.accuracy <= 25 ? 'High Precision' : 'Locked'}
+                    ±{gpsCoords.accuracy > 1000 ? `${(gpsCoords.accuracy / 1000).toFixed(1)}km` : `${gpsCoords.accuracy}m`}{' '}
+                    {gpsCoords.accuracy <= 30
+                      ? '🎯 Exact Satellite Lock'
+                      : gpsCoords.accuracy <= 80
+                      ? '📍 Good Precision'
+                      : '📡 Coarse / Approximate'}
                   </span>
                 ) : null}
                 <button
@@ -1618,16 +1647,55 @@ export default function MyAttendanceView() {
             </div>
 
             {gpsCoords && (
-              <div className="text-[11px] font-mono text-muted-foreground">
-                Lat: <span className="text-foreground font-semibold">{gpsCoords.latitude.toFixed(6)}</span>, Lng: <span className="text-foreground font-semibold">{gpsCoords.longitude.toFixed(6)}</span>
+              <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+                <div>
+                  Lat: <span className="text-foreground font-semibold">{gpsCoords.latitude.toFixed(6)}</span>, Lng: <span className="text-foreground font-semibold">{gpsCoords.longitude.toFixed(6)}</span>
+                </div>
+                <a
+                  href={`https://www.google.com/maps?q=${gpsCoords.latitude},${gpsCoords.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-amber-500 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> View on Google Maps ↗
+                </a>
               </div>
             )}
-            {gpsCoords && gpsCoords.accuracy > 200 && (
-              <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-400 flex items-start gap-2">
-                <span className="text-sm shrink-0">ℹ️</span>
-                <span>
-                  <strong>Desktop / Wi-Fi Estimated Location (±{Math.round(gpsCoords.accuracy > 1000 ? gpsCoords.accuracy / 1000 : gpsCoords.accuracy)}{gpsCoords.accuracy > 1000 ? 'km' : 'm'}):</strong> Laptops without GPS chips estimate location via ISP broadband. For exact ±5m satellite geofencing on site, please punch from your mobile phone.
-                </span>
+            {gpsCoords && gpsCoords.accuracy > 80 && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+                <div className="font-bold text-amber-500 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Mobile Location Door Kyu Dikh Rahi Hai? (Accuracy: ±{gpsCoords.accuracy > 1000 ? `${(gpsCoords.accuracy / 1000).toFixed(1)} km` : `${gpsCoords.accuracy}m`})</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Mobile phone par exact pinpoint location ke liye browser ko <strong>&ldquo;Precise Location&rdquo;</strong> allow karna zaroori hai:
+                </p>
+                <div className="text-[11px] space-y-1.5 bg-background/60 p-2.5 rounded-lg border border-border">
+                  <div className="flex items-start gap-1.5">
+                    <span className="font-bold text-amber-500">1.</span>
+                    <span>Chrome ke upar URL bar me <strong>🔒 Lock icon</strong> (ya sliders) dabayein.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="font-bold text-amber-500">2.</span>
+                    <span><strong>Permissions → Location</strong> me jakar <strong>&ldquo;Use precise location&rdquo; (सटीक स्थान)</strong> ON karein.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="font-bold text-amber-500">3.</span>
+                    <span>Phone Settings → Location me <strong>Google Location Accuracy</strong> ON karein.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="font-bold text-amber-500">4.</span>
+                    <span>Agar room ke andar ho to window ke paas aakar <strong>Refresh GPS</strong> dabayein.</span>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={fetchGpsLocation}
+                  className="w-full text-xs font-semibold border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Re-Scan Exact Satellite GPS
+                </Button>
               </div>
             )}
             {gpsAddress && (
