@@ -8,16 +8,14 @@ import { Users, Shield, Settings, Key, UserCheck, UserMinus, Plus, Download, Loa
 import { cn } from '../../app/lib/utils';
 import { isSuperAdmin } from '../../app/lib/config';
 import { DEFAULT_CONTROL_POLICIES } from '../../app/lib/paymentStatus.js';
-import dynamic from 'next/dynamic';
-
-const SettingsCompanyTab = dynamic(() => import('./settings/SettingsCompanyTab'), { ssr: false });
-const SettingsSystemTab = dynamic(() => import('./settings/SettingsSystemTab'), { ssr: false });
-const SettingsAuditTab = dynamic(() => import('./settings/SettingsAuditTab'), { ssr: false });
-const SettingsPermissionsTab = dynamic(() => import('./settings/SettingsPermissionsTab'), { ssr: false });
-const SettingsUsersTab = dynamic(() => import('./settings/SettingsUsersTab'), { ssr: false });
-const SettingsTDSTab = dynamic(() => import('./settings/SettingsTDSTab'), { ssr: false });
-const SettingsNumberSeriesTab = dynamic(() => import('./settings/SettingsNumberSeriesTab'), { ssr: false });
-const SettingsApprovalWorkflowTab = dynamic(() => import('./settings/SettingsApprovalWorkflowTab'), { ssr: false });
+import SettingsCompanyTab from './settings/SettingsCompanyTab';
+import SettingsSystemTab from './settings/SettingsSystemTab';
+import SettingsAuditTab from './settings/SettingsAuditTab';
+import SettingsPermissionsTab from './settings/SettingsPermissionsTab';
+import SettingsUsersTab from './settings/SettingsUsersTab';
+import SettingsTDSTab from './settings/SettingsTDSTab';
+import SettingsNumberSeriesTab from './settings/SettingsNumberSeriesTab';
+import SettingsApprovalWorkflowTab from './settings/SettingsApprovalWorkflowTab';
 
 // ── Module-level constants (stable across renders, safe in useCallback deps) ─
 const FEATURE_LABELS = {
