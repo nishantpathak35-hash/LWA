@@ -546,10 +546,11 @@ export const DEFAULT_FEATURE_PERMISSIONS = {
   proc:       ['dashboard', 'payments', 'purchase_orders', 'vendors', 'create_payment', 'create_po'],
   finance:    ['dashboard', 'payments', 'vendors', 'reports', 'approve_payment', 'reject_payment', 'export_data'],
   accountant: ['dashboard', 'payments', 'purchase_orders', 'vendors', 'reports', 'create_payment', 'approve_payment', 'export_data', 'upload_document'],
-  director:   ['dashboard', 'payments', 'purchase_orders', 'projects', 'vendors', 'settings', 'reports', 'manage_users', 'manage_settings', 'view_analytics', 'export_data', 'approve_po', 'approve_payment', 'reject_payment']
+  operations: ['dashboard', 'projects', 'goods_receipt', 'documents', 'site_employees', 'site_attendance', 'site_geofence', 'approve_attendance'],
+  director:   ['dashboard', 'payments', 'purchase_orders', 'projects', 'vendors', 'settings', 'reports', 'manage_users', 'manage_settings', 'view_analytics', 'export_data', 'approve_po', 'approve_payment', 'reject_payment', 'goods_receipt', 'documents', 'site_employees', 'site_attendance', 'site_geofence', 'approve_attendance']
 };
 
-export const VALID_ROLE_KEYS = new Set(['proc', 'finance', 'accountant', 'director']);
+export const VALID_ROLE_KEYS = new Set(['proc', 'finance', 'accountant', 'operations', 'director']);
 
 export function getPRStatus(stage, remittance) {
   if (String(remittance || '').toLowerCase().includes('remitted') || String(stage || '').toLowerCase().includes('remitted')) {

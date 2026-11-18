@@ -50,7 +50,7 @@ export default function SettingsView() {
   // Dialog Form inputs
   const [targetEmail, setTargetEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
-  const [newUserRoles, setNewUserRoles] = useState({ proc: false, finance: true, director: false });
+  const [newUserRoles, setNewUserRoles] = useState({ proc: false, finance: false, operations: true, accountant: false, director: false });
   const [newUserPassword, setNewUserPassword] = useState(generateRandomPassword());
   const [newEmployeeId, setNewEmployeeId] = useState('');
   const [newDepartment, setNewDepartment] = useState('');
@@ -58,7 +58,7 @@ export default function SettingsView() {
   const [newMobileNumber, setNewMobileNumber] = useState('');
   const [newPrimaryProject, setNewPrimaryProject] = useState('');
   
-  const [editAccessRoles, setEditAccessRoles] = useState({ proc: false, finance: false, director: false });
+  const [editAccessRoles, setEditAccessRoles] = useState({ proc: false, finance: false, operations: false, accountant: false, director: false });
   const [editUserName, setEditUserName] = useState('');
   const [editEmployeeId, setEditEmployeeId] = useState('');
   const [editDepartment, setEditDepartment] = useState('');
@@ -282,6 +282,17 @@ export default function SettingsView() {
       return { ...prev, [role]: current };
     });
   }, []);
+
+  // Grant or revoke all permissions for a role
+  const handleToggleRoleAll = useCallback((role, selectAll) => {
+    setLocalPerms(prev => {
+      const allKeys = Object.keys(featureLabels);
+      return {
+        ...prev,
+        [role]: selectAll ? [...allKeys] : []
+      };
+    });
+  }, [featureLabels]);
 
   if (!isDirector) {
     return (
@@ -709,30 +720,52 @@ export default function SettingsView() {
 
   const featureLabels = {
     'dashboard': 'Dashboard View',
-    'payments': 'Payment Requests',
+    'projects': 'Projects Master',
+    'site_employees': 'Site Employees & Allocation',
+    'site_attendance': 'Site Attendance & Geo-Punch',
+    'site_geofence': 'Configure Site Geofences',
+    'approve_attendance': 'Approve Attendance Corrections',
+    'goods_receipt': 'Goods Receipt Notes (GRN)',
     'purchase_orders': 'Purchase Orders',
-    'goods_receipt': 'Goods Receipt Notes',
-    'projects': 'Projects',
-    'vendors': 'Vendors',
-    'budgets': 'Budget Tracking',
-    'documents': 'Document Storage',
-    'notifications': 'Notifications',
-    'settings': 'Settings',
-    'reports': 'Reports',
+    'create_po': 'Create Purchase Order',
+    'approve_po': 'Approve Purchase Order',
+    'vendors': 'Vendors Master',
+    'payments': 'Payment Requests',
     'create_payment': 'Create Payment Request',
     'approve_payment': 'Approve Payments',
     'reject_payment': 'Reject Payments',
-    'create_po': 'Create Purchase Order',
-    'approve_po': 'Approve Purchase Order',
-    'upload_document': 'Upload Documents',
-    'manage_users': 'Manage Users',
-    'manage_settings': 'Manage Settings',
-    'export_data': 'Export Data',
-    'view_analytics': 'View Analytics'
+    'budgets': 'Budget Tracking & BCS',
+    'documents': 'Document Storage',
+    'reports': 'Reports & Exports',
+    'export_data': 'Export CSV & Excel Data',
+    'view_analytics': 'View Financial Analytics',
+    'notifications': 'System Notifications',
+    'settings': 'Settings View',
+    'manage_users': 'Manage Users & Roles',
+    'manage_settings': 'Manage System Settings'
   };
 
-  const roleKeys = ['proc', 'finance', 'accountant', 'director'];
-  const roleLabels = { 'proc': 'Procurement', 'finance': 'Finance', 'accountant': 'Accountant', 'director': 'Director' };
+  const roleKeys = ['proc', 'finance', 'accountant', 'operations', 'director'];
+  const roleLabels = {
+    'proc': 'Procurement',
+    'finance': 'Finance',
+    'accountant': 'Accountant',
+    'operations': 'Operations',
+    'director': 'Director'
+  };
+
+  const standardDepartments = [
+    'Operations',
+    'Site Operations',
+    'Project Management',
+    'Procurement',
+    'Finance & Accounts',
+    'Architecture & Design',
+    'Quality & Safety',
+    'MEP Engineering',
+    'Billing & Estimation',
+    'Human Resources & Admin'
+  ];
 
   const categoryGroups = [
     {
@@ -920,6 +953,7 @@ export default function SettingsView() {
           featureLabels={featureLabels}
           localPerms={localPerms}
           handleTogglePerm={handleTogglePerm}
+          handleToggleRoleAll={handleToggleRoleAll}
         />
       )}
 
@@ -1068,16 +1102,16 @@ export default function SettingsView() {
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Access Roles</label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {roleKeys.map(r => (
                   <label key={r} className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:bg-muted/40 cursor-pointer transition-colors select-none">
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded border-input accent-amber-600 dark:accent-amber-400"
-                      checked={newUserRoles[r]}
+                      checked={Boolean(newUserRoles[r])}
                       onChange={e => setNewUserRoles({ ...newUserRoles, [r]: e.target.checked })}
                     />
-                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 capitalize">{r}</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{roleLabels[r] || r}</span>
                   </label>
                 ))}
               </div>
@@ -1118,23 +1152,32 @@ export default function SettingsView() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
-                  <Input
-                    type="text"
-                    list="dept-options-new"
-                    placeholder="e.g. Site Operations"
-                    value={newDepartment}
-                    onChange={e => setNewDepartment(e.target.value)}
-                    className="bg-background text-foreground text-xs"
-                  />
-                  <datalist id="dept-options-new">
-                    <option value="Site Operations" />
-                    <option value="Project Management" />
-                    <option value="Architecture & Design" />
-                    <option value="Procurement" />
-                    <option value="Finance & Accounts" />
-                    <option value="Quality & Safety" />
-                    <option value="MEP Engineering" />
-                  </datalist>
+                  <select
+                    value={standardDepartments.includes(newDepartment) ? newDepartment : (newDepartment ? '__custom__' : '')}
+                    onChange={e => {
+                      if (e.target.value === '__custom__') {
+                        setNewDepartment('');
+                      } else {
+                        setNewDepartment(e.target.value);
+                      }
+                    }}
+                    className="w-full text-xs p-2 rounded-xl bg-background border border-input text-foreground"
+                  >
+                    <option value="">-- Select Department --</option>
+                    {standardDepartments.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                    <option value="__custom__">+ Custom Department...</option>
+                  </select>
+                  {(!standardDepartments.includes(newDepartment) || newDepartment === '') && (
+                    <Input
+                      type="text"
+                      placeholder="Type custom department name..."
+                      value={newDepartment}
+                      onChange={e => setNewDepartment(e.target.value)}
+                      className="bg-background text-foreground text-xs mt-1"
+                    />
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Designation</label>
@@ -1206,16 +1249,16 @@ export default function SettingsView() {
           <div className="space-y-1.5 pt-2">
             <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Access Roles</label>
           </div>
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {roleKeys.map(r => (
-              <label key={r} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/40 cursor-pointer transition-colors select-none">
+              <label key={r} className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:bg-muted/40 cursor-pointer transition-colors select-none">
                 <input
                   type="checkbox"
                   className="w-4 h-4 rounded border-input accent-amber-600 dark:accent-amber-400"
-                  checked={editAccessRoles[r]}
+                  checked={Boolean(editAccessRoles[r])}
                   onChange={e => setEditAccessRoles({ ...editAccessRoles, [r]: e.target.checked })}
                 />
-                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 capitalize">{r}</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{roleLabels[r] || r}</span>
               </label>
             ))}
           </div>
@@ -1245,23 +1288,32 @@ export default function SettingsView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
-                <Input
-                  type="text"
-                  list="dept-options-edit"
-                  placeholder="e.g. Site Operations"
-                  value={editDepartment}
-                  onChange={e => setEditDepartment(e.target.value)}
-                  className="bg-background text-foreground text-xs"
-                />
-                <datalist id="dept-options-edit">
-                  <option value="Site Operations" />
-                  <option value="Project Management" />
-                  <option value="Architecture & Design" />
-                  <option value="Procurement" />
-                  <option value="Finance & Accounts" />
-                  <option value="Quality & Safety" />
-                  <option value="MEP Engineering" />
-                </datalist>
+                <select
+                  value={standardDepartments.includes(editDepartment) ? editDepartment : (editDepartment ? '__custom__' : '')}
+                  onChange={e => {
+                    if (e.target.value === '__custom__') {
+                      setEditDepartment('');
+                    } else {
+                      setEditDepartment(e.target.value);
+                    }
+                  }}
+                  className="w-full text-xs p-2 rounded-xl bg-background border border-input text-foreground"
+                >
+                  <option value="">-- Select Department --</option>
+                  {standardDepartments.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                  <option value="__custom__">+ Custom Department...</option>
+                </select>
+                {(!standardDepartments.includes(editDepartment) || editDepartment === '') && (
+                  <Input
+                    type="text"
+                    placeholder="Type custom department name..."
+                    value={editDepartment}
+                    onChange={e => setEditDepartment(e.target.value)}
+                    className="bg-background text-foreground text-xs mt-1"
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Designation</label>

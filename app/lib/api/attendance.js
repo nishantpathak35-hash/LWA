@@ -335,7 +335,7 @@ function isManager(session) {
   if (!session) return false;
   if (isSuperAdmin(session.email)) return true;
   const roles = session.roles || [];
-  return roles.some(r => ['admin', 'director', 'pm', 'project_manager', 'site_supervisor'].includes(r));
+  return roles.some(r => ['admin', 'director', 'pm', 'project_manager', 'site_supervisor', 'operations'].includes(r));
 }
 
 // -------------------------------------------------------------

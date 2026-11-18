@@ -22,6 +22,28 @@ export default function SettingsUsersTab({
 }) {
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
+  const [selectedDept, setSelectedDept] = useState('');
+
+  const departmentsList = useMemo(() => {
+    const set = new Set([
+      'Operations',
+      'Site Operations',
+      'Project Management',
+      'Procurement',
+      'Finance & Accounts',
+      'Architecture & Design',
+      'Quality & Safety',
+      'MEP Engineering',
+      'Billing & Estimation',
+      'Human Resources & Admin'
+    ]);
+    if (Array.isArray(filteredUsers)) {
+      filteredUsers.forEach(u => {
+        if (u.department) set.add(u.department);
+      });
+    }
+    return Array.from(set).sort();
+  }, [filteredUsers]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -33,8 +55,12 @@ export default function SettingsUsersTab({
   };
 
   const processedUsers = useMemo(() => {
-    return sortData(filteredUsers || [], sortField, sortDir);
-  }, [filteredUsers, sortField, sortDir]);
+    let list = filteredUsers || [];
+    if (selectedDept) {
+      list = list.filter(u => String(u.department || '').toLowerCase() === selectedDept.toLowerCase());
+    }
+    return sortData(list, sortField, sortDir);
+  }, [filteredUsers, selectedDept, sortField, sortDir]);
 
   const getRoleBadge = (role) => {
     const r = String(role).toLowerCase();
@@ -44,9 +70,10 @@ export default function SettingsUsersTab({
     else if (r === 'finance') variantClass = "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40";
     else if (r === 'procurement' || r === 'proc') variantClass = "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40";
     else if (r === 'accountant') variantClass = "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/40";
+    else if (r === 'operations') variantClass = "bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40";
 
     return (
-      <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${variantClass}`}>
+      <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border capitalize ${variantClass}`}>
         {role}
       </span>
     );
@@ -66,14 +93,26 @@ export default function SettingsUsersTab({
     <div className="space-y-6">
       <Card className="bg-card border-border shadow-xs rounded-xl">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border-b border-border bg-muted/20">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input
-              placeholder="Search users by name or email..."
-              value={usersSearch}
-              onChange={e => setUsersSearch(e.target.value)}
-              className="pl-9 bg-background text-foreground border-input text-xs"
-            />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 max-w-xl">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                placeholder="Search users by name, email, employee ID..."
+                value={usersSearch}
+                onChange={e => setUsersSearch(e.target.value)}
+                className="pl-9 bg-background text-foreground border-input text-xs"
+              />
+            </div>
+            <select
+              value={selectedDept}
+              onChange={e => setSelectedDept(e.target.value)}
+              className="text-xs p-2 rounded-xl bg-background border border-input text-foreground font-medium shrink-0 cursor-pointer"
+            >
+              <option value="">All Departments</option>
+              {departmentsList.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={handleExportUsers} className="text-xs text-foreground hover:bg-muted">
@@ -87,11 +126,11 @@ export default function SettingsUsersTab({
                 setNewUserName('');
                 setNewUserPassword('ChangeMe123!');
                 setNewEmployeeId('');
-                setNewDepartment('');
+                setNewDepartment('Operations');
                 if (setNewDesignation) setNewDesignation('');
                 setNewMobileNumber('');
                 if (setNewPrimaryProject) setNewPrimaryProject('');
-                setNewUserRoles({ proc: false, finance: true, director: false });
+                setNewUserRoles({ proc: false, finance: false, operations: true, accountant: false, director: false });
                 setInviteResult(null);
                 setInviteModalOpen(true);
               }}
@@ -189,7 +228,7 @@ export default function SettingsUsersTab({
                             title="Edit User Details"
                             onClick={() => {
                               setTargetEmail(u.email);
-                              const updatedRoles = { proc: false, finance: false, director: false };
+                              const updatedRoles = { proc: false, finance: false, operations: false, accountant: false, director: false };
                               const rs = Array.isArray(u.roles) 
                                 ? u.roles 
                                 : (typeof u.roles === 'string' ? u.roles.split(',') : []).map(r => r.trim()).filter(Boolean);

@@ -11,6 +11,7 @@ import {
   submitAttendanceRegularisation,
   reviewAttendanceRegularisation
 } from '../../app/lib/api/attendance.js';
+import { DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS } from '../../app/lib/api/core.js';
 
 describe('Site Attendance Module Unit & Security Tests', () => {
   beforeEach(() => {
@@ -275,6 +276,40 @@ describe('Site Attendance Module Unit & Security Tests', () => {
       const review = await reviewAttendanceRegularisation(
         { id: 42, decision: 'approved', review_notes: 'Approved after verification with site engineer' },
         adminSession
+      );
+      expect(review.success).toBe(true);
+      expect(review.decision).toBe('approved');
+    });
+  });
+
+  describe('Operations Role & Feature Permissions Integration', () => {
+    it('recognizes operations in VALID_ROLE_KEYS and DEFAULT_FEATURE_PERMISSIONS', () => {
+      expect(VALID_ROLE_KEYS.has('operations')).toBe(true);
+      expect(DEFAULT_FEATURE_PERMISSIONS.operations).toContain('site_employees');
+      expect(DEFAULT_FEATURE_PERMISSIONS.operations).toContain('site_attendance');
+      expect(DEFAULT_FEATURE_PERMISSIONS.operations).toContain('site_geofence');
+      expect(DEFAULT_FEATURE_PERMISSIONS.operations).toContain('approve_attendance');
+    });
+
+    it('allows operations manager to review regularisation requests', async () => {
+      const opsSession = { email: 'ops.lead@luxeworx.com', roles: ['operations'] };
+      vi.mocked(db.queryRun).mockResolvedValue({ changes: 1 });
+      vi.mocked(db.queryGet)
+        .mockResolvedValueOnce({
+          id: 77,
+          attendance_id: 12,
+          employee_id: 'EMP-002',
+          project: 'Cyber City',
+          date: '2026-11-17',
+          proposed_punch_in: '2026-11-17T09:00:00Z',
+          proposed_punch_out: '2026-11-17T18:00:00Z',
+          reason: 'Biometric server sync delay'
+        })
+        .mockResolvedValueOnce({ id: 12, punch_in_time: '2026-11-17T09:00:00Z', punch_out_time: null });
+
+      const review = await reviewAttendanceRegularisation(
+        { id: 77, decision: 'approved', review_notes: 'Verified by Operations' },
+        opsSession
       );
       expect(review.success).toBe(true);
       expect(review.decision).toBe('approved');

@@ -1239,6 +1239,26 @@ export default function SiteEmployeesView() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className="text-[11px] font-bold text-muted-foreground uppercase block mb-1">Department</label>
+                <Select
+                  name="department"
+                  defaultValue={editingEmployee?.department || 'Operations'}
+                  className="text-xs"
+                >
+                  <option value="Operations">Operations</option>
+                  <option value="Site Operations">Site Operations</option>
+                  <option value="Project Management">Project Management</option>
+                  <option value="Procurement">Procurement</option>
+                  <option value="Finance & Accounts">Finance & Accounts</option>
+                  <option value="Architecture & Design">Architecture & Design</option>
+                  <option value="Quality & Safety">Quality & Safety</option>
+                  <option value="MEP Engineering">MEP Engineering</option>
+                  <option value="Billing & Estimation">Billing & Estimation</option>
+                  <option value="Human Resources & Admin">Human Resources & Admin</option>
+                </Select>
+              </div>
+
+              <div>
                 <label className="text-[11px] font-bold text-muted-foreground uppercase block mb-1">Reporting Manager</label>
                 <Input
                   name="reporting_manager"
@@ -1247,19 +1267,19 @@ export default function SiteEmployeesView() {
                   className="text-xs"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="text-[11px] font-bold text-muted-foreground uppercase block mb-1">Status</label>
-                <Select
-                  name="status"
-                  defaultValue={editingEmployee?.status || 'active'}
-                  className="text-xs"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="on_leave">On Leave</option>
-                </Select>
-              </div>
+            <div>
+              <label className="text-[11px] font-bold text-muted-foreground uppercase block mb-1">Status</label>
+              <Select
+                name="status"
+                defaultValue={editingEmployee?.status || 'active'}
+                className="text-xs"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="on_leave">On Leave</option>
+              </Select>
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-border">

@@ -44,9 +44,10 @@ export async function getFeaturePermissions(session) {
 export async function setFeaturePermissions(config, session) {
   requireAdminConsole(session);
   const sanitized = {};
+  const customRoles = JSON.parse(await getSetting('custom_roles', '[]') || '[]');
+  const allowedKeys = new Set([...VALID_ROLE_KEYS, ...customRoles]);
   Object.entries(config || {}).forEach(([role, features]) => {
-    // Only allow known role keys — no undefined function needed
-    if (!VALID_ROLE_KEYS.has(role)) return;
+    if (!allowedKeys.has(role)) return;
     sanitized[role] = Array.from(new Set((features || []).map(f => String(f).trim()).filter(Boolean)));
   });
   await setSetting('feature_permissions', JSON.stringify(sanitized));
