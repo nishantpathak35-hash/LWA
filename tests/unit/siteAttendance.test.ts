@@ -4,6 +4,8 @@ import {
   calculateDistanceMeters,
   calculateWorkingHours,
   getLocalDateString,
+  getISTParts,
+  getMyAttendanceToday,
   punchAttendance,
   createOrUpdateSiteEmployee,
   allocateEmployeeToProject,
@@ -313,6 +315,112 @@ describe('Site Attendance Module Unit & Security Tests', () => {
       );
       expect(review.success).toBe(true);
       expect(review.decision).toBe('approved');
+    });
+  });
+
+  describe('Stale & Missed Punch Handling (Nishant Punch-in Bug Resolution)', () => {
+    const empSession = { email: 'nishant@luxeworx.com', roles: ['employee'] };
+
+    it('calculates IST parts accurately across UTC boundaries', () => {
+      // 01:30 UTC + 5:30 IST = 07:00 IST morning
+      const istMorning = getISTParts('2026-11-18T01:30:00.000Z');
+      expect(istMorning.hours).toBe(7);
+      expect(istMorning.minutes).toBe(0);
+      expect(istMorning.dateString).toBe('2026-11-18');
+
+      // 18:45 UTC = 00:15 IST next day
+      const istMidnight = getISTParts('2026-11-17T18:45:00.000Z');
+      expect(istMidnight.hours).toBe(0);
+      expect(istMidnight.minutes).toBe(15);
+      expect(istMidnight.dateString).toBe('2026-11-18');
+    });
+
+    it('does NOT hijack today record if employee punched in yesterday morning 7 AM without punching out', async () => {
+      vi.mocked(db.queryRun).mockResolvedValue({ changes: 1 });
+      
+      // Yesterday 7:00 AM IST punch-in (01:30 UTC)
+      const yesterdayMorningPunch = '2026-11-17T01:30:00.000Z';
+      
+      vi.mocked(db.queryGet)
+        .mockResolvedValueOnce({ employee_id: 'EMP-NISHANT', name: 'Nishant', user_email: 'nishant@luxeworx.com' }) // employee
+        .mockResolvedValueOnce(null) // todayRecord: null (hasn't punched in today)
+        .mockResolvedValueOnce({
+          id: 101,
+          employee_id: 'EMP-NISHANT',
+          date: '2026-11-17',
+          punch_in_time: yesterdayMorningPunch,
+          punch_out_time: null,
+          status: 'present'
+        }) // openPastShift from yesterday morning
+        .mockResolvedValueOnce({ project: 'The Grand Atelier' }); // allocation
+
+      const res = await getMyAttendanceToday(empSession);
+
+      // Crucial: record must be null so UI allows punching in today!
+      expect(res.record).toBeNull();
+      expect(res.isOvernightShift).toBe(false);
+      // Yesterday's record was recognized as missed punch out
+      expect(res.recentMissedPunch).not.toBeNull();
+      expect(res.recentMissedPunch?.date).toBe('2026-11-17');
+      expect(res.recentMissedPunch?.status).toBe('half_day');
+      // Auto-closed in DB
+      expect(db.queryRun).toHaveBeenCalled();
+    });
+
+    it('auto-closes yesterday unclosed shift when employee punches in today', async () => {
+      vi.mocked(db.queryRun).mockResolvedValue({ changes: 1, lastInsertRowid: 202 });
+      vi.mocked(db.queryGet)
+        .mockResolvedValueOnce({ employee_id: 'EMP-NISHANT', name: 'Nishant', user_email: 'nishant@luxeworx.com' }) // employee
+        .mockResolvedValueOnce({ project: 'Tower B' }) // allocation
+        .mockResolvedValueOnce(null) // geofence
+        .mockResolvedValueOnce(null); // existingRecord today: none
+
+      const res = await punchAttendance(
+        {
+          type: 'in',
+          selfie: 'data:image/jpeg;base64,newpunch123',
+          latitude: 28.4900,
+          longitude: 77.0900
+        },
+        empSession
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.type).toBe('in');
+      // queryRun was called to auto-close yesterday's dangling shift AND insert today's new record
+      expect(db.queryRun).toHaveBeenCalled();
+    });
+
+    it('permits updating punch out if new departure time is later on the same day', async () => {
+      vi.mocked(db.queryRun).mockResolvedValue({ changes: 1 });
+      const earlierPunchOut = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2 hours ago
+      const punchInTime = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(); // 10 hours ago
+
+      vi.mocked(db.queryGet)
+        .mockResolvedValueOnce({ employee_id: 'EMP-001', name: 'Ravi' }) // employee
+        .mockResolvedValueOnce({ project: 'HQ' }) // allocation
+        .mockResolvedValueOnce(null) // geofence
+        .mockResolvedValueOnce({
+          id: 50,
+          employee_id: 'EMP-001',
+          date: getLocalDateString(),
+          punch_in_time: punchInTime,
+          punch_out_time: earlierPunchOut
+        }); // already punched out earlier
+
+      const res = await punchAttendance(
+        {
+          type: 'out',
+          selfie: 'data:image/jpeg;base64,updated_out',
+          latitude: 28.49,
+          longitude: 77.09
+        },
+        empSession
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.type).toBe('out');
+      expect(res.totalHours).toBeGreaterThanOrEqual(9.9);
     });
   });
 });

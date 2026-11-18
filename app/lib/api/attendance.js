@@ -313,13 +313,33 @@ export function calculateWorkingHours(startTime, endTime) {
   return Math.round(diffHours * 100) / 100; // 2 decimal places
 }
 
-// Get project/local date YYYY-MM-DD
+// Convert any Date or ISO timestamp into Indian Standard Time (IST = UTC+5:30) components.
+// Guarantees 100% deterministic time calculations across Vercel (UTC) and client browsers.
+export function getISTParts(dateInput = new Date()) {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    return { hours: 0, minutes: 0, dateString: '', timeString: '00:00', year: 2026, month: 1, day: 1 };
+  }
+  const istMs = d.getTime() + (5.5 * 60 * 60 * 1000);
+  const ist = new Date(istMs);
+  const hours = ist.getUTCHours();
+  const minutes = ist.getUTCMinutes();
+  const dateString = ist.toISOString().split('T')[0];
+  const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  return {
+    year: ist.getUTCFullYear(),
+    month: ist.getUTCMonth() + 1,
+    day: ist.getUTCDate(),
+    hours,
+    minutes,
+    dateString,
+    timeString
+  };
+}
+
+// Get project/local date YYYY-MM-DD in IST
 export function getLocalDateString(dateObj = new Date()) {
-  const d = new Date(dateObj);
-  // IST offset is UTC+5:30
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const istDate = new Date(d.getTime() + istOffset);
-  return istDate.toISOString().split('T')[0];
+  return getISTParts(dateObj).dateString;
 }
 
 // -------------------------------------------------------------
@@ -827,6 +847,20 @@ export async function punchAttendance(punchData, session) {
       throw new Error(`ALREADY_PUNCHED_IN: You have already punched in today at ${new Date(existingRecord.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
     }
 
+    // Auto-close any unclosed past shifts from previous days (date < today)
+    // Ensures yesterday's missed punch-out never locks or corrupts future days
+    await queryRun(
+      `UPDATE site_attendance_records 
+       SET status = 'half_day', is_flagged = 1,
+           flag_reason = CASE 
+             WHEN flag_reason IS NULL OR flag_reason = '' THEN 'Missed Punch Out (Auto-closed on next punch-in)' 
+             ELSE flag_reason || '; Missed Punch Out' 
+           END,
+           updated_at = ?
+       WHERE employee_id = ? AND date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL`,
+      [serverTimestamp, employee.employee_id, today]
+    );
+
     if (existingRecord) {
       // Update existing record
       await queryRun(
@@ -873,18 +907,18 @@ export async function punchAttendance(punchData, session) {
   } else {
     // Punch Out: supports standard same-day punch out AND cross-midnight overnight shifts
     let targetRecord = existingRecord;
-    if (!targetRecord || !targetRecord.punch_in_time || targetRecord.punch_out_time) {
-      // Look for an unclosed shift from within the last 24 hours (e.g. overnight shift started yesterday)
+    if (!targetRecord || !targetRecord.punch_in_time) {
+      // Look for an unclosed overnight shift from yesterday (within 16 hours)
       const openShift = await queryGet(
         `SELECT * FROM site_attendance_records 
-         WHERE employee_id = ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL
+         WHERE employee_id = ? AND date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL
          ORDER BY id DESC LIMIT 1`,
-        [employee.employee_id]
+        [employee.employee_id, today]
       );
       if (openShift) {
         const punchInMs = new Date(openShift.punch_in_time).getTime();
-        const nowMs = Date.now();
-        if (nowMs - punchInMs <= 24 * 60 * 60 * 1000) {
+        const elapsedHours = (Date.now() - punchInMs) / (1000 * 60 * 60);
+        if (elapsedHours <= 16) {
           targetRecord = openShift;
         }
       }
@@ -893,8 +927,14 @@ export async function punchAttendance(punchData, session) {
     if (!targetRecord || !targetRecord.punch_in_time) {
       throw new Error('INVALID_PUNCH_OUT: Cannot punch out without an active punch-in for today.');
     }
+
+    // If already punched out, permit departure time extension if current time is later
     if (targetRecord.punch_out_time) {
-      throw new Error(`ALREADY_PUNCHED_OUT: You have already punched out today at ${new Date(targetRecord.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
+      const prevOutMs = new Date(targetRecord.punch_out_time).getTime();
+      const currentMs = new Date(serverTimestamp).getTime();
+      if (currentMs <= prevOutMs) {
+        throw new Error(`ALREADY_PUNCHED_OUT: You have already punched out today at ${new Date(targetRecord.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
+      }
     }
 
     const totalHours = calculateWorkingHours(targetRecord.punch_in_time, serverTimestamp);
@@ -933,36 +973,72 @@ export async function punchAttendance(punchData, session) {
 
 /**
  * Get current employee's attendance status today & active project.
- * Automatically recognizes ongoing overnight shifts started within the last 24 hours.
+ * Automatically handles missed punch-outs, overnight shifts, and cleans up stale records.
  */
 export async function getMyAttendanceToday(session) {
   requireAuth(session);
   await initSiteAttendanceTables();
 
-  const employee = await queryGet(`SELECT * FROM site_employees WHERE user_email = ? OR email = ?`, [session.email, session.email]);
+  const employee = await queryGet(
+    `SELECT * FROM site_employees WHERE LOWER(user_email) = LOWER(?) OR LOWER(email) = LOWER(?)`,
+    [session.email, session.email]
+  );
   if (!employee) {
     return { employee: null, record: null, activeProject: null };
   }
 
   const today = getLocalDateString();
-  let record = await queryGet(
+  const serverTimestamp = new Date().toISOString();
+  const nowMs = Date.now();
+
+  // 1. Check today's actual attendance record
+  let todayRecord = await queryGet(
     `SELECT * FROM site_attendance_records WHERE employee_id = ? AND date = ?`,
     [employee.employee_id, today]
   );
 
-  // If no record today, check for an unclosed overnight shift within the past 24 hours
-  if (!record) {
-    const openShift = await queryGet(
-      `SELECT * FROM site_attendance_records 
-       WHERE employee_id = ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL
-       ORDER BY id DESC LIMIT 1`,
-      [employee.employee_id]
-    );
-    if (openShift) {
-      const punchInMs = new Date(openShift.punch_in_time).getTime();
-      if (Date.now() - punchInMs <= 24 * 60 * 60 * 1000) {
-        record = openShift;
-      }
+  // 2. Check for any unclosed shift from previous days (date < today)
+  let activeOvernightShift = null;
+  let recentMissedPunch = null;
+
+  const openPastShift = await queryGet(
+    `SELECT * FROM site_attendance_records 
+     WHERE employee_id = ? AND date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL
+     ORDER BY id DESC LIMIT 1`,
+    [employee.employee_id, today]
+  );
+
+  if (openPastShift) {
+    const punchInMs = new Date(openPastShift.punch_in_time).getTime();
+    const elapsedHours = (nowMs - punchInMs) / (1000 * 60 * 60);
+    const inParts = getISTParts(openPastShift.punch_in_time);
+
+    // Only treat as ongoing overnight shift if:
+    // - Started in evening/night (>= 16:00 / 4 PM IST)
+    // - Elapsed time <= 16 hours
+    // - Today has not already been punched in
+    if (inParts.hours >= 16 && elapsedHours <= 16 && !todayRecord) {
+      activeOvernightShift = openPastShift;
+    } else {
+      // Normal day shift (e.g. morning 7 AM) or elapsed > 16 hours.
+      // Auto-close it as Missed Punch Out so it NEVER hijacks today's attendance!
+      await queryRun(
+        `UPDATE site_attendance_records 
+         SET status = 'half_day', is_flagged = 1,
+             flag_reason = CASE 
+               WHEN flag_reason IS NULL OR flag_reason = '' THEN 'Missed Punch Out' 
+               ELSE flag_reason || '; Missed Punch Out' 
+             END,
+             updated_at = ?
+         WHERE id = ?`,
+        [serverTimestamp, openPastShift.id]
+      );
+      recentMissedPunch = {
+        ...openPastShift,
+        status: 'half_day',
+        is_flagged: 1,
+        flag_reason: 'Missed Punch Out'
+      };
     }
   }
 
@@ -973,7 +1049,11 @@ export async function getMyAttendanceToday(session) {
 
   return {
     employee,
-    record: record || null,
+    record: todayRecord || activeOvernightShift || null,
+    isOvernightShift: Boolean(activeOvernightShift && !todayRecord),
+    overnightShift: activeOvernightShift,
+    recentMissedPunch,
+    todayDate: today,
     activeProject: activeAllocation?.project || 'General Project'
   };
 }
@@ -1049,9 +1129,8 @@ export async function getManagementAttendanceKPIs(filters = {}, session) {
         currentlyCheckedIn++;
         pendingPunchOuts++;
       }
-      // Check late (e.g. after 09:30 AM local)
-      const punchHour = new Date(r.punch_in_time).getHours();
-      const punchMin = new Date(r.punch_in_time).getMinutes();
+      // Check late (e.g. after 09:30 AM IST) - deterministic across Vercel (UTC) servers
+      const { hours: punchHour, minutes: punchMin } = getISTParts(r.punch_in_time);
       if (punchHour > 9 || (punchHour === 9 && punchMin > 30)) {
         lateArrivals++;
       }

@@ -24,6 +24,8 @@ export default function MyAttendanceView() {
   // Profile and today's state
   const [employeeProfile, setEmployeeProfile] = useState(null);
   const [todayRecord, setTodayRecord] = useState(null);
+  const [isOvernightShift, setIsOvernightShift] = useState(false);
+  const [recentMissedPunch, setRecentMissedPunch] = useState(null);
   const [activeProject, setActiveProject] = useState('');
   const [historyRecords, setHistoryRecords] = useState([]);
   const [regularisations, setRegularisations] = useState([]);
@@ -128,6 +130,8 @@ export default function MyAttendanceView() {
       if (todayData) {
         setEmployeeProfile(todayData.employee);
         setTodayRecord(todayData.record);
+        setIsOvernightShift(Boolean(todayData.isOvernightShift));
+        setRecentMissedPunch(todayData.recentMissedPunch || null);
         const resolvedProj = todayData.activeProject || (projectList[0] || 'General Project');
         setActiveProject(resolvedProj);
         setSelectedPunchProject(resolvedProj);
@@ -660,6 +664,42 @@ export default function MyAttendanceView() {
               </CardHeader>
 
               <CardContent className="p-6 space-y-6">
+                {/* Missed Punch Out Notification Banner */}
+                {recentMissedPunch && !todayRecord?.punch_in_time && (
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-amber-500">
+                          Missed Punch Out on {recentMissedPunch.date}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Shift started at {new Date(recentMissedPunch.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} was auto-closed as incomplete shift. Today is ready for fresh punch-in.
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setRegFormData({
+                          date: recentMissedPunch.date,
+                          project: recentMissedPunch.project || activeProject,
+                          proposed_punch_in: '09:00',
+                          proposed_punch_out: '18:00',
+                          reason: 'Forgot to punch out on site'
+                        });
+                        setRegModalOpen(true);
+                      }}
+                      className="text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 shrink-0"
+                    >
+                      Regularise Incomplete Shift
+                    </Button>
+                  </div>
+                )}
+
                 {/* Status Summary Banner */}
                 <div className="p-5 rounded-2xl bg-muted/30 border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
@@ -841,7 +881,26 @@ export default function MyAttendanceView() {
 
                 {/* Big Punch Buttons */}
                 <div className="pt-2">
-                  {!todayRecord?.punch_in_time ? (
+                  {isOvernightShift && todayRecord?.punch_in_time && !todayRecord?.punch_out_time ? (
+                    <div className="space-y-3">
+                      <Button
+                        onClick={() => handleOpenPunchModal('out')}
+                        className="w-full py-6 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl shadow-lg shadow-amber-950/20 flex items-center justify-center gap-3 cursor-pointer transition-all active:scale-[0.99]"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span>END OVERNIGHT SHIFT — PUNCH OUT WITH SELFIE & GPS</span>
+                      </Button>
+                      <div className="text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPunchModal('in')}
+                          className="text-xs text-muted-foreground hover:text-amber-500 underline font-medium cursor-pointer"
+                        >
+                          Or close yesterday&apos;s shift &amp; Start Today&apos;s Fresh Shift →
+                        </button>
+                      </div>
+                    </div>
+                  ) : !todayRecord?.punch_in_time ? (
                     <Button
                       onClick={() => handleOpenPunchModal('in')}
                       className="w-full py-6 text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-950/20 flex items-center justify-center gap-3 cursor-pointer transition-all active:scale-[0.99]"
