@@ -119,11 +119,40 @@ export function StateProvider({ children }) {
     }
   }, [token]);
 
+  // Deep circular structure and DOM/React SyntheticEvent replacer for JSON.stringify
+  const getCircularReplacer = () => {
+    const seen = new WeakSet();
+    return (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (
+          value.nativeEvent ||
+          value._reactName ||
+          typeof value.preventDefault === 'function' ||
+          (typeof Element !== 'undefined' && value instanceof Element) ||
+          (typeof Window !== 'undefined' && value instanceof Window)
+        ) {
+          return undefined;
+        }
+        if (seen.has(value)) {
+          return undefined;
+        }
+        seen.add(value);
+      }
+      return value;
+    };
+  };
+
   // Sanitize arguments to prevent circular React/DOM SyntheticEvents from crashing JSON.stringify
   const sanitizeRpcArgs = (args) => {
     return args.map(arg => {
       if (arg && typeof arg === 'object') {
-        if (arg.nativeEvent || arg._reactName || typeof arg.preventDefault === 'function' || (typeof Element !== 'undefined' && arg instanceof Element)) {
+        if (
+          arg.nativeEvent ||
+          arg._reactName ||
+          typeof arg.preventDefault === 'function' ||
+          (typeof Element !== 'undefined' && arg instanceof Element) ||
+          (typeof Window !== 'undefined' && arg instanceof Window)
+        ) {
           return undefined;
         }
       }
@@ -137,7 +166,7 @@ export function StateProvider({ children }) {
       const response = await fetch('/api/rpc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method, args: sanitizeRpcArgs(args) })
+        body: JSON.stringify({ method, args: sanitizeRpcArgs(args) }, getCircularReplacer())
       });
       const data = await response.json();
       if (!response.ok || (data && data.error)) {
@@ -167,7 +196,7 @@ export function StateProvider({ children }) {
           'Content-Type': 'application/json',
           'x-lwa-token': currentToken
         },
-        body: JSON.stringify({ method, args: sanitizeRpcArgs(args) })
+        body: JSON.stringify({ method, args: sanitizeRpcArgs(args) }, getCircularReplacer())
       });
       const data = await response.json();
       if (!response.ok || (data && data.error)) {

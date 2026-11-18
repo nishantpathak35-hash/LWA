@@ -388,6 +388,7 @@ export default function MyAttendanceView() {
 
   // Submit Punch
   const handleSubmitPunch = async (allowFlagged = false) => {
+    const isFlaggedAllowed = allowFlagged === true;
     if (!selfiePreview) {
       setCameraError('Live selfie photograph is required.');
       return;
@@ -407,7 +408,7 @@ export default function MyAttendanceView() {
         longitude: gpsCoords.longitude,
         accuracy: gpsCoords.accuracy,
         address: gpsAddress,
-        allow_flagged: allowFlagged
+        allow_flagged: isFlaggedAllowed
       });
 
       setSuccessToast(
@@ -1717,7 +1718,7 @@ export default function MyAttendanceView() {
             </Button>
             <Button
               size="sm"
-              onClick={handleSubmitPunch}
+              onClick={() => handleSubmitPunch(false)}
               disabled={punchSubmitting || !selfiePreview || !gpsCoords}
               className={`font-bold text-xs ${
                 punchType === 'in' ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
