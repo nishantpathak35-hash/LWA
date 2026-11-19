@@ -15,6 +15,7 @@ import SortableHeader from '../../ui/SortableHeader';
 import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 import CopyButton from '../../ui/CopyButton';
 import ProjectBOQModule from './ProjectBOQModule';
+import ProjectSchedule from './ProjectSchedule';
 
 export default function ProjectDetails({ selectedProject, projectPOs, onBack, onUpdateProject }) {
   const { call, payments = [] } = useAppState();
@@ -546,6 +547,16 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
           }`}
         >
           <FileSpreadsheet className="w-3.5 h-3.5" /> Project BOQ & Estimation
+        </button>
+        <button
+          onClick={() => setActiveTab('schedule')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'schedule' 
+              ? 'bg-amber-500 text-slate-950 shadow-sm' 
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" /> Schedule & Tasks
         </button>
         <button
           onClick={() => setActiveTab('payments')}
@@ -1286,6 +1297,11 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
       {/* ── Tab 5: Project BOQ & Estimation ── */}
       {activeTab === 'boq' && (
         <ProjectBOQModule selectedProject={selectedProject} />
+      )}
+
+      {/* ── Tab 6: Project Schedule & Task Assignment ── */}
+      {activeTab === 'schedule' && (
+        <ProjectSchedule project={selectedProject.project} />
       )}
 
       {/* ── Modal: Configure Site Geo-Fence ── */}

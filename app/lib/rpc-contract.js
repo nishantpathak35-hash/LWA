@@ -278,4 +278,34 @@ export const RPC_CONTRACT = Object.freeze({
   getBoqDashboard: {"args":1,"sessionIndex":-1,"access":"internal"},
   exportBoqToExcel: {"args":2,"sessionIndex":-1,"access":"internal"},
   importBoqFromCsv: {"args":1,"sessionIndex":1,"access":"internal"},
+
+  // Enterprise Upgrade: Clients Module
+  listClients: {"args":1,"sessionIndex":1,"access":"internal"},
+  getClient: {"args":1,"sessionIndex":1,"access":"internal"},
+  saveClient: {"args":1,"sessionIndex":1,"access":"internal"},
+  deleteClient: {"args":1,"sessionIndex":1,"access":"internal"},
+  getClientProjectsAndBoqs: {"args":1,"sessionIndex":1,"access":"internal"},
+
+  // Enterprise Upgrade: Central Rate Contracts
+  listRateContracts: {"args":1,"sessionIndex":1,"access":"internal"},
+  getRateContract: {"args":1,"sessionIndex":1,"access":"internal"},
+  saveRateContract: {"args":1,"sessionIndex":1,"access":"internal"},
+  getEligibleRateContractsForPO: {"args":1,"sessionIndex":1,"access":"internal"},
+
+  // Enterprise Upgrade: Excel Master Rate Upload & Synchronization
+  generateMasterRateExcel: {"args":0,"sessionIndex":0,"access":"internal"},
+  parseAndValidateMasterRateExcel: {"args":1,"sessionIndex":1,"access":"internal"},
+  confirmMasterRateImport: {"args":1,"sessionIndex":1,"access":"internal"},
+
+  // Enterprise Upgrade: Project Schedule & Task Assignment
+  getProjectSchedule: {"args":1,"sessionIndex":1,"access":"internal"},
+  listProjectScheduleTasks: {"args":1,"sessionIndex":1,"access":"internal"},
+  saveScheduleTask: {"args":1,"sessionIndex":1,"access":"internal"},
+  deleteScheduleTask: {"args":1,"sessionIndex":1,"access":"internal"},
+  updateTaskProgressFromDpr: {"args":1,"sessionIndex":1,"access":"internal"},
+
+  // Enterprise Upgrade: Task Performance & Overdue Dashboard
+  getEmployeeTaskDashboard: {"args":0,"sessionIndex":0,"access":"internal"},
+  getProjectManagerTaskDashboard: {"args":1,"sessionIndex":1,"access":"internal"},
+  getManagementTaskDashboard: {"args":0,"sessionIndex":0,"access":"internal"},
 });

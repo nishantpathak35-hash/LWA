@@ -43,6 +43,41 @@ export default function POFormModal(props) {
 
   const { activeLocks, user, call } = useAppState();
   const lockKey = `po:${editingPoNo}`;
+  const [contractRateMatches, setContractRateMatches] = React.useState({});
+
+  const checkContractRate = async (idx, description) => {
+    if (!description || description.trim().length < 3) return;
+    try {
+      const vendorObj = findVendorBySelection ? findVendorBySelection(vendorCode) : null;
+      const vendorName = vendorObj?.name || vendorCode;
+      const res = await call('getEligibleRateContractsForPO', {
+        vendor: vendorName,
+        project,
+        item_description: description
+      });
+      if (res?.hasContract && res.contractMatches?.[0]) {
+        setContractRateMatches(prev => ({
+          ...prev,
+          [idx]: {
+            rate: res.contractMatches[0].agreed_rate,
+            contractNo: res.contractMatches[0].contract_no,
+            isContract: true
+          }
+        }));
+      } else if (res?.poHistoryMatches?.[0]) {
+        setContractRateMatches(prev => ({
+          ...prev,
+          [idx]: {
+            rate: res.poHistoryMatches[0].rate,
+            poNo: res.poHistoryMatches[0].po_no,
+            isContract: false
+          }
+        }));
+      }
+    } catch (e) {
+      // Non-fatal
+    }
+  };
   const currentLock = editingPoNo ? activeLocks[lockKey] : null;
   const isLockedByOthers = currentLock && currentLock.email !== user?.email;
 
@@ -294,6 +329,7 @@ export default function POFormModal(props) {
                     type="text"
                     value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
+                    onBlur={() => checkContractRate(idx, item.description)}
                     placeholder="Item description"
                     className="h-10 text-xs bg-background text-foreground"
                   />
@@ -322,6 +358,28 @@ export default function POFormModal(props) {
                       </Button>
                     : <div />
                   }
+                  {contractRateMatches[idx] && (
+                    <div className="col-span-full flex items-center justify-between px-2.5 py-1.5 bg-amber-500/10 rounded-lg border border-amber-500/25 text-xs animate-in fade-in-50">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-amber-700 dark:text-amber-400">
+                          {contractRateMatches[idx].isContract ? '📜 Active Approved Rate Contract' : '🕒 Historical Purchase Rate'}:
+                        </span>
+                        <span className="text-muted-foreground text-[11px]">
+                          {contractRateMatches[idx].isContract ? contractRateMatches[idx].contractNo : contractRateMatches[idx].poNo}
+                        </span>
+                        <strong className="font-mono text-foreground font-bold text-xs">
+                          ₹{contractRateMatches[idx].rate}
+                        </strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleItemChange(idx, 'rate', contractRateMatches[idx].rate)}
+                        className="text-[10px] bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-2 py-0.5 rounded cursor-pointer transition-colors"
+                      >
+                        Apply Rate
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

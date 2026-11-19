@@ -29,6 +29,17 @@ export default function DPRForm({ onNavigate, editData = null }) {
 
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState([]);
+  const [scheduleTasks, setScheduleTasks] = useState([]);
+
+  useEffect(() => {
+    if (!formData.project) {
+      setScheduleTasks([]);
+      return;
+    }
+    call('listProjectScheduleTasks', { project: formData.project })
+      .then(res => setScheduleTasks(res || []))
+      .catch(() => setScheduleTasks([]));
+  }, [formData.project, call]);
 
   useEffect(() => {
     if (editData) {
@@ -459,17 +470,93 @@ export default function DPRForm({ onNavigate, editData = null }) {
                   </div>
                   <div className="space-y-3">
                     {floor.workDone.map((w, wIdx) => (
-                      <div key={wIdx} className="flex gap-2 items-center">
-                        <input
-                          type="text"
-                          placeholder="Task description (e.g. Tile work in progress)"
-                          value={w.task}
-                          onChange={e => updateWork(fIdx, 'workDone', wIdx, 'task', e.target.value)}
-                          className="flex-1 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-sm text-slate-200 focus:border-gold"
-                        />
-                        <button type="button" onClick={() => removeWork(fIdx, 'workDone', wIdx)} className="text-slate-500 hover:text-red-400 p-1">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div key={wIdx} className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-2">
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            placeholder="Task description (e.g. Tile work in progress)"
+                            value={w.task}
+                            onChange={e => updateWork(fIdx, 'workDone', wIdx, 'task', e.target.value)}
+                            className="flex-1 bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-sm text-slate-200 focus:border-gold"
+                          />
+                          <button type="button" onClick={() => removeWork(fIdx, 'workDone', wIdx)} className="text-slate-500 hover:text-red-400 p-1">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Scheduled Task Linkage Controls */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-800/60 text-xs">
+                          <div className="sm:col-span-2">
+                            <select
+                              value={w.schedule_task_id || ''}
+                              onChange={e => {
+                                const selTaskId = e.target.value;
+                                const t = scheduleTasks.find(x => x.id === selTaskId);
+                                updateWork(fIdx, 'workDone', wIdx, 'schedule_task_id', selTaskId);
+                                if (t && !w.task) {
+                                  updateWork(fIdx, 'workDone', wIdx, 'task', t.title);
+                                }
+                              }}
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[11px] text-slate-300"
+                            >
+                              <option value="">Link to Scheduled Task (Optional)</option>
+                              {scheduleTasks.map(t => (
+                                <option key={t.id} value={t.id}>
+                                  {t.task_no}: {t.title} ({t.progress_pct}%)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Executed Qty"
+                              value={w.executed_qty || ''}
+                              onChange={e => updateWork(fIdx, 'workDone', wIdx, 'executed_qty', e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[11px] text-slate-300 font-mono"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              id={`complete-${fIdx}-${wIdx}`}
+                              checked={!!w.is_completed}
+                              onChange={e => {
+                                updateWork(fIdx, 'workDone', wIdx, 'is_completed', e.target.checked);
+                                if (e.target.checked) {
+                                  updateWork(fIdx, 'workDone', wIdx, 'progress_pct', 100);
+                                }
+                              }}
+                              className="rounded border-slate-700 text-gold focus:ring-gold"
+                            />
+                            <label htmlFor={`complete-${fIdx}-${wIdx}`} className="text-[11px] text-slate-300 cursor-pointer whitespace-nowrap">
+                              Task Completed
+                            </label>
+                          </div>
+                        </div>
+
+                        {w.schedule_task_id && (
+                          <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            <input
+                              type="text"
+                              placeholder="Delay reason (if delayed)"
+                              value={w.delay_reason || ''}
+                              onChange={e => updateWork(fIdx, 'workDone', wIdx, 'delay_reason', e.target.value)}
+                              className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Site blockers (optional)"
+                              value={w.blockers || ''}
+                              onChange={e => updateWork(fIdx, 'workDone', wIdx, 'blockers', e.target.value)}
+                              className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300"
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                     {floor.workDone.length === 0 && (

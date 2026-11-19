@@ -49,7 +49,32 @@ export class DPRService {
     dpr.data = JSON.stringify(dataObj);
 
     await DPRRepository.createReport(dpr);
-    // Future: we can integrate ApprovalWorkflowService here if needed.
+
+    // Synchronize linked project schedule tasks from DPR work progress
+    if (dataObj.floors && Array.isArray(dataObj.floors)) {
+      for (const floor of dataObj.floors) {
+        if (floor.workDone && Array.isArray(floor.workDone)) {
+          for (const item of floor.workDone) {
+            if (item.schedule_task_id) {
+              try {
+                const { updateTaskProgressFromDpr } = await import('../../../../app/lib/api/schedule.js');
+                await updateTaskProgressFromDpr({
+                  taskId: item.schedule_task_id,
+                  progressPct: item.progress_pct != null ? Number(item.progress_pct) : undefined,
+                  executedQty: item.executed_qty != null ? Number(item.executed_qty) : undefined,
+                  isCompleted: !!item.is_completed,
+                  delayReason: item.delay_reason || '',
+                  blockers: item.blockers || '',
+                  dprId: dataObj.seqId || String(dpr.date)
+                }, user);
+              } catch (taskErr) {
+                console.warn('Could not auto-update schedule task from DPR:', taskErr);
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -116,6 +141,50 @@ export class DPRService {
     }
 
     await DPRRepository.updateReport(id, updates);
+
+    // Rollback or sync tasks if rejection or updates provided
+    if (updates.approval_status === 'Rejected') {
+      try {
+        const { queryRun } = await import('../../../../app/lib/db.js');
+        await queryRun(
+          `UPDATE schedule_tasks 
+           SET status = CASE WHEN actual_qty > 0 THEN 'In Progress' ELSE 'Not Started' END,
+               progress_pct = MIN(progress_pct, 90),
+               completion_date = NULL,
+               completed_by = NULL
+           WHERE linked_dpr_id = ?`,
+          [id]
+        );
+      } catch (revErr) {
+        console.warn('Could not revert schedule tasks for rejected DPR:', revErr);
+      }
+    } else if (updates.data) {
+      const dataObj = typeof updates.data === 'object' ? updates.data : JSON.parse(updates.data);
+      if (dataObj.floors && Array.isArray(dataObj.floors)) {
+        for (const floor of dataObj.floors) {
+          if (floor.workDone && Array.isArray(floor.workDone)) {
+            for (const item of floor.workDone) {
+              if (item.schedule_task_id) {
+                try {
+                  const { updateTaskProgressFromDpr } = await import('../../../../app/lib/api/schedule.js');
+                  await updateTaskProgressFromDpr({
+                    taskId: item.schedule_task_id,
+                    progressPct: item.progress_pct != null ? Number(item.progress_pct) : undefined,
+                    executedQty: item.executed_qty != null ? Number(item.executed_qty) : undefined,
+                    isCompleted: !!item.is_completed,
+                    delayReason: item.delay_reason || '',
+                    blockers: item.blockers || '',
+                    dprId: id
+                  }, user);
+                } catch (taskErr) {
+                  console.warn('Could not auto-update schedule task from DPR update:', taskErr);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   static checkApprover(user: any): boolean {

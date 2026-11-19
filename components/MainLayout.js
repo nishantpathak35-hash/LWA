@@ -42,6 +42,7 @@ function safeDynamic(importFn) {
 
 const DashboardView = safeDynamic(() => import('./views/DashboardView'));
 const ProjectsView = safeDynamic(() => import('./views/ProjectsView'));
+const ClientsView = safeDynamic(() => import('./views/ClientsView'));
 const VendorsView = safeDynamic(() => import('./views/VendorsView'));
 const ReportsView = safeDynamic(() => import('./views/ReportsView'));
 const InvoicesView = safeDynamic(() => import('./views/InvoicesView'));
@@ -55,6 +56,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
 const VIEW_FEATURE_MAP = {
   dashboard: 'dashboard',
   projects: 'projects',
+  clients: 'projects',
   vendors: 'vendors',
   pos: 'purchase_orders',
   invoices: 'payments',
@@ -66,6 +68,7 @@ const VIEW_FEATURE_MAP = {
 const VIEW_LABELS = {
   dashboard: 'Dashboard',
   projects: 'Projects',
+  clients: 'Clients',
   vendors: 'Vendors',
   pos: 'Purchase Orders',
   hrms: 'HRMS Portal',
@@ -86,6 +89,7 @@ const SHORTCUT_MAP = {
     o: { view: 'pos',      children: { n: { event: 'lx:new-po' } } },
     i: { view: 'invoices' },
     v: { view: 'vendors' },
+    c: { view: 'clients' },
     r: { view: 'reports' },
     s: { view: 'settings' },
     j: { view: 'projects' },
@@ -94,7 +98,7 @@ const SHORTCUT_MAP = {
 };
 
 
-const ORDERED_VIEWS = ['dashboard', 'projects', 'vendors', 'pos', 'hrms', 'site_employees', 'my_attendance', 'invoices', 'payments', 'reports', 'settings'];
+const ORDERED_VIEWS = ['dashboard', 'projects', 'clients', 'vendors', 'pos', 'hrms', 'site_employees', 'my_attendance', 'invoices', 'payments', 'reports', 'settings'];
 
 function getFirstAllowedView(hasPermission) {
   return ORDERED_VIEWS.find((viewId) => {
@@ -319,6 +323,7 @@ export default function MainLayout() {
       switch (activeView) {
         case 'dashboard': return <DashboardView />;
         case 'projects': return <ProjectsView />;
+        case 'clients': return <ClientsView />;
         case 'vendors': return <VendorsView />;
         case 'pos': return <POsView />;
         case 'hrms': return <HrmsView />;

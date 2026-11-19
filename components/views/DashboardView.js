@@ -11,6 +11,7 @@ import DashboardExecutiveKpiStrip from './dashboard/DashboardExecutiveKpiStrip';
 import DashboardChartsSection from './dashboard/DashboardChartsSection';
 import DashboardProjectLedger from './dashboard/DashboardProjectLedger';
 import DashboardEditFinancialsModal from './dashboard/DashboardEditFinancialsModal';
+import TaskPerformanceDashboard from './dashboard/TaskPerformanceDashboard';
 
 export default function DashboardView() {
   const { pos, vendors, payments, kpis, user, setActiveView, setTargetPo, call } = useAppState();
@@ -45,6 +46,7 @@ export default function DashboardView() {
   const [clientDebitVal, setClientDebitVal] = useState(0);
   const [tdsVal, setTdsVal] = useState(0);
   const [savingFinancials, setSavingFinancials] = useState(false);
+  const [dashboardMode, setDashboardMode] = useState('financial'); // 'financial' | 'tasks'
 
   // Load Dashboard Data
   const loadDashboardData = useCallback(async () => {
@@ -217,7 +219,35 @@ export default function DashboardView() {
         approvalMetrics={approvalMetrics}
       />
 
-      <PendingActionsWidget
+      {/* Mode Selector */}
+      <div className="flex items-center gap-2 border-b border-border pb-2">
+        <button
+          onClick={() => setDashboardMode('financial')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            dashboardMode === 'financial'
+              ? 'bg-amber-500 text-slate-950 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          Executive Financial Intelligence
+        </button>
+        <button
+          onClick={() => setDashboardMode('tasks')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            dashboardMode === 'tasks'
+              ? 'bg-amber-500 text-slate-950 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          Project Tasks & Overdue Performance
+        </button>
+      </div>
+
+      {dashboardMode === 'tasks' ? (
+        <TaskPerformanceDashboard />
+      ) : (
+        <>
+          <PendingActionsWidget
         onSelectRecord={(type, id) => {
           const t = String(type || '').toLowerCase();
           if (t.includes('payment')) {
@@ -295,6 +325,8 @@ export default function DashboardView() {
         savingFinancials={savingFinancials}
         handleSaveFinancials={handleSaveFinancials}
       />
+        </>
+      )}
     </div>
   );
 }

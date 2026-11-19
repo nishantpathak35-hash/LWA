@@ -19,7 +19,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   HardHat,
-  UserCheck
+  UserCheck,
+  Building2
 } from 'lucide-react';
 import { Badge } from './ui/core';
 
@@ -56,6 +57,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen, collapsed = false, 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, feature: 'dashboard' },
     { id: 'projects', label: 'Projects', icon: FolderKanban, feature: 'projects' },
+    { id: 'clients', label: 'Clients', icon: Building2, feature: 'projects' },
     { id: 'vendors', label: 'Vendors', icon: Users, feature: 'vendors' },
     { id: 'pos', label: 'Purchase Orders', icon: ScrollText, feature: 'purchase_orders' },
     { id: 'hrms', label: 'HRMS Portal', icon: HardHat, roles: ['admin', 'director', 'operations', 'hr', 'pm', 'site_supervisor', 'manager'] },
@@ -85,7 +87,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen, collapsed = false, 
   });
 
   const GROUPS = [
-    { id: 'operations', label: 'Operations', items: ['dashboard', 'projects', 'vendors', 'pos'] },
+    { id: 'operations', label: 'Operations', items: ['dashboard', 'projects', 'clients', 'vendors', 'pos'] },
     { id: 'hrms', label: 'HRMS', items: ['hrms', 'my_attendance'] },
     { id: 'finance', label: 'Finance', items: ['invoices', 'payments'] },
     { id: 'admin', label: 'Admin', items: ['reports', 'settings'] }

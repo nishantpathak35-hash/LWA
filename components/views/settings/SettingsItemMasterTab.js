@@ -40,6 +40,13 @@ export default function SettingsItemMasterTab() {
   const [editItem, setEditItem] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Master Excel State
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [excelModalOpen, setExcelModalOpen] = useState(false);
+  const [validatingExcel, setValidatingExcel] = useState(false);
+  const [committingExcel, setCommittingExcel] = useState(false);
+  const [excelValidation, setExcelValidation] = useState(null);
+
   // Form State
   const initialForm = {
     item_code: '',
@@ -254,6 +261,83 @@ export default function SettingsItemMasterTab() {
     }
   };
 
+  // ── Master Excel Download & Synchronization ──
+  const handleDownloadMasterExcel = async () => {
+    setExportingExcel(true);
+    try {
+      const res = await call('generateMasterRateExcel');
+      if (!res?.base64) throw new Error('No workbook generated');
+
+      const byteCharacters = atob(res.base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.fileName || 'PTS_Master_Rate_Library.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Generated official 5-sheet Master Rate Library (${res.uniqueItemsExtracted} items from ${res.poLinesAnalyzed} PO lines)`);
+    } catch (err) {
+      toast.error('Failed to generate master rate excel: ' + err.message);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleExcelFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setValidatingExcel(true);
+    setExcelValidation(null);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const raw = evt.target.result || '';
+          const base64 = String(raw).split(',')[1] || raw;
+          const res = await call('parseAndValidateMasterRateExcel', { fileBase64: base64 });
+          setExcelValidation(res);
+          setExcelModalOpen(true);
+        } catch (valErr) {
+          toast.error('Validation error: ' + valErr.message);
+        } finally {
+          setValidatingExcel(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      toast.error('File read error: ' + err.message);
+      setValidatingExcel(false);
+    }
+    e.target.value = '';
+  };
+
+  const handleConfirmExcelImport = async () => {
+    if (!excelValidation?.allValidItems?.length) return;
+    setCommittingExcel(true);
+    try {
+      const res = await call('confirmMasterRateImport', { items: excelValidation.allValidItems });
+      toast.success(`Synchronized ${res.totalImported} items (${res.createdCount} new, ${res.updatedCount} updated)`);
+      setExcelModalOpen(false);
+      setExcelValidation(null);
+      loadItems();
+    } catch (err) {
+      toast.error('Import commit error: ' + err.message);
+    } finally {
+      setCommittingExcel(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header & Controls */}
@@ -267,9 +351,28 @@ export default function SettingsItemMasterTab() {
             Manage company-wide specifications, standard unit costs, client selling rates, and approved brands.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownloadMasterExcel}
+            disabled={exportingExcel}
+            className="gap-1.5 text-xs text-amber-600 dark:text-amber-400 border-amber-500/30"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exportingExcel ? 'Extracting POs...' : 'Download Master Rate Excel'}
+          </Button>
+
+          <label className="cursor-pointer">
+            <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelFileChange} className="hidden" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border border-border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer">
+              <Upload className="w-3.5 h-3.5 text-amber-500" />
+              {validatingExcel ? 'Analyzing...' : 'Upload Master Excel'}
+            </span>
+          </label>
+
           <Button size="sm" variant="outline" onClick={() => setImportModalOpen(true)} className="gap-1.5 text-xs">
-            <Upload className="w-3.5 h-3.5" /> Bulk CSV Import
+            <Upload className="w-3.5 h-3.5" /> Bulk CSV
           </Button>
           <Button size="sm" onClick={handleOpenAdd} className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5 text-xs">
             <Plus className="w-3.5 h-3.5" /> Add Master Item
@@ -631,6 +734,113 @@ export default function SettingsItemMasterTab() {
             </Button>
             <Button size="sm" disabled={importing} onClick={handleBulkImport} className="bg-amber-600 hover:bg-amber-700 text-white">
               {importing ? 'Importing...' : 'Execute Import'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+      {/* Master Excel Review & Import Dialog */}
+      <Dialog
+        open={excelModalOpen}
+        onOpenChange={setExcelModalOpen}
+        title="Review & Confirm Master Rate Excel Import"
+      >
+        <div className="space-y-4 max-h-[80vh] overflow-y-auto">
+          {excelValidation && (
+            <>
+              {/* Validation Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                <div className="p-2.5 rounded-lg border border-border bg-muted/40">
+                  <span className="text-muted-foreground block text-[10px]">Valid Items Ready:</span>
+                  <strong className="text-sm font-mono text-emerald-500 font-bold">
+                    {excelValidation.validCount}
+                  </strong>
+                </div>
+                <div className="p-2.5 rounded-lg border border-border bg-muted/40">
+                  <span className="text-muted-foreground block text-[10px]">Errors / Invalid:</span>
+                  <strong className="text-sm font-mono text-rose-500 font-bold">
+                    {excelValidation.errorCount}
+                  </strong>
+                </div>
+                <div className="p-2.5 rounded-lg border border-border bg-muted/40 col-span-2 sm:col-span-1">
+                  <span className="text-muted-foreground block text-[10px]">Target Destination:</span>
+                  <strong className="text-xs text-foreground font-semibold">
+                    boq_item_master
+                  </strong>
+                </div>
+              </div>
+
+              {/* Error messages if any */}
+              {excelValidation.errors?.length > 0 && (
+                <div className="p-3 rounded-lg border border-rose-500/30 bg-rose-500/10 text-xs text-rose-500 space-y-1 max-h-32 overflow-y-auto">
+                  <div className="font-bold">Validation Issues Found:</div>
+                  {excelValidation.errors.slice(0, 10).map((err, i) => (
+                    <div key={i} className="text-[11px]">
+                      Row {err.row}: {err.item ? `[${err.item}] ` : ''}{err.error}
+                    </div>
+                  ))}
+                  {excelValidation.errors.length > 10 && (
+                    <div className="text-[10px] italic">...and {excelValidation.errors.length - 10} more rows</div>
+                  )}
+                </div>
+              )}
+
+              {/* Preview Table */}
+              <div className="space-y-1.5">
+                <div className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Item Preview (First {excelValidation.previewItems?.length || 0} rows)
+                </div>
+                <div className="border border-border rounded-lg overflow-x-auto max-h-64">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/50 text-[10px] font-bold text-muted-foreground uppercase border-b border-border">
+                      <tr>
+                        <th className="p-2">Code</th>
+                        <th className="p-2">Name</th>
+                        <th className="p-2">Unit</th>
+                        <th className="p-2 text-right">Cost Rate (₹)</th>
+                        <th className="p-2 text-right">Selling Rate (₹)</th>
+                        <th className="p-2">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {excelValidation.previewItems?.map((it, idx) => (
+                        <tr key={idx} className="hover:bg-muted/30">
+                          <td className="p-2 font-mono text-[11px] text-amber-500">{it.item_code}</td>
+                          <td className="p-2 max-w-xs truncate font-medium">{it.name}</td>
+                          <td className="p-2 text-muted-foreground">{it.unit}</td>
+                          <td className="p-2 font-mono text-right">{it.std_cost}</td>
+                          <td className="p-2 font-mono text-right text-emerald-500 font-semibold">{it.std_selling_rate}</td>
+                          <td className="p-2">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${it.is_existing ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                              {it.is_existing ? 'Update' : 'New'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setExcelModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={committingExcel || !excelValidation?.validCount}
+              onClick={handleConfirmExcelImport}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            >
+              {committingExcel ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  Synchronizing...
+                </>
+              ) : (
+                `Confirm & Import (${excelValidation?.validCount || 0} Items)`
+              )}
             </Button>
           </div>
         </div>

@@ -117,3 +117,43 @@ export {
   importBoqFromCsv
 } from './api/boq.js';
 
+export {
+  initEnterpriseUpgradeSchemas
+} from './api/schema-upgrade.js';
+
+export {
+  listClients,
+  getClient,
+  saveClient,
+  deleteClient,
+  getClientProjectsAndBoqs
+} from './api/clients.js';
+
+export {
+  listRateContracts,
+  getRateContract,
+  saveRateContract,
+  getEligibleRateContractsForPO
+} from './api/rate-contracts.js';
+
+export {
+  generateMasterRateExcel,
+  parseAndValidateMasterRateExcel,
+  confirmMasterRateImport
+} from './api/excel-master-rates.js';
+
+export {
+  getProjectSchedule,
+  listProjectScheduleTasks,
+  saveScheduleTask,
+  deleteScheduleTask,
+  updateTaskProgressFromDpr
+} from './api/schedule.js';
+
+export {
+  getEmployeeTaskDashboard,
+  getProjectManagerTaskDashboard,
+  getManagementTaskDashboard
+} from './api/task-dashboard.js';
+
+
