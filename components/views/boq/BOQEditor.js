@@ -6,7 +6,8 @@ import { formatCurrency } from '../../../app/lib/utils';
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronRight, Save, Download, Upload,
   CheckCircle2, XCircle, Send, ShoppingCart, Search, Database, Layers,
-  Lock, RefreshCw, FileSpreadsheet, Eye, SlidersHorizontal, AlertCircle
+  Lock, RefreshCw, FileSpreadsheet, Eye, SlidersHorizontal, AlertCircle,
+  DollarSign, X
 } from 'lucide-react';
 import { useAppState } from '../../StateProvider';
 import { toast } from '../../ui/Toast';
@@ -80,6 +81,8 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
   // Modals & Drawers
   const [showItemMasterDrawer, setShowItemMasterDrawer] = useState(false);
   const [targetSectionForMaster, setTargetSectionForMaster] = useState(null);
+  const [targetSectionName, setTargetSectionName] = useState('');
+  const [rateUpdatePrompt, setRateUpdatePrompt] = useState(null);
   const [showPoDrawer, setShowPoDrawer] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showNewSectionModal, setShowNewSectionModal] = useState(false);
@@ -164,7 +167,7 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
         boq_version_id: boqVersionId,
         section_id: sectionId,
         s_no: sNo,
-        description: 'New Line Item Specification',
+        description: 'Custom Item',
         unit: 'Nos',
         quantity: 1,
         cost_rate: 0,
@@ -197,6 +200,49 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
     }
   };
 
+  // Handle rate editing with Prompt for "BOQ Only" vs "Update Master Also"
+  const handleRateEditInitiated = (item, field, newVal) => {
+    if (isApproved) {
+      toast.error('Approved BOQs are locked.');
+      return;
+    }
+    const num = parseFloat(newVal) || 0;
+    const oldNum = parseFloat(item[field]) || 0;
+    if (num === oldNum) return;
+
+    setRateUpdatePrompt({
+      open: true,
+      item,
+      field,
+      oldRate: oldNum,
+      newRate: num
+    });
+  };
+
+  const handleConfirmRateUpdate = async (updateMaster) => {
+    if (!rateUpdatePrompt?.item) return;
+    const { item, field, newRate } = rateUpdatePrompt;
+    setRateUpdatePrompt(null);
+    try {
+      await call('updateBoqItemRate', {
+        item_id: item.id,
+        boq_version_id: boqVersionId,
+        field,
+        new_rate: newRate,
+        update_master: updateMaster,
+        reason: updateMaster ? `Rate revised during BOQ preparation` : ''
+      });
+      toast.success(
+        updateMaster
+          ? `Updated rate in this BOQ and Central Master`
+          : `Applied rate update to this BOQ only`
+      );
+      loadBoq();
+    } catch (err) {
+      toast.error('Failed to update rate: ' + err.message);
+    }
+  };
+
   // Delete item
   const handleDeleteItem = async (itemId) => {
     if (isApproved) {
@@ -213,7 +259,7 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
   };
 
   // Handle Item Master item added
-  const handleItemMasterSelected = async (masterItem) => {
+  const handleItemMasterSelected = async (masterItem, quantity = 1) => {
     if (!targetSectionForMaster) return;
     try {
       const secIndex = boqData?.sections?.findIndex(s => s.id === targetSectionForMaster) ?? 0;
@@ -229,8 +275,8 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
         description: masterItem.name + (masterItem.description ? ` - ${masterItem.description}` : ''),
         make: masterItem.preferred_make || '',
         unit: masterItem.unit || 'Nos',
-        quantity: 1,
-        cost_rate: masterItem.std_cost || 0,
+        quantity: quantity || 1,
+        cost_rate: masterItem.std_cost ?? masterItem.std_purchase_rate ?? 0,
         selling_rate: masterItem.std_selling_rate || 0,
         sort_order: (currentItems.length + 1) * 10,
         rate_source: 'master'
@@ -598,19 +644,14 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
                             <button
                               onClick={() => {
                                 setTargetSectionForMaster(section.id);
+                                setTargetSectionName(section.name);
                                 setShowItemMasterDrawer(true);
                               }}
-                              title="Add from Item Master"
-                              className="p-1 hover:bg-amber-500/10 rounded text-amber-600"
-                            >
-                              <Database className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleAddBlankItem(section.id)}
-                              title="Add blank row"
-                              className="p-1 hover:bg-muted rounded text-foreground"
+                              title="Add item from Library / Master"
+                              className="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 rounded text-xs font-semibold flex items-center gap-1 transition-colors"
                             >
                               <Plus className="w-3.5 h-3.5" />
+                              <span>Add Item</span>
                             </button>
                             <button
                               onClick={() => handleDeleteSection(section.id, section.name)}
@@ -703,7 +744,7 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
                               type="number"
                               isCurrency
                               value={item.selling_rate}
-                              onSave={v => handleUpdateItem(item, 'selling_rate', v)}
+                              onSave={v => handleRateEditInitiated(item, 'selling_rate', v)}
                               readOnly={isApproved}
                               className="text-right font-mono font-semibold text-foreground"
                             />
@@ -720,7 +761,7 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
                                   type="number"
                                   isCurrency
                                   value={item.cost_rate}
-                                  onSave={v => handleUpdateItem(item, 'cost_rate', v)}
+                                  onSave={v => handleRateEditInitiated(item, 'cost_rate', v)}
                                   readOnly={isApproved}
                                   className="text-right font-mono text-blue-600 dark:text-blue-400"
                                 />
@@ -820,8 +861,86 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
       <ItemMasterSearchDrawer
         open={showItemMasterDrawer}
         onClose={() => setShowItemMasterDrawer(false)}
+        boqVersionId={boqVersionId}
+        sectionId={targetSectionForMaster}
+        sectionName={targetSectionName}
+        onItemAdded={loadBoq}
         onSelectItem={handleItemMasterSelected}
       />
+
+      {/* Rate Update Prompt Modal */}
+      {rateUpdatePrompt?.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-amber-500" />
+                Update Item Rate
+              </h3>
+              <button
+                onClick={() => setRateUpdatePrompt(null)}
+                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-muted/40 rounded-lg space-y-2 text-xs">
+              <div>
+                <span className="text-muted-foreground block text-[11px]">Item</span>
+                <span className="font-semibold text-foreground">{rateUpdatePrompt.item.description}</span>
+                {rateUpdatePrompt.item.item_code && (
+                  <span className="font-mono text-amber-600 dark:text-amber-400 text-[11px] block mt-0.5">
+                    Code: {rateUpdatePrompt.item.item_code}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50 text-[11px] font-mono">
+                <div>
+                  <span className="text-muted-foreground block font-sans">
+                    {rateUpdatePrompt.field === 'cost_rate' ? 'Current Cost Rate:' : 'Current Selling Rate:'}
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {formatCurrency(rateUpdatePrompt.oldRate)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block font-sans">
+                    {rateUpdatePrompt.field === 'cost_rate' ? 'New Cost Rate:' : 'New Selling Rate:'}
+                  </span>
+                  <span className="font-bold text-amber-600 dark:text-amber-400">
+                    {formatCurrency(rateUpdatePrompt.newRate)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Choose how you want to apply this rate change:
+            </p>
+
+            <div className="space-y-2 pt-1">
+              <Button
+                variant="outline"
+                onClick={() => handleConfirmRateUpdate(false)}
+                className="w-full justify-between text-xs py-2 hover:bg-muted font-medium"
+              >
+                <span>Apply to This BOQ Only</span>
+                <span className="text-[10px] text-muted-foreground font-mono">Default</span>
+              </Button>
+
+              <Button
+                onClick={() => handleConfirmRateUpdate(true)}
+                className="w-full justify-between text-xs py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+              >
+                <span>Update Rate Master Also</span>
+                <span className="text-[10px] text-amber-100 font-mono">Sync Library</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create PO Drawer */}
       <CreatePoFromBoqDrawer

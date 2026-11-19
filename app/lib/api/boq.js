@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import path from 'path';
 import fs from 'fs';
+import { STANDARD_FITOUT_CATEGORIES } from './boq-library-data.js';
 
 let _boqTablesInitialized = false;
 
@@ -237,6 +238,46 @@ export async function initBoqTables() {
       prev_value TEXT,
       new_value TEXT,
       timestamp TEXT
+    )`,
+
+    // 9. Master Categories (17 Standard Indian Fit-Out Categories)
+    `CREATE TABLE IF NOT EXISTS boq_categories (
+      id TEXT PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    )`,
+
+    // 10. Master Subcategories
+    `CREATE TABLE IF NOT EXISTS boq_subcategories (
+      id TEXT PRIMARY KEY,
+      category_id TEXT NOT NULL,
+      category_name TEXT NOT NULL,
+      name TEXT NOT NULL,
+      code TEXT,
+      sort_order INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    )`,
+
+    // 11. Rate Revision History
+    `CREATE TABLE IF NOT EXISTS boq_rate_history (
+      id TEXT PRIMARY KEY,
+      item_id TEXT,
+      item_master_id TEXT,
+      boq_id TEXT,
+      boq_version_id TEXT,
+      rate_type TEXT NOT NULL,
+      previous_rate REAL DEFAULT 0,
+      new_rate REAL DEFAULT 0,
+      applied_scope TEXT DEFAULT 'boq_only',
+      reason TEXT,
+      user_email TEXT,
+      created_at TEXT
     )`
   ];
 
@@ -468,18 +509,315 @@ export async function deleteItemMaster(id, session) {
   return { success: true };
 }
 
-export async function importItemMasterBulk(items, session) {
+export async function getBoqCategoryHierarchy() {
+  await initBoqTables();
+  const cats = await queryAll(
+    `SELECT * FROM boq_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC`
+  );
+  const subs = await queryAll(
+    `SELECT * FROM boq_subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC`
+  );
+
+  const subMap = new Map();
+  for (const s of (subs || [])) {
+    if (!subMap.has(s.category_name)) {
+      subMap.set(s.category_name, []);
+    }
+    subMap.get(s.category_name).push(s.name);
+  }
+
+  return (cats || []).map(c => ({
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    sort_order: c.sort_order,
+    subcategories: subMap.get(c.name) || []
+  }));
+}
+
+export async function searchMasterItems(filters = {}) {
+  await initBoqTables();
+  const rawSearch = filters.search || filters.query || '';
+  const search = typeof rawSearch === 'string' ? rawSearch : '';
+  const {
+    category = '',
+    subcategory = '',
+    limit = 50,
+    page = 1
+  } = filters;
+  const offset = (Math.max(1, page) - 1) * limit;
+
+  let whereClauses = ['is_active = 1'];
+  let params = [];
+
+  if (category && category !== 'all') {
+    whereClauses.push('(category = ? OR category LIKE ?)');
+    params.push(category, `%${category}%`);
+  }
+
+  if (subcategory && subcategory !== 'all') {
+    whereClauses.push('(subcategory = ? OR subcategory LIKE ?)');
+    params.push(subcategory, `%${subcategory}%`);
+  }
+
+  if (search && search.trim()) {
+    const term = `%${search.trim()}%`;
+    whereClauses.push(
+      `(item_code LIKE ? OR name LIKE ? OR description LIKE ? OR material_spec LIKE ? OR preferred_make LIKE ? OR subcategory LIKE ?)`
+    );
+    params.push(term, term, term, term, term, term);
+  }
+
+  const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
+  const countRow = await queryGet(`SELECT COUNT(*) as total FROM boq_item_master ${whereSql}`, params);
+  const total = countRow?.total || 0;
+
+  const items = await queryAll(
+    `SELECT id, item_code, name, description, category, subcategory, unit, preferred_make,
+            std_purchase_rate, std_cost, std_selling_rate, target_margin_pct
+     FROM boq_item_master ${whereSql}
+     ORDER BY category ASC, subcategory ASC, item_code ASC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  return {
+    items: items || [],
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit)
+  };
+}
+
+export async function createMasterItemAndAddToBoq(payload, session) {
   await initBoqTables();
   requireAuth(session);
-  if (!Array.isArray(items) || items.length === 0) return { imported: 0 };
 
-  let count = 0;
-  for (const item of items) {
-    if (!item.name) continue;
-    await saveItemMaster(item, session);
-    count++;
+  const {
+    boq_version_id,
+    section_id,
+    category,
+    subcategory,
+    name,
+    description = '',
+    preferred_make = 'Custom',
+    unit = 'Nos',
+    std_purchase_rate = 0,
+    std_selling_rate = 0,
+    gst_pct = 18,
+    remarks = '',
+    quantity = 1
+  } = payload;
+
+  if (!boq_version_id) throw new Error('Target BOQ Version is required');
+  if (!name || !name.trim()) throw new Error('Item name is required');
+
+  const version = await queryGet(
+    `SELECT v.*, h.project FROM boq_versions v JOIN boq_headers h ON v.boq_id = h.id WHERE v.id = ?`,
+    [boq_version_id]
+  );
+  if (!version) throw new Error('BOQ Version not found');
+  if (version.status === 'Approved') {
+    throw new Error('IMMUTABILITY_LOCK: Target BOQ version is Approved. Create a new revision first.');
   }
-  return { imported: count };
+
+  const costRate = parseFloat(std_purchase_rate) || 0;
+  const sellingRate = parseFloat(std_selling_rate) || 0;
+  const qty = parseFloat(quantity) || 1;
+  const amount = Math.round(qty * sellingRate * 100) / 100;
+  const costAmount = Math.round(qty * costRate * 100) / 100;
+  const margin = Math.round((amount - costAmount) * 100) / 100;
+  const marginPct = (amount > 0 && sellingRate > 0) ? Math.round(((sellingRate - costRate) / sellingRate) * 10000) / 100 : 0;
+  const now = new Date().toISOString();
+
+  // 1. Auto-generate unique item code based on category
+  const catCode = category ? category.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() : 'GEN';
+  const countRow = await queryGet(`SELECT COUNT(*) as cnt FROM boq_item_master WHERE item_code LIKE ?`, [`${catCode}-%`]);
+  const seq = ((countRow?.cnt || 0) + 1).toString().padStart(4, '0');
+  const itemCode = `${catCode}-${seq}`;
+
+  // 2. Insert into boq_item_master (Central Item Master)
+  const masterId = crypto.randomUUID();
+  await queryRun(
+    `INSERT INTO boq_item_master (
+      id, item_code, name, description, category, subcategory, unit, preferred_make,
+      std_purchase_rate, std_labour_rate, std_cost, std_selling_rate, target_margin_pct,
+      is_active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1, ?, ?)`,
+    [
+      masterId, itemCode, name.trim(), description.trim() || name.trim(),
+      category || 'General', subcategory || '', unit, preferred_make || '',
+      costRate, costRate, sellingRate, marginPct > 0 ? marginPct : 20, now, now
+    ]
+  );
+
+  // 3. Calculate sequential s_no for the section
+  let targetSectionId = section_id;
+  if (!targetSectionId) {
+    const firstSec = await queryGet(`SELECT id FROM boq_sections WHERE boq_version_id = ? ORDER BY sort_order ASC LIMIT 1`, [boq_version_id]);
+    targetSectionId = firstSec?.id;
+  }
+
+  const existingItems = await queryAll(
+    `SELECT id, s_no, sort_order FROM boq_items WHERE boq_version_id = ? AND section_id = ? ORDER BY sort_order ASC`,
+    [boq_version_id, targetSectionId]
+  );
+  const nextItemNum = (existingItems?.length || 0) + 1;
+  const secRow = await queryGet(`SELECT sort_order FROM boq_sections WHERE id = ?`, [targetSectionId]);
+  const secNum = secRow ? Math.floor((secRow.sort_order || 0) / 10) + 1 : 1;
+  const sNo = `${secNum}.${nextItemNum}`;
+  const sortOrder = nextItemNum * 10;
+
+  // 4. Insert into boq_items
+  const boqItemId = crypto.randomUUID();
+  await queryRun(
+    `INSERT INTO boq_items (
+      id, boq_version_id, section_id, item_master_id, s_no, item_code, description,
+      specification, make, unit, quantity, cost_rate, selling_rate, amount, cost_amount,
+      margin, margin_pct, remarks, status, sort_order, rate_source, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft', ?, 'master', ?, ?)`,
+    [
+      boqItemId, boq_version_id, targetSectionId, masterId, sNo, itemCode, name.trim(),
+      description.trim() || name.trim(), preferred_make || '', unit, qty, costRate, sellingRate,
+      amount, costAmount, margin, marginPct, remarks || '', sortOrder, now, now
+    ]
+  );
+
+  // 5. Recalculate totals
+  const totals = await recalculateBoqTotals(boq_version_id);
+
+  if (version.project) {
+    try {
+      await queryRun(
+        `UPDATE project_financials SET project_value = ?, bcs = ?, updated_at = ? WHERE project = ?`,
+        [totals.totalSelling, totals.totalCost, now, version.project]
+      );
+    } catch (e) {
+      console.warn('[BOQ Add] project_financials update warning:', e.message);
+    }
+  }
+
+  return {
+    success: true,
+    boq_item_id: boqItemId,
+    item_master_id: masterId,
+    item_code: itemCode,
+    s_no: sNo,
+    description: name.trim(),
+    totals
+  };
+}
+
+export async function updateBoqItemRate(payload, session) {
+  await initBoqTables();
+  requireAuth(session);
+
+  const {
+    item_id,
+    boq_version_id,
+    field,
+    new_rate,
+    update_master = false,
+    reason = ''
+  } = payload;
+
+  if (!item_id) throw new Error('item_id is required');
+  if (field !== 'cost_rate' && field !== 'selling_rate') {
+    throw new Error('field must be either cost_rate or selling_rate');
+  }
+
+  const item = await queryGet(`SELECT * FROM boq_items WHERE id = ?`, [item_id]);
+  if (!item) throw new Error('BOQ Item not found');
+
+  const version = await queryGet(
+    `SELECT v.*, h.project FROM boq_versions v JOIN boq_headers h ON v.boq_id = h.id WHERE v.id = ?`,
+    [item.boq_version_id]
+  );
+  if (!version) throw new Error('BOQ Version not found');
+  if (version.status === 'Approved') {
+    throw new Error('IMMUTABILITY_LOCK: Target BOQ version is Approved. Create a new revision first.');
+  }
+
+  const rate = parseFloat(new_rate) || 0;
+  const prevRate = item[field] || 0;
+  const qty = item.quantity || 0;
+  const sellingRate = field === 'selling_rate' ? rate : (item.selling_rate || 0);
+  const costRate = field === 'cost_rate' ? rate : (item.cost_rate || 0);
+
+  const amount = Math.round(qty * sellingRate * 100) / 100;
+  const costAmount = Math.round(qty * costRate * 100) / 100;
+  const margin = Math.round((amount - costAmount) * 100) / 100;
+  const marginPct = (amount > 0 && sellingRate > 0) ? Math.round(((sellingRate - costRate) / sellingRate) * 10000) / 100 : 0;
+  const now = new Date().toISOString();
+  const userEmail = session.user?.email || session.email || 'System';
+
+  // 1. Update this BOQ line item
+  await queryRun(
+    `UPDATE boq_items SET
+      ${field} = ?,
+      amount = ?,
+      cost_amount = ?,
+      margin = ?,
+      margin_pct = ?,
+      updated_at = ?
+     WHERE id = ?`,
+    [rate, amount, costAmount, margin, marginPct, now, item_id]
+  );
+
+  // 2. If update_master is true and item has item_master_id, update central master for future BOQs
+  if (update_master && item.item_master_id) {
+    if (field === 'cost_rate') {
+      await queryRun(
+        `UPDATE boq_item_master SET std_cost = ?, std_purchase_rate = ?, updated_at = ? WHERE id = ?`,
+        [rate, rate, now, item.item_master_id]
+      );
+    } else if (field === 'selling_rate') {
+      await queryRun(
+        `UPDATE boq_item_master SET std_selling_rate = ?, updated_at = ? WHERE id = ?`,
+        [rate, now, item.item_master_id]
+      );
+    }
+  }
+
+  // 3. Track rate revision history
+  await queryRun(
+    `INSERT INTO boq_rate_history (
+      id, item_id, item_master_id, boq_id, boq_version_id, rate_type,
+      previous_rate, new_rate, applied_scope, reason, user_email, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      crypto.randomUUID(), item_id, item.item_master_id || null, version.boq_id, item.boq_version_id,
+      field, prevRate, rate, update_master ? 'master_and_boq' : 'boq_only', reason || '', userEmail, now
+    ]
+  );
+
+  // 4. Recalculate totals
+  const totals = await recalculateBoqTotals(item.boq_version_id);
+
+  if (version.project) {
+    try {
+      await queryRun(
+        `UPDATE project_financials SET project_value = ?, bcs = ?, updated_at = ? WHERE project = ?`,
+        [totals.totalSelling, totals.totalCost, now, version.project]
+      );
+    } catch (e) {
+      console.warn('[BOQ Rate Update] project_financials warning:', e.message);
+    }
+  }
+
+  return {
+    success: true,
+    item: {
+      ...item,
+      [field]: rate,
+      amount,
+      cost_amount: costAmount,
+      margin,
+      margin_pct: marginPct
+    },
+    totals
+  };
 }
 
 // --------------------------------------------------------------------------
@@ -537,7 +875,7 @@ export async function createBoq(payload, session) {
     [versionId, boqId, now, now]
   );
 
-  // 3. Seed default enterprise sections
+  // 3. Seed standard 17 fit-out categories as sections
   const defaultSections = [
     'Civil & Demolition Works',
     'False Ceiling & Partition',
@@ -549,9 +887,13 @@ export async function createBoq(payload, session) {
     'HVAC Works',
     'Plumbing & Sanitary',
     'Fire Fighting & Safety',
-    'Networking & Security',
-    'Loose Furniture & Fixtures',
-    'Miscellaneous & Prelims'
+    'Doors, Windows & Hardware',
+    'Metal & SS Fabrication',
+    'Modular & Loose Furniture',
+    'IT, ELV, Security & Automation',
+    'Signage & Branding',
+    'Soft Furnishings & Acoustics',
+    'Specialised & Miscellaneous Works'
   ];
 
   for (let i = 0; i < defaultSections.length; i++) {

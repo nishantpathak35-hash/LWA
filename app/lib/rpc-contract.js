@@ -280,6 +280,10 @@ export const RPC_CONTRACT = Object.freeze({
   importBoqFromCsv: {"args":1,"sessionIndex":1,"access":"internal"},
   importBoqFromExcel: {"args":1,"sessionIndex":1,"access":"internal"},
   autoMatchBoqWithMaster: {"args":1,"sessionIndex":1,"access":"internal"},
+  getBoqCategoryHierarchy: {"args":0,"sessionIndex":-1,"access":"internal"},
+  searchMasterItems: {"args":1,"sessionIndex":-1,"access":"internal"},
+  createMasterItemAndAddToBoq: {"args":1,"sessionIndex":1,"access":"internal"},
+  updateBoqItemRate: {"args":1,"sessionIndex":1,"access":"internal"},
 
   // Enterprise Upgrade: Clients Module
   listClients: {"args":1,"sessionIndex":1,"access":"internal"},

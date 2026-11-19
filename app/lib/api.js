@@ -116,7 +116,11 @@ export {
   exportBoqToExcel,
   importBoqFromCsv,
   importBoqFromExcel,
-  autoMatchBoqWithMaster
+  autoMatchBoqWithMaster,
+  getBoqCategoryHierarchy,
+  searchMasterItems,
+  createMasterItemAndAddToBoq,
+  updateBoqItemRate
 } from './api/boq.js';
 
 export {
