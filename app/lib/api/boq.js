@@ -5,6 +5,9 @@ import { queryAll, queryGet, queryRun, queryBatch } from '../db.js';
 import { isSuperAdmin } from '../config.js';
 import { savePO } from './purchase-orders/write.js';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import path from 'path';
+import fs from 'fs';
 
 let _boqTablesInitialized = false;
 
@@ -1279,69 +1282,439 @@ export async function exportBoqToExcel(versionId, options = {}) {
   const boqData = await getBoqVersion(versionId);
   if (!boqData) throw new Error('BOQ version not found');
 
-  const rows = [];
+  const header = await queryGet(`SELECT id, current_version_id, project, client_name, client_id, boq_no, title FROM boq_headers WHERE id = ?`, [boqData.boq_id]);
+  const projFin = await queryGet(`SELECT site_address, client FROM project_financials WHERE project = ?`, [boqData.project]);
+  const clientName = header?.client_name || projFin?.client || boqData.project;
+  const siteLocation = projFin?.site_address || 'Gurugram, Haryana';
 
-  for (const sec of boqData.sections || []) {
-    // Add section header banner
-    rows.push({
-      'S.No': '',
-      'Item Code': '',
-      'Description': `--- SECTION: ${sec.name.toUpperCase()} ---`,
-      'Unit': '',
-      'Quantity': '',
-      'Selling Rate': '',
-      'Amount': '',
-      ...(view === 'internal' || view === 'procurement' ? {
-        'Cost Rate': '',
-        'Cost Amount': '',
-        'Margin': '',
-        'Margin %': ''
-      } : {}),
-      ...(view === 'procurement' ? {
-        'Committed Qty': '',
-        'Remaining Qty': ''
-      } : {})
-    });
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'LuxeWorx Atelier ERP';
+  wb.lastModifiedBy = 'LuxeWorx Atelier QS Team';
+  wb.created = new Date();
+  wb.modified = new Date();
 
-    for (const it of sec.items || []) {
-      const baseRow = {
-        'S.No': it.s_no || '',
-        'Item Code': it.item_code || '',
-        'Description': it.description,
-        'Make / Brand': it.make || '',
-        'Unit': it.unit || 'Nos',
-        'Quantity': it.quantity || 0,
-        'Selling Rate': it.selling_rate || 0,
-        'Amount': it.amount || 0
-      };
-
-      if (view === 'internal' || view === 'procurement') {
-        baseRow['Cost Rate'] = it.cost_rate || 0;
-        baseRow['Cost Amount'] = it.cost_amount || 0;
-        baseRow['Margin'] = it.margin || 0;
-        baseRow['Margin %'] = `${it.margin_pct || 0}%`;
+  // Load Logo if available
+  let logoImageId = null;
+  try {
+    const possibleLogos = [
+      path.resolve(process.cwd(), 'public/branding/LWA_PRIMARY_LOGO_CLEAN.png'),
+      path.resolve(process.cwd(), 'public/branding/LWA_PRIMARY_LOGO_2_GOLD.png'),
+      path.resolve(process.cwd(), 'Logo.jpeg')
+    ];
+    for (const p of possibleLogos) {
+      if (fs.existsSync(p)) {
+        const ext = p.endsWith('.jpeg') || p.endsWith('.jpg') ? 'jpeg' : 'png';
+        logoImageId = wb.addImage({ filename: p, extension: ext });
+        break;
       }
-
-      if (view === 'procurement') {
-        baseRow['Committed Qty'] = it.committed_qty || 0;
-        baseRow['Remaining Qty'] = (it.quantity || 0) - (it.committed_qty || 0);
-      }
-
-      rows.push(baseRow);
     }
-
-    // Subtotal separator
-    rows.push({});
+  } catch (e) {
+    console.warn('[BOQ Excel Export] Logo loading warning:', e.message);
   }
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'BOQ');
+  // -------------------------------------------------------------
+  // SHEET 1: SUMMARY
+  // -------------------------------------------------------------
+  const wsSum = wb.addWorksheet('SUMMARY', { views: [{ showGridLines: true }] });
+  wsSum.columns = [
+    { width: 10 }, // Sr.No
+    { width: 48 }, // Scope of Works
+    { width: 22 }, // Amount (INR)
+    { width: 16 }  // % of Total
+  ];
 
-  const buffer = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+  // Company Brand Header
+  wsSum.mergeCells('A1:C2');
+  const sumTitle = wsSum.getCell('A1');
+  sumTitle.value = 'LuxeWorx Atelier Interiors Pvt. Ltd.';
+  sumTitle.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FF1E293B' } };
+  sumTitle.alignment = { vertical: 'middle', horizontal: 'left' };
+
+  if (logoImageId !== null) {
+    wsSum.addImage(logoImageId, {
+      tl: { col: 3, row: 0.1 },
+      ext: { width: 110, height: 38 }
+    });
+  }
+
+  // Metadata Card
+  const metaRows = [
+    ['Client Name', clientName],
+    ['Project', boqData.project],
+    ['Location', siteLocation.split('\n')[0]],
+    ['BOQ Ref & Rev', `${boqData.boq_no} - ${boqData.revision_label || 'Rev 0'}`],
+    ['Date', new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })]
+  ];
+
+  let metaStartRow = 4;
+  for (const [lbl, val] of metaRows) {
+    const lblCell = wsSum.getCell(`A${metaStartRow}`);
+    lblCell.value = lbl;
+    lblCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF64748B' } };
+
+    wsSum.mergeCells(`B${metaStartRow}:D${metaStartRow}`);
+    const valCell = wsSum.getCell(`B${metaStartRow}`);
+    valCell.value = val;
+    valCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+    metaStartRow++;
+  }
+
+  metaStartRow++; // spacing
+
+  // Summary Banner
+  wsSum.mergeCells(`A${metaStartRow}:D${metaStartRow}`);
+  const sumBanner = wsSum.getCell(`A${metaStartRow}`);
+  sumBanner.value = 'COMMERCIAL FIT-OUT BOQ - SUMMARY OF WORKS';
+  sumBanner.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  sumBanner.alignment = { horizontal: 'center', vertical: 'middle' };
+  sumBanner.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+  wsSum.getRow(metaStartRow).height = 24;
+  metaStartRow++;
+
+  // Summary Table Headers
+  const sumHeaders = ['Sr No.', 'Scope of Works', 'Amount (₹)', '% of Total'];
+  const sumHeaderRow = wsSum.getRow(metaStartRow);
+  sumHeaderRow.height = 22;
+  sumHeaders.forEach((h, idx) => {
+    const cell = sumHeaderRow.getCell(idx + 1);
+    cell.value = h;
+    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+    cell.alignment = { horizontal: idx >= 2 ? 'right' : (idx === 0 ? 'center' : 'left'), vertical: 'middle' };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+    };
+  });
+  metaStartRow++;
+
+  let sumIdx = 1;
+  const totalSelling = boqData.total_selling_value || 0;
+
+  for (const sec of boqData.sections || []) {
+    const secSum = (sec.items || []).reduce((acc, it) => acc + (it.amount || 0), 0);
+    const pct = totalSelling > 0 ? (secSum / totalSelling) * 100 : 0;
+
+    const row = wsSum.getRow(metaStartRow);
+    row.height = 20;
+
+    const c1 = row.getCell(1);
+    c1.value = sumIdx++;
+    c1.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const c2 = row.getCell(2);
+    c2.value = sec.name;
+    c2.font = { bold: true };
+    c2.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    const c3 = row.getCell(3);
+    c3.value = secSum;
+    c3.numFmt = '₹ #,##0.00';
+    c3.font = { bold: true };
+    c3.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    const c4 = row.getCell(4);
+    c4.value = `${pct.toFixed(2)}%`;
+    c4.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    const isEven = (sumIdx % 2 === 0);
+    for (let c = 1; c <= 4; c++) {
+      const cell = row.getCell(c);
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+      if (isEven) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+      }
+    }
+    metaStartRow++;
+  }
+
+  // Summary Total Row
+  const totalRow = wsSum.getRow(metaStartRow);
+  totalRow.height = 24;
+  totalRow.getCell(1).value = '';
+  totalRow.getCell(2).value = 'TOTAL BASIC VALUE (EXCL. TAXES)';
+  totalRow.getCell(2).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+
+  const totalCell = totalRow.getCell(3);
+  totalCell.value = totalSelling;
+  totalCell.numFmt = '₹ #,##0.00';
+  totalCell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+
+  totalRow.getCell(4).value = '100.00%';
+  totalRow.getCell(4).font = { bold: true };
+  totalRow.getCell(4).alignment = { horizontal: 'right' };
+
+  for (let c = 1; c <= 4; c++) {
+    const cell = totalRow.getCell(c);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+      bottom: { style: 'double', color: { argb: 'FF0F172A' } }
+    };
+  }
+
+  // -------------------------------------------------------------
+  // SHEET 2: DETAILED BOQ
+  // -------------------------------------------------------------
+  const wsDet = wb.addWorksheet('DETAILED BOQ', { views: [{ showGridLines: true }] });
+  
+  // Define columns based on view mode
+  const isInternal = view === 'internal' || view === 'procurement';
+  const isProcurement = view === 'procurement';
+
+  const baseColumns = [
+    { width: 8 },  // 1: S.NO
+    { width: 34 }, // 2: DESCRIPTION
+    { width: 18 }, // 3: LOCATION
+    { width: 52 }, // 4: SPECIFICATION
+    { width: 15 }, // 5: MAKES
+    { width: 8 },  // 6: UNIT
+    { width: 10 }, // 7: QTY
+    { width: 14 }, // 8: RATE
+    { width: 16 }  // 9: AMOUNT
+  ];
+
+  if (isInternal) {
+    baseColumns.push({ width: 14 }); // COST RATE
+    baseColumns.push({ width: 16 }); // COST AMOUNT
+    baseColumns.push({ width: 14 }); // MARGIN
+    baseColumns.push({ width: 10 }); // MARGIN %
+  }
+
+  if (isProcurement) {
+    baseColumns.push({ width: 14 }); // COMMITTED QTY
+    baseColumns.push({ width: 14 }); // BALANCE QTY
+  }
+
+  baseColumns.push({ width: 24 }); // REMARKS
+  wsDet.columns = baseColumns;
+
+  const totalCols = baseColumns.length;
+
+  // Header Banner
+  wsDet.mergeCells(1, 1, 2, 5);
+  const detTitle = wsDet.getCell('A1');
+  detTitle.value = view === 'client' ? 'LuxeWorx Atelier - Client BOQ' : `LuxeWorx Atelier - BOQ (${view.toUpperCase()} VIEW)`;
+  detTitle.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FF1E293B' } };
+  detTitle.alignment = { vertical: 'middle', horizontal: 'left' };
+
+  if (logoImageId !== null) {
+    wsDet.addImage(logoImageId, {
+      tl: { col: totalCols - 2, row: 0.1 },
+      ext: { width: 110, height: 38 }
+    });
+  }
+
+  // Subheader Info
+  wsDet.mergeCells(3, 1, 3, totalCols);
+  const detSub = wsDet.getCell('A3');
+  detSub.value = `Client: ${clientName}   |   Project: ${boqData.project}   |   Ref: ${boqData.boq_no} (${boqData.revision_label || 'Rev 0'})   |   Date: ${new Date().toLocaleDateString('en-IN')}`;
+  detSub.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF475569' } };
+  detSub.alignment = { vertical: 'middle', horizontal: 'left' };
+
+  let detRowIdx = 5;
+
+  // Table Column Headers
+  const colHeaders = [
+    'S.NO.',
+    'DESCRIPTION - SCOPE OF WORK',
+    'LOCATION',
+    'SPECIFICATION',
+    'MAKES',
+    'UNIT',
+    'QTY',
+    'RATE (₹)',
+    'AMOUNT (₹)'
+  ];
+
+  if (isInternal) {
+    colHeaders.push('COST RATE (₹)', 'COST AMOUNT (₹)', 'MARGIN (₹)', 'MARGIN %');
+  }
+  if (isProcurement) {
+    colHeaders.push('COMMITTED QTY', 'BALANCE QTY');
+  }
+  colHeaders.push('REMARKS');
+
+  const colHeaderRow = wsDet.getRow(detRowIdx);
+  colHeaderRow.height = 24;
+  colHeaders.forEach((h, idx) => {
+    const cell = colHeaderRow.getCell(idx + 1);
+    cell.value = h;
+    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    cell.alignment = {
+      horizontal: idx === 0 || idx === 2 || idx === 4 || idx === 5 ? 'center' : (idx >= 6 && idx <= (isInternal ? 12 : 8) ? 'right' : 'left'),
+      vertical: 'middle'
+    };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+      bottom: { style: 'medium', color: { argb: 'FF0F172A' } }
+    };
+  });
+  detRowIdx++;
+
+  // Sections & Items
+  for (const sec of boqData.sections || []) {
+    // Section Banner
+    wsDet.mergeCells(detRowIdx, 1, detRowIdx, totalCols);
+    const secCell = wsDet.getCell(detRowIdx, 1);
+    secCell.value = sec.name.toUpperCase();
+    secCell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+    secCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+    secCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    wsDet.getRow(detRowIdx).height = 22;
+    detRowIdx++;
+
+    let secSellingTotal = 0;
+    let secCostTotal = 0;
+
+    for (const it of sec.items || []) {
+      const row = wsDet.getRow(detRowIdx);
+      secSellingTotal += (it.amount || 0);
+      secCostTotal += (it.cost_amount || 0);
+
+      row.getCell(1).value = it.s_no || '';
+      row.getCell(1).alignment = { horizontal: 'center', vertical: 'top' };
+
+      const descCell = row.getCell(2);
+      descCell.value = it.description || '';
+      descCell.font = { bold: true };
+      descCell.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+
+      const locCell = row.getCell(3);
+      locCell.value = it.location || '';
+      locCell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true };
+
+      const specCell = row.getCell(4);
+      specCell.value = it.specification || '';
+      specCell.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+
+      const makeCell = row.getCell(5);
+      makeCell.value = it.make || '';
+      makeCell.alignment = { horizontal: 'center', vertical: 'top' };
+
+      const unitCell = row.getCell(6);
+      unitCell.value = it.unit || 'Nos';
+      unitCell.alignment = { horizontal: 'center', vertical: 'top' };
+
+      const qtyCell = row.getCell(7);
+      qtyCell.value = it.quantity || 0;
+      qtyCell.numFmt = '#,##0.00';
+      qtyCell.alignment = { horizontal: 'right', vertical: 'top' };
+
+      const rateCell = row.getCell(8);
+      rateCell.value = it.selling_rate || 0;
+      rateCell.numFmt = '₹ #,##0.00';
+      rateCell.alignment = { horizontal: 'right', vertical: 'top' };
+
+      const amtCell = row.getCell(9);
+      amtCell.value = it.amount || 0;
+      amtCell.numFmt = '₹ #,##0.00';
+      amtCell.font = { bold: true };
+      amtCell.alignment = { horizontal: 'right', vertical: 'top' };
+
+      let colPtr = 10;
+      if (isInternal) {
+        const costRateCell = row.getCell(colPtr++);
+        costRateCell.value = it.cost_rate || 0;
+        costRateCell.numFmt = '₹ #,##0.00';
+        costRateCell.alignment = { horizontal: 'right', vertical: 'top' };
+
+        const costAmtCell = row.getCell(colPtr++);
+        costAmtCell.value = it.cost_amount || 0;
+        costAmtCell.numFmt = '₹ #,##0.00';
+        costAmtCell.alignment = { horizontal: 'right', vertical: 'top' };
+
+        const marginCell = row.getCell(colPtr++);
+        marginCell.value = it.margin || 0;
+        marginCell.numFmt = '₹ #,##0.00';
+        marginCell.alignment = { horizontal: 'right', vertical: 'top' };
+
+        const marginPctCell = row.getCell(colPtr++);
+        marginPctCell.value = `${it.margin_pct || 0}%`;
+        marginPctCell.alignment = { horizontal: 'right', vertical: 'top' };
+      }
+
+      if (isProcurement) {
+        const commCell = row.getCell(colPtr++);
+        commCell.value = it.committed_qty || 0;
+        commCell.numFmt = '#,##0.00';
+        commCell.alignment = { horizontal: 'right', vertical: 'top' };
+
+        const balCell = row.getCell(colPtr++);
+        balCell.value = Math.max(0, (it.quantity || 0) - (it.committed_qty || 0));
+        balCell.numFmt = '#,##0.00';
+        balCell.alignment = { horizontal: 'right', vertical: 'top' };
+      }
+
+      const remCell = row.getCell(colPtr);
+      remCell.value = it.remarks || '';
+      remCell.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+
+      for (let c = 1; c <= totalCols; c++) {
+        row.getCell(c).border = {
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFF1F5F9' } }
+        };
+      }
+      detRowIdx++;
+    }
+
+    // Section Subtotal Row
+    wsDet.mergeCells(detRowIdx, 1, detRowIdx, 8);
+    const subLabel = wsDet.getCell(detRowIdx, 1);
+    subLabel.value = `SUB TOTAL - ${sec.name.toUpperCase()}`;
+    subLabel.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+    subLabel.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    const subAmt = wsDet.getCell(detRowIdx, 9);
+    subAmt.value = secSellingTotal;
+    subAmt.numFmt = '₹ #,##0.00';
+    subAmt.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+    subAmt.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    for (let c = 1; c <= totalCols; c++) {
+      const cell = wsDet.getCell(detRowIdx, c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+      };
+    }
+    wsDet.getRow(detRowIdx).height = 20;
+    detRowIdx++;
+  }
+
+  // Grand Total Row
+  wsDet.mergeCells(detRowIdx, 1, detRowIdx, 8);
+  const grandLabel = wsDet.getCell(detRowIdx, 1);
+  grandLabel.value = 'GRAND TOTAL BASIC VALUE (EXCL. TAXES)';
+  grandLabel.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+  grandLabel.alignment = { horizontal: 'right', vertical: 'middle' };
+
+  const grandAmt = wsDet.getCell(detRowIdx, 9);
+  grandAmt.value = totalSelling;
+  grandAmt.numFmt = '₹ #,##0.00';
+  grandAmt.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F172A' } };
+  grandAmt.alignment = { horizontal: 'right', vertical: 'middle' };
+
+  for (let c = 1; c <= totalCols; c++) {
+    const cell = wsDet.getCell(detRowIdx, c);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+      bottom: { style: 'double', color: { argb: 'FF0F172A' } }
+    };
+  }
+  wsDet.getRow(detRowIdx).height = 24;
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const base64 = Buffer.from(buffer).toString('base64');
+  const cleanClient = String(clientName || 'Client').replace(/[^a-zA-Z0-9_-]/g, '_');
+
   return {
-    filename: `${boqData.boq_no}_${view}_${Date.now()}.xlsx`,
-    base64: buffer
+    filename: `${boqData.boq_no}_${cleanClient}_${view}_${Date.now()}.xlsx`,
+    base64
   };
 }
 

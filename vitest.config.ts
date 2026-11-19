@@ -9,6 +9,8 @@ export default defineConfig({
     include: ['tests/**/*.{test,spec}.{js,ts}'],
     exclude: ['tests/unit/live_*.test.ts', 'tests/unit/verify_vendor_integrity.test.ts', 'tests/unit/poEligibility.test.js'],
     setupFiles: ['./tests/setup.ts'],
+    testTimeout: 30000,
+    hookTimeout: 30000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

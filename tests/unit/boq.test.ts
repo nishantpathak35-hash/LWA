@@ -42,7 +42,9 @@ import {
   createBoqRevision,
   createPoFromBoq,
   getBoqItemsForPoImport,
-  getBoqDashboard
+  getBoqDashboard,
+  exportBoqToExcel,
+  importBoqFromExcel
 } from '../../app/lib/api/boq.js';
 
 describe('BOQ Engine 2.0 Backend Tests', () => {
@@ -374,6 +376,49 @@ describe('BOQ Engine 2.0 Backend Tests', () => {
         expect.stringContaining('INSERT INTO boq_items'),
         expect.arrayContaining([0]) // marginPct must be 0, not NaN or -Infinity
       );
+    });
+
+    it('exports luxury branded client Excel workbook with SUMMARY and DETAILED BOQ sheets', async () => {
+      mockQueryGet.mockResolvedValueOnce({
+        id: 'v1',
+        boq_id: 'b1',
+        project: 'VMAN-Unit 206',
+        boq_no: 'BOQ-VMANUN-001',
+        title: 'VMAN BOQ',
+        revision_label: 'Rev 0',
+        total_selling_value: 50000,
+        total_cost_value: 40000,
+        gross_margin: 10000,
+        margin_pct: 20
+      });
+      mockQueryAll.mockResolvedValueOnce([{ id: 's1', name: 'Part A - Furniture Works' }]);
+      mockQueryAll.mockResolvedValueOnce([{
+        id: 'i1',
+        section_id: 's1',
+        s_no: 'A1',
+        description: 'Linear Workstations',
+        specification: 'PLPB top with MS powder coated leg',
+        location: 'Workstation Area',
+        make: 'Custom',
+        unit: 'Nos',
+        quantity: 5,
+        selling_rate: 10000,
+        amount: 50000,
+        cost_rate: 8000,
+        cost_amount: 40000,
+        margin: 10000,
+        margin_pct: 20
+      }]);
+      mockQueryGet.mockResolvedValueOnce({ client_name: 'VMAN', project: 'VMAN-Unit 206' });
+      mockQueryGet.mockResolvedValueOnce({ site_address: 'Gurugram', client: 'VMAN' });
+
+      const res = await exportBoqToExcel('v1', { view: 'client' });
+      expect(res).toBeDefined();
+      expect(res.filename).toContain('BOQ-VMANUN-001');
+      expect(res.filename).toContain('VMAN');
+      expect(res.base64).toBeDefined();
+      expect(typeof res.base64).toBe('string');
+      expect(res.base64.length).toBeGreaterThan(100);
     });
   });
 });

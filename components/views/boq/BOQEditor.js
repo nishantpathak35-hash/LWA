@@ -87,6 +87,7 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Selected items for PO Drawer
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
@@ -307,6 +308,28 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
     }
   };
 
+  const handleExportExcel = async (viewType = viewPreset) => {
+    setExporting(true);
+    try {
+      const res = await call('exportBoqToExcel', boqVersionId, { view: viewType });
+      if (res?.base64) {
+        const link = document.createElement('a');
+        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${res.base64}`;
+        link.download = res.filename || `BOQ_${viewType}_${Date.now()}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success(`Branded ${viewType === 'client' ? 'Client' : viewType} Excel file exported!`);
+      } else {
+        toast.error('Failed to generate export file');
+      }
+    } catch (err) {
+      toast.error('Export error: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading && !boqData) {
     return (
       <div className="p-16 text-center text-muted-foreground text-xs">
@@ -383,7 +406,19 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
             disabled={isApproved}
             className="text-xs gap-1"
           >
-            <Upload className="w-3.5 h-3.5" /> Import CSV
+            <Upload className="w-3.5 h-3.5" /> Import Excel / CSV
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleExportExcel(viewPreset)}
+            disabled={exporting}
+            className="text-xs gap-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+            title="Download Luxury Branded Client / QS Excel Sheet with Logo & Formatting"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            {exporting ? 'Exporting...' : 'Export Branded Excel'}
           </Button>
         </div>
 
