@@ -349,14 +349,21 @@ export default function ProjectCommandCenter({
     });
   }, [filteredProjects, sortBy]);
 
-  // compute per-project POs for all cards
+  // compute per-project POs for all cards (strict normalized comparison)
   const getProjectPOs = (project) => {
     return (pos || []).filter(po => {
       if (!po) return false;
-      const pName = String(po.project || po.project_name || po.project_id || '').trim().toLowerCase();
-      const targetName = String(project.project || project.name || '').trim().toLowerCase();
+      const pName = po.project || po.project_name || po.project_id;
+      const targetName = project.project || project.name;
       if (!pName || !targetName) return false;
-      return pName === targetName || pName.includes(targetName) || targetName.includes(pName);
+
+      const p = String(pName).trim().toLowerCase();
+      const t = String(targetName).trim().toLowerCase();
+      if (p === t) return true;
+
+      const normP = p.replace(/[\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+      const normT = t.replace(/[\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+      return normP === normT;
     });
   };
 

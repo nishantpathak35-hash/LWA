@@ -205,12 +205,14 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
   // Filter Payments matching this project
   const projectPayments = useMemo(() => {
     const projName = String(selectedProject?.project || '').toLowerCase().trim();
+    const normProj = projName.replace(/[\-_]/g, ' ').replace(/\s+/g, ' ').trim();
     const poNos = new Set(enrichedPOs.map(p => String(p.po_no).toLowerCase().trim()));
     return (payments || []).filter(pmt => {
       if (!pmt) return false;
       const pmtProj = String(pmt.project || '').toLowerCase().trim();
+      const normPmtProj = pmtProj.replace(/[\-_]/g, ' ').replace(/\s+/g, ' ').trim();
       const pmtPo = String(pmt.po_no || '').toLowerCase().trim();
-      return (pmtProj && pmtProj === projName) || (pmtPo && poNos.has(pmtPo));
+      return (pmtProj && (pmtProj === projName || normPmtProj === normProj)) || (pmtPo && poNos.has(pmtPo));
     });
   }, [payments, selectedProject, enrichedPOs]);
 

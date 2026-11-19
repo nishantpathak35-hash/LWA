@@ -50,14 +50,21 @@ export default function ProjectsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateProjects, call]);
 
-  // Find POs linked to the selected project (flexible normalized comparison)
+  // Find POs linked to the selected project (strict normalized comparison)
   const projectPOs = selectedProject
     ? pos.filter(po => {
         if (!po) return false;
-        const pName = String(po.project || po.project_name || po.project_id || '').trim().toLowerCase();
-        const targetName = String(selectedProject.project || selectedProject.name || '').trim().toLowerCase();
+        const pName = po.project || po.project_name || po.project_id;
+        const targetName = selectedProject.project || selectedProject.name;
         if (!pName || !targetName) return false;
-        return pName === targetName || pName.includes(targetName) || targetName.includes(pName);
+
+        const p = String(pName).trim().toLowerCase();
+        const t = String(targetName).trim().toLowerCase();
+        if (p === t) return true;
+
+        const normP = p.replace(/[\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+        const normT = t.replace(/[\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+        return normP === normT;
       })
     : [];
 
