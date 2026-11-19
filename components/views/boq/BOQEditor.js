@@ -600,6 +600,16 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
                               readOnly={isApproved}
                               className="font-medium text-foreground"
                             />
+                            {item.specification && (
+                              <div className="text-[11px] text-muted-foreground whitespace-pre-line mt-1 max-w-xl line-clamp-2 hover:line-clamp-none transition-all bg-muted/40 p-1.5 rounded border border-border/40 font-normal">
+                                {item.specification}
+                              </div>
+                            )}
+                            {item.location && (
+                              <div className="text-[10px] text-amber-600 dark:text-amber-400 font-mono mt-1">
+                                📍 {item.location}
+                              </div>
+                            )}
                           </td>
                           <td className="p-2">
                             <EditableCell

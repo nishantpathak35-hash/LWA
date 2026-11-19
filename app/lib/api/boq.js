@@ -260,6 +260,17 @@ export async function initBoqTables() {
       console.warn('[BOQ Init] boq_headers alteration warning:', e.message);
     }
 
+    // Check boq_items schema for specification column
+    try {
+      const itPragma = await queryAll(`PRAGMA table_info(boq_items)`);
+      const existingItCols = new Set((itPragma || []).map(c => c.name));
+      if (!existingItCols.has('specification')) {
+        await queryRun(`ALTER TABLE boq_items ADD COLUMN specification TEXT`);
+      }
+    } catch (e) {
+      console.warn('[BOQ Init] boq_items alteration warning:', e.message);
+    }
+
     _boqTablesInitialized = true;
   } catch (err) {
     console.error('[BOQ Init] Error initializing tables:', err);
@@ -678,14 +689,14 @@ export async function saveBoqItem(data, session) {
     await queryRun(
       `UPDATE boq_items SET
         section_id = ?, item_master_id = ?, s_no = ?, item_code = ?, description = ?,
-        make = ?, unit = ?, quantity = ?, cost_rate = ?, selling_rate = ?,
+        specification = ?, make = ?, unit = ?, quantity = ?, cost_rate = ?, selling_rate = ?,
         amount = ?, cost_amount = ?, margin = ?, margin_pct = ?, hsn_sac = ?,
         location = ?, drawing_ref = ?, remarks = ?, status = ?, sort_order = ?,
         rate_source = ?, updated_at = ?
        WHERE id = ?`,
       [
         data.section_id || null, data.item_master_id || null, data.s_no || '', data.item_code || '',
-        data.description, data.make || '', data.unit || 'Nos', qty, costRate, sellingRate,
+        data.description, data.specification || '', data.make || '', data.unit || 'Nos', qty, costRate, sellingRate,
         amount, costAmount, margin, marginPct, data.hsn_sac || '',
         data.location || '', data.drawing_ref || '', data.remarks || '', data.status || 'Draft',
         parseInt(data.sort_order) || 0, data.rate_source || 'manual', now, id
@@ -695,13 +706,13 @@ export async function saveBoqItem(data, session) {
     await queryRun(
       `INSERT INTO boq_items (
         id, boq_version_id, section_id, item_master_id, s_no, item_code, description,
-        make, unit, quantity, cost_rate, selling_rate, amount, cost_amount, margin,
+        specification, make, unit, quantity, cost_rate, selling_rate, amount, cost_amount, margin,
         margin_pct, hsn_sac, location, drawing_ref, remarks, status, sort_order,
         rate_source, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, data.boq_version_id, data.section_id || null, data.item_master_id || null, data.s_no || '',
-        data.item_code || '', data.description, data.make || '', data.unit || 'Nos', qty, costRate,
+        data.item_code || '', data.description, data.specification || '', data.make || '', data.unit || 'Nos', qty, costRate,
         sellingRate, amount, costAmount, margin, marginPct, data.hsn_sac || '',
         data.location || '', data.drawing_ref || '', data.remarks || '', data.status || 'Draft',
         parseInt(data.sort_order) || 0, data.rate_source || 'manual', now, now
@@ -1382,4 +1393,260 @@ export async function importBoqFromCsv(payload, session) {
   }
 
   return { imported: count };
+}
+
+export async function importBoqFromExcel(payload, session) {
+  await initBoqTables();
+  requireAuth(session);
+
+  let {
+    boq_id,
+    boq_version_id,
+    project,
+    title,
+    fileBase64,
+    sheetName,
+    clearExisting = true
+  } = payload;
+
+  if (!fileBase64) {
+    throw new Error('fileBase64 is required');
+  }
+
+  // 1. Read workbook
+  const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+  // 2. Determine target sheet
+  let chosenSheetName = sheetName;
+  if (!chosenSheetName || !workbook.Sheets[chosenSheetName]) {
+    chosenSheetName = workbook.SheetNames.find(n => n.toUpperCase().includes('DETAILED BOQ-R2')) ||
+                      workbook.SheetNames.find(n => n.toUpperCase().includes('DETAILED BOQ')) ||
+                      workbook.SheetNames[0];
+  }
+
+  const ws = workbook.Sheets[chosenSheetName];
+  if (!ws) throw new Error(`Sheet ${chosenSheetName} not found in workbook`);
+
+  const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+  if (rawRows.length < 2) throw new Error('Selected sheet is empty or has no data rows');
+
+  // 3. Build BCS / Cost Rate map if BCS sheet exists
+  const bcsMap = {};
+  const bcsSheetName = workbook.SheetNames.find(n => n.toUpperCase().includes('DETAILED BOQ R1') || n.toUpperCase().includes('BCS'));
+  if (bcsSheetName && workbook.Sheets[bcsSheetName]) {
+    try {
+      const bcsRows = XLSX.utils.sheet_to_json(workbook.Sheets[bcsSheetName], { header: 1 });
+      bcsRows.forEach(r => {
+        if (!Array.isArray(r)) return;
+        const sno = String(r[0] || '').trim();
+        const bcsRate = parseFloat(r[9]) || parseFloat(r[8]);
+        if (sno && !isNaN(bcsRate) && bcsRate > 0) {
+          bcsMap[sno] = bcsRate;
+        }
+      });
+    } catch (e) {
+      console.warn('[BOQ Import] BCS map extraction note:', e.message);
+    }
+  }
+
+  // 4. Resolve or Create BOQ & Version
+  if (!boq_id && !boq_version_id) {
+    if (!project) throw new Error('Project name or boq_version_id is required');
+    const existing = await queryGet(`SELECT id, current_version_id FROM boq_headers WHERE project = ? ORDER BY created_at DESC LIMIT 1`, [project]);
+    if (existing) {
+      boq_id = existing.id;
+      boq_version_id = existing.current_version_id;
+    } else {
+      const created = await createBoq({
+        project,
+        title: title || `${project} Commercial Fit-out BOQ`
+      }, session);
+      boq_id = created.boq_id;
+      boq_version_id = created.version_id;
+    }
+  } else if (boq_id && !boq_version_id) {
+    const header = await queryGet(`SELECT current_version_id FROM boq_headers WHERE id = ?`, [boq_id]);
+    boq_version_id = header?.current_version_id;
+  }
+
+  if (!boq_version_id) {
+    throw new Error('Could not identify or create a target BOQ Version');
+  }
+
+  // Verify version is not locked
+  const version = await queryGet(`SELECT status FROM boq_versions WHERE id = ?`, [boq_version_id]);
+  if (version?.status === 'Approved') {
+    throw new Error('IMMUTABILITY_LOCK: Target BOQ version is Approved. Create a new revision first.');
+  }
+
+  // If clearExisting is true, clear old sections and items in this draft version
+  if (clearExisting) {
+    await queryRun(`DELETE FROM boq_items WHERE boq_version_id = ?`, [boq_version_id]);
+    await queryRun(`DELETE FROM boq_sections WHERE boq_version_id = ?`, [boq_version_id]);
+  }
+
+  // 5. Detect column headers
+  let headerRowIdx = -1;
+  let colMap = {
+    sno: -1,
+    desc: -1,
+    location: -1,
+    specification: -1,
+    makes: -1,
+    unit: -1,
+    qty: -1,
+    rate: -1,
+    amount: -1,
+    costRate: -1,
+    remarks: -1
+  };
+
+  for (let i = 0; i < Math.min(10, rawRows.length); i++) {
+    const row = rawRows[i];
+    if (!Array.isArray(row)) continue;
+    const lowerRow = row.map(c => String(c || '').toLowerCase().trim());
+    if (lowerRow.some(c => c.includes('description') || c.includes('scope of work') || c.includes('s.no') || c.includes('item'))) {
+      headerRowIdx = i;
+      lowerRow.forEach((c, cIdx) => {
+        if (c.includes('s.no') || c === 'sno' || c === 'sr' || c === 'sl') colMap.sno = cIdx;
+        else if (c.includes('description') || c.includes('scope')) colMap.desc = cIdx;
+        else if (c.includes('location')) colMap.location = cIdx;
+        else if (c.includes('specification') || c.includes('spec')) colMap.specification = cIdx;
+        else if (c.includes('make') || c.includes('brand')) colMap.makes = cIdx;
+        else if (c.includes('unit') || c === 'uom') colMap.unit = cIdx;
+        else if (c.includes('qty') || c.includes('quantity')) colMap.qty = cIdx;
+        else if (c.includes('rate') && !c.includes('old') && !c.includes('bcs') && !c.includes('cost')) colMap.rate = cIdx;
+        else if (c.includes('amount') && !c.includes('bcs') && !c.includes('cost')) colMap.amount = cIdx;
+        else if (c.includes('bcs rate') || c.includes('cost rate')) colMap.costRate = cIdx;
+        else if (c.includes('remark')) colMap.remarks = cIdx;
+      });
+      break;
+    }
+  }
+
+  if (colMap.desc === -1) colMap.desc = 1;
+  if (colMap.sno === -1) colMap.sno = 0;
+  if (colMap.qty === -1) colMap.qty = 6;
+  if (colMap.rate === -1) colMap.rate = 7;
+
+  // 6. Iterate and create Sections and Items
+  let currentSectionId = null;
+  let sectionSortOrder = 0;
+  let itemSortOrder = 0;
+  let importedItemsCount = 0;
+  let importedSectionsCount = 0;
+  const now = new Date().toISOString();
+
+  for (let rIdx = headerRowIdx + 1; rIdx < rawRows.length; rIdx++) {
+    const row = rawRows[rIdx];
+    if (!Array.isArray(row) || row.length === 0) continue;
+
+    const snoVal = String(row[colMap.sno] || '').trim();
+    const descVal = String(row[colMap.desc] || '').trim();
+    const locVal = colMap.location !== -1 ? String(row[colMap.location] || '').trim() : '';
+    const specVal = colMap.specification !== -1 ? String(row[colMap.specification] || '').trim() : '';
+    const makeVal = colMap.makes !== -1 ? String(row[colMap.makes] || '').trim() : '';
+    const unitVal = colMap.unit !== -1 ? String(row[colMap.unit] || 'Nos').trim() : 'Nos';
+    const rawQty = colMap.qty !== -1 ? row[colMap.qty] : null;
+    const rawRate = colMap.rate !== -1 ? row[colMap.rate] : null;
+    const rawCostRate = colMap.costRate !== -1 ? row[colMap.costRate] : null;
+    const remarksVal = colMap.remarks !== -1 ? String(row[colMap.remarks] || '').trim() : '';
+
+    if (!snoVal && !descVal) continue;
+
+    const lowerDesc = descVal.toLowerCase();
+
+    // Check if sub-total / grand total row
+    if (lowerDesc.includes('sub total') || lowerDesc.includes('subtotal') || (lowerDesc.startsWith('total') && !snoVal)) {
+      continue; // Skip to avoid double counting
+    }
+
+    // Check if Section Header:
+    // Single letter S.NO (A, B, C...) or 'PART A', etc., and no valid quantity
+    const isSingleLetterSno = /^[A-Z]$/i.test(snoVal) || /^PART\s+[A-Z]/i.test(snoVal) || (/^[0-9]+$/.test(snoVal) && (rawQty == null || isNaN(parseFloat(rawQty))));
+    const isSectionHeader = isSingleLetterSno && (rawQty == null || isNaN(parseFloat(rawQty)) || parseFloat(rawQty) === 0);
+
+    if (isSectionHeader) {
+      currentSectionId = crypto.randomUUID();
+      sectionSortOrder += 10;
+      const sectionName = descVal ? (snoVal ? `Part ${snoVal} - ${descVal}` : descVal) : snoVal;
+      await queryRun(
+        `INSERT INTO boq_sections (id, boq_version_id, name, sort_order, created_at) VALUES (?, ?, ?, ?, ?)`,
+        [currentSectionId, boq_version_id, sectionName, sectionSortOrder, now]
+      );
+      importedSectionsCount++;
+      continue;
+    }
+
+    // It's a line item
+    const qty = parseFloat(rawQty) || 0;
+    const sellingRate = parseFloat(rawRate) || 0;
+    if (qty <= 0 && sellingRate <= 0 && !descVal) continue;
+
+    // Determine Cost Rate (BCS Rate)
+    let costRate = parseFloat(rawCostRate);
+    if (isNaN(costRate) || costRate <= 0) {
+      if (snoVal && bcsMap[snoVal]) {
+        costRate = bcsMap[snoVal];
+      } else {
+        costRate = Math.round(sellingRate * 0.8 * 100) / 100; // Default 20% margin
+      }
+    }
+
+    const amount = Math.round(qty * sellingRate * 100) / 100;
+    const costAmount = Math.round(qty * costRate * 100) / 100;
+    const margin = Math.round((amount - costAmount) * 100) / 100;
+    const marginPct = (amount > 0 && sellingRate > 0) ? Math.round(((sellingRate - costRate) / sellingRate) * 10000) / 100 : 0;
+
+    const itemId = crypto.randomUUID();
+    itemSortOrder++;
+
+    await queryRun(
+      `INSERT INTO boq_items (
+        id, boq_version_id, section_id, s_no, description, specification, make, unit,
+        quantity, cost_rate, selling_rate, amount, cost_amount, margin, margin_pct,
+        location, remarks, status, sort_order, rate_source, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft', ?, 'excel_import', ?, ?)`,
+      [
+        itemId, boq_version_id, currentSectionId, snoVal, descVal || 'Item', specVal, makeVal, unitVal,
+        qty, costRate, sellingRate, amount, costAmount, margin, marginPct,
+        locVal, remarksVal, itemSortOrder, now, now
+      ]
+    );
+
+    importedItemsCount++;
+  }
+
+  // 7. Recalculate totals
+  const totals = await recalculateBoqTotals(boq_version_id);
+
+  // 8. Auto-synchronize project_financials if project is given
+  if (project) {
+    try {
+      await queryRun(
+        `UPDATE project_financials SET project_value = ?, bcs = ?, updated_at = ? WHERE project = ?`,
+        [totals.totalSelling, totals.totalCost, now, project]
+      );
+    } catch (e) {
+      console.warn('[BOQ Import] project_financials update warning:', e.message);
+    }
+  }
+
+  await recordAuditEvent(boq_id, boq_version_id, null, session.user.email, 'IMPORT_EXCEL_BOQ', null, {
+    sheet: chosenSheetName,
+    sections: importedSectionsCount,
+    items: importedItemsCount,
+    totalSelling: totals.totalSelling
+  });
+
+  return {
+    success: true,
+    boq_id,
+    boq_version_id,
+    sheet: chosenSheetName,
+    sections_count: importedSectionsCount,
+    items_count: importedItemsCount,
+    totals
+  };
 }

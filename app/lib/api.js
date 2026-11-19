@@ -114,7 +114,8 @@ export {
   getBoqProcurementStatus,
   getBoqDashboard,
   exportBoqToExcel,
-  importBoqFromCsv
+  importBoqFromCsv,
+  importBoqFromExcel
 } from './api/boq.js';
 
 export {
