@@ -309,6 +309,7 @@ export const RPC_CONTRACT = Object.freeze({
   saveScheduleTask: {"args":1,"sessionIndex":1,"access":"internal"},
   deleteScheduleTask: {"args":1,"sessionIndex":1,"access":"internal"},
   updateTaskProgressFromDpr: {"args":1,"sessionIndex":1,"access":"internal"},
+  importBoqItemsToSchedule: {"args":1,"sessionIndex":1,"access":"internal"},
 
   // Enterprise Upgrade: Task Performance & Overdue Dashboard
   getEmployeeTaskDashboard: {"args":0,"sessionIndex":0,"access":"internal"},

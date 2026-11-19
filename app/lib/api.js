@@ -153,7 +153,8 @@ export {
   listProjectScheduleTasks,
   saveScheduleTask,
   deleteScheduleTask,
-  updateTaskProgressFromDpr
+  updateTaskProgressFromDpr,
+  importBoqItemsToSchedule
 } from './api/schedule.js';
 
 export {

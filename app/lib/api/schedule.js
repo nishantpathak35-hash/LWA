@@ -247,3 +247,61 @@ export async function updateTaskProgressFromDpr(progressPayload, session) {
 
   return { success: true, taskId, newStatus, numProgress };
 }
+
+/**
+ * Import line items or sections from Project BOQ directly into Schedule tasks.
+ */
+export async function importBoqItemsToSchedule(payload, session) {
+  requireAuth(session);
+  await initEnterpriseUpgradeSchemas();
+
+  const data = unwrap(payload) || {};
+  const { project, items = [] } = data;
+  if (!project) throw new Error('Project name is required');
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('At least one item is required to import');
+  }
+
+  const schedule = await getProjectSchedule(project, session);
+  const now = new Date().toISOString();
+  let importedCount = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (!it.title || !it.title.trim()) continue;
+
+    const taskId = crypto.randomUUID();
+    const taskNo = `TSK-${Date.now().toString().slice(-4)}-${i + 1}`;
+    const startStr = it.start_date || now.split('T')[0];
+    const durationDays = Math.max(1, parseInt(it.duration_days, 10) || 7);
+    const startObj = new Date(startStr);
+    const endObj = new Date(startObj.getTime() + (durationDays - 1) * 86400000);
+    const endStr = it.end_date || endObj.toISOString().split('T')[0];
+
+    await queryRun(
+      `INSERT INTO schedule_tasks 
+       (id, schedule_id, project, task_no, title, description, work_package, boq_item_id, boq_section_id,
+        assigned_to_id, assigned_to_name, accountable_owner_id, accountable_owner_name,
+        planned_start_date, planned_end_date, priority, dependencies, planned_qty, actual_qty, uom,
+        progress_pct, status, delay_reason, blockers, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        taskId, schedule.id, project, taskNo, it.title.trim(), it.description || '', it.work_package || 'General',
+        it.boq_item_id || null, it.boq_section_id || null,
+        it.assigned_to_id || null, it.assigned_to_name || null,
+        it.accountable_owner_id || it.assigned_to_id || null, it.accountable_owner_name || it.assigned_to_name || null,
+        startStr, endStr, it.priority || 'Medium', '[]',
+        Number(it.planned_qty) || 0, 0, it.uom || 'Nos',
+        0, 'Not Started', '', '', now, now
+      ]
+    );
+    importedCount++;
+  }
+
+  await logAudit('project_schedules', schedule.id, 'IMPORT_BOQ_TASKS', session?.email || 'admin', {
+    project,
+    importedCount
+  });
+
+  return { success: true, imported: importedCount };
+}
