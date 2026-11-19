@@ -424,15 +424,15 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
 
         {/* Right Actions: PO & Approval */}
         <div className="flex items-center gap-2">
-          {selectedItemIds.size > 0 && (
-            <Button
-              size="sm"
-              onClick={() => setShowPoDrawer(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-xs gap-1.5 animate-pulse"
-            >
-              <ShoppingCart className="w-3.5 h-3.5" /> Create PO ({selectedItemIds.size} items)
-            </Button>
-          )}
+          <Button
+            size="sm"
+            onClick={() => setShowPoDrawer(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white text-xs gap-1.5 font-bold shadow-xs"
+            title="Create a Purchase Order directly from BOQ items"
+          >
+            <ShoppingCart className="w-3.5 h-3.5" />
+            Create PO from BOQ {selectedItemIds.size > 0 ? `(${selectedItemIds.size})` : ''}
+          </Button>
 
           {/* Workflow Status Buttons */}
           {boqData.status === 'Draft' && (

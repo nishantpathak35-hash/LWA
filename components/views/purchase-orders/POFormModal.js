@@ -32,7 +32,10 @@ export default function POFormModal(props) {
   const selectedProjectData = projects.find(p => p?.name === project);
   const [showBoqImport, setShowBoqImport] = React.useState(false);
 
-  const handleImportFromBoq = (imported) => {
+  const handleImportFromBoq = (imported, chosenProject) => {
+    if (chosenProject && (!project || project.trim() === '')) {
+      if (setProject) setProject(chosenProject);
+    }
     if (setItems && Array.isArray(imported)) {
       setItems(prev => {
         const existing = prev.filter(it => it.description?.trim());

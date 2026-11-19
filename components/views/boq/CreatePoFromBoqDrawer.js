@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
-import { ShoppingCart, X, RefreshCw, CheckCircle2, AlertTriangle, Building2 } from 'lucide-react';
+import { ShoppingCart, X, RefreshCw, CheckCircle2, AlertTriangle, Building2, Search, Filter } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import { useAppState } from '../../StateProvider';
 import { toast } from '../../ui/Toast';
@@ -16,9 +16,14 @@ export default function CreatePoFromBoqDrawer({
   onPoCreated
 }) {
   const { call, vendors = [] } = useAppState();
-  const [items, setItems] = useState([]);
+  const [allItems, setAllItems] = useState([]);
+  const [checkedIds, setCheckedIds] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [sectionFilter, setSectionFilter] = useState('ALL');
 
   // Form Fields
   const [selectedVendorId, setSelectedVendorId] = useState('');
@@ -30,37 +35,95 @@ export default function CreatePoFromBoqDrawer({
   // Item adjustments map: { [itemId]: { order_qty, po_rate } }
   const [itemAdjustments, setItemAdjustments] = useState({});
 
-  // Load selected item details
-  const loadSelectedItems = useCallback(async () => {
-    if (!open || !boqVersionId || selectedItemIds.length === 0) return;
+  // Load items
+  const loadItems = useCallback(async () => {
+    if (!open || !boqVersionId) return;
     setLoading(true);
     try {
-      const allItems = await call('getBoqItemsForPoImport', { boq_version_id: boqVersionId });
-      const filtered = (allItems || []).filter(it => selectedItemIds.includes(it.id));
-      setItems(filtered);
+      const itemsData = await call('getBoqItemsForPoImport', { boq_version_id: boqVersionId });
+      const itemsList = itemsData || [];
+      setAllItems(itemsList);
 
-      // Pre-fill adjustment state
+      // Pre-fill adjustments
       const initialAdj = {};
-      filtered.forEach(it => {
+      itemsList.forEach(it => {
         const available = Math.max(0, (it.quantity || 0) - (it.committed_qty || 0));
         initialAdj[it.id] = {
           order_qty: available > 0 ? available : it.quantity,
-          po_rate: it.cost_rate || 0
+          po_rate: it.cost_rate || it.selling_rate || 0
         };
       });
       setItemAdjustments(initialAdj);
+
+      // Initialize checked items:
+      // If user passed pre-selected IDs from table, check only those.
+      // Otherwise, default all items with available balance > 0 to checked!
+      if (selectedItemIds && selectedItemIds.length > 0) {
+        setCheckedIds(new Set(selectedItemIds));
+      } else {
+        const withBalance = itemsList.filter(it => ((it.quantity || 0) - (it.committed_qty || 0)) > 0);
+        setCheckedIds(new Set(withBalance.length > 0 ? withBalance.map(it => it.id) : itemsList.map(it => it.id)));
+      }
     } catch (err) {
-      toast.error('Failed to load item specs: ' + err.message);
+      toast.error('Failed to load BOQ items: ' + err.message);
     } finally {
       setLoading(false);
     }
   }, [call, open, boqVersionId, selectedItemIds]);
 
   useEffect(() => {
-    loadSelectedItems();
-  }, [loadSelectedItems]);
+    loadItems();
+  }, [loadItems]);
+
+  // Extract unique sections
+  const sectionOptions = useMemo(() => {
+    const set = new Set();
+    allItems.forEach(it => {
+      if (it.section_name) set.add(it.section_name);
+    });
+    return Array.from(set).sort();
+  }, [allItems]);
+
+  // Filtered items
+  const filteredItems = useMemo(() => {
+    return allItems.filter(it => {
+      if (sectionFilter !== 'ALL' && it.section_name !== sectionFilter) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchDesc = (it.description || '').toLowerCase().includes(q);
+        const matchCode = (it.item_code || '').toLowerCase().includes(q);
+        const matchSno = (it.s_no || '').toLowerCase().includes(q);
+        const matchSec = (it.section_name || '').toLowerCase().includes(q);
+        const matchSpec = (it.specification || '').toLowerCase().includes(q);
+        if (!matchDesc && !matchCode && !matchSno && !matchSec && !matchSpec) return false;
+      }
+      return true;
+    });
+  }, [allItems, sectionFilter, search]);
 
   if (!open) return null;
+
+  const toggleCheck = (itemId) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const handleSelectAllVisible = () => {
+    const allVisibleChecked = filteredItems.length > 0 && filteredItems.every(it => checkedIds.has(it.id));
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleChecked) {
+        filteredItems.forEach(it => next.delete(it.id));
+      } else {
+        filteredItems.forEach(it => next.add(it.id));
+      }
+      return next;
+    });
+  };
 
   const handleQtyChange = (itemId, val) => {
     setItemAdjustments(prev => ({
@@ -76,8 +139,9 @@ export default function CreatePoFromBoqDrawer({
     }));
   };
 
-  // Calculate totals
-  const totalPoValue = items.reduce((acc, it) => {
+  // Calculate totals of CHECKED items only
+  const checkedItems = allItems.filter(it => checkedIds.has(it.id));
+  const totalPoValue = checkedItems.reduce((acc, it) => {
     const adj = itemAdjustments[it.id] || {};
     return acc + ((adj.order_qty || 0) * (adj.po_rate || 0));
   }, 0);
@@ -89,11 +153,16 @@ export default function CreatePoFromBoqDrawer({
       return;
     }
 
+    if (checkedItems.length === 0) {
+      toast.error('Please check at least one line item to include in the PO');
+      return;
+    }
+
     const vendorObj = vendors.find(v => (v.id || v.vendor_id || v.vendor_name) === selectedVendorId);
     const vendorName = vendorObj?.vendor_name || vendorObj?.name || selectedVendorId;
     const vendorCode = vendorObj?.vendor_code || vendorObj?.code || '';
 
-    const payloadItems = items.map(it => {
+    const payloadItems = checkedItems.map(it => {
       const adj = itemAdjustments[it.id] || {};
       return {
         boq_item_id: it.id,
@@ -131,18 +200,20 @@ export default function CreatePoFromBoqDrawer({
     }
   };
 
+  const isAllVisibleChecked = filteredItems.length > 0 && filteredItems.every(it => checkedIds.has(it.id));
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs transition-opacity animate-fade-in">
-      <div className="w-full max-w-2xl bg-card border-l border-border h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+      <div className="w-full max-w-3xl bg-card border-l border-border h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between bg-purple-500/10">
           <div>
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <ShoppingCart className="w-4 h-4 text-purple-500" />
-              Convert BOQ Items to Purchase Order
+              Create Purchase Order from BOQ Items
             </h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Generates official PTS Purchase Order records and links commitments to project BOQ
+              Select items using checkboxes, customize purchase rates/quantities, and generate an official PO linked directly to this BOQ.
             </p>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground">
@@ -151,7 +222,7 @@ export default function CreatePoFromBoqDrawer({
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-          {/* Form Options */}
+          {/* Vendor & PO Details Section */}
           <div className="p-4 border-b border-border bg-card space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
@@ -160,7 +231,7 @@ export default function CreatePoFromBoqDrawer({
                   required
                   value={selectedVendorId}
                   onChange={e => setSelectedVendorId(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs bg-card border border-border rounded-lg text-foreground focus:ring-1 focus:ring-purple-500"
+                  className="w-full px-2.5 py-1.5 text-xs bg-card border border-border rounded-lg text-foreground focus:ring-1 focus:ring-purple-500 font-medium"
                 >
                   <option value="">Select Vendor from Master</option>
                   {vendors.map(v => {
@@ -197,93 +268,166 @@ export default function CreatePoFromBoqDrawer({
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-foreground block mb-1">Notes / Instructions</label>
+                <label className="text-xs font-medium text-foreground block mb-1">Notes / Work Scope</label>
                 <Input
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  placeholder="Special instructions or delivery floor..."
+                  placeholder="Special instructions or floor delivery ref..."
                   className="text-xs"
                 />
               </div>
             </div>
           </div>
 
-          {/* Items Adjustment Table */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-              Selected BOQ Line Items ({items.length})
-            </h4>
+          {/* Filter Bar */}
+          <div className="p-3 border-b border-border bg-muted/20 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+              <Search className="w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search items by code, description or spec..."
+                className="h-8 text-xs flex-1"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+              <select
+                value={sectionFilter}
+                onChange={e => setSectionFilter(e.target.value)}
+                className="px-2 py-1 text-xs bg-card border border-border rounded-lg text-foreground font-medium"
+              >
+                <option value="ALL">All Work Packages ({allItems.length})</option>
+                {sectionOptions.map(sec => (
+                  <option key={sec} value={sec}>{sec}</option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={handleSelectAllVisible}
+                className="text-xs px-2.5 py-1 rounded border border-border bg-card hover:bg-muted font-medium text-foreground transition-colors shrink-0"
+              >
+                {isAllVisibleChecked ? 'Deselect Visible' : 'Select All Visible'}
+              </button>
+            </div>
+          </div>
+
+          {/* Items Adjustment List */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground pb-1">
+              <span>Showing {filteredItems.length} items ({checkedIds.size} checked for PO)</span>
+              <span>Available / Order Qty / PO Rate</span>
+            </div>
 
             {loading ? (
-              <div className="p-8 text-center text-muted-foreground text-xs">
-                <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2 text-purple-500" />
-                Loading items...
+              <div className="p-12 text-center text-muted-foreground text-xs">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-purple-500" />
+                Loading BOQ line items...
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground text-xs border border-dashed border-border rounded-xl">
+                No items match the current search or section filter.
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {items.map(it => {
+              <div className="space-y-2">
+                {filteredItems.map(it => {
+                  const isChecked = checkedIds.has(it.id);
                   const adj = itemAdjustments[it.id] || {};
                   const lineTotal = (adj.order_qty || 0) * (adj.po_rate || 0);
                   const available = (it.quantity || 0) - (it.committed_qty || 0);
 
                   return (
-                    <div key={it.id} className="p-3 rounded-lg border border-border bg-card space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                              {it.item_code || it.s_no}
+                    <div
+                      key={it.id}
+                      className={`p-3 rounded-xl border transition-colors ${
+                        isChecked
+                          ? 'border-purple-500/40 bg-purple-500/5 shadow-xs'
+                          : 'border-border bg-card opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Checkbox */}
+                        <div className="pt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleCheck(it.id)}
+                            className="rounded border-border text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Item Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                              {it.s_no || it.item_code}
                             </span>
-                            <span className="text-[11px] text-muted-foreground">
+                            <Badge variant="outline" className="text-[10px] font-normal py-0">
                               {it.section_name}
-                            </span>
+                            </Badge>
+                            {it.location && (
+                              <span className="text-[10px] text-muted-foreground">📍 {it.location}</span>
+                            )}
                           </div>
-                          <h5 className="text-xs font-medium text-foreground mt-0.5">{it.description}</h5>
-                        </div>
-                        <Badge variant="outline" className="text-[10px] shrink-0 font-mono">
-                          BOQ: {it.quantity} {it.unit}
-                        </Badge>
-                      </div>
 
-                      <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-border/60">
-                        <div>
-                          <label className="text-[10px] text-muted-foreground block mb-1">
-                            Available Balance ({it.unit})
-                          </label>
-                          <span className={`text-xs font-mono font-bold ${available > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                            {available} {it.unit}
-                          </span>
-                        </div>
+                          <h5 className="text-xs font-semibold text-foreground mt-1 leading-snug">
+                            {it.description}
+                          </h5>
 
-                        <div>
-                          <label className="text-[10px] text-foreground font-semibold block mb-1">
-                            Order Qty *
-                          </label>
-                          <Input
-                            type="number"
-                            step="any"
-                            value={adj.order_qty ?? ''}
-                            onChange={e => handleQtyChange(it.id, e.target.value)}
-                            className="text-xs font-mono font-bold"
-                          />
-                        </div>
+                          {it.specification && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1 hover:line-clamp-none transition-all">
+                              {it.specification}
+                            </p>
+                          )}
 
-                        <div>
-                          <label className="text-[10px] text-foreground font-semibold block mb-1">
-                            PO Unit Rate (₹) *
-                          </label>
-                          <Input
-                            type="number"
-                            step="any"
-                            value={adj.po_rate ?? ''}
-                            onChange={e => handleRateChange(it.id, e.target.value)}
-                            className="text-xs font-mono font-bold"
-                          />
-                        </div>
-                      </div>
+                          {/* Numeric Inputs */}
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-2.5 mt-2 border-t border-border/60 items-center">
+                            <div>
+                              <span className="text-[10px] text-muted-foreground block">BOQ Total / Unit</span>
+                              <span className="text-xs font-mono font-medium text-foreground">
+                                {it.quantity} {it.unit}
+                              </span>
+                            </div>
 
-                      <div className="text-right text-[11px] font-mono text-muted-foreground pt-1">
-                        Line Amount: <strong className="text-foreground">{formatCurrency(lineTotal)}</strong>
+                            <div>
+                              <span className="text-[10px] text-muted-foreground block">Available Balance</span>
+                              <span className={`text-xs font-mono font-bold ${available > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                {available} {it.unit}
+                              </span>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-foreground font-semibold block mb-0.5">Order Qty *</label>
+                              <Input
+                                type="number"
+                                step="any"
+                                disabled={!isChecked}
+                                value={adj.order_qty ?? ''}
+                                onChange={e => handleQtyChange(it.id, e.target.value)}
+                                className="text-xs font-mono font-bold h-7"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-foreground font-semibold block mb-0.5">PO Unit Rate (₹) *</label>
+                              <Input
+                                type="number"
+                                step="any"
+                                disabled={!isChecked}
+                                value={adj.po_rate ?? ''}
+                                onChange={e => handleRateChange(it.id, e.target.value)}
+                                className="text-xs font-mono font-bold h-7"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center text-[11px] font-mono text-muted-foreground pt-1.5 mt-1">
+                            <span>Cost Rate: {formatCurrency(it.cost_rate || 0)}</span>
+                            <span>Line Total: <strong className="text-foreground font-semibold">{formatCurrency(lineTotal)}</strong></span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
@@ -293,9 +437,11 @@ export default function CreatePoFromBoqDrawer({
           </div>
 
           {/* Footer Strip */}
-          <div className="p-4 border-t border-border bg-muted/30 flex items-center justify-between">
+          <div className="p-4 border-t border-border bg-muted/40 flex items-center justify-between">
             <div>
-              <span className="text-xs text-muted-foreground block">Estimated PO Value (excl. GST):</span>
+              <span className="text-xs text-muted-foreground block">
+                Total PO Value ({checkedItems.length} items selected):
+              </span>
               <span className="text-lg font-bold font-mono text-purple-600 dark:text-purple-400">
                 {formatCurrency(totalPoValue)}
               </span>
@@ -308,10 +454,11 @@ export default function CreatePoFromBoqDrawer({
               <Button
                 type="submit"
                 size="sm"
-                disabled={submitting || items.length === 0}
-                className="bg-purple-600 hover:bg-purple-700 text-white text-xs gap-1.5"
+                disabled={submitting || checkedItems.length === 0}
+                className="bg-purple-600 hover:bg-purple-700 text-white text-xs gap-1.5 font-bold shadow-md"
               >
-                {submitting ? 'Generating PO...' : 'Confirm & Create PO'}
+                <ShoppingCart className="w-3.5 h-3.5" />
+                {submitting ? 'Generating PO...' : `Generate PO (${checkedItems.length} Items)`}
               </Button>
             </div>
           </div>
