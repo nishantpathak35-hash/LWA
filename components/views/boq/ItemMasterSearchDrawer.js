@@ -361,7 +361,19 @@ export default function ItemMasterSearchDrawer({
                 <div className="p-8 text-center border-2 border-dashed border-border rounded-lg m-2">
                   <Database className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
                   <p className="text-xs font-semibold text-foreground">No matching items found</p>
-                  <p className="text-[11px] text-muted-foreground mt-1 max-w-sm mx-auto">
+                  {selectedSubcategory && (
+                    <div className="mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedSubcategory('')}
+                        className="text-xs text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
+                      >
+                        Show all {selectedCategory || 'library'} items
+                      </Button>
+                    </div>
+                  )}
+                  <p className="text-[11px] text-muted-foreground mt-2 max-w-sm mx-auto">
                     Can't find what you need in the standard library? Add it directly to your company master and BOQ.
                   </p>
                   <Button
@@ -370,6 +382,7 @@ export default function ItemMasterSearchDrawer({
                       setCreateForm(prev => ({
                         ...prev,
                         category: selectedCategory || prev.category,
+                        subcategory: selectedSubcategory || '',
                         name: searchQuery
                       }));
                       setActiveTab('create');
@@ -380,7 +393,19 @@ export default function ItemMasterSearchDrawer({
                   </Button>
                 </div>
               ) : (
-                items.map(it => {
+                <>
+                  <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+                    <span>Available Library Items ({items.length})</span>
+                    {selectedSubcategory && (
+                      <button
+                        onClick={() => setSelectedSubcategory('')}
+                        className="text-amber-600 hover:underline flex items-center gap-1"
+                      >
+                        Show all in {selectedCategory}
+                      </button>
+                    )}
+                  </div>
+                  {items.map(it => {
                   const qty = quantities[it.id] !== undefined ? quantities[it.id] : '1';
                   const isAdding = addingItemId === it.id;
                   const purchaseRate = it.std_cost ?? it.std_purchase_rate ?? 0;
@@ -470,7 +495,8 @@ export default function ItemMasterSearchDrawer({
                       </div>
                     </div>
                   );
-                })
+                })}
+                </>
               )}
             </div>
           </>

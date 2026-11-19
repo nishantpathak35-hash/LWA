@@ -565,13 +565,14 @@ export async function searchMasterItems(filters = {}) {
   let params = [];
 
   if (category && category !== 'all') {
-    whereClauses.push('(category = ? OR category LIKE ?)');
-    params.push(category, `%${category}%`);
+    whereClauses.push('(category = ? OR category LIKE ? OR ? LIKE ("%" || category || "%"))');
+    params.push(category, `%${category}%`, category);
   }
 
   if (subcategory && subcategory !== 'all') {
-    whereClauses.push('(subcategory = ? OR subcategory LIKE ?)');
-    params.push(subcategory, `%${subcategory}%`);
+    const subClean = subcategory.trim();
+    whereClauses.push('(subcategory = ? OR subcategory LIKE ? OR ? LIKE ("%" || subcategory || "%") OR name LIKE ? OR description LIKE ?)');
+    params.push(subClean, `%${subClean}%`, subClean, `%${subClean}%`, `%${subClean}%`);
   }
 
   if (search && search.trim()) {
