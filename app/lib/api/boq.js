@@ -17,23 +17,38 @@ function unwrap(val) {
 }
 
 function requireAuth(session) {
-  if (!session || !session.user || !session.user.email) {
+  if (!session) {
     throw new Error('AUTH: Authentication required');
   }
+  const email = session.email || session.user?.email;
+  if (!email) {
+    throw new Error('AUTH: Authentication required');
+  }
+  if (!session.user) {
+    session.user = {
+      email,
+      name: session.name || email,
+      roles: session.roles || []
+    };
+  }
+  return session.user;
 }
 
 function isAuthorized(user, allowedRoles = ['admin', 'director', 'estimator', 'qs', 'project_manager']) {
-  if (!user || !user.email) return false;
-  if (isSuperAdmin(user.email)) return true;
+  if (!user) return false;
+  const email = user.email || (typeof user === 'string' ? user : null);
+  if (!email) return false;
+  if (isSuperAdmin(email)) return true;
   const roles = user.roles || [];
   return roles.some(r => allowedRoles.includes(r));
 }
 
 function requireAuthorized(session, allowedRoles) {
-  requireAuth(session);
-  if (!isAuthorized(session.user, allowedRoles)) {
+  const user = requireAuth(session);
+  if (!isAuthorized(user, allowedRoles)) {
     throw new Error('AUTH: Access denied. Insufficient privileges for BOQ operations.');
   }
+  return user;
 }
 
 async function recordAuditEvent(boqId, versionId, itemId, user, action, prevVal = null, newVal = null) {

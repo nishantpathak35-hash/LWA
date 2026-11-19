@@ -123,6 +123,27 @@ describe('BOQ Engine 2.0 Backend Tests', () => {
       );
     });
 
+    it('creates project BOQ with standard production session ({ email, roles })', async () => {
+      mockQueryGet.mockResolvedValueOnce({ cnt: 1 });
+      const prodSession = { email: 'estimator@pts.com', name: 'Estimator User', roles: ['estimator'] };
+
+      const res = await createBoq({ project: 'DLF Cyber Park', title: 'Phase 2 BOQ' }, prodSession);
+
+      expect(res).toBeDefined();
+      expect(res.boq_no).toMatch(/^BOQ-DLFCYB-002/);
+      expect(mockQueryRun).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO boq_headers'),
+        expect.arrayContaining(['estimator@pts.com'])
+      );
+    });
+
+    it('rejects createBoq if unauthenticated', async () => {
+      await expect(createBoq({ project: 'DLF Cyber Park' }, null))
+        .rejects.toThrow('AUTH: Authentication required');
+      await expect(createBoq({ project: 'DLF Cyber Park' }, {}))
+        .rejects.toThrow('AUTH: Authentication required');
+    });
+
     it('retrieves full BOQ version with sections and grouped items', async () => {
       mockQueryGet.mockResolvedValueOnce({
         id: 'v1',
