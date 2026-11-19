@@ -115,7 +115,8 @@ export {
   getBoqDashboard,
   exportBoqToExcel,
   importBoqFromCsv,
-  importBoqFromExcel
+  importBoqFromExcel,
+  autoMatchBoqWithMaster
 } from './api/boq.js';
 
 export {

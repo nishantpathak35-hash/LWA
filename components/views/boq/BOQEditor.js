@@ -88,6 +88,7 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
   const [revisionReason, setRevisionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [autoMatching, setAutoMatching] = useState(false);
 
   // Selected items for PO Drawer
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
@@ -238,6 +239,20 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
       loadBoq();
     } catch (err) {
       toast.error('Error adding item: ' + err.message);
+    }
+  };
+
+  const handleAutoMatchMaster = async () => {
+    setAutoMatching(true);
+    try {
+      const res = await call('autoMatchBoqWithMaster', boqVersionId);
+      toast.success(`Matched ${res.matchedCount} items from Master Library! (${res.unmappedCount} unmapped set to ₹0)`);
+      loadBoq();
+      onVersionUpdated?.();
+    } catch (err) {
+      toast.error('Failed to match master rates: ' + err.message);
+    } finally {
+      setAutoMatching(false);
     }
   };
 
@@ -407,6 +422,18 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
             className="text-xs gap-1"
           >
             <Upload className="w-3.5 h-3.5" /> Import Excel / CSV
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleAutoMatchMaster}
+            disabled={isApproved || autoMatching}
+            className="text-xs gap-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
+            title="Auto-match all line items against the 680 Master Rate library items"
+          >
+            <Database className="w-3.5 h-3.5" />
+            {autoMatching ? 'Matching...' : 'Auto-Link Master Rates'}
           </Button>
 
           <Button
@@ -697,6 +724,15 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
                                   readOnly={isApproved}
                                   className="text-right font-mono text-blue-600 dark:text-blue-400"
                                 />
+                                {item.rate_source === 'master' ? (
+                                  <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-sans block text-right">
+                                    Master Linked
+                                  </span>
+                                ) : (!item.cost_rate || item.cost_rate === 0) ? (
+                                  <span className="text-[9px] text-amber-600 dark:text-amber-400 font-sans block text-right">
+                                    Unlinked
+                                  </span>
+                                ) : null}
                               </td>
                               <td className="p-2 text-right font-mono text-blue-600 dark:text-blue-400 font-medium">
                                 {formatCurrency(item.cost_amount || 0)}

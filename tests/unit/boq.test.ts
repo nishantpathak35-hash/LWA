@@ -44,7 +44,8 @@ import {
   getBoqItemsForPoImport,
   getBoqDashboard,
   exportBoqToExcel,
-  importBoqFromExcel
+  importBoqFromExcel,
+  autoMatchBoqWithMaster
 } from '../../app/lib/api/boq.js';
 
 describe('BOQ Engine 2.0 Backend Tests', () => {
@@ -440,6 +441,58 @@ describe('BOQ Engine 2.0 Backend Tests', () => {
       expect(res.base64).toBeDefined();
       expect(typeof res.base64).toBe('string');
       expect(res.base64.length).toBeGreaterThan(100);
+    });
+
+    it('autoMatchBoqWithMaster matches line items against item master rates and sets unmapped to 0', async () => {
+      mockQueryGet.mockResolvedValueOnce({ id: 'v1', status: 'Draft', project: 'DLF Cyber Park' }); // version check
+      mockQueryAll.mockResolvedValueOnce([
+        {
+          id: 'MSTR-FSY0001',
+          item_code: 'FSY0001',
+          name: 'Workstation - 2x2 ft',
+          description: 'Linear Workstations',
+          category: 'Furniture - Systems',
+          std_cost: 14000,
+          std_purchase_rate: 12000
+        }
+      ]); // master items
+      mockQueryAll.mockResolvedValueOnce([
+        {
+          id: 'item-1',
+          s_no: 'A1',
+          item_code: 'FSY0001',
+          description: 'Linear Workstations',
+          quantity: 2,
+          selling_rate: 18000
+        },
+        {
+          id: 'item-2',
+          s_no: 'A2',
+          item_code: 'UNKNOWN_99',
+          description: 'Custom Handcrafted Mosaic Lamp',
+          quantity: 1,
+          selling_rate: 5000
+        }
+      ]); // boq items
+
+      mockQueryGet.mockResolvedValueOnce({ total_selling: 41000, total_cost: 28000 }); // recalculateBoqTotals
+
+      const res = await autoMatchBoqWithMaster('v1', adminSession);
+      expect(res.success).toBe(true);
+      expect(res.matchedCount).toBe(1);
+      expect(res.unmappedCount).toBe(1);
+
+      // Verify item-1 updated with master cost rate 14000
+      expect(mockQueryRun).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE boq_items SET'),
+        expect.arrayContaining(['MSTR-FSY0001', 14000, 28000])
+      );
+
+      // Verify item-2 set to cost_rate 0 and rate_source 'unmapped'
+      expect(mockQueryRun).toHaveBeenCalledWith(
+        expect.stringContaining("rate_source = 'unmapped'"),
+        expect.arrayContaining(['item-2'])
+      );
     });
   });
 });

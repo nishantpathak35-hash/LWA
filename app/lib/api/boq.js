@@ -289,6 +289,37 @@ export async function initBoqTables() {
       console.warn('[BOQ Init] boq_items alteration warning:', e.message);
     }
 
+    // Auto-seed boq_item_master from central item_master if empty
+    try {
+      await queryRun(`
+        INSERT OR IGNORE INTO boq_item_master (
+          id, item_code, name, description, category, subcategory, unit, preferred_make,
+          std_purchase_rate, std_labour_rate, std_cost, std_selling_rate, target_margin_pct,
+          is_active, created_at, updated_at
+        )
+        SELECT
+          'MSTR-' || item_code,
+          item_code,
+          description,
+          COALESCE(specification, description),
+          COALESCE(category, 'General'),
+          COALESCE(sub_category, ''),
+          COALESCE(unit, 'Nos'),
+          COALESCE(preferred_make, ''),
+          COALESCE(material_rate_metro, rate, 0),
+          COALESCE(labour_rate_metro, 0),
+          COALESCE(material_labour_rate_metro, rate, 0),
+          ROUND(COALESCE(material_labour_rate_metro, rate, 0) * 1.25),
+          20,
+          is_active,
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP
+        FROM item_master WHERE is_active = 1
+      `);
+    } catch (e) {
+      console.warn('[BOQ Init] boq_item_master sync from item_master note:', e.message);
+    }
+
     _boqTablesInitialized = true;
   } catch (err) {
     console.error('[BOQ Init] Error initializing tables:', err);
@@ -742,6 +773,160 @@ export async function saveBoqItem(data, session) {
   await recalculateBoqTotals(data.boq_version_id);
 
   return await queryGet(`SELECT * FROM boq_items WHERE id = ?`, [id]);
+}
+
+export async function autoMatchBoqWithMaster(versionId, session) {
+  await initBoqTables();
+  requireAuth(session);
+
+  const version = await queryGet(
+    `SELECT v.*, h.project FROM boq_versions v JOIN boq_headers h ON v.boq_id = h.id WHERE v.id = ?`,
+    [versionId]
+  );
+  if (!version) throw new Error('BOQ Version not found');
+  if (version.status === 'Approved') {
+    throw new Error('IMMUTABILITY_LOCK: Target BOQ version is Approved. Create a new revision first.');
+  }
+
+  const masterItems = await queryAll(
+    `SELECT id, item_code, name, description, category, subcategory, unit, std_cost, std_purchase_rate
+     FROM boq_item_master WHERE is_active = 1`
+  );
+  if (!masterItems || masterItems.length === 0) {
+    return { success: true, matchedCount: 0, unmappedCount: 0, total: 0 };
+  }
+
+  const STOP_WORDS = new Set(['and', 'for', 'the', 'with', 'nos', 'sqft', 'rft', 'item', 'supply', 'installation', 'providing', 'fixing', 'making', 'size', 'area', 'room', 'work', 'works', 'mm', 'thk', 'thick', 'approx', 'custom', 'etc']);
+  function getTokens(str) {
+    return (str || '').toLowerCase()
+      .replace(/[^a-z0-9]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !STOP_WORDS.has(w));
+  }
+
+  function normalizeUnit(u) {
+    const s = (u || '').toLowerCase().trim().replace(/[^a-z]/g, '');
+    if (s.startsWith('sq') || s === 'sft') return 'sqft';
+    if (s.startsWith('no')) return 'nos';
+    if (s.startsWith('rf') || s === 'rmt') return 'rft';
+    if (s.startsWith('set')) return 'set';
+    return s;
+  }
+
+  const masterByCode = new Map();
+  const masterIndexed = masterItems.map(m => {
+    masterByCode.set(m.item_code.toLowerCase(), m);
+    const tokens = new Set(getTokens(m.name + ' ' + (m.description || '')));
+    return { master: m, tokens, category: (m.category || '').toLowerCase(), unit: normalizeUnit(m.unit) };
+  });
+
+  const items = await queryAll(`SELECT * FROM boq_items WHERE boq_version_id = ?`, [versionId]);
+  let matchedCount = 0;
+  let unmappedCount = 0;
+  const now = new Date().toISOString();
+
+  for (const it of items) {
+    let best = null;
+    let bestScore = 0;
+    const itUnit = normalizeUnit(it.unit);
+
+    // 1. Code match
+    if (it.item_code && masterByCode.has(it.item_code.toLowerCase())) {
+      best = masterByCode.get(it.item_code.toLowerCase());
+      bestScore = 1;
+    } else if (it.s_no && masterByCode.has(it.s_no.toLowerCase())) {
+      best = masterByCode.get(it.s_no.toLowerCase());
+      bestScore = 1;
+    }
+
+    // 2. High-precision keyword matching (must match unit)
+    if (!best) {
+      const itTokens = getTokens(it.description);
+      if (itTokens.length >= 2) {
+        for (const mi of masterIndexed) {
+          if (itUnit && mi.unit && mi.unit !== itUnit) continue;
+
+          let common = 0;
+          for (const t of itTokens) {
+            if (mi.tokens.has(t)) common++;
+          }
+          if (common >= 2) {
+            const score = common / itTokens.length;
+            if (score > bestScore && score >= 0.6) {
+              bestScore = score;
+              best = mi.master;
+            }
+          }
+        }
+      }
+    }
+
+    const sellingRate = it.selling_rate || 0;
+    const qty = it.quantity || 0;
+    const amount = Math.round(qty * sellingRate * 100) / 100;
+
+    if (best) {
+      const costRate = best.std_cost || best.std_purchase_rate || 0;
+      const costAmount = Math.round(qty * costRate * 100) / 100;
+      const margin = Math.round((amount - costAmount) * 100) / 100;
+      const marginPct = (amount > 0 && sellingRate > 0) ? Math.round(((sellingRate - costRate) / sellingRate) * 10000) / 100 : 0;
+
+      await queryRun(
+        `UPDATE boq_items SET
+          item_master_id = ?,
+          cost_rate = ?,
+          cost_amount = ?,
+          margin = ?,
+          margin_pct = ?,
+          rate_source = 'master',
+          updated_at = ?
+         WHERE id = ?`,
+        [best.id, costRate, costAmount, margin, marginPct, now, it.id]
+      );
+      matchedCount++;
+    } else {
+      await queryRun(
+        `UPDATE boq_items SET
+          item_master_id = NULL,
+          cost_rate = 0,
+          cost_amount = 0,
+          margin = ?,
+          margin_pct = 100,
+          rate_source = 'unmapped',
+          updated_at = ?
+         WHERE id = ?`,
+        [amount, now, it.id]
+      );
+      unmappedCount++;
+    }
+  }
+
+  // Recalculate totals
+  const totals = await recalculateBoqTotals(versionId);
+
+  // Sync project financials if applicable
+  if (version.project) {
+    try {
+      await queryRun(
+        `UPDATE project_financials SET
+          project_value = ?,
+          bcs = ?,
+          updated_at = ?
+         WHERE project = ?`,
+        [totals.totalSelling, totals.totalCost, now, version.project]
+      );
+    } catch (e) {
+      console.warn('[BOQ Match] project_financials update warning:', e.message);
+    }
+  }
+
+  return {
+    success: true,
+    matchedCount,
+    unmappedCount,
+    total: items.length,
+    totals
+  };
 }
 
 export async function deleteBoqItem(id, session) {
@@ -1819,24 +2004,33 @@ export async function importBoqFromExcel(payload, session) {
   const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1 });
   if (rawRows.length < 2) throw new Error('Selected sheet is empty or has no data rows');
 
-  // 3. Build BCS / Cost Rate map if BCS sheet exists
-  const bcsMap = {};
-  const bcsSheetName = workbook.SheetNames.find(n => n.toUpperCase().includes('DETAILED BOQ R1') || n.toUpperCase().includes('BCS'));
-  if (bcsSheetName && workbook.Sheets[bcsSheetName]) {
-    try {
-      const bcsRows = XLSX.utils.sheet_to_json(workbook.Sheets[bcsSheetName], { header: 1 });
-      bcsRows.forEach(r => {
-        if (!Array.isArray(r)) return;
-        const sno = String(r[0] || '').trim();
-        const bcsRate = parseFloat(r[9]) || parseFloat(r[8]);
-        if (sno && !isNaN(bcsRate) && bcsRate > 0) {
-          bcsMap[sno] = bcsRate;
-        }
-      });
-    } catch (e) {
-      console.warn('[BOQ Import] BCS map extraction note:', e.message);
-    }
+  // 3. Preload Master Rate Library for automatic purchase price resolution
+  const masterItems = await queryAll(
+    `SELECT id, item_code, name, description, category, unit, std_cost, std_purchase_rate
+     FROM boq_item_master WHERE is_active = 1`
+  );
+  const STOP_WORDS = new Set(['and', 'for', 'the', 'with', 'nos', 'sqft', 'rft', 'item', 'supply', 'installation', 'providing', 'fixing', 'making', 'size', 'area', 'room', 'work', 'works', 'mm', 'thk', 'thick', 'approx', 'custom', 'etc']);
+  function getTokens(str) {
+    return (str || '').toLowerCase()
+      .replace(/[^a-z0-9]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !STOP_WORDS.has(w));
   }
+  function normalizeUnit(u) {
+    const s = (u || '').toLowerCase().trim().replace(/[^a-z]/g, '');
+    if (s.startsWith('sq') || s === 'sft') return 'sqft';
+    if (s.startsWith('no')) return 'nos';
+    if (s.startsWith('rf') || s === 'rmt') return 'rft';
+    if (s.startsWith('set')) return 'set';
+    return s;
+  }
+
+  const masterByCode = new Map();
+  const masterIndexed = (masterItems || []).map(m => {
+    masterByCode.set(m.item_code.toLowerCase(), m);
+    const tokens = new Set(getTokens(m.name + ' ' + (m.description || '')));
+    return { master: m, tokens, category: (m.category || '').toLowerCase(), unit: normalizeUnit(m.unit) };
+  });
 
   // 4. Resolve or Create BOQ & Version
   if (!boq_id && !boq_version_id) {
@@ -1972,13 +2166,53 @@ export async function importBoqFromExcel(payload, session) {
     const sellingRate = parseFloat(rawRate) || 0;
     if (qty <= 0 && sellingRate <= 0 && !descVal) continue;
 
-    // Determine Cost Rate (BCS Rate)
+    // Determine Cost Rate / Purchase Price from Master Library
     let costRate = parseFloat(rawCostRate);
-    if (isNaN(costRate) || costRate <= 0) {
-      if (snoVal && bcsMap[snoVal]) {
-        costRate = bcsMap[snoVal];
+    let matchedMasterId = null;
+    let rateSource = 'excel_import';
+
+    if (!isNaN(costRate) && costRate > 0) {
+      rateSource = 'excel_cost_column';
+    } else {
+      let matchedMaster = null;
+
+      // 1. Code match
+      if (snoVal && masterByCode.has(snoVal.toLowerCase())) {
+        matchedMaster = masterByCode.get(snoVal.toLowerCase());
+      }
+
+      // 2. High-precision keyword matching (must match unit)
+      if (!matchedMaster && descVal) {
+        const itTokens = getTokens(descVal);
+        const itUnit = normalizeUnit(unitVal);
+        if (itTokens.length >= 2) {
+          let bestScore = 0;
+          for (const mi of masterIndexed) {
+            if (itUnit && mi.unit && mi.unit !== itUnit) continue;
+
+            let common = 0;
+            for (const t of itTokens) {
+              if (mi.tokens.has(t)) common++;
+            }
+            if (common >= 2) {
+              const score = common / itTokens.length;
+              if (score > bestScore && score >= 0.6) {
+                bestScore = score;
+                matchedMaster = mi.master;
+              }
+            }
+          }
+        }
+      }
+
+      if (matchedMaster) {
+        costRate = matchedMaster.std_cost || matchedMaster.std_purchase_rate || 0;
+        matchedMasterId = matchedMaster.id;
+        rateSource = 'master';
       } else {
-        costRate = Math.round(sellingRate * 0.8 * 100) / 100; // Default 20% margin
+        costRate = 0;
+        matchedMasterId = null;
+        rateSource = 'unmapped';
       }
     }
 
@@ -1992,14 +2226,14 @@ export async function importBoqFromExcel(payload, session) {
 
     await queryRun(
       `INSERT INTO boq_items (
-        id, boq_version_id, section_id, s_no, description, specification, make, unit,
+        id, boq_version_id, section_id, item_master_id, s_no, description, specification, make, unit,
         quantity, cost_rate, selling_rate, amount, cost_amount, margin, margin_pct,
         location, remarks, status, sort_order, rate_source, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft', ?, 'excel_import', ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?, ?, ?)`,
       [
-        itemId, boq_version_id, currentSectionId, snoVal, descVal || 'Item', specVal, makeVal, unitVal,
+        itemId, boq_version_id, currentSectionId, matchedMasterId, snoVal, descVal || 'Item', specVal, makeVal, unitVal,
         qty, costRate, sellingRate, amount, costAmount, margin, marginPct,
-        locVal, remarksVal, itemSortOrder, now, now
+        locVal, remarksVal, itemSortOrder, rateSource, now, now
       ]
     );
 
