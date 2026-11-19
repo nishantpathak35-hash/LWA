@@ -27,6 +27,17 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
   const [editRef, setEditRef] = useState('');
   const [editClient, setEditClient] = useState('');
   const [editSiteAddress, setEditSiteAddress] = useState('');
+  const [clientsList, setClientsList] = useState([]);
+
+  useEffect(() => {
+    if (showEditModal && call) {
+      call('listClients')
+        .then(res => {
+          if (Array.isArray(res)) setClientsList(res);
+        })
+        .catch(err => console.warn('Failed to load clients in ProjectDetails:', err.message));
+    }
+  }, [showEditModal, call]);
   const [editProjectValue, setEditProjectValue] = useState('');
   const [editBcs, setEditBcs] = useState('');
   const [editInflow, setEditInflow] = useState('');
@@ -1480,12 +1491,44 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground font-semibold mb-1 block">Client</label>
-              <Input
-                value={editClient}
-                onChange={(e) => setEditClient(e.target.value)}
-                placeholder="e.g. Acme Corp"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-amber-500" />
+                  Client
+                </label>
+                {clientsList.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {clientsList.length} clients available
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <select
+                  value={clientsList.some(c => c.name === editClient) ? editClient : ''}
+                  onChange={(e) => {
+                    if (e.target.value) setEditClient(e.target.value);
+                  }}
+                  className="w-full text-xs h-9 bg-background border border-border rounded-md px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                >
+                  <option value="">-- Select Existing Client --</option>
+                  {clientsList.map(c => (
+                    <option key={c.id || c.name} value={c.name} className="bg-card text-foreground">
+                      {c.name} {c.company_name && c.company_name !== c.name ? `(${c.company_name})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  value={editClient}
+                  onChange={(e) => setEditClient(e.target.value)}
+                  placeholder="Or type custom/new client name..."
+                  list="project-edit-clients-list"
+                />
+                <datalist id="project-edit-clients-list">
+                  {clientsList.map(c => (
+                    <option key={c.id || c.name} value={c.name} />
+                  ))}
+                </datalist>
+              </div>
             </div>
           </div>
 

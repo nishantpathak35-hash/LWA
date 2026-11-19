@@ -1,12 +1,27 @@
 'use client';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, Button, Input } from '../../ui/core';
+import { useAppState } from '../../StateProvider';
+import { Building2 } from 'lucide-react';
 
 export default function NewProjectModal({ 
   showNewProjectModal, setShowNewProjectModal, newProjectName, setNewProjectName, 
   newProjectRef, setNewProjectRef, newClient, setNewClient, newSiteAddress, setNewSiteAddress,
-  creating, handleCreateProject 
+  creating, handleCreateProject, clients = [] 
 }) {
+  const { call } = useAppState();
+  const [clientsList, setClientsList] = useState(clients);
+
+  useEffect(() => {
+    if (showNewProjectModal && call) {
+      call('listClients')
+        .then(res => {
+          if (Array.isArray(res)) setClientsList(res);
+        })
+        .catch(err => console.warn('Failed to load clients list:', err.message));
+    }
+  }, [showNewProjectModal, call]);
+
   return (
     <Dialog
       open={showNewProjectModal}
@@ -32,12 +47,44 @@ export default function NewProjectModal({
           />
         </div>
         <div>
-          <label className="text-xs text-slate-400 font-light mb-1 block">Client</label>
-          <Input
-            value={newClient}
-            onChange={(e) => setNewClient(e.target.value)}
-            placeholder="e.g. Acme Corp"
-          />
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs text-slate-400 font-light flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-amber-500" />
+              Client
+            </label>
+            {clientsList.length > 0 && (
+              <span className="text-[10px] text-slate-400">
+                {clientsList.length} clients available
+              </span>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <select
+              value={clientsList.some(c => c.name === newClient) ? newClient : ''}
+              onChange={(e) => {
+                if (e.target.value) setNewClient(e.target.value);
+              }}
+              className="w-full text-xs h-9 bg-slate-900/60 border border-slate-700/60 rounded-lg px-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+            >
+              <option value="">-- Select Existing Client --</option>
+              {clientsList.map(c => (
+                <option key={c.id || c.name} value={c.name} className="bg-slate-900 text-slate-200">
+                  {c.name} {c.company_name && c.company_name !== c.name ? `(${c.company_name})` : ''}
+                </option>
+              ))}
+            </select>
+            <Input
+              value={newClient}
+              onChange={(e) => setNewClient(e.target.value)}
+              placeholder="Or type custom/new client name..."
+              list="new-project-clients-list"
+            />
+            <datalist id="new-project-clients-list">
+              {clientsList.map(c => (
+                <option key={c.id || c.name} value={c.name} />
+              ))}
+            </datalist>
+          </div>
         </div>
         <div>
           <label className="text-xs text-slate-400 font-light mb-1 block">Site Address</label>

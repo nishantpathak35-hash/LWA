@@ -17,33 +17,6 @@ export async function listClients(filters = {}, session) {
   requireAuth(session);
   await initEnterpriseUpgradeSchemas();
 
-  // Auto-sync clients from project_financials so project clients automatically register in Clients Master
-  try {
-    const projClients = await queryAll(
-      `SELECT DISTINCT TRIM(client) as client_name FROM project_financials WHERE client IS NOT NULL AND TRIM(client) != ''`
-    );
-    if (Array.isArray(projClients)) {
-      for (const pc of projClients) {
-        const cName = pc.client_name;
-        if (!cName) continue;
-        const existing = await queryGet(
-          `SELECT id FROM clients WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR LOWER(TRIM(company_name)) = LOWER(TRIM(?))`,
-          [cName, cName]
-        );
-        if (!existing) {
-          const now = new Date().toISOString();
-          await queryRun(
-            `INSERT INTO clients (name, company_name, status, created_by, created_at, updated_at)
-             VALUES (?, ?, 'Active', 'system:project_sync', ?, ?)`,
-            [cName, cName, now, now]
-          );
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('[Clients Auto-Sync from Projects]', err.message);
-  }
-
   const f = unwrap(filters) || {};
   let sql = `SELECT * FROM clients WHERE deleted_at IS NULL`;
   const args = [];
@@ -80,7 +53,7 @@ export async function listClients(filters = {}, session) {
               sumMap.get(String(c.company_name || '').trim().toLowerCase());
     return {
       ...c,
-      is_project_mapped: c.created_by === 'system:project_sync',
+      is_project_mapped: c.created_by === 'system:project_sync' || c.created_by === 'system:project_seed',
       linked_projects_count: s?.proj_count || 0,
       total_contract_value: s?.total_val || 0
     };
@@ -159,14 +132,48 @@ export async function deleteClient(id, session) {
   const client = await queryGet(`SELECT name FROM clients WHERE id = ?`, [clientId]);
   if (!client) throw new Error('Client not found');
 
-  const now = new Date().toISOString();
-  await queryRun(
-    `UPDATE clients SET deleted_at = ?, deleted_by = ?, status = 'Inactive' WHERE id = ?`,
-    [now, session?.email || 'admin', clientId]
-  );
+  // Hard delete so unwanted or unnecessary clients are completely purged
+  await queryRun(`DELETE FROM clients WHERE id = ?`, [clientId]);
 
   await logAudit('clients', clientId, 'DELETE_CLIENT', session?.email || 'admin', { name: client.name });
   return { success: true };
+}
+
+/**
+ * Seed all distinct project and client names into Central Clients Master (One-Time or on-demand).
+ */
+export async function seedClientsFromProjects(session) {
+  requireAuth(session);
+  await initEnterpriseUpgradeSchemas();
+
+  const pos = await queryAll(`SELECT DISTINCT TRIM(project) as p FROM purchase_orders WHERE project IS NOT NULL AND TRIM(project) != ''`);
+  const projs = await queryAll(`SELECT DISTINCT TRIM(project) as p, TRIM(client) as c FROM project_financials WHERE (project IS NOT NULL AND TRIM(project) != '') OR (client IS NOT NULL AND TRIM(client) != '')`);
+
+  const names = new Set();
+  (pos || []).forEach(r => { if (r.p) names.add(r.p); });
+  (projs || []).forEach(r => {
+    if (r.p) names.add(r.p);
+    if (r.c) names.add(r.c);
+  });
+
+  const now = new Date().toISOString();
+  let inserted = 0;
+  for (const name of names) {
+    const existing = await queryGet(
+      `SELECT id FROM clients WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR LOWER(TRIM(company_name)) = LOWER(TRIM(?))`,
+      [name, name]
+    );
+    if (!existing) {
+      await queryRun(
+        `INSERT INTO clients (name, company_name, email, status, created_by, created_at, updated_at)
+         VALUES (?, ?, '', 'Active', 'system:project_seed', ?, ?)`,
+        [name, name, now, now]
+      );
+      inserted++;
+    }
+  }
+
+  return { success: true, inserted };
 }
 
 /**

@@ -305,21 +305,33 @@ export default function ClientsView() {
               <CardHeader className="border-b border-border py-3.5 px-4 flex flex-row items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-amber-500" />
-                  <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider">
-                    Client File: {selectedClient.name}
+                  <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider truncate max-w-[180px]">
+                    Client: {selectedClient.name}
                   </CardTitle>
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => {
-                    setSelectedClient(null);
-                    setClientDetails(null);
-                  }}
-                  className="w-6 h-6 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => handleDelete(selectedClient, e)}
+                    className="h-7 px-2 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 flex items-center gap-1"
+                    title="Delete Client"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Delete</span>
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedClient(null);
+                      setClientDetails(null);
+                    }}
+                    className="w-6 h-6 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-4 space-y-4 max-h-[calc(100vh-220px)] overflow-y-auto text-xs">
                 {/* Client Basic Specs */}
