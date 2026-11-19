@@ -7,7 +7,7 @@ import { toast } from './Toast';
 import { CheckSquare, UserCheck, Calendar, AlertCircle, Link2, FileText, Send } from 'lucide-react';
 
 export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defaultRecordType = '', defaultRecordId = '' }) {
-  const { call, user } = useAppState();
+  const { call, user, projects = [] } = useAppState();
 
   const [title, setTitle] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
@@ -17,6 +17,7 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
   const [recordId, setRecordId] = useState(defaultRecordId);
   const [description, setDescription] = useState('');
   const [availableUsers, setAvailableUsers] = useState([]);
+  const [projectList, setProjectList] = useState(projects);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,6 +28,12 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
         .then(res => setAvailableUsers(res || []))
         .catch(err => console.error('Failed to load active users:', err))
         .finally(() => setLoadingUsers(false));
+
+      call('getProjectDetails')
+        .then(res => {
+          if (Array.isArray(res)) setProjectList(res);
+        })
+        .catch(() => {});
 
       if (defaultRecordType) setRecordType(defaultRecordType);
       if (defaultRecordId) setRecordId(defaultRecordId);
@@ -184,14 +191,32 @@ export default function AllocateTaskModal({ isOpen, onClose, onTaskCreated, defa
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Record Reference / ID</label>
-            <Input
-              className="w-full text-xs bg-background font-mono"
-              placeholder="e.g. 102 or PO-2026-04"
-              value={recordId}
-              onChange={e => setRecordId(e.target.value)}
-              disabled={!recordType}
-            />
+            <label className="text-xs font-bold text-foreground">Record Reference / Project</label>
+            {recordType === 'Project' ? (
+              <select
+                className="w-full h-9 rounded-md border border-border bg-background px-3 py-1 text-xs text-foreground focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                value={recordId}
+                onChange={e => setRecordId(e.target.value)}
+              >
+                <option value="">-- Select Project --</option>
+                {projectList.map(p => {
+                  const pName = p.project || p.name;
+                  return (
+                    <option key={pName} value={pName}>
+                      {pName} {p.client ? `(${p.client})` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <Input
+                className="w-full text-xs bg-background font-mono"
+                placeholder="e.g. 102 or PO-2026-04"
+                value={recordId}
+                onChange={e => setRecordId(e.target.value)}
+                disabled={!recordType}
+              />
+            )}
           </div>
         </div>
 

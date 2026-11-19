@@ -87,30 +87,22 @@ export async function generateMasterRateExcel(session) {
     }
   });
 
-  // Sheet 1: MASTER ITEM RATE UPLOAD
+  // Sheet 1: MASTER ITEM RATE UPLOAD (Clean, essential columns)
   let itemCounter = 1001;
   const sheet1Data = [];
   itemMap.forEach(item => {
+    const costRate = item.latestRate;
+    const defaultSellingRate = Math.round(costRate * 1.25); // 25% default margin
     sheet1Data.push({
       'Item Code': `ITM-${itemCounter++}`,
-      'Item Type': 'Material',
-      'Category': 'Commercial Fit-out',
-      'Subcategory': 'General',
       'Item Name': item.itemName,
-      'Detailed Description': item.rawDesc,
-      'Brand / Make': 'Standard / Equivalent',
-      'UOM': item.unit,
-      'Basic Rate': item.latestRate,
-      'Labour / Installation Rate': 0,
-      'Tax Rate %': item.taxPct,
-      'Vendor': item.latestVendor,
-      'Rate Source': 'PO',
-      'Reference Number': item.latestPoNo,
-      'Source Date': item.latestDate,
-      'Effective From': item.latestDate || new Date().toISOString().split('T')[0],
-      'Effective To': '',
-      'Status': 'Active',
-      'Remarks': `Extracted from PTS Purchase Order ${item.latestPoNo}`
+      'Category': 'Commercial Fit-out',
+      'Unit': item.unit,
+      'Purchase Rate (₹)': costRate,
+      'Selling Rate (₹)': defaultSellingRate,
+      'Make / Brand': 'Standard / Equivalent',
+      'Description': item.rawDesc,
+      'HSN / SAC': item.hsnSac || ''
     });
   });
 
@@ -118,24 +110,14 @@ export async function generateMasterRateExcel(session) {
   for (let b = 1; b <= 10; b++) {
     sheet1Data.push({
       'Item Code': `ITM-NEW-${b}`,
-      'Item Type': 'Material',
-      'Category': '',
-      'Subcategory': '',
       'Item Name': '',
-      'Detailed Description': '',
-      'Brand / Make': '',
-      'UOM': 'Nos',
-      'Basic Rate': '',
-      'Labour / Installation Rate': '',
-      'Tax Rate %': 18,
-      'Vendor': '',
-      'Rate Source': 'Manual',
-      'Reference Number': '',
-      'Source Date': '',
-      'Effective From': new Date().toISOString().split('T')[0],
-      'Effective To': '',
-      'Status': 'Active',
-      'Remarks': 'Manual item entry'
+      'Category': '',
+      'Unit': 'Nos',
+      'Purchase Rate (₹)': '',
+      'Selling Rate (₹)': '',
+      'Make / Brand': '',
+      'Description': '',
+      'HSN / SAC': ''
     });
   }
 
@@ -242,12 +224,17 @@ export async function generateMasterRateExcel(session) {
   const ws4 = XLSX.utils.json_to_sheet(sheet4Data);
   const ws5 = XLSX.utils.json_to_sheet(sheet5Data);
 
-  // Column widths
+  // Column widths for Clean Master Sheet
   ws1['!cols'] = [
-    { wch: 14 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 35 },
-    { wch: 50 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 16 },
-    { wch: 12 }, { wch: 30 }, { wch: 14 }, { wch: 22 }, { wch: 14 },
-    { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 35 }
+    { wch: 15 }, // Item Code
+    { wch: 35 }, // Item Name
+    { wch: 22 }, // Category
+    { wch: 10 }, // Unit
+    { wch: 18 }, // Purchase Rate (₹)
+    { wch: 18 }, // Selling Rate (₹)
+    { wch: 25 }, // Make / Brand
+    { wch: 45 }, // Description
+    { wch: 15 }  // HSN / SAC
   ];
 
   XLSX.utils.book_append_sheet(wb, ws1, 'MASTER ITEM RATE UPLOAD');
@@ -309,9 +296,13 @@ export async function parseAndValidateMasterRateExcel(payload, session) {
     const rowNum = idx + 2; // Header is row 1
     const itemCode = String(row['Item Code'] || row['item_code'] || '').trim();
     const itemName = String(row['Item Name'] || row['item_name'] || row['Description'] || row['description'] || '').trim();
-    const unit = String(row['UOM'] || row['unit'] || 'Nos').trim();
-    const rawRate = row['Basic Rate'] ?? row['basic_rate'] ?? row['rate'] ?? row['Cost Rate'];
+    const unit = String(row['Unit'] || row['UOM'] || row['unit'] || 'Nos').trim();
+    const rawRate = row['Purchase Rate (₹)'] ?? row['Purchase Rate'] ?? row['Basic Rate'] ?? row['basic_rate'] ?? row['rate'] ?? row['Cost Rate'] ?? row['std_purchase_rate'];
     const basicRate = Number(rawRate);
+    const sellingRate = Number(row['Selling Rate (₹)'] ?? row['Selling Rate'] ?? row['Sales Rate'] ?? row['std_selling_rate'] ?? (basicRate * 1.25));
+    const make = String(row['Make / Brand'] || row['Brand / Make'] || row['brand_make'] || row['preferred_make'] || row['Make'] || row['Brand'] || '').trim();
+    const desc = String(row['Description'] || row['Detailed Description'] || row['detailed_description'] || itemName).trim();
+    const hsn = String(row['HSN / SAC'] || row['HSN/SAC'] || row['hsn_sac'] || row['Tax Rate %'] || '').trim();
 
     // Skip completely blank rows
     if (!itemCode && !itemName && isNaN(basicRate)) return;
@@ -343,15 +334,15 @@ export async function parseAndValidateMasterRateExcel(payload, session) {
       category: row['Category'] || row['category'] || 'Commercial Fit-out',
       subcategory: row['Subcategory'] || row['subcategory'] || '',
       item_type: (row['Item Type'] || row['item_type'] || 'material').toLowerCase(),
-      description: row['Detailed Description'] || row['detailed_description'] || itemName,
+      description: desc,
       unit: unit || 'Nos',
-      preferred_make: row['Brand / Make'] || row['brand_make'] || '',
+      preferred_make: make,
       std_purchase_rate: basicRate,
       std_labour_rate: Number(row['Labour / Installation Rate'] || 0) || 0,
       std_cost: basicRate,
-      std_selling_rate: Number(row['Selling Rate'] || (basicRate * 1.25)), // 25% default margin
+      std_selling_rate: sellingRate || (basicRate * 1.25), // 25% default margin
       target_margin_pct: 20,
-      hsn_sac: String(row['Tax Rate %'] || row['hsn_sac'] || '').trim(),
+      hsn_sac: hsn,
       preferred_vendors: row['Vendor'] || row['vendor'] || '',
       is_existing: isExisting
     });

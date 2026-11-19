@@ -74,14 +74,31 @@ export default function ProjectSchedule({ project }) {
     if (!project) return;
     setLoading(true);
     try {
-      const [schedRes, taskRes, empRes] = await Promise.all([
+      const [schedRes, taskRes, empRes, userRes] = await Promise.all([
         call('getProjectSchedule', project),
         call('listProjectScheduleTasks', { project }),
-        call('listSiteEmployees', { project }).catch(() => [])
+        call('listSiteEmployees', {}).catch(() => []),
+        call('listActiveUsers').catch(() => [])
       ]);
       setSchedule(schedRes);
       setTasks(taskRes || []);
-      setEmployees(empRes || []);
+
+      // Merge site employees and system active users
+      const combinedEmps = [];
+      const seen = new Set();
+      (empRes || []).forEach(e => {
+        if (e.name && !seen.has(e.name.toLowerCase())) {
+          seen.add(e.name.toLowerCase());
+          combinedEmps.push({ id: e.employee_id || e.id, name: e.name, designation: e.designation || 'Site Team' });
+        }
+      });
+      (userRes || []).forEach(u => {
+        if (u.name && !seen.has(u.name.toLowerCase())) {
+          seen.add(u.name.toLowerCase());
+          combinedEmps.push({ id: u.email, name: u.name, designation: (u.roles || []).join(', ') || 'Team Member' });
+        }
+      });
+      setEmployees(combinedEmps);
 
       // Also try fetching BOQ items for linkage
       try {
@@ -215,6 +232,52 @@ export default function ProjectSchedule({ project }) {
       loadData();
     } catch (err) {
       toast.error('Failed to delete task: ' + err.message);
+    }
+  };
+
+  const handleSeedStandardSchedule = async () => {
+    if (!project) return;
+    if (tasks.length > 0) {
+      if (!confirm('This will append the standard 7-phase interior fit-out schedule milestones to this project. Continue?')) return;
+    }
+    setSaving(true);
+    try {
+      const today = new Date();
+      const standardTasks = [
+        { title: 'Site Mobilization & Demolition Works', work_package: 'Civil & Demolition', days: 7, priority: 'High', uom: 'Lot', planned_qty: 1 },
+        { title: 'Electrical Conduit & Wiring Rough-in', work_package: 'Electrical & Lighting', days: 10, priority: 'High', uom: 'Rft', planned_qty: 500 },
+        { title: 'False Ceiling Grid & Gypsum Framing', work_package: 'False Ceiling & Partition', days: 14, priority: 'High', uom: 'Sqft', planned_qty: 1200 },
+        { title: 'Flooring, Screed & Tiling Work', work_package: 'Flooring & Tiling', days: 14, priority: 'Medium', uom: 'Sqft', planned_qty: 1200 },
+        { title: 'Wall Panelling, Doors & Fixed Carpentry', work_package: 'Carpentry & Joinery', days: 14, priority: 'High', uom: 'Sqft', planned_qty: 800 },
+        { title: 'Primer Coat, Putty & Final Paint Work', work_package: 'Painting & Finishing', days: 10, priority: 'Medium', uom: 'Sqft', planned_qty: 2500 },
+        { title: 'Light Fixtures, Switches & Handover Snagging', work_package: 'Testing & Handover', days: 5, priority: 'Critical', uom: 'Lot', planned_qty: 1 }
+      ];
+
+      let currentDate = new Date(today);
+      for (const t of standardTasks) {
+        const startStr = currentDate.toISOString().split('T')[0];
+        const endDate = new Date(currentDate.getTime() + t.days * 86400000);
+        const endStr = endDate.toISOString().split('T')[0];
+        await call('saveScheduleTask', {
+          project,
+          title: t.title,
+          work_package: t.work_package,
+          planned_start_date: startStr,
+          planned_end_date: endStr,
+          priority: t.priority,
+          uom: t.uom,
+          planned_qty: t.planned_qty,
+          status: 'Not Started'
+        });
+        currentDate = new Date(endDate.getTime() + 86400000);
+      }
+
+      toast.success('Standard interior fit-out schedule generated with 7 sequenced phases!');
+      loadData();
+    } catch (err) {
+      toast.error('Failed to generate template schedule: ' + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -384,6 +447,17 @@ export default function ProjectSchedule({ project }) {
             </Button>
 
             <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSeedStandardSchedule}
+              disabled={saving}
+              className="h-8 text-xs text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 font-semibold"
+              title="Auto-generate 7-phase standard fit-out schedule milestones"
+            >
+              ⚡ Template Schedule
+            </Button>
+
+            <Button
               onClick={handleOpenAdd}
               size="sm"
               className="h-8 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs"
@@ -421,8 +495,22 @@ export default function ProjectSchedule({ project }) {
                   </TableRow>
                 ) : filteredTasks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12 text-xs text-muted-foreground">
-                      No tasks found in this schedule view. Click "Add Task" to create one.
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <div className="max-w-md mx-auto space-y-3">
+                        <Clock className="w-8 h-8 text-amber-500 mx-auto" />
+                        <div className="text-sm font-bold text-foreground">No Schedule Tasks Found</div>
+                        <p className="text-xs text-muted-foreground">
+                          Create custom milestones or click below to generate the standard 7-phase interior fit-out schedule (Demolition, Electrical, False Ceiling, Flooring, Carpentry, Painting, Testing).
+                        </p>
+                        <div className="flex items-center justify-center gap-2 pt-1">
+                          <Button onClick={handleSeedStandardSchedule} disabled={saving} className="h-8 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs gap-1.5">
+                            ⚡ Auto-Generate Fit-out Schedule
+                          </Button>
+                          <Button variant="outline" onClick={handleOpenAdd} className="h-8 text-xs">
+                            <Plus className="w-3.5 h-3.5 mr-1" /> Add Custom Task
+                          </Button>
+                        </div>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (

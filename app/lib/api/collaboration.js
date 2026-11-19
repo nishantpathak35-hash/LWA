@@ -481,6 +481,16 @@ export async function getUserTasks(user) {
   combined.workflowCount = workflowActions.length;
   combined.taskCount = normalizedAssigned.length;
 
+  // Custom toJSON so that when serialized over JSON RPC, allocatedByMe is preserved for the frontend
+  combined.toJSON = function () {
+    return {
+      tasks: [...this],
+      allocatedByMe: this.allocatedByMe || [],
+      workflowCount: this.workflowCount || 0,
+      taskCount: this.taskCount || 0
+    };
+  };
+
   return combined;
 }
 

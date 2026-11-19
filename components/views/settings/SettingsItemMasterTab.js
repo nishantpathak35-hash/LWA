@@ -285,7 +285,7 @@ export default function SettingsItemMasterTab() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success(`Generated official 5-sheet Master Rate Library (${res.uniqueItemsExtracted} items from ${res.poLinesAnalyzed} PO lines)`);
+      toast.success(`Downloaded Master Rate Library Excel (${res.uniqueItemsExtracted} items ready to edit and upload)`);
     } catch (err) {
       toast.error('Failed to generate master rate excel: ' + err.message);
     } finally {

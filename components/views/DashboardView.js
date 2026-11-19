@@ -12,6 +12,8 @@ import DashboardChartsSection from './dashboard/DashboardChartsSection';
 import DashboardProjectLedger from './dashboard/DashboardProjectLedger';
 import DashboardEditFinancialsModal from './dashboard/DashboardEditFinancialsModal';
 import TaskPerformanceDashboard from './dashboard/TaskPerformanceDashboard';
+import { Users, TrendingUp } from 'lucide-react';
+import { Badge } from '../ui/core';
 
 export default function DashboardView() {
   const { pos, vendors, payments, kpis, user, setActiveView, setTargetPo, call } = useAppState();
@@ -220,26 +222,31 @@ export default function DashboardView() {
       />
 
       {/* Mode Selector */}
-      <div className="flex items-center gap-2 border-b border-border pb-2">
+      <div className="flex items-center gap-2.5 bg-muted/40 p-1.5 rounded-xl border border-border w-fit flex-wrap">
         <button
           onClick={() => setDashboardMode('financial')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
             dashboardMode === 'financial'
               ? 'bg-amber-500 text-slate-950 shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           }`}
         >
-          Executive Financial Intelligence
+          <TrendingUp className="w-4 h-4" />
+          Executive Financials & Projects
         </button>
         <button
           onClick={() => setDashboardMode('tasks')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
             dashboardMode === 'tasks'
               ? 'bg-amber-500 text-slate-950 shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           }`}
         >
-          Project Tasks & Overdue Performance
+          <Users className="w-4 h-4" />
+          Team Tasks & Employee Performance Matrix
+          <Badge className="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold ml-1 py-0 px-1.5 border-none">
+            Live
+          </Badge>
         </button>
       </div>
 
@@ -325,6 +332,28 @@ export default function DashboardView() {
         savingFinancials={savingFinancials}
         handleSaveFinancials={handleSaveFinancials}
       />
+
+      {/* ── Team Tasks & Employee Matrix Live Section ── */}
+      <div className="pt-6 border-t border-border space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-amber-500" />
+            <h2 className="text-base font-bold text-foreground">
+              Team Tasks & Employee Performance Matrix
+            </h2>
+            <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+              Live Workforce Tracking
+            </Badge>
+          </div>
+          <button
+            onClick={() => setDashboardMode('tasks')}
+            className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+          >
+            Open Full Task Management Studio &rarr;
+          </button>
+        </div>
+        <TaskPerformanceDashboard />
+      </div>
         </>
       )}
     </div>
