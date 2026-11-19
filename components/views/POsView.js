@@ -817,7 +817,7 @@ export default function POsView() {
         poNo={poNo} setPoNo={setPoNo} project={project} setProject={setProject}
         vendorCode={vendorCode} setVendorCode={setVendorCode} vendors={vendors}
         poDate={poDate} setPoDate={setPoDate} expectedDelivery={expectedDelivery} setExpectedDelivery={setExpectedDelivery}
-        category={category} setCategory={setCategory} items={items} handleItemChange={handleItemChange}
+        category={category} setCategory={setCategory} items={items} setItems={setItems} handleItemChange={handleItemChange}
         handleRemoveItemLine={handleRemoveItemLine} handleAddItemLine={handleAddItemLine}
         tdsSection={tdsSection} handleTdsSectionChange={handleTdsSectionChange}
         gstMode={gstMode} setGstMode={setGstMode} terms={terms} setTerms={setTerms}

@@ -16,6 +16,7 @@ import SettingsUsersTab from './settings/SettingsUsersTab';
 import SettingsTDSTab from './settings/SettingsTDSTab';
 import SettingsNumberSeriesTab from './settings/SettingsNumberSeriesTab';
 import SettingsApprovalWorkflowTab from './settings/SettingsApprovalWorkflowTab';
+import SettingsItemMasterTab from './settings/SettingsItemMasterTab';
 
 // ── Module-level constants (stable across renders, safe in useCallback deps) ─
 const FEATURE_LABELS = {
@@ -807,6 +808,15 @@ export default function SettingsView() {
       ]
     },
     {
+      id: 'costing',
+      title: 'Costing & Estimation',
+      description: 'Item Master, Rate Library & Cost Analysis',
+      icon: Database,
+      tabs: [
+        { id: 'item_master', label: 'Item Master & Rate Library', icon: Database }
+      ]
+    },
+    {
       id: 'maintenance',
       title: 'Maintenance & Logs',
       description: 'System utilities, audit trail & tools',
@@ -988,6 +998,11 @@ export default function SettingsView() {
           mergeTargetProject={mergeTargetProject} setMergeTargetProject={setMergeTargetProject}
           mergeSubmitting={mergeSubmitting} handleMergeProjects={handleMergeProjects}
         />
+      )}
+
+      {/* Item Master & Rate Library Tab */}
+      {activeTab === 'item_master' && (
+        <SettingsItemMasterTab />
       )}
 
       {/* Email Config Tab */}

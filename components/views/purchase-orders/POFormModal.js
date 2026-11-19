@@ -4,16 +4,17 @@ import AttachmentsSection from '../../ui/AttachmentsSection';
 import RecordDiscussionThread from '../../ui/RecordDiscussionThread';
 import POInvoicesTab from './POInvoicesTab';
 import SearchableVendorSelect from '../../ui/SearchableVendorSelect';
-import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Send, Wallet, ChevronUp, ChevronDown, ShieldAlert, FileSpreadsheet } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
 import { GST_RATES, UOM_OPTIONS } from './po-constants';
 import { useAppState } from '../../StateProvider';
+import BOQItemImportDrawer from './BOQItemImportDrawer';
 
 export default function POFormModal(props) {
   const {
     modalOpen, setModalOpen, editingPoNo, poNo, setPoNo, project, setProject,
     vendorCode, setVendorCode, vendors, poDate, setPoDate, expectedDelivery, setExpectedDelivery,
-    category, setCategory, items, handleItemChange, handleRemoveItemLine, handleAddItemLine,
+    category, setCategory, items, setItems, handleItemChange, handleRemoveItemLine, handleAddItemLine,
     tdsSection, setTdsSection, gstMode, setGstMode, terms, setTerms,
     paymentDeliveryTerms, setPaymentDeliveryTerms, generalTerms, setGeneralTerms,
     handleApplyDefaultGeneralTerms, handleSaveGlobalGeneralTerms, savingGlobalTerms,
@@ -29,6 +30,16 @@ export default function POFormModal(props) {
   };
 
   const selectedProjectData = projects.find(p => p?.name === project);
+  const [showBoqImport, setShowBoqImport] = React.useState(false);
+
+  const handleImportFromBoq = (imported) => {
+    if (setItems && Array.isArray(imported)) {
+      setItems(prev => {
+        const existing = prev.filter(it => it.description?.trim());
+        return [...existing, ...imported];
+      });
+    }
+  };
 
   const { activeLocks, user, call } = useAppState();
   const lockKey = `po:${editingPoNo}`;
@@ -251,9 +262,20 @@ export default function POFormModal(props) {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Line Items</span>
-              <Button type="button" variant="ghost" size="sm" onClick={handleAddItemLine} className="h-7 text-xs text-amber-700 dark:text-primary font-bold">
-                <Plus className="w-3.5 h-3.5 mr-1" /> Add Line
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBoqImport(true)}
+                  className="h-7 text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20 font-bold"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Import from BOQ
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={handleAddItemLine} className="h-7 text-xs text-amber-700 dark:text-primary font-bold">
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Line
+                </Button>
+              </div>
             </div>
 
             {/* Column headers */}
@@ -450,6 +472,14 @@ export default function POFormModal(props) {
           </div>
         </form>
       </Dialog>
+
+      {/* BOQ Import Drawer */}
+      <BOQItemImportDrawer
+        open={showBoqImport}
+        onClose={() => setShowBoqImport(false)}
+        project={project}
+        onImportItems={handleImportFromBoq}
+      />
     </>
   );
 }

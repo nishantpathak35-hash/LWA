@@ -7,13 +7,14 @@ import {
   Folder, TrendingUp, IndianRupee, Wallet, Download, ArrowLeft,
   Building2, Calendar, CheckCircle2, Clock, CreditCard, ExternalLink,
   Layers, Search, AlertTriangle, Edit2, ShieldAlert, Sparkles, MapPin, Receipt,
-  HardHat, Users, Camera, ShieldCheck
+  HardHat, Users, Camera, ShieldCheck, FileSpreadsheet
 } from 'lucide-react';
 import { useAppState } from '../../StateProvider';
 import { toast } from '../../ui/Toast';
 import SortableHeader from '../../ui/SortableHeader';
 import { exportToCSV, sortData } from '../../../app/lib/exportUtils';
 import CopyButton from '../../ui/CopyButton';
+import ProjectBOQModule from './ProjectBOQModule';
 
 export default function ProjectDetails({ selectedProject, projectPOs, onBack, onUpdateProject }) {
   const { call, payments = [] } = useAppState();
@@ -535,6 +536,16 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
           }`}
         >
           <Receipt className="w-3.5 h-3.5" /> Purchase Orders Ledger ({enrichedPOs.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('boq')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'boq' 
+              ? 'bg-amber-500 text-slate-950 shadow-sm' 
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" /> Project BOQ & Estimation
         </button>
         <button
           onClick={() => setActiveTab('payments')}
@@ -1271,6 +1282,11 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
     </Card>
   </div>
 )}
+
+      {/* ── Tab 5: Project BOQ & Estimation ── */}
+      {activeTab === 'boq' && (
+        <ProjectBOQModule selectedProject={selectedProject} />
+      )}
 
       {/* ── Modal: Configure Site Geo-Fence ── */}
       <Dialog
