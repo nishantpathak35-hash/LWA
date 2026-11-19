@@ -232,7 +232,12 @@ export default function ClientsView() {
                           <TableCell className="font-semibold text-xs text-foreground">
                             <div className="flex items-center gap-2">
                               <Building2 className="w-4 h-4 text-amber-500 shrink-0" />
-                              <span>{c.name}</span>
+                              <span className="font-bold">{c.name}</span>
+                              {(c.is_project_mapped || c.created_by === 'system:project_sync') && (
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 font-normal">
+                                  From Project
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">
@@ -402,17 +407,28 @@ export default function ClientsView() {
                         >
                           <div className="flex justify-between items-start">
                             <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
-                              {b.boq_number || 'BOQ-001'} (v{b.version_number || 1})
+                              {b.boq_no || b.boq_number || 'BOQ-001'} (v{b.version_number || 1})
                             </span>
-                            <Badge
-                              className={`text-[9px] ${
-                                b.version_status === 'Approved'
-                                  ? 'bg-emerald-500/15 text-emerald-500'
-                                  : 'bg-amber-500/15 text-amber-500'
-                              }`}
-                            >
-                              {b.version_status || 'Draft'}
-                            </Badge>
+                            <div className="flex items-center gap-1.5">
+                              <Badge
+                                className={`text-[9px] ${
+                                  b.version_status === 'Approved'
+                                    ? 'bg-emerald-500/15 text-emerald-500'
+                                    : 'bg-amber-500/15 text-amber-500'
+                                }`}
+                              >
+                                {b.version_status || 'Draft'}
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setActiveView('boqs')}
+                                className="h-5 px-1.5 text-[9px] text-amber-600 dark:text-amber-400 hover:text-amber-500 flex items-center"
+                                title="Open in BOQ & Estimation Workspace"
+                              >
+                                Open <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                              </Button>
+                            </div>
                           </div>
                           <div className="text-[11px] text-foreground font-medium">{b.title}</div>
                           <div className="grid grid-cols-2 gap-2 text-[10px] pt-1 border-t border-border/50">

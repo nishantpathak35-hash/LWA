@@ -201,17 +201,50 @@ export async function updateProjectFinancials(payload, session) {
       tds REAL DEFAULT 0,
       project_ref TEXT,
       client TEXT,
+      client_id TEXT,
       site_address TEXT,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
   try { await queryRun(`ALTER TABLE project_financials ADD COLUMN project_ref TEXT`); } catch(e){}
   try { await queryRun(`ALTER TABLE project_financials ADD COLUMN client TEXT`); } catch(e){}
+  try { await queryRun(`ALTER TABLE project_financials ADD COLUMN client_id TEXT`); } catch(e){}
   try { await queryRun(`ALTER TABLE project_financials ADD COLUMN site_address TEXT`); } catch(e){}
 
+  // Auto-seed and sync client to the Central Client Master
+  let clientId = null;
+  const clientName = payload.client ? String(payload.client).trim() : '';
+  if (clientName) {
+    try {
+      const existingClient = await queryGet(
+        `SELECT id FROM clients WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR LOWER(TRIM(company_name)) = LOWER(TRIM(?))`,
+        [clientName, clientName]
+      );
+      if (existingClient) {
+        clientId = existingClient.id;
+      } else {
+        const now = new Date().toISOString();
+        const insertRes = await queryRun(
+          `INSERT INTO clients (name, company_name, status, created_by, created_at, updated_at)
+           VALUES (?, ?, 'Active', 'system:project_sync', ?, ?)`,
+          [clientName, clientName, now, now]
+        );
+        clientId = insertRes?.lastInsertRowid || null;
+      }
+
+      // Propagate client mapping to existing BOQ headers for this project
+      await queryRun(
+        `UPDATE boq_headers SET client_id = ?, client_name = ? WHERE project = ?`,
+        [clientId ? String(clientId) : null, clientName, String(payload.project)]
+      );
+    } catch (e) {
+      console.warn('[Project Financials Client Sync Warning]', e.message);
+    }
+  }
+
   await queryRun(
-    `INSERT INTO project_financials (project, project_value, bcs, inflow, invoice_value, tds, project_ref, client, site_address, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO project_financials (project, project_value, bcs, inflow, invoice_value, tds, project_ref, client, client_id, site_address, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(project) DO UPDATE SET
        project_value = excluded.project_value,
        bcs = excluded.bcs,
@@ -220,6 +253,7 @@ export async function updateProjectFinancials(payload, session) {
        tds = excluded.tds,
        project_ref = excluded.project_ref,
        client = excluded.client,
+       client_id = excluded.client_id,
        site_address = excluded.site_address,
        updated_at = excluded.updated_at`,
     [
@@ -230,14 +264,15 @@ export async function updateProjectFinancials(payload, session) {
       Number(payload.clientDebit) || 0,
       Number(payload.tds) || 0,
       payload.project_ref || '',
-      payload.client || '',
+      clientName,
+      clientId ? String(clientId) : null,
       payload.site_address || '',
       new Date().toISOString()
     ]
   );
   await logAudit(session.email, 'Project Financials Updated', String(payload.project), 'Projects');
   invalidateProjectCache(payload.project);
-  return { ok: true, project: payload.project };
+  return { ok: true, project: payload.project, client: clientName, client_id: clientId };
 }
 
 export async function getProjectFinancialSummary(requestId, session) {

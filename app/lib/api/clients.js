@@ -17,6 +17,33 @@ export async function listClients(filters = {}, session) {
   requireAuth(session);
   await initEnterpriseUpgradeSchemas();
 
+  // Auto-sync clients from project_financials so project clients automatically register in Clients Master
+  try {
+    const projClients = await queryAll(
+      `SELECT DISTINCT TRIM(client) as client_name FROM project_financials WHERE client IS NOT NULL AND TRIM(client) != ''`
+    );
+    if (Array.isArray(projClients)) {
+      for (const pc of projClients) {
+        const cName = pc.client_name;
+        if (!cName) continue;
+        const existing = await queryGet(
+          `SELECT id FROM clients WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR LOWER(TRIM(company_name)) = LOWER(TRIM(?))`,
+          [cName, cName]
+        );
+        if (!existing) {
+          const now = new Date().toISOString();
+          await queryRun(
+            `INSERT INTO clients (name, company_name, status, created_by, created_at, updated_at)
+             VALUES (?, ?, 'Active', 'system:project_sync', ?, ?)`,
+            [cName, cName, now, now]
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Clients Auto-Sync from Projects]', err.message);
+  }
+
   const f = unwrap(filters) || {};
   let sql = `SELECT * FROM clients WHERE deleted_at IS NULL`;
   const args = [];
@@ -42,15 +69,18 @@ export async function listClients(filters = {}, session) {
      GROUP BY client`
   );
   const sumMap = new Map();
-  projectSummaries.forEach(s => {
-    sumMap.set(String(s.client).trim().toLowerCase(), s);
-  });
+  if (Array.isArray(projectSummaries)) {
+    projectSummaries.forEach(s => {
+      sumMap.set(String(s.client).trim().toLowerCase(), s);
+    });
+  }
 
-  return clients.map(c => {
+  return (clients || []).map(c => {
     const s = sumMap.get(String(c.name || '').trim().toLowerCase()) || 
               sumMap.get(String(c.company_name || '').trim().toLowerCase());
     return {
       ...c,
+      is_project_mapped: c.created_by === 'system:project_sync',
       linked_projects_count: s?.proj_count || 0,
       total_contract_value: s?.total_val || 0
     };
@@ -151,15 +181,19 @@ export async function getClientProjectsAndBoqs(clientId, session) {
   const client = await queryGet(`SELECT * FROM clients WHERE id = ? AND deleted_at IS NULL`, [targetId]);
   if (!client) throw new Error('Client not found');
 
+  const clientName = client.name || '';
+  const companyName = client.company_name || clientName;
+
   // Find linked projects from project_financials
   const projects = await queryAll(
     `SELECT * FROM project_financials 
-     WHERE client_id = ? OR LOWER(client) = LOWER(?) OR LOWER(client) = LOWER(?)`,
-    [client.id, client.name, client.company_name || client.name]
+     WHERE client_id = ? OR LOWER(TRIM(client)) = LOWER(TRIM(?)) OR LOWER(TRIM(client)) = LOWER(TRIM(?))`,
+    [client.id, clientName, companyName]
   );
 
   // For each project, fetch its BOQs and versions
-  const projectNames = projects.map(p => p.project);
+  const projectList = Array.isArray(projects) ? projects : [];
+  const projectNames = projectList.map(p => p.project).filter(Boolean);
   let boqs = [];
   if (projectNames.length > 0) {
     const placeholders = projectNames.map(() => '?').join(',');
@@ -167,14 +201,22 @@ export async function getClientProjectsAndBoqs(clientId, session) {
       `SELECT h.*, v.version_number, v.revision_label, v.total_selling_value, v.total_cost_value, v.gross_margin, v.margin_pct, v.status as version_status
        FROM boq_headers h
        LEFT JOIN boq_versions v ON h.current_version_id = v.id
-       WHERE h.project IN (${placeholders}) OR h.client_id = ?`,
-      [...projectNames, client.id]
+       WHERE h.project IN (${placeholders}) OR h.client_id = ? OR LOWER(TRIM(h.client_name)) = LOWER(TRIM(?))`,
+      [...projectNames, client.id, clientName]
+    );
+  } else {
+    boqs = await queryAll(
+      `SELECT h.*, v.version_number, v.revision_label, v.total_selling_value, v.total_cost_value, v.gross_margin, v.margin_pct, v.status as version_status
+       FROM boq_headers h
+       LEFT JOIN boq_versions v ON h.current_version_id = v.id
+       WHERE h.client_id = ? OR LOWER(TRIM(h.client_name)) = LOWER(TRIM(?))`,
+      [client.id, clientName]
     );
   }
 
   return {
     client,
-    projects,
-    boqs
+    projects: projectList,
+    boqs: Array.isArray(boqs) ? boqs : []
   };
 }

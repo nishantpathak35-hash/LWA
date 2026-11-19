@@ -245,6 +245,21 @@ export async function initBoqTables() {
       console.warn('[BOQ Init] po_items alteration warning:', e.message);
     }
 
+    // Check boq_headers schema for client_id and client_name columns
+    try {
+      const bqPragma = await queryAll(`PRAGMA table_info(boq_headers)`);
+      const existingBqCols = new Set((bqPragma || []).map(c => c.name));
+
+      if (!existingBqCols.has('client_id')) {
+        await queryRun(`ALTER TABLE boq_headers ADD COLUMN client_id TEXT`);
+      }
+      if (!existingBqCols.has('client_name')) {
+        await queryRun(`ALTER TABLE boq_headers ADD COLUMN client_name TEXT`);
+      }
+    } catch (e) {
+      console.warn('[BOQ Init] boq_headers alteration warning:', e.message);
+    }
+
     _boqTablesInitialized = true;
   } catch (err) {
     console.error('[BOQ Init] Error initializing tables:', err);
@@ -428,11 +443,31 @@ export async function createBoq(payload, session) {
   const seq = ((countRow?.cnt || 0) + 1).toString().padStart(3, '0');
   const boqNo = `BOQ-${cleanProject}-${seq}`;
 
+  // Derive client mapping directly from project_financials
+  let clientName = null;
+  let clientId = null;
+  try {
+    const projFin = await queryGet(`SELECT client, client_id FROM project_financials WHERE project = ?`, [project]);
+    if (projFin?.client) {
+      clientName = String(projFin.client).trim();
+      clientId = projFin.client_id || null;
+      if (!clientId && clientName) {
+        const clRow = await queryGet(
+          `SELECT id FROM clients WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR LOWER(TRIM(company_name)) = LOWER(TRIM(?))`,
+          [clientName, clientName]
+        );
+        clientId = clRow?.id || null;
+      }
+    }
+  } catch (err) {
+    console.warn('[BOQ Client Auto-Derivation Warning]', err.message);
+  }
+
   // 1. Insert header
   await queryRun(
-    `INSERT INTO boq_headers (id, project, boq_no, title, current_version_id, status, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'Draft', ?, ?, ?)`,
-    [boqId, project, boqNo, title, versionId, session.user.email, now, now]
+    `INSERT INTO boq_headers (id, project, boq_no, title, current_version_id, status, client_id, client_name, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'Draft', ?, ?, ?, ?, ?)`,
+    [boqId, project, boqNo, title, versionId, clientId ? String(clientId) : null, clientName, session.user.email, now, now]
   );
 
   // 2. Insert initial version (Rev 1)

@@ -117,6 +117,39 @@ describe('Enterprise Upgrade System Tests', () => {
       expect(res.boqs).toHaveLength(1);
       expect(res.boqs[0].gross_margin).toBe(1500000);
     });
+
+    it('auto-syncs clients from project_financials into clients master', async () => {
+      // 1st queryAll in listClients: distinct clients from project_financials
+      mockQueryAll.mockResolvedValueOnce([
+        { client_name: 'Vatika Group' },
+        { client_name: 'SRF Foundation' }
+      ]);
+      // mockQueryGet checking existence
+      mockQueryGet.mockResolvedValueOnce(null); // Vatika does not exist yet
+      mockQueryGet.mockResolvedValueOnce({ id: 5, name: 'SRF Foundation' }); // SRF already exists
+
+      // 2nd queryAll: SELECT * FROM clients
+      mockQueryAll.mockResolvedValueOnce([
+        { id: 1, name: 'Vatika Group', company_name: 'Vatika Group', created_by: 'system:project_sync' },
+        { id: 5, name: 'SRF Foundation', company_name: 'SRF Foundation', created_by: 'admin' }
+      ]);
+
+      // 3rd queryAll: projectSummaries
+      mockQueryAll.mockResolvedValueOnce([
+        { client: 'Vatika Group', proj_count: 2, total_val: 12000000 },
+        { client: 'SRF Foundation', proj_count: 1, total_val: 4500000 }
+      ]);
+
+      const result = await listClients({}, session);
+      expect(result).toHaveLength(2);
+      expect(result[0].is_project_mapped).toBe(true);
+      expect(result[0].linked_projects_count).toBe(2);
+      expect(result[0].total_contract_value).toBe(12000000);
+      expect(mockQueryRun).toHaveBeenCalledWith(
+        expect.stringContaining('system:project_sync'),
+        expect.arrayContaining(['Vatika Group'])
+      );
+    });
   });
 
   describe('2. Central Rate Contracts & PO Match Engine', () => {
