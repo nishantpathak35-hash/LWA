@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '../../ui/core';
 import { FileSpreadsheet, X, Search, RefreshCw, CheckCircle2, Plus, Filter, Building2 } from 'lucide-react';
 import { formatCurrency } from '../../../app/lib/utils';
@@ -176,8 +177,10 @@ export default function BOQItemImportDrawer({
     return acc + (q * r);
   }, 0);
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs transition-opacity animate-fade-in">
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-xs transition-opacity animate-fade-in">
       <div className="w-full max-w-3xl bg-card border-l border-border h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between bg-amber-500/10">
@@ -400,6 +403,7 @@ export default function BOQItemImportDrawer({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

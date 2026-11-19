@@ -1457,7 +1457,7 @@ export async function exportBoqToExcel(versionId, options = {}) {
   // SHEET 2: DETAILED BOQ
   // -------------------------------------------------------------
   const wsDet = wb.addWorksheet('DETAILED BOQ', { views: [{ showGridLines: true }] });
-  
+
   // Define columns based on view mode
   const isInternal = view === 'internal' || view === 'procurement';
   const isProcurement = view === 'procurement';
@@ -1794,8 +1794,8 @@ export async function importBoqFromExcel(payload, session) {
   let chosenSheetName = sheetName;
   if (!chosenSheetName || !workbook.Sheets[chosenSheetName]) {
     chosenSheetName = workbook.SheetNames.find(n => n.toUpperCase().includes('DETAILED BOQ-R2')) ||
-                      workbook.SheetNames.find(n => n.toUpperCase().includes('DETAILED BOQ')) ||
-                      workbook.SheetNames[0];
+      workbook.SheetNames.find(n => n.toUpperCase().includes('DETAILED BOQ')) ||
+      workbook.SheetNames[0];
   }
 
   const ws = workbook.Sheets[chosenSheetName];
