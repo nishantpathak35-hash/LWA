@@ -9,6 +9,9 @@ export interface IPOItem {
   disc_pct?: number;
   tax_pct: number;
   amount: number;
+  boq_item_id?: string;
+  boq_id?: string;
+  boq_version_id?: string;
 }
 
 export interface IPO {
@@ -91,4 +94,7 @@ export interface IPOItemInput {
   discount?: number;
   gst_amount?: number;
   amount?: number;
+  boq_item_id?: string;
+  boq_id?: string;
+  boq_version_id?: string;
 }

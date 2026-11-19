@@ -576,7 +576,7 @@ export default function SiteEmployeesView() {
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                                    {new Date(rec.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(rec.punch_in_time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}
                                   </span>
                                   {rec.punch_in_selfie && (
                                     <button
@@ -609,7 +609,7 @@ export default function SiteEmployeesView() {
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                                    {new Date(rec.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(rec.punch_out_time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}
                                   </span>
                                   {rec.punch_out_selfie && (
                                     <button
@@ -918,8 +918,8 @@ export default function SiteEmployeesView() {
                         <TableCell className="text-xs font-medium">{reg.project}</TableCell>
                         <TableCell className="text-xs font-mono">{reg.date}</TableCell>
                         <TableCell className="text-xs font-mono">
-                          In: {reg.proposed_punch_in ? new Date(reg.proposed_punch_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'} |
-                          Out: {reg.proposed_punch_out ? new Date(reg.proposed_punch_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          In: {reg.proposed_punch_in ? new Date(reg.proposed_punch_in).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'} |
+                          Out: {reg.proposed_punch_out ? new Date(reg.proposed_punch_out).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground max-w-[220px] truncate" title={reg.reason}>
                           {reg.reason}
@@ -1504,7 +1504,7 @@ export default function SiteEmployeesView() {
               <p><strong>Date:</strong> {reviewModalData.date}</p>
               <p><strong>Reason:</strong> {reviewModalData.reason}</p>
               <p className="font-mono text-emerald-600 dark:text-emerald-400">
-                Proposed: {reviewModalData.proposed_punch_in ? new Date(reviewModalData.proposed_punch_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'} → {reviewModalData.proposed_punch_out ? new Date(reviewModalData.proposed_punch_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                Proposed: {reviewModalData.proposed_punch_in ? new Date(reviewModalData.proposed_punch_in).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'} → {reviewModalData.proposed_punch_out ? new Date(reviewModalData.proposed_punch_out).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
               </p>
             </div>
 

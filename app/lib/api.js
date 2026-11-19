@@ -94,6 +94,7 @@ export {
   importItemMasterBulk,
   createBoq,
   getBoqList,
+  getBoqVersionsList,
   getBoqVersion,
   saveBoqSection,
   deleteBoqSection,

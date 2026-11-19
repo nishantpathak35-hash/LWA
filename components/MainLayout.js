@@ -18,15 +18,37 @@ import { CommandPalette } from './ui/CommandPalette';
 
 // Detect Mac for keyboard shortcut display
 const viewLoading = () => <div role="status" className="p-6 text-muted-foreground">Loading…</div>;
-const DashboardView = dynamic(() => import('./views/DashboardView'), { loading: viewLoading });
-const ProjectsView = dynamic(() => import('./views/ProjectsView'), { loading: viewLoading });
-const VendorsView = dynamic(() => import('./views/VendorsView'), { loading: viewLoading });
-const ReportsView = dynamic(() => import('./views/ReportsView'), { loading: viewLoading });
-const InvoicesView = dynamic(() => import('./views/InvoicesView'), { loading: viewLoading });
-const SettingsView = dynamic(() => import('./views/SettingsView'), { loading: viewLoading });
-const SiteEmployeesView = dynamic(() => import('./views/SiteEmployeesView'), { loading: viewLoading });
-const HrmsView = dynamic(() => import('./views/HrmsView'), { loading: viewLoading });
-const MyAttendanceView = dynamic(() => import('./views/MyAttendanceView'), { loading: viewLoading });
+
+function safeDynamic(importFn) {
+  return dynamic(
+    () =>
+      importFn().catch((err) => {
+        const msg = String(err?.message || err || '');
+        if (/chunk|failed to load|Loading chunk/i.test(msg) && typeof window !== 'undefined') {
+          console.warn('[ChunkLoadRecovery] Chunk load error detected, reloading page for fresh assets...', err);
+          const key = 'pts_chunk_reload_lock';
+          const last = Number(sessionStorage.getItem(key) || 0);
+          if (Date.now() - last > 10000) {
+            sessionStorage.setItem(key, String(Date.now()));
+            window.location.reload();
+            return new Promise(() => {});
+          }
+        }
+        throw err;
+      }),
+    { loading: viewLoading }
+  );
+}
+
+const DashboardView = safeDynamic(() => import('./views/DashboardView'));
+const ProjectsView = safeDynamic(() => import('./views/ProjectsView'));
+const VendorsView = safeDynamic(() => import('./views/VendorsView'));
+const ReportsView = safeDynamic(() => import('./views/ReportsView'));
+const InvoicesView = safeDynamic(() => import('./views/InvoicesView'));
+const SettingsView = safeDynamic(() => import('./views/SettingsView'));
+const SiteEmployeesView = safeDynamic(() => import('./views/SiteEmployeesView'));
+const HrmsView = safeDynamic(() => import('./views/HrmsView'));
+const MyAttendanceView = safeDynamic(() => import('./views/MyAttendanceView'));
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -292,23 +314,27 @@ export default function MainLayout() {
     }
 
     const viewLabel = VIEW_LABELS[activeView] || activeView;
-    const views = {
-      dashboard:      <DashboardView />,
-      projects:       <ProjectsView />,
-      vendors:        <VendorsView />,
-      pos:            <POsView />,
-      hrms:           <HrmsView />,
-      site_employees: <HrmsView initialTab="directory" />,
-      my_attendance:  <MyAttendanceView />,
-      invoices:       <InvoicesView />,
-      payments:       <PaymentsView />,
-      reports:        <ReportsView />,
-      settings:       <SettingsView />,
+
+    const renderActiveView = () => {
+      switch (activeView) {
+        case 'dashboard': return <DashboardView />;
+        case 'projects': return <ProjectsView />;
+        case 'vendors': return <VendorsView />;
+        case 'pos': return <POsView />;
+        case 'hrms': return <HrmsView />;
+        case 'site_employees': return <HrmsView initialTab="directory" />;
+        case 'my_attendance': return <MyAttendanceView />;
+        case 'invoices': return <InvoicesView />;
+        case 'payments': return <PaymentsView />;
+        case 'reports': return <ReportsView />;
+        case 'settings': return <SettingsView />;
+        default: return <DashboardView />;
+      }
     };
 
     return (
       <ErrorBoundary label={viewLabel}>
-        {views[activeView] ?? <DashboardView />}
+        {renderActiveView()}
       </ErrorBoundary>
     );
   };

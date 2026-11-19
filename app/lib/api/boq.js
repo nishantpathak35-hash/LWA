@@ -488,6 +488,22 @@ export async function getBoqList(project) {
   return headers || [];
 }
 
+export async function getBoqVersionsList(boqId) {
+  await initBoqTables();
+  if (!boqId) return [];
+
+  const versions = await queryAll(
+    `SELECT v.*, h.project, h.boq_no, h.title as boq_title
+     FROM boq_versions v
+     JOIN boq_headers h ON v.boq_id = h.id
+     WHERE v.boq_id = ?
+     ORDER BY v.version_number DESC`,
+    [boqId]
+  );
+
+  return versions || [];
+}
+
 export async function getBoqVersion(versionId) {
   await initBoqTables();
   if (!versionId) return null;
@@ -621,7 +637,7 @@ export async function saveBoqItem(data, session) {
   const amount = Math.round(qty * sellingRate * 100) / 100;
   const costAmount = Math.round(qty * costRate * 100) / 100;
   const margin = Math.round((amount - costAmount) * 100) / 100;
-  const marginPct = amount > 0 ? Math.round(((sellingRate - costRate) / sellingRate) * 10000) / 100 : 0;
+  const marginPct = (amount > 0 && sellingRate > 0) ? Math.round(((sellingRate - costRate) / sellingRate) * 10000) / 100 : 0;
 
   if (isUpdate) {
     await queryRun(
@@ -981,8 +997,12 @@ export async function createPoFromBoq(payload, session) {
   const poPayload = {
     project: poProject,
     vendor_id: vendor_id || null,
+    vendorId: vendor_id || null,
     vendor_name: vendor_name || 'Selected Vendor',
+    vendorName: vendor_name || 'Selected Vendor',
     vendor_code: vendor_code || '',
+    vendorCode: vendor_code || '',
+    vendor: vendor_name || 'Selected Vendor',
     category: category,
     items: poItemsData,
     terms: terms || 'Standard Procurement Terms',
@@ -993,7 +1013,7 @@ export async function createPoFromBoq(payload, session) {
   };
 
   const poResult = await savePO(poPayload, session);
-  const poNo = poResult?.po_no || poResult?.id;
+  const poNo = poResult?.poNo || poResult?.po_no || poResult?.id;
 
   if (!poNo) {
     throw new Error('Failed to create Purchase Order via PTS Procurement engine');

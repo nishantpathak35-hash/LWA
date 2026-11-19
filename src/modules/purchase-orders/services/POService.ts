@@ -108,7 +108,10 @@ export class POService {
           rate: itemRate,
           disc_pct: item.disc_pct || item.disc || item.discount || 0,
           tax_pct: itemGstPct,
-          amount: itemTotal
+          amount: itemTotal,
+          boq_item_id: item.boq_item_id,
+          boq_id: item.boq_id,
+          boq_version_id: item.boq_version_id
         });
       }
     }

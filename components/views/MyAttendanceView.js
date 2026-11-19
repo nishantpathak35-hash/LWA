@@ -11,7 +11,7 @@ import {
   Clock, MapPin, Camera, CheckCircle2, AlertTriangle, 
   XCircle, RotateCcw, Calendar, History, ShieldAlert,
   ArrowRight, ShieldCheck, User, Building2, Eye, ExternalLink,
-  ChevronRight, RefreshCw, Send, Check, Award, Bell, FileText, Plus
+  ChevronRight, RefreshCw, Send, Check, Award, Bell, FileText, Plus, Upload, Smartphone, Monitor
 } from 'lucide-react';
 
 export default function MyAttendanceView() {
@@ -63,6 +63,27 @@ export default function MyAttendanceView() {
   const [cameraError, setCameraError] = useState(null);
   const [selfiePreview, setSelfiePreview] = useState(null);
   const streamRef = useRef(null);
+
+  // Camera fallback & File upload
+  const fileInputRef = useRef(null);
+  const [outOfSiteWarning, setOutOfSiteWarning] = useState(null);
+
+  // Reliable IST Time Formatter (prevents UTC/local machine discrepancies)
+  const formatTimeIST = (time) => {
+    if (!time) return '—';
+    try {
+      const d = new Date(time);
+      if (isNaN(d.getTime())) return '—';
+      return d.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return '—';
+    }
+  };
 
   // GPS Coordinates
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -219,6 +240,43 @@ export default function MyAttendanceView() {
     }
   }, []);
 
+  // Native file upload / mobile camera capture fallback
+  const handleFileCapture = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 800;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setSelfiePreview(compressedDataUrl);
+        setCameraError(null);
+        stopCamera();
+      };
+      img.src = readerEvent.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const captureSelfie = useCallback(() => {
     if (!videoRef.current) return;
     try {
@@ -272,11 +330,8 @@ export default function MyAttendanceView() {
         }
         return { latitude, longitude, accuracy: roundedAcc };
       });
-      // Stop loading spinner if we achieved high or acceptable satellite precision
-      if (roundedAcc <= 50) {
-        setGpsLoading(false);
-      } else {
-        // If coarse, mark loading complete after brief lock but keep continuous watch for satellite refinement
+      // Refine precision: stop spinner when high precision is confirmed
+      if (roundedAcc <= 60) {
         setGpsLoading(false);
       }
 
@@ -336,6 +391,11 @@ export default function MyAttendanceView() {
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 
+    // Safety stop: do not leave spinner indefinitely
+    setTimeout(() => {
+      setGpsLoading(false);
+    }, 6000);
+
     // Continuous high-precision satellite tracking
     try {
       gpsWatchIdRef.current = navigator.geolocation.watchPosition(
@@ -371,6 +431,7 @@ export default function MyAttendanceView() {
     setPunchType(type);
     setPunchModalOpen(true);
     setSelfiePreview(null);
+    setOutOfSiteWarning(null);
     fetchGpsLocation();
     setTimeout(() => {
       startCamera();
@@ -384,6 +445,7 @@ export default function MyAttendanceView() {
     setSelfiePreview(null);
     setGpsError(null);
     setCameraError(null);
+    setOutOfSiteWarning(null);
   };
 
   // Submit Punch
@@ -422,13 +484,8 @@ export default function MyAttendanceView() {
       console.error('Punch submission failed:', err);
       const errMsg = err.message || 'Attendance punch submission failed. Please verify site and network.';
       if (errMsg.includes('PUNCH_BLOCKED')) {
-        const confirmFlagged = window.confirm(
-          `${errMsg}\n\nDo you want to submit your punch as Out-of-Site attendance for Manager Review?`
-        );
-        if (confirmFlagged) {
-          setPunchSubmitting(false);
-          return handleSubmitPunch(true);
-        }
+        setOutOfSiteWarning(errMsg.replace('PUNCH_BLOCKED:', '').trim());
+        return;
       }
       alert(errMsg);
     } finally {
@@ -701,7 +758,7 @@ export default function MyAttendanceView() {
                           Missed Punch Out on {recentMissedPunch.date}
                         </div>
                         <div className="text-[11px] text-muted-foreground mt-0.5">
-                          Shift started at {new Date(recentMissedPunch.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} was auto-closed as incomplete shift. Today is ready for fresh punch-in.
+                          Shift started at {formatTimeIST(recentMissedPunch.punch_in_time)} IST was auto-closed as incomplete shift. Today is ready for fresh punch-in.
                         </div>
                       </div>
                     </div>
@@ -934,13 +991,25 @@ export default function MyAttendanceView() {
                       <span>START SHIFT — PUNCH IN WITH SELFIE & GPS</span>
                     </Button>
                   ) : !todayRecord?.punch_out_time ? (
-                    <Button
-                      onClick={() => handleOpenPunchModal('out')}
-                      className="w-full py-6 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl shadow-lg shadow-amber-950/20 flex items-center justify-center gap-3 cursor-pointer transition-all active:scale-[0.99]"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>END SHIFT — PUNCH OUT WITH SELFIE & GPS</span>
-                    </Button>
+                    <div className="space-y-3">
+                      <Button
+                        onClick={() => handleOpenPunchModal('out')}
+                        className="w-full py-6 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl shadow-lg shadow-amber-950/20 flex items-center justify-center gap-3 cursor-pointer transition-all active:scale-[0.99]"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span>END SHIFT — PUNCH OUT WITH SELFIE & GPS</span>
+                      </Button>
+                      {isOvernightShift && (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleOpenPunchModal('in')}
+                          className="w-full py-3 text-xs font-semibold border-amber-500/40 text-amber-500 hover:bg-amber-500/10 rounded-xl flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Close Yesterday & Start Today's Shift (Punch In)</span>
+                        </Button>
+                      )}
+                    </div>
                   ) : (
                     <div className="text-center p-4 rounded-2xl bg-muted/40 border border-border space-y-2">
                       <p className="text-xs font-semibold text-muted-foreground">
@@ -1584,29 +1653,60 @@ export default function MyAttendanceView() {
             </div>
           )}
 
+          {/* Hidden File Input for Native Camera / Photo Upload */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            capture="user"
+            className="hidden"
+            onChange={handleFileCapture}
+          />
+
           {/* Camera Control Buttons */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
             {selfiePreview ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelfiePreview(null);
-                  startCamera();
-                }}
-                className="text-xs"
-              >
-                <RotateCcw className="w-3.5 h-3.5 mr-1 text-amber-500" /> Retake Selfie
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelfiePreview(null);
+                    startCamera();
+                  }}
+                  className="text-xs"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1 text-amber-500" /> Retake Live
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs"
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1 text-amber-500" /> Re-upload Photo
+                </Button>
+              </div>
             ) : (
-              <Button
-                size="sm"
-                onClick={captureSelfie}
-                disabled={!cameraActive}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-6"
-              >
-                <Camera className="w-4 h-4 mr-1.5" /> Capture Selfie Snapshot
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                <Button
+                  size="sm"
+                  onClick={captureSelfie}
+                  disabled={!cameraActive}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-5 cursor-pointer disabled:opacity-50"
+                >
+                  <Camera className="w-4 h-4 mr-1.5" /> Capture Live Snapshot
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Take Photo / Upload Selfie
+                </Button>
+              </div>
             )}
           </div>
 
@@ -1710,6 +1810,27 @@ export default function MyAttendanceView() {
               </div>
             )}
           </div>
+
+          {/* Out of Site Warning Box */}
+          {outOfSiteWarning && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+              <div className="font-bold text-amber-500 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Outside Designated Site Radius</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                {outOfSiteWarning}
+              </p>
+              <Button
+                size="sm"
+                onClick={() => handleSubmitPunch(true)}
+                disabled={punchSubmitting}
+                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
+              >
+                Submit as Out-of-Site Attendance (Manager Review)
+              </Button>
+            </div>
+          )}
 
           {/* Action Footer */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">

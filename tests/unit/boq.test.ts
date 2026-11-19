@@ -32,6 +32,7 @@ import {
   deleteItemMaster,
   createBoq,
   getBoqList,
+  getBoqVersionsList,
   getBoqVersion,
   saveBoqSection,
   saveBoqItem,
@@ -341,6 +342,38 @@ describe('BOQ Engine 2.0 Backend Tests', () => {
       expect(dash.gross_margin).toBe(30000);
       expect(dash.margin_pct).toBe(30);
       expect(dash.procurement.coverage_pct).toBe(50); // 35000 / 70000 = 50%
+    });
+
+    it('retrieves all past revisions of a BOQ via getBoqVersionsList', async () => {
+      mockQueryAll.mockResolvedValueOnce([
+        { id: 'v2', boq_id: 'b1', version_number: 2, revision_label: 'Rev 1', status: 'Draft' },
+        { id: 'v1', boq_id: 'b1', version_number: 1, revision_label: 'Rev 0', status: 'Approved' }
+      ]);
+
+      const versions = await getBoqVersionsList('b1');
+      expect(versions.length).toBe(2);
+      expect(versions[0].revision_label).toBe('Rev 1');
+      expect(versions[1].revision_label).toBe('Rev 0');
+    });
+
+    it('safely handles zero selling rate without division by zero NaN', async () => {
+      mockQueryGet.mockResolvedValueOnce({ status: 'Draft', is_current: 1 }); // version status check
+      mockQueryGet.mockResolvedValueOnce({ total_selling: 0, total_cost: 500 }); // recalculateBoqTotals
+      mockQueryGet.mockResolvedValueOnce({ id: 'it-0', quantity: 10, cost_rate: 50, selling_rate: 0, margin_pct: 0 });
+
+      const res = await saveBoqItem({
+        boq_version_id: 'v1',
+        description: 'Zero rate item',
+        quantity: 10,
+        cost_rate: 50,
+        selling_rate: 0
+      }, adminSession);
+
+      expect(res).toBeDefined();
+      expect(mockQueryRun).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO boq_items'),
+        expect.arrayContaining([0]) // marginPct must be 0, not NaN or -Infinity
+      );
     });
   });
 });

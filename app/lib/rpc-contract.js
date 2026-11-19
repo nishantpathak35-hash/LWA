@@ -257,6 +257,7 @@ export const RPC_CONTRACT = Object.freeze({
   importItemMasterBulk: {"args":1,"sessionIndex":1,"access":"internal"},
   createBoq: {"args":1,"sessionIndex":1,"access":"internal"},
   getBoqList: {"args":1,"sessionIndex":-1,"access":"internal"},
+  getBoqVersionsList: {"args":1,"sessionIndex":-1,"access":"internal"},
   getBoqVersion: {"args":1,"sessionIndex":-1,"access":"internal"},
   saveBoqSection: {"args":1,"sessionIndex":1,"access":"internal"},
   deleteBoqSection: {"args":1,"sessionIndex":1,"access":"internal"},

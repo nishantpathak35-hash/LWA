@@ -98,12 +98,13 @@ export class PORepository {
    */
   static async createItem(item: IPOItem): Promise<void> {
     const sql = `
-      INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount, boq_item_id, boq_id, boq_version_id) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
       item.po_no, item.description, item.hsn_sac || '', item.qty, item.unit, 
-      item.rate, item.disc_pct || 0, item.tax_pct || 0, item.amount
+      item.rate, item.disc_pct || 0, item.tax_pct || 0, item.amount,
+      item.boq_item_id || null, item.boq_id || null, item.boq_version_id || null
     ];
     await queryRun(sql, params);
   }

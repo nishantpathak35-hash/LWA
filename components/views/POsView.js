@@ -567,7 +567,10 @@ export default function POsView() {
             hsn_sac: item.hsnSac,
             qty: Number(item.quantity), unit: item.unit || 'Nos', rate: Number(item.rate),
             tax_pct: (item.gstPct !== undefined && item.gstPct !== null) ? Number(item.gstPct) : 18,
-            gst_amount: gstAmt, amount: total
+            gst_amount: gstAmt, amount: total,
+            boq_item_id: item.boq_item_id || null,
+            boq_id: item.boq_id || null,
+            boq_version_id: item.boq_version_id || null
           };
         })
       };

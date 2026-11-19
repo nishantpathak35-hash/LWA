@@ -2,6 +2,26 @@ import { NextResponse } from 'next/server';
 import * as api from '../../lib/api.js';
 import { dispatchRpc } from '../../lib/rpc-dispatch.js';
 
+function safeSerialize(obj) {
+  const seen = new WeakSet();
+  return JSON.parse(
+    JSON.stringify(obj ?? { success: true }, (key, value) => {
+      if (typeof value === 'bigint') {
+        return value <= BigInt(Number.MAX_SAFE_INTEGER) && value >= BigInt(Number.MIN_SAFE_INTEGER)
+          ? Number(value)
+          : value.toString();
+      }
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return undefined; // Break circular reference
+        }
+        seen.add(value);
+      }
+      return value;
+    })
+  );
+}
+
 export async function POST(request) {
   try {
     const raw = await request.text();
@@ -12,8 +32,7 @@ export async function POST(request) {
     try { body = JSON.parse(raw); }
     catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
     const result = await dispatchRpc(api, body, request);
-    const payload = JSON.parse(JSON.stringify(result ?? { success: true }, (_, value) =>
-      typeof value === 'bigint' ? (value <= BigInt(Number.MAX_SAFE_INTEGER) && value >= BigInt(Number.MIN_SAFE_INTEGER) ? Number(value) : value.toString()) : value));
+    const payload = safeSerialize(result);
     const response = NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } });
     if (body.method === 'loginUser' && result?.token) {
       response.cookies.set('lx_auth_token', result.token, {

@@ -178,8 +178,12 @@ export async function updatePOFull(poNo, payload, session) {
       const itemGstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(itemGross * itemGstPct / 100);
       const itemTotal = item.amount !== undefined ? Number(item.amount) : (itemGross + itemGstAmt);
       await queryRun(
-        `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nextPoNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '', itemQty, item.unit || item.uom || 'Nos', itemRate, 0, itemGstPct, itemTotal]
+        `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount, boq_item_id, boq_id, boq_version_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          nextPoNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '',
+          itemQty, item.unit || item.uom || 'Nos', itemRate, 0, itemGstPct, itemTotal,
+          item.boq_item_id || null, item.boq_id || null, item.boq_version_id || null
+        ]
       );
     }
   }
@@ -282,6 +286,19 @@ export async function deletePOFull(poNo, session) {
     const placeholders = requestIds.map(() => '?').join(',');
     await safeDelete(`DELETE FROM system_payments WHERE pr_key IN (${placeholders})`, requestIds);
   }
+  // Reversal of BOQ committed quantities if any items were linked
+  try {
+    const linkedBoqs = await queryAll(`SELECT boq_item_id, linked_qty FROM boq_po_links WHERE po_no = ? AND status = 'active'`, [targetPoNo]);
+    if (linkedBoqs && linkedBoqs.length) {
+      for (const link of linkedBoqs) {
+        await queryRun(`UPDATE boq_items SET committed_qty = MAX(0, committed_qty - ?) WHERE id = ?`, [link.linked_qty || 0, link.boq_item_id]);
+      }
+      await queryRun(`UPDATE boq_po_links SET status = 'cancelled' WHERE po_no = ?`, [targetPoNo]);
+    }
+  } catch (err) {
+    // Non-fatal if BOQ tables not initialized
+  }
+
   await safeDelete(`DELETE FROM system_payments WHERE po_no = ?`, [targetPoNo]);
   await safeDelete(`DELETE FROM manual_payments WHERE po_no = ?`, [targetPoNo]);
   await safeDelete(`DELETE FROM payment_requests WHERE po_no = ?`, [targetPoNo]);

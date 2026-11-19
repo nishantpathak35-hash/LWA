@@ -304,6 +304,22 @@ export async function initSiteAttendanceTables() {
       `);
     } catch (e) { }
 
+    // Clean up past unclosed shifts from previous days so punch_out_time is never dangling NULL
+    try {
+      const today = getLocalDateString();
+      await queryRun(`
+        UPDATE site_attendance_records 
+        SET punch_out_time = COALESCE(punch_out_time, datetime(punch_in_time, '+9 hours')),
+            punch_out_geo_status = 'auto_closed',
+            punch_out_address = 'Auto-closed due to missed punch out',
+            total_hours = 4.0,
+            status = 'half_day',
+            is_flagged = 1,
+            flag_reason = 'Missed Punch Out (Auto-closed)'
+        WHERE date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL
+      `, [today]);
+    } catch (e) { }
+
     _tablesInitialized = true;
   } catch (err) {
     console.error('Error initializing site attendance tables:', err);
@@ -371,6 +387,40 @@ export function getLocalDateString(dateObj = new Date()) {
   return getISTParts(dateObj).dateString;
 }
 
+// Format ISO timestamp into clean IST human-readable time (e.g. "09:30 AM")
+export function formatISTTime(isoString) {
+  if (!isoString) return '—';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch {
+    return '—';
+  }
+}
+
+// Format ISO timestamp into clean IST date (e.g. "19 Nov 2026")
+export function formatISTDate(isoString) {
+  if (!isoString) return '—';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  } catch {
+    return '—';
+  }
+}
+
 // -------------------------------------------------------------
 // Helper: Authenticate session
 // -------------------------------------------------------------
@@ -424,6 +474,12 @@ export async function listSiteEmployees(filters = {}, session) {
     sql += ` AND (e.name LIKE ? OR e.employee_id LIKE ? OR e.phone LIKE ? OR e.designation LIKE ?)`;
     const term = `%${search}%`;
     args.push(term, term, term, term);
+  }
+
+  // Non-management staff only see their own profile
+  if (!isManager(session)) {
+    sql += ` AND (LOWER(e.user_email) = LOWER(?) OR LOWER(e.email) = LOWER(?))`;
+    args.push(session.email, session.email);
   }
 
   sql += ` ORDER BY e.name ASC`;
@@ -880,11 +936,13 @@ export async function punchAttendance(punchData, session) {
     // Ensures yesterday's missed punch-out never locks or corrupts future days
     await queryRun(
       `UPDATE site_attendance_records 
-       SET status = 'half_day', is_flagged = 1,
-           flag_reason = CASE 
-             WHEN flag_reason IS NULL OR flag_reason = '' THEN 'Missed Punch Out (Auto-closed on next punch-in)' 
-             ELSE flag_reason || '; Missed Punch Out' 
-           END,
+       SET punch_out_time = COALESCE(punch_out_time, datetime(punch_in_time, '+9 hours')),
+           punch_out_geo_status = 'auto_closed',
+           punch_out_address = 'Auto-closed on next shift punch-in',
+           total_hours = 4.0,
+           status = 'half_day',
+           is_flagged = 1,
+           flag_reason = 'Missed Punch Out (Auto-closed on next shift punch-in)',
            updated_at = ?
        WHERE employee_id = ? AND date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL`,
       [serverTimestamp, employee.employee_id, today]
@@ -1041,33 +1099,67 @@ export async function getMyAttendanceToday(session) {
     const punchInMs = new Date(openPastShift.punch_in_time).getTime();
     const elapsedHours = (nowMs - punchInMs) / (1000 * 60 * 60);
     const inParts = getISTParts(openPastShift.punch_in_time);
+    const currentIst = getISTParts(new Date());
 
     // Only treat as ongoing overnight shift if:
-    // - Started in evening/night (>= 16:00 / 4 PM IST)
-    // - Elapsed time <= 16 hours
+    // - Started in evening/night (>= 17:00 / 5 PM IST)
+    // - Elapsed time <= 14 hours
+    // - Current time is still morning (before 10:00 AM IST)
     // - Today has not already been punched in
-    if (inParts.hours >= 16 && elapsedHours <= 16 && !todayRecord) {
+    const isOngoingOvernight = (
+      inParts.hours >= 17 &&
+      elapsedHours <= 14 &&
+      currentIst.hours < 10 &&
+      !todayRecord
+    );
+
+    if (isOngoingOvernight) {
       activeOvernightShift = openPastShift;
     } else {
-      // Normal day shift (e.g. morning 7 AM) or elapsed > 16 hours.
-      // Auto-close it as Missed Punch Out so it NEVER hijacks today's attendance!
+      // Normal day shift or elapsed shift.
+      // Auto-close it cleanly and set punch_out_time so it NEVER hijacks today's attendance!
+      const autoOutMs = punchInMs + (9 * 60 * 60 * 1000);
+      const autoOutTime = new Date(Math.min(autoOutMs, nowMs)).toISOString();
+      const autoHours = 4.0;
+
       await queryRun(
         `UPDATE site_attendance_records 
-         SET status = 'half_day', is_flagged = 1,
-             flag_reason = CASE 
-               WHEN flag_reason IS NULL OR flag_reason = '' THEN 'Missed Punch Out' 
-               ELSE flag_reason || '; Missed Punch Out' 
-             END,
+         SET punch_out_time = ?,
+             punch_out_geo_status = 'auto_closed',
+             punch_out_address = 'Auto-closed due to missed punch out',
+             total_hours = ?,
+             status = 'half_day',
+             is_flagged = 1,
+             flag_reason = 'Missed Punch Out (Auto-closed)',
              updated_at = ?
          WHERE id = ?`,
-        [serverTimestamp, openPastShift.id]
+        [autoOutTime, autoHours, serverTimestamp, openPastShift.id]
       );
       recentMissedPunch = {
         ...openPastShift,
+        punch_out_time: autoOutTime,
+        total_hours: autoHours,
         status: 'half_day',
         is_flagged: 1,
-        flag_reason: 'Missed Punch Out'
+        flag_reason: 'Missed Punch Out (Auto-closed)'
       };
+    }
+  }
+
+  // If no recentMissedPunch found in openPastShift but yesterday had missed punch out,
+  // load it so user gets the proactive notification banner
+  if (!recentMissedPunch && !todayRecord) {
+    const pastMissed = await queryGet(
+      `SELECT * FROM site_attendance_records 
+       WHERE employee_id = ? AND date < ? AND flag_reason LIKE '%Missed Punch Out%'
+       ORDER BY date DESC LIMIT 1`,
+      [employee.employee_id, today]
+    );
+    if (pastMissed) {
+      const daysDiff = (new Date(today).getTime() - new Date(pastMissed.date).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysDiff <= 3) {
+        recentMissedPunch = pastMissed;
+      }
     }
   }
 
@@ -1123,6 +1215,19 @@ export async function getMyAttendanceHistory(filters = {}, session) {
 export async function getManagementAttendanceKPIs(filters = {}, session) {
   requireAuth(session);
   await initSiteAttendanceTables();
+
+  if (!isManager(session)) {
+    return {
+      totalAssigned: 0,
+      presentToday: 0,
+      currentlyCheckedIn: 0,
+      pendingPunchOuts: 0,
+      absentToday: 0,
+      lateArrivals: 0,
+      flaggedPunches: 0,
+      isRestricted: true
+    };
+  }
 
   const f = unwrap(filters);
   const targetDate = f.date || getLocalDateString();
@@ -1200,8 +1305,23 @@ export async function getDailyAttendanceRegister(filters = {}, session) {
     limit = 200
   } = unwrap(filters);
 
+  let targetEmployeeId = employeeId;
+  if (!isManager(session)) {
+    const emp = await queryGet(
+      `SELECT employee_id FROM site_employees WHERE user_email = ? OR email = ?`,
+      [session.email, session.email]
+    );
+    if (!emp) return [];
+    targetEmployeeId = emp.employee_id;
+  }
+
   let sql = `SELECT * FROM site_attendance_records WHERE 1=1`;
   const args = [];
+
+  if (targetEmployeeId) {
+    sql += ` AND employee_id = ?`;
+    args.push(targetEmployeeId);
+  }
 
   if (startDate && endDate) {
     sql += ` AND date BETWEEN ? AND ?`;
@@ -1216,7 +1336,7 @@ export async function getDailyAttendanceRegister(filters = {}, session) {
     args.push(project);
   }
 
-  if (employeeId) {
+  if (employeeId && targetEmployeeId !== employeeId) {
     sql += ` AND employee_id = ?`;
     args.push(employeeId);
   }

@@ -11,7 +11,9 @@ import {
   allocateEmployeeToProject,
   transferEmployeeProject,
   submitAttendanceRegularisation,
-  reviewAttendanceRegularisation
+  reviewAttendanceRegularisation,
+  getDailyAttendanceRegister,
+  getManagementAttendanceKPIs
 } from '../../app/lib/api/attendance.js';
 import { DEFAULT_FEATURE_PERMISSIONS, VALID_ROLE_KEYS } from '../../app/lib/api/core.js';
 
@@ -421,6 +423,26 @@ describe('Site Attendance Module Unit & Security Tests', () => {
       expect(res.success).toBe(true);
       expect(res.type).toBe('out');
       expect(res.totalHours).toBeGreaterThanOrEqual(9.9);
+    });
+
+    it('enforces RBAC on getDailyAttendanceRegister: non-manager is scoped to self', async () => {
+      vi.mocked(db.queryGet).mockResolvedValueOnce({ employee_id: 'EMP-NISHANT' });
+      vi.mocked(db.queryAll).mockResolvedValueOnce([
+        { id: 1, employee_id: 'EMP-NISHANT', date: '2026-11-19' }
+      ]);
+
+      const res = await getDailyAttendanceRegister({}, { email: 'nishant@luxeworx.com', roles: ['site_staff'] });
+      expect(res).toHaveLength(1);
+      expect(db.queryAll).toHaveBeenCalledWith(
+        expect.stringContaining('employee_id = ?'),
+        expect.arrayContaining(['EMP-NISHANT'])
+      );
+    });
+
+    it('enforces RBAC on getManagementAttendanceKPIs: non-manager gets restricted response', async () => {
+      const res = await getManagementAttendanceKPIs({}, { email: 'worker@site.com', roles: ['site_worker'] });
+      expect(res.isRestricted).toBe(true);
+      expect(res.totalAssigned).toBe(0);
     });
   });
 });

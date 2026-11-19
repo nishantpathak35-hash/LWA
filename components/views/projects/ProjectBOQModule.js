@@ -44,7 +44,7 @@ export default function ProjectBOQModule({ selectedProject }) {
   const [creatingBoq, setCreatingBoq] = useState(false);
 
   // Load BOQs for this project
-  const loadBoqs = useCallback(async () => {
+  const loadBoqs = useCallback(async (targetBoqId = null) => {
     if (!projectName) return;
     setLoading(true);
     try {
@@ -52,11 +52,12 @@ export default function ProjectBOQModule({ selectedProject }) {
       setBoqList(list || []);
 
       if (list && list.length > 0) {
-        // If nothing selected or selection not in list, pick the first
-        if (!selectedBoqId || !list.some(b => b.id === selectedBoqId)) {
-          setSelectedBoqId(list[0].id);
-          setActiveVersionId(list[0].current_version_id);
-        }
+        setSelectedBoqId(prev => {
+          const toSelect = targetBoqId || prev;
+          const matched = list.find(b => b.id === toSelect) || list[0];
+          setActiveVersionId(matched.current_version_id);
+          return matched.id;
+        });
       } else {
         setSelectedBoqId('');
         setActiveVersionId('');
@@ -66,7 +67,7 @@ export default function ProjectBOQModule({ selectedProject }) {
     } finally {
       setLoading(false);
     }
-  }, [call, projectName, selectedBoqId]);
+  }, [call, projectName]);
 
   useEffect(() => {
     loadBoqs();
@@ -293,6 +294,7 @@ export default function ProjectBOQModule({ selectedProject }) {
           {activeSubTab === 'revisions' && (
             <BOQRevisions
               project={projectName}
+              boqId={currentBoq?.id}
               activeVersionId={activeVersionId}
               onSelectVersion={verId => {
                 setActiveVersionId(verId);

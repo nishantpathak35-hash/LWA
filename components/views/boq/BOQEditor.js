@@ -154,15 +154,20 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
       return;
     }
     try {
+      const secIndex = boqData?.sections?.findIndex(s => s.id === sectionId) ?? 0;
+      const currentItems = boqData?.sections?.[secIndex]?.items || [];
+      const sNo = `${secIndex + 1}.${currentItems.length + 1}`;
+
       await call('saveBoqItem', {
         boq_version_id: boqVersionId,
         section_id: sectionId,
-        s_no: `${boqData?.sections?.findIndex(s => s.id === sectionId) + 1 || 1}.${Date.now().toString().slice(-2)}`,
+        s_no: sNo,
         description: 'New Line Item Specification',
         unit: 'Nos',
         quantity: 1,
         cost_rate: 0,
-        selling_rate: 0
+        selling_rate: 0,
+        sort_order: (currentItems.length + 1) * 10
       });
       loadBoq();
     } catch (err) {
@@ -209,17 +214,23 @@ export default function BOQEditor({ boqVersionId, onVersionUpdated }) {
   const handleItemMasterSelected = async (masterItem) => {
     if (!targetSectionForMaster) return;
     try {
+      const secIndex = boqData?.sections?.findIndex(s => s.id === targetSectionForMaster) ?? 0;
+      const currentItems = boqData?.sections?.[secIndex]?.items || [];
+      const sNo = `${secIndex + 1}.${currentItems.length + 1}`;
+
       await call('saveBoqItem', {
         boq_version_id: boqVersionId,
         section_id: targetSectionForMaster,
         item_master_id: masterItem.id,
         item_code: masterItem.item_code,
+        s_no: sNo,
         description: masterItem.name + (masterItem.description ? ` - ${masterItem.description}` : ''),
         make: masterItem.preferred_make || '',
         unit: masterItem.unit || 'Nos',
         quantity: 1,
         cost_rate: masterItem.std_cost || 0,
         selling_rate: masterItem.std_selling_rate || 0,
+        sort_order: (currentItems.length + 1) * 10,
         rate_source: 'master'
       });
       toast.success(`Added ${masterItem.item_code} from Master`);

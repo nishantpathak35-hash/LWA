@@ -7,9 +7,9 @@ import { GitBranch, Plus, CheckCircle2, XCircle, Clock, Eye, AlertCircle, Refres
 import { useAppState } from '../../StateProvider';
 import { toast } from '../../ui/Toast';
 
-export default function BOQRevisions({ project, activeVersionId, onSelectVersion }) {
+export default function BOQRevisions({ project, boqId, activeVersionId, onSelectVersion }) {
   const { call } = useAppState();
-  const [boqList, setBoqList] = useState([]);
+  const [versionList, setVersionList] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [revisionModalOpen, setRevisionModalOpen] = useState(false);
@@ -17,17 +17,22 @@ export default function BOQRevisions({ project, activeVersionId, onSelectVersion
   const [creating, setCreating] = useState(false);
 
   const loadRevisions = useCallback(async () => {
-    if (!project) return;
+    if (!boqId && !project) return;
     setLoading(true);
     try {
-      const res = await call('getBoqList', project);
-      setBoqList(res || []);
+      let res;
+      if (boqId) {
+        res = await call('getBoqVersionsList', boqId);
+      } else {
+        res = await call('getBoqList', project);
+      }
+      setVersionList(res || []);
     } catch (err) {
       toast.error('Failed to load revisions: ' + err.message);
     } finally {
       setLoading(false);
     }
-  }, [call, project]);
+  }, [call, boqId, project]);
 
   useEffect(() => {
     loadRevisions();
@@ -99,23 +104,24 @@ export default function BOQRevisions({ project, activeVersionId, onSelectVersion
                     Loading revisions history...
                   </TableCell>
                 </TableRow>
-              ) : boqList.length === 0 ? (
+              ) : versionList.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-12 text-muted-foreground text-xs">
-                    No BOQ records found for this project.
+                    No revision records found for this BOQ.
                   </TableCell>
                 </TableRow>
               ) : (
-                boqList.map(b => {
-                  const isActive = b.current_version_id === activeVersionId;
+                versionList.map(b => {
+                  const targetVerId = b.id || b.current_version_id;
+                  const isActive = targetVerId === activeVersionId;
 
                   return (
-                    <TableRow key={b.id} className={`hover:bg-muted/20 ${isActive ? 'bg-amber-500/5 font-semibold' : ''}`}>
+                    <TableRow key={targetVerId} className={`hover:bg-muted/20 ${isActive ? 'bg-amber-500/5 font-semibold' : ''}`}>
                       <TableCell className="font-mono text-xs font-semibold text-amber-600 dark:text-amber-400">
                         {b.boq_no}
                       </TableCell>
                       <TableCell className="text-xs text-foreground">
-                        {b.title}
+                        {b.title || b.boq_title}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="outline" className="text-[10px] font-mono bg-muted/50">
@@ -126,14 +132,14 @@ export default function BOQRevisions({ project, activeVersionId, onSelectVersion
                         <Badge
                           variant="outline"
                           className={`text-[10px] ${
-                            b.version_status === 'Approved'
+                            (b.status === 'Approved' || b.version_status === 'Approved')
                               ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                              : b.version_status === 'Submitted'
+                              : (b.status === 'Submitted' || b.version_status === 'Submitted')
                               ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
                               : 'bg-muted text-muted-foreground'
                           }`}
                         >
-                          {b.version_status || b.status}
+                          {b.status || b.version_status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-bold text-foreground">
@@ -152,7 +158,7 @@ export default function BOQRevisions({ project, activeVersionId, onSelectVersion
                         <Button
                           size="sm"
                           variant={isActive ? 'default' : 'outline'}
-                          onClick={() => onSelectVersion?.(b.current_version_id)}
+                          onClick={() => onSelectVersion?.(targetVerId)}
                           className={`text-xs h-7 ${isActive ? 'bg-amber-600 text-white' : ''}`}
                         >
                           {isActive ? 'Active' : 'Load'}

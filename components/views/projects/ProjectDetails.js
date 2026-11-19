@@ -1067,14 +1067,14 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                           </TableCell>
                           <TableCell className="text-xs font-mono whitespace-nowrap">
                             {emp.today_record?.punch_in_time ? (
-                              new Date(emp.today_record.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              new Date(emp.today_record.punch_in_time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
                             ) : (
                               '—'
                             )}
                           </TableCell>
                           <TableCell className="text-xs font-mono whitespace-nowrap">
                             {emp.today_record?.punch_out_time ? (
-                              new Date(emp.today_record.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              new Date(emp.today_record.punch_out_time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
                             ) : (
                               '—'
                             )}
@@ -1183,10 +1183,10 @@ export default function ProjectDetails({ selectedProject, projectPOs, onBack, on
                             <span className="text-[10px] font-mono text-muted-foreground">{rec.employee_id}</span>
                           </TableCell>
                           <TableCell className="text-xs font-mono whitespace-nowrap">
-                            {rec.punch_in_time ? new Date(rec.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                            {rec.punch_in_time ? new Date(rec.punch_in_time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
                           </TableCell>
                           <TableCell className="text-xs font-mono whitespace-nowrap">
-                            {rec.punch_out_time ? new Date(rec.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                            {rec.punch_out_time ? new Date(rec.punch_out_time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
                           </TableCell>
                           <TableCell className="text-xs font-mono font-bold text-amber-500 whitespace-nowrap">
                             {rec.total_hours ? `${rec.total_hours}h` : '—'}
