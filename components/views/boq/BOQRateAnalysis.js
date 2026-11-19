@@ -38,7 +38,6 @@ export default function BOQRateAnalysis({ boqVersionId }) {
       setMatchingMaster(false);
     }
   };
-  }, [call, boqVersionId]);
 
   useEffect(() => {
     loadData();

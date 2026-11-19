@@ -509,6 +509,20 @@ export async function deleteItemMaster(id, session) {
   return { success: true };
 }
 
+export async function importItemMasterBulk(items, session) {
+  await initBoqTables();
+  requireAuth(session);
+  if (!Array.isArray(items) || items.length === 0) return { imported: 0 };
+
+  let count = 0;
+  for (const item of items) {
+    if (!item.name) continue;
+    await saveItemMaster(item, session);
+    count++;
+  }
+  return { imported: count };
+}
+
 export async function getBoqCategoryHierarchy() {
   await initBoqTables();
   const cats = await queryAll(
