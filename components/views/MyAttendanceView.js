@@ -54,7 +54,6 @@ export default function MyAttendanceView() {
   // Punch modal state
   const [punchModalOpen, setPunchModalOpen] = useState(false);
   const [punchType, setPunchType] = useState('in'); // 'in' | 'out'
-  const [selectedPunchProject, setSelectedPunchProject] = useState('');
   const [punchSubmitting, setPunchSubmitting] = useState(false);
 
   // Camera & Media stream
@@ -172,7 +171,6 @@ export default function MyAttendanceView() {
         setRecentMissedPunch(todayData.recentMissedPunch || null);
         const resolvedProj = todayData.activeProject || (projectList[0] || 'General Project');
         setActiveProject(resolvedProj);
-        setSelectedPunchProject(resolvedProj);
         setRegFormData(prev => ({ ...prev, project: resolvedProj }));
 
         if (todayData.employee?.employee_id) {
@@ -480,7 +478,7 @@ export default function MyAttendanceView() {
     try {
       const res = await callRpc('punchAttendance', {
         type: punchType,
-        project: selectedPunchProject || activeProject || 'General Project',
+        project: activeProject || 'General Project',
         selfie: selfiePreview,
         latitude: gpsCoords.latitude,
         longitude: gpsCoords.longitude,
@@ -1228,27 +1226,21 @@ export default function MyAttendanceView() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
-                <div>
-                  <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                    Punching For Project
-                  </label>
-                  <Select
-                    value={selectedPunchProject || activeProject}
-                    onChange={(e) => setSelectedPunchProject(e.target.value)}
-                    className="w-full text-xs font-medium"
-                  >
-                    {projectList.length > 0 ? (
-                      projectList.map(proj => (
-                        <option key={proj} value={proj}>{proj}</option>
-                      ))
-                    ) : (
-                      <option value={activeProject || 'General Project'}>
-                        {activeProject || 'General Project'}
-                      </option>
-                    )}
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground mt-1.5">
-                    If you are transferred or visiting another site, select it above before punching.
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Allocated Site / Project
+                    </span>
+                    <Badge variant="outline" className="text-emerald-600 bg-emerald-500/10 border-emerald-500/30 text-[10px] font-medium">
+                      Auto-Assigned
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                    <Building2 className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span className="truncate">{activeProject || 'General Project'}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    Attendance will automatically be punched for your allocated site without manual selection.
                   </p>
                 </div>
 
@@ -1890,8 +1882,11 @@ export default function MyAttendanceView() {
         <div className="space-y-4">
           {/* Target Project Display */}
           <div className="p-3 bg-muted/40 rounded-xl border border-border flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Target Project:</span>
-            <span className="font-bold text-foreground">{selectedPunchProject || activeProject}</span>
+            <span className="text-muted-foreground">Allocated Site:</span>
+            <span className="font-bold text-foreground flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-amber-500" />
+              {activeProject || 'General Project'}
+            </span>
           </div>
 
           {/* Camera Capture Area */}

@@ -871,15 +871,12 @@ export async function punchAttendance(punchData, session) {
     employee = await queryGet(`SELECT * FROM site_employees WHERE employee_id = ?`, [empId]);
   }
 
-  // Resolve assigned project
-  let targetProject = project;
-  if (!targetProject) {
-    const allocation = await queryGet(
-      `SELECT project FROM site_project_allocations WHERE employee_id = ? AND status = 'active' ORDER BY is_primary DESC LIMIT 1`,
-      [employee.employee_id]
-    );
-    targetProject = allocation?.project || 'General Project';
-  }
+  // Resolve assigned project: prioritize employee's active allocated project
+  const allocation = await queryGet(
+    `SELECT project FROM site_project_allocations WHERE employee_id = ? AND status = 'active' ORDER BY is_primary DESC LIMIT 1`,
+    [employee.employee_id]
+  );
+  const targetProject = allocation?.project || project || 'General Project';
 
   const today = getLocalDateString();
   const serverTimestamp = new Date().toISOString();
