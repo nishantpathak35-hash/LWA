@@ -1657,16 +1657,35 @@ export async function createPoFromBoq(payload, session) {
 
 export async function getBoqItemsForPoImport(filters = {}) {
   await initBoqTables();
-  const { boq_version_id, project, search = '' } = filters;
+  const filterObj = typeof filters === 'string' ? { project: filters } : (filters || {});
+  let { boq_version_id, project, search = '' } = filterObj;
 
   let targetVersionId = boq_version_id;
 
   if (!targetVersionId && project) {
-    const latest = await queryGet(
-      `SELECT current_version_id FROM boq_headers WHERE project = ? ORDER BY created_at DESC LIMIT 1`,
-      [project]
+    const p = String(project).trim();
+    let latest = await queryGet(
+      `SELECT current_version_id, id FROM boq_headers 
+       WHERE LOWER(TRIM(project)) = LOWER(TRIM(?)) 
+       ORDER BY created_at DESC LIMIT 1`,
+      [p]
     );
+    if (!latest) {
+      const normP = p.replace(/[\-_]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      const allHeaders = await queryAll(`SELECT current_version_id, id, project FROM boq_headers`);
+      for (const h of (allHeaders || [])) {
+        const normH = String(h.project || '').replace(/[\-_]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (normH === normP) {
+          latest = h;
+          break;
+        }
+      }
+    }
     targetVersionId = latest?.current_version_id;
+    if (!targetVersionId && latest?.id) {
+      const ver = await queryGet(`SELECT id FROM boq_versions WHERE boq_id = ? ORDER BY version_number DESC LIMIT 1`, [latest.id]);
+      targetVersionId = ver?.id;
+    }
   }
 
   if (!targetVersionId) return [];

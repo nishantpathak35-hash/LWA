@@ -4,7 +4,8 @@ import { logAudit } from './core.js';
 import crypto from 'node:crypto';
 
 function requireAuth(session) {
-  if (!session || !session.email) {
+  const email = session?.email || session?.user?.email;
+  if (!session || !email) {
     throw new Error('AUTH: Not signed in');
   }
 }
@@ -154,7 +155,7 @@ export async function saveScheduleTask(taskData, session) {
       ]
     );
 
-    await logAudit('schedule_tasks', taskId, 'UPDATE_TASK', session?.email || 'admin', { title, status, progressPct });
+    await logAudit(session?.email || 'admin', 'Update Schedule Task', `Updated task "${title}" (#${taskId})`, 'Schedule');
   } else {
     // Insert
     await queryRun(
@@ -172,7 +173,7 @@ export async function saveScheduleTask(taskData, session) {
       ]
     );
 
-    await logAudit('schedule_tasks', taskId, 'CREATE_TASK', session?.email || 'admin', { title, project: data.project });
+    await logAudit(session?.email || 'admin', 'Create Schedule Task', `Created task "${title}" for project "${data.project}"`, 'Schedule');
   }
 
   return { success: true, id: taskId, task_no: taskNo };
@@ -190,7 +191,7 @@ export async function deleteScheduleTask(id, session) {
   if (!task) throw new Error('Task not found');
 
   await queryRun(`DELETE FROM schedule_tasks WHERE id = ?`, [taskId]);
-  await logAudit('schedule_tasks', taskId, 'DELETE_TASK', session?.email || 'admin', { title: task.title });
+  await logAudit(session?.email || 'admin', 'Delete Schedule Task', `Deleted task "${task.title}"`, 'Schedule');
   return { success: true };
 }
 
@@ -298,10 +299,7 @@ export async function importBoqItemsToSchedule(payload, session) {
     importedCount++;
   }
 
-  await logAudit('project_schedules', schedule.id, 'IMPORT_BOQ_TASKS', session?.email || 'admin', {
-    project,
-    importedCount
-  });
+  await logAudit(session?.email || 'admin', 'Import BOQ Tasks', `Imported ${importedCount} tasks from BOQ into schedule for project "${project}"`, 'Schedule');
 
   return { success: true, imported: importedCount };
 }

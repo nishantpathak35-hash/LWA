@@ -6,7 +6,7 @@ import {
   Calendar, Clock, CheckCircle2, AlertTriangle, AlertCircle, Plus, Edit2, Trash2,
   Filter, Layers, Users, BarChart2, RefreshCw, X, ChevronRight, ChevronDown, CheckCircle,
   ArrowRight, UserCheck, Download, Upload, CheckSquare, Square, FileSpreadsheet, Flag,
-  CalendarDays, UserPlus, Play, Check, Flame
+  CalendarDays, UserPlus, Play, Check, Flame, Search, FileText
 } from 'lucide-react';
 import { useAppState } from '../../StateProvider';
 import { toast } from '../../ui/Toast';
@@ -59,6 +59,9 @@ export default function ProjectSchedule({ project }) {
 
   // Import from BOQ Modal State
   const [boqModalOpen, setBoqModalOpen] = useState(false);
+  const [loadingBoqItems, setLoadingBoqItems] = useState(false);
+  const [boqSearchTerm, setBoqSearchTerm] = useState('');
+  const [boqSectionFilter, setBoqSectionFilter] = useState('all');
   const [selectedBoqItemIds, setSelectedBoqItemIds] = useState(new Set());
   const [boqImportDefaults, setBoqImportDefaults] = useState({
     start_date: new Date().toISOString().split('T')[0],
@@ -130,10 +133,11 @@ export default function ProjectSchedule({ project }) {
 
       // Fetch BOQ items for linkage / import
       try {
-        const boqRes = await call('getBoqItemsForPoImport', project);
-        setBoqItems(boqRes?.items || []);
+        const boqRes = await call('getBoqItemsForPoImport', { project });
+        const list = Array.isArray(boqRes) ? boqRes : (boqRes?.items || []);
+        setBoqItems(list);
       } catch (err) {
-        // BOQ items optional
+        console.warn('[ProjectSchedule] Failed to load BOQ items:', err);
       }
     } catch (err) {
       toast.error('Failed to load project schedule: ' + err.message);
@@ -360,6 +364,48 @@ export default function ProjectSchedule({ project }) {
     setCollapsedPhases(prev => ({ ...prev, [wp]: !prev[wp] }));
   };
 
+  // Open BOQ Import Drawer / Modal with live reload
+  const handleOpenBoqImport = async () => {
+    setBoqModalOpen(true);
+    setLoadingBoqItems(true);
+    try {
+      const boqRes = await call('getBoqItemsForPoImport', { project });
+      const list = Array.isArray(boqRes) ? boqRes : (boqRes?.items || []);
+      setBoqItems(list);
+      if (list.length > 0 && selectedBoqItemIds.size === 0) {
+        setSelectedBoqItemIds(new Set(list.map(b => b.id)));
+      }
+    } catch (err) {
+      toast.error('Failed to load BOQ items: ' + err.message);
+    } finally {
+      setLoadingBoqItems(false);
+    }
+  };
+
+  const boqSections = useMemo(() => {
+    const set = new Set();
+    boqItems.forEach(b => {
+      if (b.section_name) set.add(b.section_name);
+    });
+    return Array.from(set);
+  }, [boqItems]);
+
+  const filteredBoqItems = useMemo(() => {
+    return boqItems.filter(b => {
+      if (boqSectionFilter !== 'all' && (b.section_name || 'General') !== boqSectionFilter) {
+        return false;
+      }
+      if (boqSearchTerm.trim()) {
+        const s = boqSearchTerm.toLowerCase();
+        const desc = String(b.description || '').toLowerCase();
+        const code = String(b.item_code || '').toLowerCase();
+        const sec = String(b.section_name || '').toLowerCase();
+        if (!desc.includes(s) && !code.includes(s) && !sec.includes(s)) return false;
+      }
+      return true;
+    });
+  }, [boqItems, boqSectionFilter, boqSearchTerm]);
+
   // Import Selected BOQ Items to Schedule
   const handleImportBoqItems = async () => {
     if (selectedBoqItemIds.size === 0) {
@@ -390,7 +436,7 @@ export default function ProjectSchedule({ project }) {
       toast.success(`Imported ${res?.imported || selectedItems.length} tasks from BOQ into schedule!`);
       setBoqModalOpen(false);
       setSelectedBoqItemIds(new Set());
-      loadData();
+      await loadData();
     } catch (err) {
       toast.error('Failed to import BOQ items: ' + err.message);
     } finally {
@@ -593,7 +639,7 @@ export default function ProjectSchedule({ project }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setBoqModalOpen(true)}
+              onClick={handleOpenBoqImport}
               className="h-8 text-xs border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-semibold gap-1.5"
             >
               <Download className="w-3.5 h-3.5" /> Import from BOQ
@@ -1127,31 +1173,85 @@ export default function ProjectSchedule({ project }) {
               </div>
             </div>
 
+            {/* Filter Strip: Search & Section Dropdown */}
+            <div className="p-2.5 bg-muted/10 border-b border-border flex flex-col sm:flex-row items-center gap-2">
+              <div className="relative flex-1 w-full">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={boqSearchTerm}
+                  onChange={(e) => setBoqSearchTerm(e.target.value)}
+                  placeholder="Search item specification or code..."
+                  className="pl-8 h-8 text-xs bg-background"
+                />
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <select
+                  value={boqSectionFilter}
+                  onChange={(e) => setBoqSectionFilter(e.target.value)}
+                  className="h-8 text-xs rounded-md bg-background border border-border px-2 text-foreground flex-1 sm:w-52 truncate"
+                >
+                  <option value="all">All Sections ({boqItems.length} items)</option>
+                  {boqSections.map(sec => (
+                    <option key={sec} value={sec}>{sec}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* Selection List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-              {boqItems.length === 0 ? (
-                <div className="p-8 text-center text-xs text-muted-foreground">
-                  No BOQ items found for this project. Create an approved BOQ or add items in BOQ module first.
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5 min-h-[220px]">
+              {loadingBoqItems ? (
+                <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+                  <RefreshCw className="w-5 h-5 animate-spin mx-auto text-amber-500" />
+                  <p>Fetching BOQ items for {project}...</p>
+                </div>
+              ) : filteredBoqItems.length === 0 ? (
+                <div className="p-10 text-center text-xs text-muted-foreground space-y-2">
+                  <FileText className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                  {boqItems.length === 0 ? (
+                    <div>
+                      <p className="font-semibold text-foreground">No BOQ items found for {project}</p>
+                      <p className="text-[11px] mt-1">Please ensure a BOQ is created with line items under the <strong>Project BOQ & Estimation</strong> tab.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="font-semibold text-foreground">No matching items</p>
+                      <p className="text-[11px] mt-1">No items match your filter "{boqSearchTerm || boqSectionFilter}".</p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
                   <div className="flex items-center justify-between pb-2 text-xs border-b border-border text-muted-foreground">
-                    <span className="font-semibold text-foreground">Available BOQ Items ({boqItems.length})</span>
-                    <button
-                      onClick={() => {
-                        if (selectedBoqItemIds.size === boqItems.length) {
-                          setSelectedBoqItemIds(new Set());
-                        } else {
-                          setSelectedBoqItemIds(new Set(boqItems.map(b => b.id)));
-                        }
-                      }}
-                      className="text-amber-600 hover:underline text-xs font-medium"
-                    >
-                      {selectedBoqItemIds.size === boqItems.length ? 'Deselect All' : 'Select All'}
-                    </button>
+                    <span className="font-semibold text-foreground">
+                      Available BOQ Items ({filteredBoqItems.length} {filteredBoqItems.length !== boqItems.length ? `of ${boqItems.length}` : ''})
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          const next = new Set(selectedBoqItemIds);
+                          filteredBoqItems.forEach(b => next.add(b.id));
+                          setSelectedBoqItemIds(next);
+                        }}
+                        className="text-amber-600 hover:underline text-xs font-medium"
+                      >
+                        Select All Filtered
+                      </button>
+                      <span className="text-border">•</span>
+                      <button
+                        onClick={() => {
+                          const next = new Set(selectedBoqItemIds);
+                          filteredBoqItems.forEach(b => next.delete(b.id));
+                          setSelectedBoqItemIds(next);
+                        }}
+                        className="text-muted-foreground hover:underline text-xs font-medium"
+                      >
+                        Deselect Filtered
+                      </button>
+                    </div>
                   </div>
 
-                  {boqItems.map(b => {
+                  {filteredBoqItems.map(b => {
                     const isSelected = selectedBoqItemIds.has(b.id);
                     return (
                       <div
@@ -1177,9 +1277,19 @@ export default function ProjectSchedule({ project }) {
                             <span className="font-medium text-foreground block truncate">
                               {b.description || b.name}
                             </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              {b.section_name || 'Section'} • Qty: {b.quantity} {b.unit}
-                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                {b.section_name || 'General Fit-out'}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                • Qty: {b.quantity} {b.unit}
+                              </span>
+                              {b.selling_rate ? (
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  • ₹{Number(b.selling_rate).toLocaleString('en-IN')}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
 
@@ -1206,9 +1316,9 @@ export default function ProjectSchedule({ project }) {
                   size="sm"
                   disabled={importingBoq || selectedBoqItemIds.size === 0}
                   onClick={handleImportBoqItems}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs"
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs gap-1.5"
                 >
-                  {importingBoq ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                  {importingBoq ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
                   Create {selectedBoqItemIds.size} Schedule Tasks
                 </Button>
               </div>
