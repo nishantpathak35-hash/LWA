@@ -140,6 +140,7 @@ describe('HRMS Module & Payroll Attendance Engine Unit Tests', () => {
 
     it('rejects overlapping leave requests for the same employee', async () => {
       vi.mocked(db.queryGet)
+        .mockResolvedValueOnce({ employee_id: 'EMP-001' })
         .mockResolvedValueOnce({ id: 5 }); // overlapping request found
 
       await expect(
@@ -165,6 +166,8 @@ describe('HRMS Module & Payroll Attendance Engine Unit Tests', () => {
           status: 'pending',
           is_half_day: 0
         }) // req
+        .mockResolvedValueOnce(null) // no locked payroll period
+        .mockResolvedValueOnce(null) // sufficient paid leave balance
         .mockResolvedValueOnce({ name: 'Ravi Kumar' }) // emp
         .mockResolvedValueOnce({ project: 'Tower B' }) // primaryProj
         .mockResolvedValueOnce(null) // existing att day 1
@@ -278,6 +281,8 @@ describe('HRMS Module & Payroll Attendance Engine Unit Tests', () => {
     });
 
     it('locks and unlocks monthly attendance with authorized audit trails', async () => {
+      vi.mocked(db.queryAll).mockResolvedValue([]);
+      vi.mocked(db.queryGet).mockResolvedValue(null);
       const lockRes = await lockMonthlyAttendance({
         month: 11,
         year: 2026,

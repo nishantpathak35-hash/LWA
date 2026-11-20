@@ -1,5 +1,6 @@
+import { releaseBoqCommitments, reserveBoqItems } from './boq-commitments.js';
 // Domain: purchase-orders
-import { queryAll, queryGet, queryRun } from '../../db.js';
+import { queryAll, queryGet, queryRun, withWriteTransaction } from '../../db.js';
 import { sendPOEmail } from '../../email.js';
 import { POService } from '../../../../src/modules/purchase-orders/services/POService';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
@@ -16,7 +17,15 @@ function requireAuth(session) {
 
 export async function savePO(payload, session) {
   requireAuth(session);
-  const result = await POService.createPO(payload, session?.email || SYSTEM_FALLBACK_EMAIL);
+  const email = session?.email || SYSTEM_FALLBACK_EMAIL;
+  const result = await withWriteTransaction(async () => {
+    if (!payload.poNo) {
+      const { NumberSeriesService } = await import('../../../../src/modules/core/services/NumberSeriesService');
+      payload = { ...payload, poNo: await NumberSeriesService.getNextNumber('purchase_order', email) };
+    }
+    await reserveBoqItems(payload.poNo, payload.project, payload.items || [], email);
+    return POService.createPO(payload, email);
+  });
   await emitBroadcast('po', 'created', payload.poNo || payload.po_no || '');
   return result;
 }
@@ -31,188 +40,196 @@ export async function updatePOFull(poNo, payload, session) {
 
   await ensureSettingsTable();
 
-  const existing = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [originalPoNo]);
-  if (!existing) throw new Error(`Purchase Order not found: ${originalPoNo}`);
+  const result = await withWriteTransaction(async () => {
+    const existing = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [originalPoNo]);
+    if (!existing) throw new Error(`Purchase Order not found: ${originalPoNo}`);
 
-  // Derive the new PO number (may be renamed via payload)
-  const nextPoNo = String(payload.poNo || originalPoNo).trim();
+    // Derive the new PO number (may be renamed via payload)
+    const nextPoNo = String(payload.poNo || originalPoNo).trim();
 
-  // Resolve vendor record from payload or existing
-  let vendorRecord = null;
-  const vQuery = payload.vendorId || payload.vendor_id || payload.vendorCode || payload.vendor_code || payload.vendor_key || payload.vendorName || payload.vendor;
-  if (vQuery) {
-    vendorRecord = await VendorRepository.findByNameOrCode(String(vQuery));
-  }
-  const vendorName = vendorRecord ? vendorRecord.legal_name : String(payload.vendorName || payload.vendor || existing.vendor_name || '');
-  const vendorCode = vendorRecord ? vendorRecord.vendor_code : String(payload.vendorCode || payload.vendor_code || payload.vendor_key || existing.vendor_code || existing.vendor_key || '');
-  const vendorId = vendorRecord ? vendorRecord.id : (payload.vendor_id || payload.vendorId || existing.vendor_id || null);
-
-  // Compute TDS fields
-  const tdsSection = payload.tdsSection || payload.tds_section || existing.tds_section || '';
-  const tdsPct = Number(payload.tdsPct ?? payload.tds_pct ?? existing.tds_pct ?? 0);
-  const gstMode = payload.gstMode || payload.gst_mode || existing.gst_mode || 'inter';
-
-  const paymentDeliveryTerms = payload.paymentDeliveryTerms ?? payload.payment_delivery_terms ?? existing.payment_delivery_terms ?? '';
-  const generalTerms = payload.generalTerms ?? payload.general_terms ?? existing.general_terms ?? '';
-  const terms = payload.terms ?? existing.terms ?? '';
-
-  // Compute totals from line items (same logic as the frontend calcItem)
-  let subtotal = 0;
-  let gstTotal = 0;
-  const items = payload.items || [];
-  for (const item of items) {
-    const qty = Number(item.qty || item.quantity || 0);
-    const rate = Number(item.rate || 0);
-    const gstPct = Number(item.tax_pct ?? item.gstPct ?? item.tax ?? 18);
-    const gross = qty * rate;
-    const gstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(gross * gstPct / 100);
-    subtotal += gross;
-    gstTotal += gstAmt;
-  }
-  const totalVal = subtotal + gstTotal;
-  const tdsAmount = Math.round(subtotal * (tdsPct / 100));
-
-  // Determine if editing an approved PO (requires re-approval)
-  const existingStatus = String(existing.approval_status || existing.status || 'Draft').toLowerCase();
-  const isApprovedEdit = existingStatus === 'approved';
-  // Changing an approved PO resets status to Pending Approval (sent for approval again)
-  const newStatus = isApprovedEdit
-    ? 'Pending Approval'
-    : (existing.approval_status || existing.status || 'Draft');
-
-  // Build audit diff
-  const auditChanges = [];
-  const trackFields = [
-    ['po_no', 'PO Number', nextPoNo],
-    ['vendor_name', 'Vendor', vendorName],
-    ['project', 'Project', payload.project || ''],
-    ['po_value', 'PO Value', totalVal],
-    ['po_date', 'PO Date', payload.poDate || ''],
-    ['terms', 'Terms', terms],
-    ['payment_delivery_terms', 'Payment & Delivery Terms', paymentDeliveryTerms],
-    ['general_terms', 'General Terms', generalTerms],
-    ['expected_delivery_date', 'Expected Delivery', payload.expectedDeliveryDate || ''],
-    ['notes', 'Notes', payload.notes || ''],
-    ['tds_section', 'TDS Section', tdsSection],
-    ['tds_pct', 'TDS %', tdsPct],
-  ];
-  for (const [field, label, newVal] of trackFields) {
-    const oldVal = String(existing[field] ?? '');
-    if (oldVal !== String(newVal)) {
-      auditChanges.push(`${label}: "${oldVal}" → "${newVal}"`);
+    // Resolve vendor record from payload or existing
+    let vendorRecord = null;
+    const vQuery = payload.vendorId || payload.vendor_id || payload.vendorCode || payload.vendor_code || payload.vendor_key || payload.vendorName || payload.vendor;
+    if (vQuery) {
+      vendorRecord = await VendorRepository.findByNameOrCode(String(vQuery));
     }
-  }
+    const vendorName = vendorRecord ? vendorRecord.legal_name : String(payload.vendorName || payload.vendor || existing.vendor_name || '');
+    const vendorCode = vendorRecord ? vendorRecord.vendor_code : String(payload.vendorCode || payload.vendor_code || payload.vendor_key || existing.vendor_code || existing.vendor_key || '');
+    const vendorId = vendorRecord ? vendorRecord.id : (payload.vendor_id || payload.vendorId || existing.vendor_id || null);
 
-  const milestonesJson = typeof payload.milestones === 'string' ? payload.milestones : JSON.stringify(payload.milestones || []);
+    // Compute TDS fields
+    const tdsSection = payload.tdsSection || payload.tds_section || existing.tds_section || '';
+    const tdsPct = Number(payload.tdsPct ?? payload.tds_pct ?? existing.tds_pct ?? 0);
+    const gstMode = payload.gstMode || payload.gst_mode || existing.gst_mode || 'inter';
 
-  const expectedVersion = payload.expectedVersion;
-  if (expectedVersion !== undefined && expectedVersion !== null) {
-    const result = await queryRun(
-      `UPDATE purchase_orders SET
-        po_no = ?, vendor_id = ?, vendor_code = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
-        approval_status = ?, status = ?,
-        tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
-        expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
-        version = COALESCE(version, 1) + 1
-       WHERE po_no = ? AND COALESCE(version, 1) = ?`,
-      [nextPoNo,
-       vendorId, vendorCode, vendorCode,
-       vendorName, payload.project || '', totalVal, totalVal,
-       payload.poDate || existing.po_date || '', terms, paymentDeliveryTerms, generalTerms,
-       newStatus, newStatus,
-       tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
-       payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
-       payload.category || existing.category || 'Goods', milestonesJson,
-       originalPoNo, expectedVersion]
-    );
-    if (result?.rowsAffected === 0) {
-      throw new Error(`Optimistic lock error: expected version ${expectedVersion} but PO has been modified by another user.`);
-    }
-  } else {
-    await queryRun(
-      `UPDATE purchase_orders SET
-        po_no = ?, vendor_id = ?, vendor_code = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
-        approval_status = ?, status = ?,
-        tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
-        expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
-        version = COALESCE(version, 1) + 1
-       WHERE po_no = ?`,
-      [nextPoNo,
-       vendorId, vendorCode, vendorCode,
-       vendorName, payload.project || '', totalVal, totalVal,
-       payload.poDate || existing.po_date || '', terms, paymentDeliveryTerms, generalTerms,
-       newStatus, newStatus,
-       tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
-       payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
-       payload.category || existing.category || 'Goods', milestonesJson,
-       originalPoNo]
-    );
-  }
+    const paymentDeliveryTerms = payload.paymentDeliveryTerms ?? payload.payment_delivery_terms ?? existing.payment_delivery_terms ?? '';
+    const generalTerms = payload.generalTerms ?? payload.general_terms ?? existing.general_terms ?? '';
+    const terms = payload.terms ?? existing.terms ?? '';
 
-  // If PO number was renamed, cascade to all linked tables
-  if (nextPoNo !== originalPoNo) {
-    const linkedTables = ['po_items', 'payment_requests', 'system_payments', 'manual_payments', 'po_approval_history'];
-    for (const table of linkedTables) {
-      await queryRun(`UPDATE ${table} SET po_no = ? WHERE po_no = ?`, [nextPoNo, originalPoNo]);
-    }
-  }
-
-  // Cascade vendor updates to payment_requests and invoices for this PO
-  await queryRun(
-    `UPDATE payment_requests SET vendor_name = ?, vendor_code = ?, vendor_id = ? WHERE po_no = ?`,
-    [vendorName, vendorCode, vendorId, nextPoNo]
-  );
-  await queryRun(
-    `UPDATE invoices SET vendor_name = ?, vendor_code = ?, vendor_id = ? WHERE LOWER(TRIM(po_no)) = LOWER(TRIM(?))`,
-    [vendorName, vendorCode, vendorId, nextPoNo]
-  );
-
-  // Replace line items
-  await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [nextPoNo]);
-  if (items.length) {
+    // Compute totals from line items (same logic as the frontend calcItem)
+    let subtotal = 0;
+    let gstTotal = 0;
+    const items = payload.items || [];
     for (const item of items) {
-      const itemGstPct = Number(item.tax_pct ?? item.gstPct ?? item.tax ?? 18);
-      const itemQty = Number(item.qty || item.quantity || 0);
-      const itemRate = Number(item.rate || 0);
-      const itemGross = itemQty * itemRate;
-      const itemGstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(itemGross * itemGstPct / 100);
-      const itemTotal = item.amount !== undefined ? Number(item.amount) : (itemGross + itemGstAmt);
+      const qty = Number(item.qty || item.quantity || 0);
+      const rate = Number(item.rate || 0);
+      const gstPct = Number(item.tax_pct ?? item.gstPct ?? item.tax ?? 18);
+      const gross = qty * rate;
+      const gstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(gross * gstPct / 100);
+      subtotal += gross;
+      gstTotal += gstAmt;
+    }
+    const tdsAmount = Math.round(subtotal * (tdsPct / 100));
+    const totalVal = subtotal + gstTotal - tdsAmount;
+
+    // Determine if editing an approved PO (requires re-approval)
+    const existingStatus = String(existing.approval_status || existing.status || 'Draft').toLowerCase();
+    const isApprovedEdit = existingStatus === 'approved';
+    // Changing an approved PO resets status to Pending Approval (sent for approval again)
+    const newStatus = isApprovedEdit
+      ? 'Pending Approval'
+      : (existing.approval_status || existing.status || 'Draft');
+
+    // Build audit diff
+    const auditChanges = [];
+    const trackFields = [
+      ['po_no', 'PO Number', nextPoNo],
+      ['vendor_name', 'Vendor', vendorName],
+      ['project', 'Project', payload.project || ''],
+      ['po_value', 'PO Value', totalVal],
+      ['po_date', 'PO Date', payload.poDate || ''],
+      ['terms', 'Terms', terms],
+      ['payment_delivery_terms', 'Payment & Delivery Terms', paymentDeliveryTerms],
+      ['general_terms', 'General Terms', generalTerms],
+      ['expected_delivery_date', 'Expected Delivery', payload.expectedDeliveryDate || ''],
+      ['notes', 'Notes', payload.notes || ''],
+      ['tds_section', 'TDS Section', tdsSection],
+      ['tds_pct', 'TDS %', tdsPct],
+    ];
+    for (const [field, label, newVal] of trackFields) {
+      const oldVal = String(existing[field] ?? '');
+      if (oldVal !== String(newVal)) {
+        auditChanges.push(`${label}: "${oldVal}" → "${newVal}"`);
+      }
+    }
+
+    const milestonesJson = typeof payload.milestones === 'string' ? payload.milestones : JSON.stringify(payload.milestones || []);
+
+    await releaseBoqCommitments(originalPoNo);
+    await reserveBoqItems(nextPoNo, payload.project || existing.project, items, session.email, 'work_package', originalPoNo);
+    const expectedVersion = payload.expectedVersion;
+    if (expectedVersion !== undefined && expectedVersion !== null) {
+      const result = await queryRun(
+        `UPDATE purchase_orders SET
+          po_no = ?, vendor_id = ?, vendor_code = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
+          approval_status = ?, status = ?,
+          tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
+          expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
+          version = COALESCE(version, 1) + 1
+         WHERE po_no = ? AND COALESCE(version, 1) = ?`,
+        [nextPoNo,
+         vendorId, vendorCode, vendorCode,
+         vendorName, payload.project || '', totalVal, totalVal,
+         payload.poDate || existing.po_date || '', terms, paymentDeliveryTerms, generalTerms,
+         newStatus, newStatus,
+         tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
+         payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
+         payload.category || existing.category || 'Goods', milestonesJson,
+         originalPoNo, expectedVersion]
+      );
+      if (result?.rowsAffected === 0) {
+        throw new Error(`Optimistic lock error: expected version ${expectedVersion} but PO has been modified by another user.`);
+      }
+    } else {
       await queryRun(
-        `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount, boq_item_id, boq_id, boq_version_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          nextPoNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '',
-          itemQty, item.unit || item.uom || 'Nos', itemRate, 0, itemGstPct, itemTotal,
-          item.boq_item_id || null, item.boq_id || null, item.boq_version_id || null
-        ]
+        `UPDATE purchase_orders SET
+          po_no = ?, vendor_id = ?, vendor_code = ?, vendor_key = ?, vendor_name = ?, project = ?, po_value = ?, revised_po_value = ?, po_date = ?, terms = ?, payment_delivery_terms = ?, general_terms = ?,
+          approval_status = ?, status = ?,
+          tds_section = ?, tds_pct = ?, tds_amount = ?, gst_total = ?, gst_mode = ?,
+          expected_delivery_date = ?, notes = ?, category = ?, milestones = ?,
+          version = COALESCE(version, 1) + 1
+         WHERE po_no = ?`,
+        [nextPoNo,
+         vendorId, vendorCode, vendorCode,
+         vendorName, payload.project || '', totalVal, totalVal,
+         payload.poDate || existing.po_date || '', terms, paymentDeliveryTerms, generalTerms,
+         newStatus, newStatus,
+         tdsSection, tdsPct, tdsAmount, gstTotal, gstMode,
+         payload.expectedDeliveryDate || existing.expected_delivery_date || '', payload.notes || '',
+         payload.category || existing.category || 'Goods', milestonesJson,
+         originalPoNo]
       );
     }
-  }
 
-  // Log PO edit to approval history
-  const changesSummary = auditChanges.length ? auditChanges.join('; ') : 'No tracked field changes';
-  await queryRun(
-    `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
-    [nextPoNo, 'PO Edited', session?.email || 'unknown', changesSummary, new Date().toISOString()]
-  );
-  if (isApprovedEdit) {
+    // If PO number was renamed, cascade to all linked tables
+    if (nextPoNo !== originalPoNo) {
+      const linkedTables = ['po_items', 'payment_requests', 'system_payments', 'manual_payments', 'po_approval_history'];
+      for (const table of ['invoices', 'credit_notes', 'boq_po_links']) {
+        if (await queryGet("SELECT name FROM sqlite_master WHERE type='table' AND name = ?", [table])) linkedTables.push(table);
+      }
+      for (const table of linkedTables) {
+        await queryRun(`UPDATE ${table} SET po_no = ? WHERE po_no = ?`, [nextPoNo, originalPoNo]);
+      }
+    }
+
+    // Cascade vendor updates to payment_requests and invoices for this PO
+    await queryRun(
+      `UPDATE payment_requests SET vendor_name = ?, vendor_code = ?, vendor_id = ? WHERE po_no = ?`,
+      [vendorName, vendorCode, vendorId, nextPoNo]
+    );
+    await queryRun(
+      `UPDATE invoices SET vendor_name = ?, vendor_code = ?, vendor_id = ? WHERE LOWER(TRIM(po_no)) = LOWER(TRIM(?))`,
+      [vendorName, vendorCode, vendorId, nextPoNo]
+    );
+
+    // Replace line items
+    await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [nextPoNo]);
+    if (items.length) {
+      for (const item of items) {
+        const itemGstPct = Number(item.tax_pct ?? item.gstPct ?? item.tax ?? 18);
+        const itemQty = Number(item.qty || item.quantity || 0);
+        const itemRate = Number(item.rate || 0);
+        const itemGross = itemQty * itemRate;
+        const itemGstAmt = item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round(itemGross * itemGstPct / 100);
+        const itemTotal = item.amount !== undefined ? Number(item.amount) : (itemGross + itemGstAmt);
+        await queryRun(
+          `INSERT INTO po_items (po_no, description, hsn_sac, qty, unit, rate, disc_pct, tax_pct, amount, boq_item_id, boq_id, boq_version_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            nextPoNo, item.description || item.desc || '', item.hsn_sac || item.hsn || '',
+            itemQty, item.unit || item.uom || 'Nos', itemRate, 0, itemGstPct, itemTotal,
+            item.boq_item_id || null, item.boq_id || null, item.boq_version_id || null
+          ]
+        );
+      }
+    }
+
+    // Log PO edit to approval history
+    const changesSummary = auditChanges.length ? auditChanges.join('; ') : 'No tracked field changes';
     await queryRun(
       `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
-      [nextPoNo, 'PO Re-submitted for Approval', session?.email || 'unknown', 'Approved PO was edited and re-submitted for approval', new Date().toISOString()]
+      [nextPoNo, 'PO Edited', session?.email || 'unknown', changesSummary, new Date().toISOString()]
     );
-    await createNotification({
-      recipientRole: 'director',
-      type: 'approval_needed',
-      title: `PO #${nextPoNo} Modified & Re-submitted for Approval`,
-      body: `${session?.name || session?.email?.split('@')[0] || 'User'} modified approved PO worth ₹${Number(totalVal).toLocaleString('en-IN')}`,
-      recordType: 'Purchase Order',
-      recordId: String(nextPoNo),
-      actorName: session?.name || session?.email?.split('@')[0] || '',
-      actorEmail: session?.email || ''
-    });
-  }
-  await logAudit(session?.email || SYSTEM_FALLBACK_EMAIL, 'PO Updated', `PO#${nextPoNo} edited. Changes: ${changesSummary}`, 'Procurement');
-  await emitBroadcast('po', 'updated', nextPoNo);
-  return { ok: true, poNo: nextPoNo, oldPoNo: originalPoNo, newStatus, changesLogged: auditChanges };
+    if (isApprovedEdit) {
+      await queryRun(
+        `INSERT INTO po_approval_history (po_no, action, performed_by, remarks, timestamp) VALUES (?, ?, ?, ?, ?)`,
+        [nextPoNo, 'PO Re-submitted for Approval', session?.email || 'unknown', 'Approved PO was edited and re-submitted for approval', new Date().toISOString()]
+      );
+      await createNotification({
+        recipientRole: 'director',
+        type: 'approval_needed',
+        title: `PO #${nextPoNo} Modified & Re-submitted for Approval`,
+        body: `${session?.name || session?.email?.split('@')[0] || 'User'} modified approved PO worth ₹${Number(totalVal).toLocaleString('en-IN')}`,
+        recordType: 'Purchase Order',
+        recordId: String(nextPoNo),
+        actorName: session?.name || session?.email?.split('@')[0] || '',
+        actorEmail: session?.email || ''
+      });
+    }
+    await logAudit(session?.email || SYSTEM_FALLBACK_EMAIL, 'PO Updated', `PO#${nextPoNo} edited. Changes: ${changesSummary}`, 'Procurement');
+    return { ok: true, poNo: nextPoNo, oldPoNo: originalPoNo, newStatus, changesLogged: auditChanges };
+  });
+  await emitBroadcast('po', 'updated', result.poNo);
+  return result;
 }
 
 export async function shortClosePO(poNo, remarksOrOptions, session) {
@@ -243,69 +260,50 @@ export async function deletePOFull(poNo, session) {
   const targetPoNo = String(poNo || '').trim();
   if (!targetPoNo) throw new Error('PO Number missing');
 
-  const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
-  if (!po) {
-    throw new Error(`Purchase Order not found: ${targetPoNo}`);
-  }
-
-  // P0 Financial Guard: Never allow deleting a PO that has recorded payments or booked invoices
-  const paidRow = await queryGet(
-    `SELECT 
-       (SELECT COUNT(*) FROM system_payments WHERE po_no = ?) + 
-       (SELECT COUNT(*) FROM manual_payments WHERE po_no = ?) AS paidCount`,
-    [targetPoNo, targetPoNo]
-  );
-  if (Number(paidRow?.paidCount || 0) > 0) {
-    throw new Error(`Cannot delete Purchase Order "${targetPoNo}" because financial payments have already been executed against it. Please short-close the PO instead.`);
-  }
-
-  const invRow = await queryGet(`SELECT COUNT(*) AS invCount FROM invoices WHERE po_no = ?`, [targetPoNo]);
-  if (Number(invRow?.invCount || 0) > 0) {
-    throw new Error(`Cannot delete Purchase Order "${targetPoNo}" because vendor invoices are linked to it. Please remove or re-map the invoices first, or short-close the PO.`);
-  }
-
-  const paymentRequests = await queryAll(`SELECT pr_id FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
-  const requestIds = paymentRequests.map(pr => String(pr.pr_id)).filter(id => id !== undefined && id !== null && id !== 'undefined');
-
-  await logAudit(
-    session.email,
-    'PO Deleted',
-    `PO#${targetPoNo} deleted. Vendor: ${po.vendor_name || po.vendor_key || 'N/A'}, Project: ${po.project || 'N/A'}, Value: ${po.po_value || 0}`,
-    'Procurement'
-  );
-
-  const safeDelete = async (sql, params = []) => {
-    try {
-      await queryRun(sql, params);
-    } catch (err) {
-      console.warn(`PO delete cleanup skipped: ${err.message}`);
+  await withWriteTransaction(async () => {
+    const po = await queryGet(`SELECT * FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
+    if (!po) {
+      throw new Error(`Purchase Order not found: ${targetPoNo}`);
     }
-  };
 
-  if (requestIds.length) {
-    const placeholders = requestIds.map(() => '?').join(',');
-    await safeDelete(`DELETE FROM system_payments WHERE pr_key IN (${placeholders})`, requestIds);
-  }
-  // Reversal of BOQ committed quantities if any items were linked
-  try {
-    const linkedBoqs = await queryAll(`SELECT boq_item_id, linked_qty FROM boq_po_links WHERE po_no = ? AND status = 'active'`, [targetPoNo]);
-    if (linkedBoqs && linkedBoqs.length) {
-      for (const link of linkedBoqs) {
-        await queryRun(`UPDATE boq_items SET committed_qty = MAX(0, committed_qty - ?) WHERE id = ?`, [link.linked_qty || 0, link.boq_item_id]);
-      }
-      await queryRun(`UPDATE boq_po_links SET status = 'cancelled' WHERE po_no = ?`, [targetPoNo]);
+    // P0 Financial Guard: Never allow deleting a PO that has recorded payments or booked invoices
+    const paidRow = await queryGet(
+      `SELECT
+         (SELECT COUNT(*) FROM system_payments WHERE po_no = ?) +
+         (SELECT COUNT(*) FROM manual_payments WHERE po_no = ?) AS paidCount`,
+      [targetPoNo, targetPoNo]
+    );
+    if (Number(paidRow?.paidCount || 0) > 0) {
+      throw new Error(`Cannot delete Purchase Order "${targetPoNo}" because financial payments have already been executed against it. Please short-close the PO instead.`);
     }
-  } catch (err) {
-    // Non-fatal if BOQ tables not initialized
-  }
 
-  await safeDelete(`DELETE FROM system_payments WHERE po_no = ?`, [targetPoNo]);
-  await safeDelete(`DELETE FROM manual_payments WHERE po_no = ?`, [targetPoNo]);
-  await safeDelete(`DELETE FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
-  await safeDelete(`DELETE FROM po_approval_history WHERE po_no = ?`, [targetPoNo]);
-  await safeDelete(`DELETE FROM po_items WHERE po_no = ?`, [targetPoNo]);
-  await queryRun(`DELETE FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
+    const invRow = await queryGet(`SELECT COUNT(*) AS invCount FROM invoices WHERE po_no = ?`, [targetPoNo]);
+    if (Number(invRow?.invCount || 0) > 0) {
+      throw new Error(`Cannot delete Purchase Order "${targetPoNo}" because vendor invoices are linked to it. Please remove or re-map the invoices first, or short-close the PO.`);
+    }
 
+    const paymentRequests = await queryAll(`SELECT pr_id FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
+    const requestIds = paymentRequests.map(pr => String(pr.pr_id)).filter(id => id !== undefined && id !== null && id !== 'undefined');
+
+    await logAudit(
+      session.email,
+      'PO Deleted',
+      `PO#${targetPoNo} deleted. Vendor: ${po.vendor_name || po.vendor_key || 'N/A'}, Project: ${po.project || 'N/A'}, Value: ${po.po_value || 0}`,
+      'Procurement'
+    );
+
+    if (requestIds.length) {
+      const placeholders = requestIds.map(() => '?').join(',');
+      await queryRun(`DELETE FROM system_payments WHERE pr_key IN (${placeholders})`, requestIds);
+    }
+    await releaseBoqCommitments(targetPoNo, true);
+    await queryRun(`DELETE FROM system_payments WHERE po_no = ?`, [targetPoNo]);
+    await queryRun(`DELETE FROM manual_payments WHERE po_no = ?`, [targetPoNo]);
+    await queryRun(`DELETE FROM payment_requests WHERE po_no = ?`, [targetPoNo]);
+    await queryRun(`DELETE FROM po_approval_history WHERE po_no = ?`, [targetPoNo]);
+    await queryRun(`DELETE FROM po_items WHERE po_no = ?`, [targetPoNo]);
+    await queryRun(`DELETE FROM purchase_orders WHERE po_no = ?`, [targetPoNo]);
+  });
   await emitBroadcast('po', 'deleted', targetPoNo);
   return { ok: true, poNo: targetPoNo };
 }

@@ -7,9 +7,9 @@ import ProjectCommandCenter from './projects/ProjectCommandCenter';
 import NewProjectModal from './projects/NewProjectModal';
 
 export default function ProjectsView() {
-  const { call, projects: stateProjects, pos, refresh } = useAppState();
+  const { call, projects: stateProjects, pos, refresh, viewTarget } = useAppState();
   const [projectsList, setProjectsList] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProject, setSelectedProject] = useState(() => viewTarget?.project ? { project: viewTarget.project } : null);
   const [loading, setLoading] = useState(true);
 
   // New Project State

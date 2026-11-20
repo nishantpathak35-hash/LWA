@@ -1,5 +1,14 @@
 import { createClient } from '@libsql/client';
 
+// Share the current write transaction with repositories called by the same workflow.
+import { AsyncLocalStorage } from 'node:async_hooks';
+const transactionContext = new AsyncLocalStorage();
+
+export function withWriteTransaction(work) {
+  if (transactionContext.getStore()) return work();
+  return queryTransaction(db => transactionContext.run(db, work));
+}
+
 let tursoClient = null;
 
 if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
@@ -35,18 +44,24 @@ async function executeWithRetry(action, retries = 3, delay = 300) {
 }
 
 export async function queryAll(sql, params = []) {
+  const tx = transactionContext.getStore();
+  if (tx) return tx.queryAll(sql, params);
   if (!tursoClient) throw new Error("Database not connected");
   const { rows } = await executeWithRetry(() => tursoClient.execute({ sql, args: params }));
   return rows;
 }
 
 export async function queryGet(sql, params = []) {
+  const tx = transactionContext.getStore();
+  if (tx) return tx.queryGet(sql, params);
   if (!tursoClient) throw new Error("Database not connected");
   const { rows } = await executeWithRetry(() => tursoClient.execute({ sql, args: params }));
   return rows.length > 0 ? rows[0] : undefined;
 }
 
 export async function queryRun(sql, params = []) {
+  const tx = transactionContext.getStore();
+  if (tx) return tx.queryRun(sql, params);
   if (!tursoClient) throw new Error("Database not connected");
   // A lost response does not mean a write failed. Retrying can duplicate money movements.
   return tursoClient.execute({ sql, args: params });
@@ -58,6 +73,8 @@ export async function queryRun(sql, params = []) {
  * @param {'write' | 'read' | 'deferred'} mode
  */
 export async function queryBatch(statements, mode = 'write') {
+  const tx = transactionContext.getStore();
+  if (tx) return tx.queryBatch(statements.map(s => typeof s === 'string' ? s : { sql: s.sql, args: s.args || s.params || [] }));
   if (!tursoClient) throw new Error("Database not connected");
   if (!Array.isArray(statements) || statements.length === 0) return [];
   const normalized = statements.map(st => {
@@ -71,9 +88,12 @@ export async function queryBatch(statements, mode = 'write') {
 
 /** Run dependent reads and writes atomically. Never replay an uncertain commit. */
 export async function queryTransaction(work, mode = 'write') {
+  const existing = transactionContext.getStore();
+  if (existing) return work(existing);
   if (!tursoClient) throw new Error('Database not connected');
   const tx = await tursoClient.transaction(mode);
   const scoped = {
+    queryBatch: statements => tx.batch(statements),
     queryRun: (sql, params = []) => tx.execute({ sql, args: params }),
     queryAll: async (sql, params = []) => (await tx.execute({ sql, args: params })).rows,
     queryGet: async (sql, params = []) => (await tx.execute({ sql, args: params })).rows[0]

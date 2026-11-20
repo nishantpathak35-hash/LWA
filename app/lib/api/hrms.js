@@ -1,7 +1,7 @@
 // Domain: HRMS (Human Resource Management System) & Workforce Management
 // Enterprise-grade employee lifecycle, leave, shifts, holidays, approvals, documents, and payroll attendance export.
 
-import { queryAll, queryGet, queryRun } from '../db.js';
+import { queryAll, queryGet, queryRun, withWriteTransaction } from '../db.js';
 import { isSuperAdmin } from '../config.js';
 import { initSiteAttendanceTables, resolveReadableAddress } from './attendance.js';
 
@@ -45,6 +45,13 @@ function requireHRAuthorized(session) {
     throw new Error('AUTH: Access denied. HR or Administrator privileges required.');
   }
   return user;
+}
+
+async function requireOwnLeaveRecord(employeeId, user) {
+  if (isHRAuthorized(user)) return;
+  const owner = await queryGet(`SELECT employee_id FROM site_employees WHERE employee_id = ?
+    AND (LOWER(email) = LOWER(?) OR LOWER(user_email) = LOWER(?))`, [employeeId, user.email, user.email]);
+  if (!owner) throw new Error('AUTH: Leave record belongs to another employee');
 }
 
 async function recordAuditLog(user, actionType, details, department = 'HRMS') {
@@ -228,6 +235,7 @@ export async function initHrmsTables() {
 
   // Safe ALTER TABLE additions for site_employees lifecycle and statutory fields
   const alterColumns = [
+    `ALTER TABLE hrms_payroll_locks ADD COLUMN snapshot TEXT`,
     `ALTER TABLE site_employees ADD COLUMN joining_date TEXT`,
     `ALTER TABLE site_employees ADD COLUMN probation_months INTEGER DEFAULT 3`,
     `ALTER TABLE site_employees ADD COLUMN confirmation_date TEXT`,
@@ -797,6 +805,7 @@ export async function getEmployeeLeaveBalances(params, session) {
   await initHrmsTables();
   const { employee_id, year } = unwrap(params);
   if (!employee_id) throw new Error('employee_id is required');
+  await requireOwnLeaveRecord(employee_id, session.user);
   const targetYear = year ? Number(year) : new Date().getFullYear();
 
   let balances = await queryAll(`
@@ -833,80 +842,85 @@ export async function applyLeave(params, session) {
   await initHrmsTables();
   const data = unwrap(params);
 
-  let employee_id = data.employee_id;
-  if (!employee_id) {
-    const emp = await queryGet(`SELECT employee_id FROM site_employees WHERE email = ? OR user_email = ?`, [session.user.email, session.user.email]);
-    if (!emp) throw new Error('Employee profile not found for current user');
-    employee_id = emp.employee_id;
-  }
-
-  if (!data.leave_type_code || !data.start_date || !data.end_date) {
-    throw new Error('Leave type, start date and end date are required');
-  }
-
-  // Calculate day count
-  const sDate = new Date(data.start_date);
-  const eDate = new Date(data.end_date);
-  if (eDate < sDate) throw new Error('End date cannot be earlier than start date');
-
-  let total_days = 0;
-  if (data.is_half_day) {
-    total_days = 0.5;
-  } else {
-    const diffTime = Math.abs(eDate.getTime() - sDate.getTime());
-    total_days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  }
-
-  // Check overlapping leave requests
-  const overlap = await queryGet(`
-    SELECT id FROM hrms_leave_requests
-    WHERE employee_id = ? AND status IN ('pending', 'approved')
-      AND ((start_date <= ? AND end_date >= ?) OR (start_date <= ? AND end_date >= ?))
-  `, [employee_id, data.start_date, data.start_date, data.end_date, data.end_date]);
-
-  if (overlap) {
-    throw new Error('You already have a pending or approved leave request overlapping these dates.');
-  }
-
-  // Check balance if leave type is paid
-  const year = sDate.getFullYear();
-  const lt = await queryGet(`SELECT is_paid FROM hrms_leave_types WHERE code = ?`, [data.leave_type_code]);
-  if (lt && lt.is_paid) {
-    const bal = await queryGet(
-      `SELECT balance FROM hrms_leave_balances WHERE employee_id = ? AND leave_type_code = ? AND year = ?`,
-      [employee_id, data.leave_type_code, year]
-    );
-    if (!bal || bal.balance < total_days) {
-      throw new Error(`Insufficient leave balance. Available: ${bal?.balance || 0} days, requested: ${total_days} days.`);
+  return withWriteTransaction(async () => {
+    let employee_id = data.employee_id;
+    if (!employee_id) {
+      const emp = await queryGet(`SELECT employee_id FROM site_employees WHERE email = ? OR user_email = ?`, [session.user.email, session.user.email]);
+      if (!emp) throw new Error('Employee profile not found for current user');
+      employee_id = emp.employee_id;
     }
-  }
 
-  // Insert request
-  await queryRun(`
-    INSERT INTO hrms_leave_requests (
-      employee_id, leave_type_code, start_date, end_date, total_days,
-      is_half_day, half_day_type, reason, doc_url, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-  `, [
-    employee_id,
-    data.leave_type_code,
-    data.start_date,
-    data.end_date,
-    total_days,
-    data.is_half_day ? 1 : 0,
-    data.half_day_type || null,
-    data.reason || '',
-    data.doc_url || null
-  ]);
+    if (!data.leave_type_code || !data.start_date || !data.end_date) {
+      throw new Error('Leave type, start date and end date are required');
+    }
 
-  // Update pending balance
-  await queryRun(`
-    UPDATE hrms_leave_balances 
-    SET pending = pending + ?
-    WHERE employee_id = ? AND leave_type_code = ? AND year = ?
-  `, [total_days, employee_id, data.leave_type_code, year]);
+    // Calculate day count
+    const sDate = new Date(data.start_date);
+    const eDate = new Date(data.end_date);
+    if (!Number.isFinite(+sDate) || !Number.isFinite(+eDate)) throw new Error('Invalid leave dates');
+    if (data.is_half_day && +sDate !== +eDate) throw new Error('Half-day leave requires one date');
+    if (eDate < sDate) throw new Error('End date cannot be earlier than start date');
 
-  return { success: true, total_days };
+    let total_days = 0;
+    if (data.is_half_day) {
+      total_days = 0.5;
+    } else {
+      const diffTime = Math.abs(eDate.getTime() - sDate.getTime());
+      total_days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
+
+    await requireOwnLeaveRecord(employee_id, session.user);
+    // Check overlapping leave requests
+    const overlap = await queryGet(`
+      SELECT id FROM hrms_leave_requests
+      WHERE employee_id = ? AND status IN ('pending', 'approved')
+        AND start_date <= ? AND end_date >= ?
+    `, [employee_id, data.end_date, data.start_date]);
+
+    if (overlap) {
+      throw new Error('You already have a pending or approved leave request overlapping these dates.');
+    }
+
+    // Check balance if leave type is paid
+    const year = sDate.getFullYear();
+    const lt = await queryGet(`SELECT is_paid FROM hrms_leave_types WHERE code = ?`, [data.leave_type_code]);
+    if (lt && lt.is_paid) {
+      const bal = await queryGet(
+        `SELECT balance - COALESCE(pending, 0) AS balance FROM hrms_leave_balances WHERE employee_id = ? AND leave_type_code = ? AND year = ?`,
+        [employee_id, data.leave_type_code, year]
+      );
+      if (!bal || bal.balance < total_days) {
+        throw new Error(`Insufficient leave balance. Available: ${bal?.balance || 0} days, requested: ${total_days} days.`);
+      }
+    }
+
+    // Insert request
+    await queryRun(`
+      INSERT INTO hrms_leave_requests (
+        employee_id, leave_type_code, start_date, end_date, total_days,
+        is_half_day, half_day_type, reason, doc_url, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    `, [
+      employee_id,
+      data.leave_type_code,
+      data.start_date,
+      data.end_date,
+      total_days,
+      data.is_half_day ? 1 : 0,
+      data.half_day_type || null,
+      data.reason || '',
+      data.doc_url || null
+    ]);
+
+    // Update pending balance
+    await queryRun(`
+      UPDATE hrms_leave_balances
+      SET pending = pending + ?
+      WHERE employee_id = ? AND leave_type_code = ? AND year = ?
+    `, [total_days, employee_id, data.leave_type_code, year]);
+
+    return { success: true, total_days };
+  });
 }
 
 export async function listLeaveRequests(params, session) {
@@ -927,10 +941,8 @@ export async function listLeaveRequests(params, session) {
   if (!isHR) {
     // If not HR, only see own leaves unless reporting manager
     const emp = await queryGet(`SELECT employee_id FROM site_employees WHERE email = ? OR user_email = ?`, [session.user.email, session.user.email]);
-    if (emp) {
-      query += ` AND (r.employee_id = ? OR e.reporting_manager = ?)`;
-      args.push(emp.employee_id, session.user.email);
-    }
+    query += ` AND (r.employee_id = ? OR e.reporting_manager = ?)`;
+    args.push(emp?.employee_id ?? '', session.user.email);
   }
 
   if (filter.employee_id) {
@@ -961,76 +973,88 @@ export async function reviewLeaveRequest(params, session) {
     throw new Error('request_id and valid action (approve/reject) are required');
   }
 
-  const req = await queryGet(`SELECT * FROM hrms_leave_requests WHERE id = ?`, [request_id]);
-  if (!req) throw new Error('Leave request not found');
-  if (req.status !== 'pending') throw new Error(`Request has already been ${req.status}`);
+  return withWriteTransaction(async () => {
+    const req = await queryGet(`SELECT * FROM hrms_leave_requests WHERE id = ?`, [request_id]);
+    if (!req) throw new Error('Leave request not found');
+    if (req.status !== 'pending') throw new Error(`Request has already been ${req.status}`);
 
-  const year = new Date(req.start_date).getFullYear();
-  const newStatus = action === 'approve' ? 'approved' : 'rejected';
+    if (action === 'approve') {
+      const locked = await queryGet(`SELECT id FROM hrms_payroll_locks WHERE is_locked = 1
+        AND cut_off_start <= ? AND cut_off_end >= ? LIMIT 1`, [req.end_date, req.start_date]);
+      if (locked) throw new Error('Unlock the payroll period before approving this leave.');
+      const insufficient = await queryGet(`SELECT 1 FROM hrms_leave_types t
+        LEFT JOIN hrms_leave_balances b ON b.leave_type_code=t.code AND b.employee_id=? AND b.year=?
+        WHERE t.code=? AND t.is_paid=1 AND COALESCE(b.balance,0) < ?`,
+        [req.employee_id, Number(req.start_date.slice(0, 4)), req.leave_type_code, req.total_days]);
+      if (insufficient) throw new Error('Insufficient leave balance at approval.');
+    }
+    const year = new Date(req.start_date).getFullYear();
+    const newStatus = action === 'approve' ? 'approved' : 'rejected';
 
-  await queryRun(`
-    UPDATE hrms_leave_requests SET 
-      status = ?,
-      reviewed_by = ?,
-      reviewed_at = CURRENT_TIMESTAMP,
-      review_remarks = ?
-    WHERE id = ?
-  `, [newStatus, session.user.email, remarks || '', request_id]);
-
-  if (action === 'approve') {
-    // Deduct from balance and reduce pending
     await queryRun(`
-      UPDATE hrms_leave_balances SET 
-        used = used + ?,
-        pending = MAX(0, pending - ?),
-        balance = balance - ?
-      WHERE employee_id = ? AND leave_type_code = ? AND year = ?
-    `, [req.total_days, req.total_days, req.total_days, req.employee_id, req.leave_type_code, year]);
+      UPDATE hrms_leave_requests SET
+        status = ?,
+        reviewed_by = ?,
+        reviewed_at = CURRENT_TIMESTAMP,
+        review_remarks = ?
+      WHERE id = ?
+    `, [newStatus, session.user.email, remarks || '', request_id]);
 
-    // Reconcile into attendance records automatically
-    const emp = await queryGet(`SELECT name FROM site_employees WHERE employee_id = ?`, [req.employee_id]);
-    const empName = emp?.name || 'Staff';
-    const primaryProj = await queryGet(`
-      SELECT project FROM site_project_allocations WHERE employee_id = ? AND is_primary = 1 LIMIT 1
-    `, [req.employee_id]);
-    const project = primaryProj?.project || 'General';
+    if (action === 'approve') {
+      // Deduct from balance and reduce pending
+      await queryRun(`
+        UPDATE hrms_leave_balances SET
+          used = used + ?,
+          pending = MAX(0, pending - ?),
+          balance = balance - ?
+        WHERE employee_id = ? AND leave_type_code = ? AND year = ?
+      `, [req.total_days, req.total_days, req.total_days, req.employee_id, req.leave_type_code, year]);
 
-    // Loop through leave dates and mark attendance
-    const cur = new Date(req.start_date);
-    const end = new Date(req.end_date);
-    while (cur <= end) {
-      const dateStr = cur.toISOString().split('T')[0];
-      const existingAtt = await queryGet(
-        `SELECT id FROM site_attendance_records WHERE employee_id = ? AND date = ?`,
-        [req.employee_id, dateStr]
-      );
-      const attStatus = req.is_half_day ? 'half_day' : 'on_leave';
-      if (existingAtt) {
-        await queryRun(`
-          UPDATE site_attendance_records SET status = ?, flag_reason = ? WHERE id = ?
-        `, [attStatus, `Leave Approved (${req.leave_type_code})`, existingAtt.id]);
-      } else {
-        await queryRun(`
-          INSERT INTO site_attendance_records (employee_id, employee_name, project, date, status, flag_reason)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `, [req.employee_id, empName, project, dateStr, attStatus, `Leave Approved (${req.leave_type_code})`]);
+      // Reconcile into attendance records automatically
+      const emp = await queryGet(`SELECT name FROM site_employees WHERE employee_id = ?`, [req.employee_id]);
+      const empName = emp?.name || 'Staff';
+      const primaryProj = await queryGet(`
+        SELECT project FROM site_project_allocations WHERE employee_id = ? AND is_primary = 1 LIMIT 1
+      `, [req.employee_id]);
+      const project = primaryProj?.project || 'General';
+
+      // Loop through leave dates and mark attendance
+      const cur = new Date(req.start_date);
+      const end = new Date(req.end_date);
+      while (cur <= end) {
+        const dateStr = cur.toISOString().split('T')[0];
+        const existingAtt = await queryGet(
+          `SELECT id FROM site_attendance_records WHERE employee_id = ? AND date = ?`,
+          [req.employee_id, dateStr]
+        );
+        const attStatus = req.is_half_day ? 'half_day' : 'on_leave';
+        if (existingAtt) {
+          await queryRun(`
+            UPDATE site_attendance_records SET status = ?, flag_reason = ? WHERE id = ?
+          `, [attStatus, `Leave Approved (${req.leave_type_code})`, existingAtt.id]);
+        } else {
+          await queryRun(`
+            INSERT INTO site_attendance_records (employee_id, employee_name, project, date, status, flag_reason)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `, [req.employee_id, empName, project, dateStr, attStatus, `Leave Approved (${req.leave_type_code})`]);
+        }
+        cur.setDate(cur.getDate() + 1);
       }
-      cur.setDate(cur.getDate() + 1);
+
+      await recordAuditLog(session.user, 'APPROVE_LEAVE', `Approved ${req.total_days} days leave for ${req.employee_id} (${req.leave_type_code})`);
+    } else {
+      // Release pending balance
+      await queryRun(`
+        UPDATE hrms_leave_balances SET
+          pending = MAX(0, pending - ?)
+        WHERE employee_id = ? AND leave_type_code = ? AND year = ?
+      `, [req.total_days, req.employee_id, req.leave_type_code, year]);
+
+      await recordAuditLog(session.user, 'REJECT_LEAVE', `Rejected leave for ${req.employee_id} (${req.leave_type_code})`);
     }
 
-    await recordAuditLog(session.user, 'APPROVE_LEAVE', `Approved ${req.total_days} days leave for ${req.employee_id} (${req.leave_type_code})`);
-  } else {
-    // Release pending balance
-    await queryRun(`
-      UPDATE hrms_leave_balances SET 
-        pending = MAX(0, pending - ?)
-      WHERE employee_id = ? AND leave_type_code = ? AND year = ?
-    `, [req.total_days, req.employee_id, req.leave_type_code, year]);
-
-    await recordAuditLog(session.user, 'REJECT_LEAVE', `Rejected leave for ${req.employee_id} (${req.leave_type_code})`);
-  }
-
-  return { success: true, status: newStatus };
+    return { success: true, status: newStatus };
+  });
 }
 
 export async function cancelLeaveRequest(params, session) {
@@ -1039,19 +1063,22 @@ export async function cancelLeaveRequest(params, session) {
   const { request_id } = unwrap(params);
   if (!request_id) throw new Error('request_id is required');
 
-  const req = await queryGet(`SELECT * FROM hrms_leave_requests WHERE id = ?`, [request_id]);
-  if (!req) throw new Error('Request not found');
-  if (req.status !== 'pending') throw new Error('Only pending leave requests can be cancelled');
+  return withWriteTransaction(async () => {
+    const req = await queryGet(`SELECT * FROM hrms_leave_requests WHERE id = ?`, [request_id]);
+    if (!req) throw new Error('Request not found');
+    await requireOwnLeaveRecord(req.employee_id, session.user);
+    if (req.status !== 'pending') throw new Error('Only pending leave requests can be cancelled');
 
-  const year = new Date(req.start_date).getFullYear();
+    const year = new Date(req.start_date).getFullYear();
 
-  await queryRun(`UPDATE hrms_leave_requests SET status = 'cancelled' WHERE id = ?`, [request_id]);
-  await queryRun(`
-    UPDATE hrms_leave_balances SET pending = MAX(0, pending - ?)
-    WHERE employee_id = ? AND leave_type_code = ? AND year = ?
-  `, [req.total_days, req.employee_id, req.leave_type_code, year]);
+    await queryRun(`UPDATE hrms_leave_requests SET status = 'cancelled' WHERE id = ?`, [request_id]);
+    await queryRun(`
+      UPDATE hrms_leave_balances SET pending = MAX(0, pending - ?)
+      WHERE employee_id = ? AND leave_type_code = ? AND year = ?
+    `, [req.total_days, req.employee_id, req.leave_type_code, year]);
 
-  return { success: true };
+    return { success: true };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1124,6 +1151,7 @@ export async function getHrmsHolidays(params, session) {
   requireAuth(session);
   await initHrmsTables();
   const { year, location } = unwrap(params);
+  await requireOwnLeaveRecord(employee_id, session.user);
   const targetYear = year ? Number(year) : new Date().getFullYear();
 
   let query = `SELECT * FROM hrms_holidays WHERE year = ?`;
@@ -1382,7 +1410,12 @@ function getCutoffDateRange(year, month, cutoffType = 'calendar') {
  * LOPs, weekly offs, paid holidays, absent days, late marks, overtime and payable days.
  */
 export async function getMonthlyPayrollAttendance(params, session) {
-  requireAuth(session);
+  return calculatePayroll(params, session);
+}
+
+async function calculatePayroll(params, session, captureLegacy = false) {
+  const user = requireAuth(session);
+  if (!isHRAuthorized(user) && !user.roles?.some(role => ['finance', 'accountant'].includes(role))) throw new Error('AUTH: Payroll access required');
   await initHrmsTables();
 
   const filter = unwrap(params);
@@ -1396,30 +1429,57 @@ export async function getMonthlyPayrollAttendance(params, session) {
   settingsRows.forEach(r => { settings[r.key] = r.value; });
 
   const cutoffType = filter.cutoff_type || settings.default_cutoff_type || 'calendar';
-  const { startDate, endDate } = getCutoffDateRange(year, month, cutoffType);
+  let { startDate, endDate } = getCutoffDateRange(year, month, cutoffType);
 
   // Check lock status
   const lock = await queryGet(`
     SELECT * FROM hrms_payroll_locks WHERE month = ? AND year = ?
   `, [month, year]);
 
+  if (lock?.is_locked) {
+    startDate = lock.cut_off_start;
+    endDate = lock.cut_off_end;
+    if (!lock.snapshot && !captureLegacy) {
+      return withWriteTransaction(async () => {
+        const full = await calculatePayroll({ month, year }, session, true);
+        if (full.isLocked) {
+          await queryRun(`UPDATE hrms_payroll_locks SET snapshot=? WHERE month=? AND year=? AND is_locked=1 AND snapshot IS NULL`,
+            [JSON.stringify({ ...full, lockInfo: null }), month, year]);
+        }
+        return calculatePayroll(params, session);
+      });
+    }
+    if (lock.snapshot) {
+      const { snapshot, ...lockInfo } = lock;
+      const saved = JSON.parse(snapshot);
+      const summary = saved.summary.filter(row =>
+        (!filter.department || filter.department === 'all' || row.department === filter.department) &&
+        (!filter.project || filter.project === 'all' || row.projects.includes(filter.project)));
+      const dailyMatrix = Object.fromEntries(summary.map(row => [row.employee_id, saved.dailyMatrix[row.employee_id]]));
+      return { ...saved, summary, dailyMatrix, isLocked: true, lockInfo };
+    }
+  }
+
   // Load holidays in this period
   const holidays = await queryAll(`
     SELECT * FROM hrms_holidays WHERE date >= ? AND date <= ?
   `, [startDate, endDate]);
-  const holidayMap = {};
-  holidays.forEach(h => {
-    holidayMap[h.date] = h;
-  });
+  const holidayMap = new Map();
+  for (const holiday of holidays) {
+    const onDate = holidayMap.get(holiday.date) || [];
+    onDate.push(holiday);
+    holidayMap.set(holiday.date, onDate);
+  }
 
   // Load eligible employees
   let empQuery = `
     SELECT e.*, 
       (SELECT a.project FROM site_project_allocations a WHERE a.employee_id = e.employee_id AND a.is_primary = 1 AND a.status = 'active' LIMIT 1) as primary_project,
-      (SELECT s.name FROM hrms_shifts s WHERE s.id = e.shift_id) as shift_name
-    FROM site_employees e
-    WHERE e.status IN ('active', 'on_leave', 'on_notice')
-       OR (e.exit_date IS NOT NULL AND e.exit_date >= ?)
+      (SELECT json_group_array(a.project) FROM site_project_allocations a WHERE a.employee_id=e.employee_id AND a.status='active') AS projects_json,
+      s.start_time AS shift_start, s.end_time AS shift_end, s.grace_minutes AS shift_grace
+    FROM site_employees e LEFT JOIN hrms_shifts s ON s.id=e.shift_id
+    WHERE (e.status IN ('active', 'on_leave', 'on_notice')
+       OR (e.exit_date IS NOT NULL AND e.exit_date >= ?))
   `;
   const empArgs = [startDate];
 
@@ -1499,6 +1559,7 @@ export async function getMonthlyPayrollAttendance(params, session) {
 
     const empJoining = emp.joining_date ? emp.joining_date.split('T')[0] : null;
     const empExit = emp.exit_date ? emp.exit_date.split('T')[0] : null;
+    const projects = JSON.parse(emp.projects_json || '[]');
     const weeklyOffDayName = emp.weekly_off || 'Sunday';
 
     dailyMatrix[emp.employee_id] = {};
@@ -1518,7 +1579,9 @@ export async function getMonthlyPayrollAttendance(params, session) {
 
       const dayOfWeek = new Date(dt).toLocaleDateString('en-US', { weekday: 'long' });
       const isWeeklyOff = dayOfWeek.toLowerCase() === weeklyOffDayName.toLowerCase();
-      const isHoliday = !!holidayMap[dt];
+      const site = attByEmpAndDate[emp.employee_id]?.[dt]?.project || emp.primary_project || '';
+      const holiday = holidayMap.get(dt)?.find(h => !h.location || h.location.toLowerCase() === 'all' ||
+        h.location.trim().toLowerCase() === site.trim().toLowerCase());
 
       const att = attByEmpAndDate[emp.employee_id]?.[dt];
       const lv = leavesByEmpAndDate[emp.employee_id]?.[dt];
@@ -1531,6 +1594,11 @@ export async function getMonthlyPayrollAttendance(params, session) {
         } else if (att.status === 'half_day') {
           halfDays += 1;
           dailyMatrix[emp.employee_id][dt] = { code: 'HD', status: 'Half Day', hours: att.total_hours };
+          if (lv?.is_half_day) {
+            if (lv.is_paid) paidLeaveDays += 0.5;
+            else unpaidLeaveDays += 0.5;
+            dailyMatrix[emp.employee_id][dt] = { code: 'HL', status: `Half Leave (${lv.leave_type_code})` };
+          }
         } else if (att.status === 'on_leave') {
           if (lv && lv.is_paid) {
             paidLeaveDays += 1;
@@ -1542,6 +1610,15 @@ export async function getMonthlyPayrollAttendance(params, session) {
         } else {
           presentDays += 1;
           dailyMatrix[emp.employee_id][dt] = { code: 'P', status: 'Present', hours: att.total_hours };
+        }
+
+        if (emp.shift_start && emp.shift_end && !lv?.is_half_day) {
+          const shiftStart = Date.parse(`${dt}T${emp.shift_start}+05:30`);
+          let shiftEnd = Date.parse(`${dt}T${emp.shift_end}+05:30`);
+          if (shiftEnd <= shiftStart) shiftEnd += 86400000;
+          const grace = Number(emp.shift_grace ?? settings.late_grace_minutes ?? 0) * 60000;
+          if (Date.parse(att.punch_in_time) > shiftStart + grace) lateArrivals++;
+          if (Date.parse(att.punch_out_time) < shiftEnd) earlyDepartures++;
         }
 
         // Flag missing punches
@@ -1569,9 +1646,9 @@ export async function getMonthlyPayrollAttendance(params, session) {
             dailyMatrix[emp.employee_id][dt] = { code: 'LOP', status: 'Unpaid Leave' };
           }
         }
-      } else if (isHoliday) {
+      } else if (holiday) {
         paidHolidayDays += 1;
-        dailyMatrix[emp.employee_id][dt] = { code: 'H', status: `Holiday: ${holidayMap[dt].title}` };
+        dailyMatrix[emp.employee_id][dt] = { code: 'H', status: `Holiday: ${holiday.title}` };
       } else if (isWeeklyOff) {
         weeklyOffDays += 1;
         dailyMatrix[emp.employee_id][dt] = { code: 'WO', status: 'Weekly Off' };
@@ -1600,6 +1677,7 @@ export async function getMonthlyPayrollAttendance(params, session) {
       department: emp.department || 'Operations',
       designation: emp.designation || 'Staff',
       project: emp.primary_project || 'General',
+      projects,
       calendar_days: calendarDays,
       eligible_days: eligibleDays,
       present_days: presentDays,
@@ -1628,7 +1706,7 @@ export async function getMonthlyPayrollAttendance(params, session) {
     endDate,
     calendarDays,
     isLocked: !!lock?.is_locked,
-    lockInfo: lock,
+    lockInfo: lock ? { ...lock, snapshot: undefined } : null,
     summary: payrollSummary,
     dailyMatrix,
     dateList
@@ -1642,7 +1720,7 @@ export async function lockMonthlyAttendance(params, session) {
 
   if (!month || !year) throw new Error('month and year are required');
 
-  const { startDate, endDate } = getCutoffDateRange(Number(year), Number(month));
+
 
   if (action === 'unlock') {
     await queryRun(`
@@ -1657,19 +1735,25 @@ export async function lockMonthlyAttendance(params, session) {
 
     await recordAuditLog(session.user, 'UNLOCK_PAYROLL_ATTENDANCE', `Unlocked attendance for ${month}/${year}. Reason: ${reason || 'N/A'}`);
     return { success: true, is_locked: false };
-  } else {
+  }
+  return withWriteTransaction(async () => {
+    const report = await getMonthlyPayrollAttendance({ month, year, cutoff_type: unwrap(params).cutoff_type }, session);
+    if (report.isLocked) return { success: true, is_locked: true };
+    const { startDate, endDate } = report;
     await queryRun(`
-      INSERT INTO hrms_payroll_locks (month, year, cut_off_start, cut_off_end, is_locked, locked_by, notes)
-      VALUES (?, ?, ?, ?, 1, ?, ?)
+      INSERT INTO hrms_payroll_locks (month, year, cut_off_start, cut_off_end, is_locked, locked_by, notes, snapshot)
+      VALUES (?, ?, ?, ?, 1, ?, ?, ?)
       ON CONFLICT(month, year) DO UPDATE SET
         is_locked = 1,
+        cut_off_start = excluded.cut_off_start, cut_off_end = excluded.cut_off_end,
+        snapshot = excluded.snapshot,
         locked_by = excluded.locked_by,
         locked_at = CURRENT_TIMESTAMP,
         notes = excluded.notes,
         version = version + 1
-    `, [Number(month), Number(year), startDate, endDate, session.user.email, notes || 'Locked by HR']);
+    `, [Number(month), Number(year), startDate, endDate, session.user.email, notes || 'Locked by HR', JSON.stringify({ ...report, lockInfo: null })]);
 
     await recordAuditLog(session.user, 'LOCK_PAYROLL_ATTENDANCE', `Locked attendance for ${month}/${year}`);
     return { success: true, is_locked: true };
-  }
+  });
 }

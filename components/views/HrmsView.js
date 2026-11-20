@@ -479,6 +479,7 @@ export default function HrmsView({ initialTab = 'dashboard' }) {
         month: payrollMonth,
         year: payrollYear,
         action: lockAction,
+        cutoff_type: payrollCutoffType,
         reason: lockReason,
         notes: lockReason
       });

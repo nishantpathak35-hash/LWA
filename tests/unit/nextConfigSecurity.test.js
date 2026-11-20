@@ -14,6 +14,10 @@ describe('Next.js security headers', () => {
     expect(headers['X-Content-Type-Options']).toBe('nosniff');
     expect(headers['Referrer-Policy']).toBe('strict-origin-when-cross-origin');
     expect(headers['Permissions-Policy']).toContain('camera=()');
+    const attendance = rules.find(rule => rule.source === '/');
+    const attendancePolicy = attendance?.headers.find(header => header.key === 'Permissions-Policy')?.value;
+    expect(attendancePolicy).toContain('camera=(self)');
+    expect(attendancePolicy).toContain('geolocation=(self)');
     expect(headers['Strict-Transport-Security']).toContain('max-age=63072000');
   });
 });

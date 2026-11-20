@@ -16,14 +16,11 @@ export default function DPRDetailView({ dpr, onNavigate, onEdit }) {
     if (!confirm(`Are you sure you want to change the status of this report to ${status}?`)) return;
     setLoading(true);
     try {
-      await call('updateDPR', {
-        id: report.id,
-        updates: {
+      await call('updateDPR', report.id, {
           approval_status: status,
           expected_updated_at: report.updated_at
-        }
       });
-      const fresh = await call('getDPR', { id: report.id });
+      const fresh = await call('getDPR', report.id);
       if (fresh) {
         setReport(fresh);
       }

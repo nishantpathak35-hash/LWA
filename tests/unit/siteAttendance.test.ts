@@ -325,13 +325,13 @@ describe('Site Attendance Module Unit & Security Tests', () => {
 
     it('calculates IST parts accurately across UTC boundaries', () => {
       // 01:30 UTC + 5:30 IST = 07:00 IST morning
-      const istMorning = getISTParts('2026-11-18T01:30:00.000Z');
+      const istMorning = getISTParts(new Date('2026-11-18T01:30:00.000Z'));
       expect(istMorning.hours).toBe(7);
       expect(istMorning.minutes).toBe(0);
       expect(istMorning.dateString).toBe('2026-11-18');
 
       // 18:45 UTC = 00:15 IST next day
-      const istMidnight = getISTParts('2026-11-17T18:45:00.000Z');
+      const istMidnight = getISTParts(new Date('2026-11-17T18:45:00.000Z'));
       expect(istMidnight.hours).toBe(0);
       expect(istMidnight.minutes).toBe(15);
       expect(istMidnight.dateString).toBe('2026-11-18');

@@ -36,7 +36,12 @@ function isUnauthenticatedError(msg) {
 export function StateProvider({ children }) {
   const [token, setToken] = useState('');
   const [user, setUser] = useState(null);
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, changeActiveView] = useState('dashboard');
+  const [viewTarget, setViewTarget] = useState(null);
+  const setActiveView = useCallback((view, target = null) => {
+    setViewTarget(target);
+    changeActiveView(view);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [booting, setBooting] = useState(false);
   const [error, setError] = useState(null);
@@ -653,6 +658,7 @@ export function StateProvider({ children }) {
     token,
     user,
     activeView,
+    viewTarget,
     setActiveView,
     loading,
     booting,

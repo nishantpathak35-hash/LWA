@@ -35,6 +35,7 @@ function amountToWords(num) {
   return out.trim() + ' Rupees Only';
 }
 
+/** @param {any} po @param {any[]} items @param {object|null} [vendor] */
 export function generatePOPdf(
   po,
   items = [],

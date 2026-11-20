@@ -25,20 +25,11 @@ function findVendorForPayment(payment, vendors) {
   const normCode = pCode ? String(pCode).trim().toLowerCase() : '';
   const normName = pName ? String(pName).trim().toLowerCase() : '';
 
-  const candidates = vendors.filter(v => {
-    const vCode = String(v.code || v.vendorId || v.vendor_code || '').trim().toLowerCase();
-    const vName = String(v.name || v.legalName || v.legal_name || '').trim().toLowerCase();
-    const vTrade = String(v.tradeName || v.trade_name || '').trim().toLowerCase();
-
-    if (normCode && vCode === normCode) return true;
-    if (normName && (vName === normName || vTrade === normName || (vName && normName.includes(vName)) || (vName && vName.includes(normName)))) return true;
-    return false;
-  });
-
-  if (candidates.length === 0) return null;
-
-  const withEmail = candidates.find(v => (v.email || v.email_id || v.primary_contact_email || v.accounts_contact_email || '').trim());
-  return withEmail || candidates[0];
+  const normalise = value => String(value || '').trim().toLowerCase();
+  const matches = vendors.filter(v => normCode
+    ? [v.code, v.vendorId, v.vendor_code].some(value => normalise(value) === normCode)
+    : normName && [v.name, v.legalName, v.legal_name, v.tradeName, v.trade_name].some(value => normalise(value) === normName));
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export default function ReportsView() {
@@ -99,7 +90,9 @@ export default function ReportsView() {
   const canRemit = isAdmin || isFinance || isDirector;
 
   // Bug 5: Extract loadReport into a stable useCallback so handlers can call it
+  const latestReport = React.useRef(0);
   const loadReport = useCallback(async () => {
+    const request = ++latestReport.current;
     setLoading(true);
     try {
       let result = null;
@@ -123,18 +116,19 @@ export default function ReportsView() {
           limit: 0
         });
       }
-      setData(result);
+      if (request === latestReport.current) setData(result);
     } catch (e) {
       console.error('Failed to load report data:', e);
-      setData(null);
+      if (request === latestReport.current) setData(null);
     } finally {
-      setLoading(false);
+      if (request === latestReport.current) setLoading(false);
     }
   }, [call, reportType, startDate, endDate, vendorFilter, projectFilter]);
 
   // P3-3: Fetch report data when filter or type changes — delegates to loadReport()
   useEffect(() => {
     loadReport();
+    return () => { latestReport.current++; };
   }, [loadReport]);
 
   // Export to CSV helper
@@ -209,15 +203,15 @@ export default function ReportsView() {
         ].join(',') + '\n';
       });
     } else if (reportType === 'Day_Wise') {
-      const rows = data.days || [];
+      const rows = data.dates || [];
       csvContent += "Date,Approved Count,Total Gross,Total TDS,Total Net\n";
       rows.forEach(r => {
         csvContent += [
-          helperCsvCell(r.date || ''),
-          r.count || 0,
-          r.total_gross || 0,
-          r.total_tds || 0,
-          r.total_net || 0
+          helperCsvCell(r.date || r.displayDate),
+          r.count ?? 0,
+          r.gross ?? 0,
+          r.tds ?? 0,
+          r.net ?? 0
         ].join(',') + '\n';
       });
     } else {
@@ -228,9 +222,9 @@ export default function ReportsView() {
         const poNo = r.po_no || '';
         const project = r.project || '';
         const vendor = r.vendor_name || r.vendor || '';
-        const gross = r.approved_amount || r.amount_requested || r.gross_amount || 0;
+        const gross = r.approved_amount ?? r.amount_requested ?? r.gross_amount ?? 0;
         const tds = r.tds_amount || 0;
-        const net = r.net_amount || (gross - tds);
+        const net = r.net_amount ?? r.net_payment_amount ?? (gross - tds);
         const status = r.status || '';
         const stage = r.stage || r.approval_stage || '';
         const createdAt = r.created_at || '';

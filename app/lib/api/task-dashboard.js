@@ -27,7 +27,7 @@ export async function getEmployeeTaskDashboard(session) {
   const employeeId = emp?.employee_id;
   const employeeName = emp?.name || session.email.split('@')[0];
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const todayMs = new Date(todayStr).getTime();
 
   let myTasks = [];
@@ -88,11 +88,12 @@ export async function getEmployeeTaskDashboard(session) {
   });
 
   // Check if DPR submitted today
-  const todayDpr = await queryGet(
-    `SELECT id, project, created_at FROM dpr_reports 
-     WHERE prepared_by = ? AND date = ? LIMIT 1`,
-    [session.email, todayStr]
+  const reports = await queryAll(
+    `SELECT project FROM dpr_reports WHERE LOWER(prepared_by) = LOWER(?) AND date = ?
+     AND LOWER(approval_status) IN ('submitted', 'checked', 'approved')`, [session.email, todayStr]
   );
+  const projectsReported = new Set(reports.map(report => report.project));
+  const pending = activeTasks.some(task => !projectsReported.has(task.project));
 
   return {
     employeeName,
@@ -102,9 +103,9 @@ export async function getEmployeeTaskDashboard(session) {
       inProgress: inProgressCount,
       completed: completedCount,
       overdue: overdueCount,
-      hasPendingDpr: activeTasks.length > 0 && !todayDpr
+      hasPendingDpr: pending
     },
-    todayDprSubmitted: Boolean(todayDpr),
+    todayDprSubmitted: reports.length > 0 && !pending,
     overdueTasks,
     upcomingTasks,
     activeTasks
@@ -121,7 +122,7 @@ export async function getProjectManagerTaskDashboard(project, session) {
   const projName = unwrap(project);
   if (!projName) throw new Error('Project name is required');
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const todayMs = new Date(todayStr).getTime();
 
   const tasks = await queryAll(
@@ -197,7 +198,7 @@ export async function getManagementTaskDashboard(session) {
   requireAuth(session);
   await initEnterpriseUpgradeSchemas();
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const todayMs = new Date(todayStr).getTime();
 
   // 1. Fetch all site employees
@@ -209,8 +210,8 @@ export async function getManagementTaskDashboard(session) {
   const allTasks = await queryAll(`SELECT * FROM schedule_tasks ORDER BY planned_end_date ASC`);
 
   // 3. Fetch today's DPRs
-  const todayDprs = await queryAll(`SELECT prepared_by, project FROM dpr_reports WHERE date = ?`, [todayStr]);
-  const dprPreparedEmails = new Set(todayDprs.map(d => String(d.prepared_by || '').toLowerCase()));
+  const todayDprs = await queryAll(`SELECT prepared_by, project FROM dpr_reports WHERE date = ? AND LOWER(approval_status) IN ('submitted', 'checked', 'approved')`, [todayStr]);
+
 
   const matrix = employees.map(emp => {
     const empId = emp.employee_id;
@@ -260,9 +261,9 @@ export async function getManagementTaskDashboard(session) {
       }
     });
 
-    const hasDprToday = dprPreparedEmails.has(empEmail) || dprPreparedEmails.has(empName.toLowerCase());
-    const activeTasksCount = assigned - completed;
-    const pendingDpr = activeTasksCount > 0 && !hasDprToday;
+    const reported = new Set(todayDprs.filter(d => [empEmail, empName.toLowerCase()].includes(String(d.prepared_by || '').toLowerCase())).map(d => d.project));
+    const pendingDpr = empTasks.some(task => task.status !== 'Completed' && !reported.has(task.project));
+    const hasDprToday = reported.size > 0 && !pendingDpr;
 
     return {
       employee_id: empId,
@@ -280,7 +281,7 @@ export async function getManagementTaskDashboard(session) {
     };
   });
 
-  const totalOverdue = matrix.reduce((sum, e) => sum + e.overdue, 0);
+  const totalOverdue = allTasks.filter(t => t.status !== 'Completed' && t.planned_end_date && t.planned_end_date < todayStr).length;
   const pendingDprCount = matrix.filter(e => e.pendingDpr).length;
 
   return {

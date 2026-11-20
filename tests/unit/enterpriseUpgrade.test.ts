@@ -10,6 +10,7 @@ vi.mock('../../app/lib/db.js', () => ({
   queryAll: (...args: any[]) => mockQueryAll(...args),
   queryGet: (...args: any[]) => mockQueryGet(...args),
   queryRun: (...args: any[]) => mockQueryRun(...args),
+  withWriteTransaction: (work: () => Promise<unknown>) => work(),
   queryBatch: (...args: any[]) => mockQueryBatch(...args)
 }));
 
@@ -137,7 +138,7 @@ describe('Enterprise Upgrade System Tests', () => {
       const delRes = await deleteClient(1, session);
       expect(delRes.success).toBe(true);
       expect(mockQueryRun).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM clients WHERE id = ?'),
+        expect.stringContaining("UPDATE clients SET status = 'Inactive'"),
         [1]
       );
     });
@@ -320,7 +321,7 @@ describe('Enterprise Upgrade System Tests', () => {
       expect(taskList[0].health).toBe('critical');
     });
 
-    it('updates task progress and completion status from DPR submission', async () => {
+    it('records the supervisors cumulative task quantity', async () => {
       mockQueryGet.mockResolvedValueOnce({
         id: 'task-10',
         title: 'Electrical Conduit Laying',
@@ -334,7 +335,7 @@ describe('Enterprise Upgrade System Tests', () => {
         progressPct: 100,
         executedQty: 250,
         isCompleted: true,
-        dprId: 'DPR-2026-001'
+        dprId: null
       }, session);
 
       expect(updateRes.success).toBe(true);
@@ -344,7 +345,7 @@ describe('Enterprise Upgrade System Tests', () => {
       // Verify DB update and audit history insert
       expect(mockQueryRun).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE schedule_tasks'),
-        expect.arrayContaining([100, 500, 'Completed'])
+        expect.arrayContaining([100, 250, 'Completed'])
       );
       expect(mockQueryRun).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO schedule_task_history'),

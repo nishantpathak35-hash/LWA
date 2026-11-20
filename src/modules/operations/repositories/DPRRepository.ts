@@ -30,7 +30,7 @@ export class DPRRepository {
   /**
    * Create a new DPR
    */
-  static async createReport(dpr: Omit<IDPR, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
+  static async createReport(dpr: Omit<IDPR, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     // Duplicate submission guard
     const existing = await queryGet(`SELECT id FROM dpr_reports WHERE project = ? AND site = ? AND date = ?`, [dpr.project || '', dpr.site || '', dpr.date || '']);
     if (existing) {
@@ -57,7 +57,8 @@ export class DPRRepository {
       dpr.approved_by || '', 
       dpr.data || '{}'
     ].map(p => p === undefined ? null : p);
-    await queryRun(sql, params);
+    const result = await queryRun(sql, params);
+    return String(result.lastInsertRowid);
   }
 
   /**
@@ -148,7 +149,7 @@ export class DPRRepository {
     const result = await queryRun(sql, values);
     
     // If we used optimistic locking and no rows were affected, throw error
-    if (expectedUpdatedAt && result.changes === 0) {
+    if (expectedUpdatedAt && result.rowsAffected === 0) {
       throw new Error("This report was changed by someone else. Please reload and try again.");
     }
   }

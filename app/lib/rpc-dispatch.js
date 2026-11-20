@@ -56,6 +56,6 @@ export async function dispatchRpc(api, body, request) {
     ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'Unknown',
     ua: request.headers.get('user-agent') || 'Unknown'
   });
-  if (method === 'logoutUser') input[0] = token;
+  if (method === 'logoutUser' || method === 'logoutVendor') input[0] = token;
   return api[method](...input);
 }

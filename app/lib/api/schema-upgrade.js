@@ -39,7 +39,7 @@ export async function initEnterpriseUpgradeSchemas() {
         valid_from TEXT NOT NULL,
         valid_until TEXT NOT NULL,
         status TEXT DEFAULT 'Active',
-        approval_status TEXT DEFAULT 'Approved',
+        approval_status TEXT DEFAULT 'Draft',
         terms_conditions TEXT,
         attachment_url TEXT,
         version INTEGER DEFAULT 1,
@@ -164,6 +164,7 @@ export async function initEnterpriseUpgradeSchemas() {
 
     // Safe column migrations on existing tables
     const columnMigrations = [
+      { table: 'rate_contracts', col: 'last_edited_by TEXT' },
       { table: 'clients', col: 'company_name TEXT' },
       { table: 'clients', col: 'pan TEXT' },
       { table: 'clients', col: 'state TEXT' },

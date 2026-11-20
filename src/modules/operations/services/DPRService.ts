@@ -1,3 +1,5 @@
+import { withWriteTransaction } from '../../../../app/lib/db.js';
+import { syncReportTasks } from '../../../../app/lib/api/dpr-progress.js';
 import { DPRRepository, IDPR, IDPRTemplate } from '../repositories/DPRRepository';
 import { SettingsRepository } from '../../core/repositories/SettingsRepository';
 import { AuthService } from '../../core/services/AuthService';
@@ -48,33 +50,11 @@ export class DPRService {
 
     dpr.data = JSON.stringify(dataObj);
 
-    await DPRRepository.createReport(dpr);
-
-    // Synchronize linked project schedule tasks from DPR work progress
-    if (dataObj.floors && Array.isArray(dataObj.floors)) {
-      for (const floor of dataObj.floors) {
-        if (floor.workDone && Array.isArray(floor.workDone)) {
-          for (const item of floor.workDone) {
-            if (item.schedule_task_id) {
-              try {
-                const { updateTaskProgressFromDpr } = await import('../../../../app/lib/api/schedule.js');
-                await updateTaskProgressFromDpr({
-                  taskId: item.schedule_task_id,
-                  progressPct: item.progress_pct != null ? Number(item.progress_pct) : undefined,
-                  executedQty: item.executed_qty != null ? Number(item.executed_qty) : undefined,
-                  isCompleted: !!item.is_completed,
-                  delayReason: item.delay_reason || '',
-                  blockers: item.blockers || '',
-                  dprId: dataObj.seqId || String(dpr.date)
-                }, user);
-              } catch (taskErr) {
-                console.warn('Could not auto-update schedule task from DPR:', taskErr);
-              }
-            }
-          }
-        }
-      }
-    }
+    if (!['Draft', 'Submitted'].includes(dpr.approval_status || 'Draft')) throw new Error('New DPR must be draft or submitted');
+    await withWriteTransaction(async () => {
+      const id = await DPRRepository.createReport(dpr);
+      await syncReportTasks(null, { ...dpr, id }, user);
+    });
   }
 
   /**
@@ -129,62 +109,22 @@ export class DPRService {
     }
     
     // Auto-stamp approver/checker if status changes
-    if (updates.approval_status === 'Approved' && !updates.approved_by) {
+    if (['Approved', 'Rejected', 'Checked'].includes(updates.approval_status || '')) {
       // Authorization Check
       const isApprover = DPRService.checkApprover(user);
       if (!isApprover) {
         throw new Error("You do not have permission to approve this report.");
       }
-      updates.approved_by = user?.email || user?.name || 'System';
-    } else if (updates.approval_status === 'Checked' && !updates.checked_by) {
-      updates.checked_by = user?.email || user?.name || 'System';
+      if (updates.approval_status === 'Checked') updates.checked_by = user.email;
+      else updates.approved_by = user.email;
     }
 
-    await DPRRepository.updateReport(id, updates);
-
-    // Rollback or sync tasks if rejection or updates provided
-    if (updates.approval_status === 'Rejected') {
-      try {
-        const { queryRun } = await import('../../../../app/lib/db.js');
-        await queryRun(
-          `UPDATE schedule_tasks 
-           SET status = CASE WHEN actual_qty > 0 THEN 'In Progress' ELSE 'Not Started' END,
-               progress_pct = MIN(progress_pct, 90),
-               completion_date = NULL,
-               completed_by = NULL
-           WHERE linked_dpr_id = ?`,
-          [id]
-        );
-      } catch (revErr) {
-        console.warn('Could not revert schedule tasks for rejected DPR:', revErr);
-      }
-    } else if (updates.data) {
-      const dataObj = typeof updates.data === 'object' ? updates.data : JSON.parse(updates.data);
-      if (dataObj.floors && Array.isArray(dataObj.floors)) {
-        for (const floor of dataObj.floors) {
-          if (floor.workDone && Array.isArray(floor.workDone)) {
-            for (const item of floor.workDone) {
-              if (item.schedule_task_id) {
-                try {
-                  const { updateTaskProgressFromDpr } = await import('../../../../app/lib/api/schedule.js');
-                  await updateTaskProgressFromDpr({
-                    taskId: item.schedule_task_id,
-                    progressPct: item.progress_pct != null ? Number(item.progress_pct) : undefined,
-                    executedQty: item.executed_qty != null ? Number(item.executed_qty) : undefined,
-                    isCompleted: !!item.is_completed,
-                    delayReason: item.delay_reason || '',
-                    blockers: item.blockers || '',
-                    dprId: id
-                  }, user);
-                } catch (taskErr) {
-                  console.warn('Could not auto-update schedule task from DPR update:', taskErr);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    await withWriteTransaction(async () => {
+      const previous = await DPRRepository.getReportById(id);
+      if (!previous) throw new Error('DPR no longer exists');
+      await DPRRepository.updateReport(id, updates);
+      await syncReportTasks(previous, { ...previous, ...updates, id }, user);
+    });
   }
 
   static checkApprover(user: any): boolean {
@@ -204,7 +144,12 @@ export class DPRService {
     if (!isApprover) {
       throw new Error("Only an approver or admin can delete reports.");
     }
-    await DPRRepository.deleteReport(id);
+    await withWriteTransaction(async () => {
+      const previous = await DPRRepository.getReportById(id);
+      if (!previous) return;
+      await DPRRepository.deleteReport(id);
+      await syncReportTasks(previous, null, user);
+    });
   }
 
   // --- Templates ---

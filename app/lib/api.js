@@ -3,7 +3,7 @@
 // This file provides a unified import surface for backward compatibility.
 
 export { logAudit, getDefaultPOGeneralTerms, setDefaultPOGeneralTerms } from './api/core.js';
-export { loginUser, getMySession, inviteUserAdmin, sendInvite, listUsersAdmin, listActiveUsers, deleteUserAdmin, setUserActiveAdmin, setUserRolesAdmin, resetUserPasswordAdmin, addCustomRole, logoutUser, acceptInvite } from './api/auth.js';
+export { loginUser, getMySession, inviteUserAdmin, sendInvite, listUsersAdmin, listActiveUsers, deleteUserAdmin, setUserActiveAdmin, setUserRolesAdmin, resetUserPasswordAdmin, addCustomRole, logoutUser as logoutVendor, logoutUser, acceptInvite } from './api/auth.js';
 export { getBootData, getBootBundle, clearCacheAndGetMaster, getDashboardKPIs, getMasterData, getFinancialDiagnostics, getSystemPaymentsDetail, deduplicateSystemPayments, getMasterHealth, getVendorsOnly, getPOsOnly, getPaymentsOnly } from './api/dashboard.js';
 export { getProjectDetails, updateProjectFinancials, getProjectFinancialSummary, mergeProjects } from './api/projects.js';
 export { addVendor, updateVendor, getVendorByName, getVendorSummary, deleteVendor, checkVendorDuplicate } from './api/vendors.js';
@@ -11,7 +11,7 @@ export { listPOsJson, getPOsByVendor, savePO, updatePOFull, shortClosePO, delete
 export { listPaymentRequests, getApprovalQueue, getRemittanceQueue, getCommandCenter, sendPaymentAdvice, createPaymentRequest, updatePaymentRequest, bulkApprovePayments, bulkRejectPayments, bulkRemitPayments, remitPaymentRequest, approvePaymentWithChain, transitionPaymentWorkflow, setPaymentHold, getApprovalHistory, reconcileRemittedPaymentsToPOLedger, deleteRemittedPayment, deletePaymentRequest, addPaymentComment } from './api/payments.js';
 export { getFeaturePermissions, setFeaturePermissions, clearAllCaches, getCompanySettings, setCompanySettings, getDefaultCCRecipients, setDefaultCCRecipients, getControlPolicies, setControlPolicies } from './api/settings.js';
 export { getAuditLogs, listAuditLog, getPaymentReportRows, getTDSRegisterReport, getVendorTDSReport, getProjectTDSReport, getApprovalAuditReport, getDayWiseApprovalReport, updateForm16AStatus, getTDSChallans281, saveTDSChallan281 } from './api/reports.js';
-export { uploadAttachment, getAttachments, deleteAttachment } from './api/attachments.js';
+export { uploadScopedAttachment as uploadAttachment, getAttachments, deleteAttachment } from './api/attachments.js';
 export { updateUserDetailsAdmin } from './api/auth.js';
 export { getApprovalWorkflows, getApprovalWorkflow, createApprovalWorkflow, updateApprovalWorkflow, deleteApprovalWorkflow, cloneApprovalWorkflow, activateApprovalWorkflow, deactivateApprovalWorkflow, reorderWorkflowStages } from './api/workflow.js';
 export { getNumberSeriesConfig, getAllNumberSeriesConfigs, updateNumberSeriesConfig, previewNumberSeries, getNextSeriesNumber } from './api/number-series.js';
@@ -139,6 +139,7 @@ export {
   listRateContracts,
   getRateContract,
   saveRateContract,
+  approveRateContract,
   getEligibleRateContractsForPO
 } from './api/rate-contracts.js';
 

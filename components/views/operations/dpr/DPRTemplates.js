@@ -17,7 +17,7 @@ export default function DPRTemplates() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const list = await call('listTemplates', {});
+      const list = await call('listTemplates');
       setTemplates(list || []);
     } catch (err) {
       console.error("Failed to fetch templates:", err);

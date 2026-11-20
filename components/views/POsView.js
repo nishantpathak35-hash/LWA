@@ -325,6 +325,7 @@ export default function POsView() {
           setGstMode(poDetails.gst_mode || 'inter');
           setItems(poDetails.items?.length
             ? poDetails.items.map(it => ({
+                boq_item_id: it.boq_item_id, boq_id: it.boq_id, boq_version_id: it.boq_version_id,
                 description: it.description || '',
                 hsnSac: it.hsnSac || it.hsn_sac || '',
                 quantity: it.quantity || it.qty || 1,

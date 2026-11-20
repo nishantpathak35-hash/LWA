@@ -341,17 +341,19 @@ export async function getProjectTDSReport(startDate, endDate, session) {
 
 export async function getApprovalAuditReport(startDate, endDate, session) {
   requireAuth(session);
-  let query = `SELECT * FROM payment_requests`;
+  // Keep one decision per payment so multi-stage approvals do not multiply the financial totals.
+  let query = `WITH decisions AS (
+    SELECT entity_id, performed_by, timestamp, action,
+      ROW_NUMBER() OVER (PARTITION BY entity_id ORDER BY datetime(timestamp) DESC, id DESC) AS rank
+    FROM approval_history_v2 WHERE entity_type='payment_request' AND LOWER(action) IN ('approved','rejected')
+  )
+  SELECT p.*, h.performed_by AS decision_actor, h.timestamp AS decision_time, h.action AS decision_action
+  FROM payment_requests p LEFT JOIN decisions h ON CAST(p.pr_id AS TEXT)=h.entity_id AND h.rank=1
+  WHERE 1=1`;
   const params = [];
-  if (startDate) {
-    query += ` WHERE created_at >= ?`;
-    params.push(startDate);
-  }
-  if (endDate) {
-    const endDateInclusive = endDate.includes('T') ? endDate : endDate + 'T23:59:59.999Z';
-    query += startDate ? ` AND created_at <= ?` : ` WHERE created_at <= ?`;
-    params.push(endDateInclusive);
-  }
+  if (startDate) { query += ' AND date(h.timestamp,\'+330 minutes\') >= date(?)'; params.push(startDate); }
+  if (endDate) { query += ' AND date(h.timestamp,\'+330 minutes\') <= date(?)'; params.push(endDate); }
+  query += ' ORDER BY datetime(h.timestamp) DESC';
   const list = await queryAll(query, params);
   
   const summary = { total_count: 0, total_gross: 0, total_tds: 0, total_net: 0 };
@@ -369,11 +371,11 @@ export async function getApprovalAuditReport(startDate, endDate, session) {
     summary.total_tds += tds;
     summary.total_net += net;
 
-    const performedBy = r.created_by || 'System';
-    const action = r.stage === 'Rejected' ? 'reject' : 'approve';
+    const performedBy = r.decision_actor || 'Not recorded';
+    const action = (r.decision_action?.toLowerCase() || status) === 'rejected' ? 'reject' : 'approve';
 
     return {
-      timestamp: r.created_at,
+      timestamp: r.decision_time ? new Date(/(?:Z|[+-]\d\d:\d\d)$/i.test(r.decision_time) ? r.decision_time : r.decision_time.replace(' ', 'T') + 'Z').toISOString() : null,
       action: action,
       performed_by: performedBy,
       project_id: r.project || '—',
@@ -396,12 +398,13 @@ export async function getDayWiseApprovalReport(startDate, endDate, session) {
   const dayMap = {};
   
   (auditReport.entries || []).forEach(e => {
-    if (e.action !== 'approve') return;
-    const dateStr = String(e.timestamp || '').split('T')[0];
+    if (e.action !== 'approve' || !e.timestamp) return;
+    const dateStr = new Date(e.timestamp).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     if (!dateStr) return;
     
     if (!dayMap[dateStr]) {
       dayMap[dateStr] = {
+        date: dateStr,
         displayDate: new Date(dateStr).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
         count: 0,
         gross: 0,

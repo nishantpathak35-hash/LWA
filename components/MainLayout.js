@@ -485,10 +485,10 @@ export default function MainLayout() {
               </div>
               <div className="grid grid-cols-2 gap-2.5">
                 {/* Approvals Queue */}
-                <button
+                {(hasPermission('payments') || hasPermission('purchase_orders')) && (<button
                   onClick={() => {
                     setMobileQuickActionOpen(false);
-                    setActiveView(pendingPaymentsCount > 0 ? 'payments' : 'pos');
+                    setActiveView(hasPermission('payments') && (pendingPaymentsCount > 0 || !hasPermission('purchase_orders')) ? 'payments' : 'pos');
                   }}
                   className="flex items-center gap-2.5 p-3 rounded-lg bg-muted text-foreground text-xs font-medium transition-colors col-span-2"
                 >
@@ -499,9 +499,9 @@ export default function MainLayout() {
                       {pendingPaymentsCount + pendingPOsCount}
                     </span>
                   )}
-                </button>
+                </button>)}
 
-                <button
+                {hasPermission('payments') && (<button
                   onClick={() => {
                     setMobileQuickActionOpen(false);
                     setActiveView('payments');
@@ -511,9 +511,9 @@ export default function MainLayout() {
                 >
                   <Receipt className="w-4 h-4 text-muted-foreground" />
                   <span>Payment</span>
-                </button>
+                </button>)}
 
-                <button
+                {hasPermission('purchase_orders') && (<button
                   onClick={() => {
                     setMobileQuickActionOpen(false);
                     setActiveView('pos');
@@ -523,7 +523,7 @@ export default function MainLayout() {
                 >
                   <ShoppingBag className="w-4 h-4 text-muted-foreground" />
                   <span>New PO</span>
-                </button>
+                </button>)}
               </div>
             </div>
           </div>
@@ -532,7 +532,7 @@ export default function MainLayout() {
         {/* ── Mobile Bottom Nav ── */}
         <div className="md:hidden fixed bottom-3 inset-x-3 z-30 pointer-events-none flex justify-center">
           <nav className="pointer-events-auto bg-card border border-border rounded-full px-3 py-2 flex items-center justify-between gap-1 shadow-elevated max-w-sm w-full">
-            <button
+            {hasPermission(VIEW_FEATURE_MAP.dashboard) && (<button
               onClick={() => setActiveView('dashboard')}
               className={`flex flex-col items-center justify-center py-1 px-3 rounded-full text-[10px] font-medium transition-colors ${
                 activeView === 'dashboard' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
@@ -540,9 +540,9 @@ export default function MainLayout() {
             >
               <LayoutDashboard className="w-4 h-4" />
               <span className="mt-0.5">Home</span>
-            </button>
+            </button>)}
 
-            <button
+            {hasPermission(VIEW_FEATURE_MAP.pos) && (<button
               onClick={() => setActiveView('pos')}
               className={`relative flex flex-col items-center justify-center py-1 px-3 rounded-full text-[10px] font-medium transition-colors ${
                 activeView === 'pos' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
@@ -553,18 +553,18 @@ export default function MainLayout() {
               {pendingPOsCount > 0 && (
                 <span className="absolute -top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
               )}
-            </button>
+            </button>)}
 
             {/* Central FAB */}
-            <button
+            {(hasPermission('payments') || hasPermission('purchase_orders')) && (<button
               onClick={() => setMobileQuickActionOpen(true)}
               className="flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-elevated -mt-3 border-2 border-background"
               title="Quick Actions"
             >
               <Plus className="w-5 h-5 stroke-[2.5]" />
-            </button>
+            </button>)}
 
-            <button
+            {hasPermission(VIEW_FEATURE_MAP.payments) && (<button
               onClick={() => setActiveView('payments')}
               className={`relative flex flex-col items-center justify-center py-1 px-3 rounded-full text-[10px] font-medium transition-colors ${
                 activeView === 'payments' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
@@ -575,7 +575,7 @@ export default function MainLayout() {
               {pendingPaymentsCount > 0 && (
                 <span className="absolute -top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
               )}
-            </button>
+            </button>)}
 
             <button
               onClick={() => setMobileMenuOpen(true)}

@@ -28,13 +28,13 @@ const SUB_TABS = [
   { id: 'reports', label: 'Reports & Exports', icon: Download }
 ];
 
-export default function ProjectBOQModule({ selectedProject }) {
+export default function ProjectBOQModule({ selectedProject, initialBoqId }) {
   const { call } = useAppState();
   const projectName = selectedProject?.project || selectedProject?.name || '';
 
   const [boqList, setBoqList] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedBoqId, setSelectedBoqId] = useState('');
+  const [selectedBoqId, setSelectedBoqId] = useState(initialBoqId || '');
   const [activeVersionId, setActiveVersionId] = useState('');
   const [activeSubTab, setActiveSubTab] = useState('editor');
 

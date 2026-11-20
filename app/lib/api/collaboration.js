@@ -1,3 +1,4 @@
+import { ApprovalWorkflowService } from '../../../src/modules/core/services/ApprovalWorkflowService';
 import { queryAll, queryGet, queryRun } from '../db.js';
 import { createNotification } from './notifications.js';
 import { DEFAULT_CONTROL_POLICIES, normalizeControlPolicies } from '../paymentStatus.js';
@@ -133,21 +134,24 @@ export async function getComments(recordType, recordId) {
 // Query Hold API
 export async function requestPaymentClarification(user, paymentId, queryText) {
   await ensureCollaborationTables();
-  try {
-    const policyRow = await queryGet('SELECT value FROM app_settings WHERE key = ?', ['erp_control_policies']);
-    const policies = policyRow?.value ? normalizeControlPolicies(JSON.parse(policyRow.value)) : DEFAULT_CONTROL_POLICIES;
-    if (!policies.allow_payment_holds) throw new Error('Payment holds are disabled in ERP control policies');
-  } catch (error) {
-    if (error?.message === 'Payment holds are disabled in ERP control policies') throw error;
-  }
-  const uEmail = user?.email || 'approver@luxeworx.com';
+  const uEmail = user?.email;
+  const roles = user?.roles || [];
+  const payment = await queryGet('SELECT stage FROM payment_requests WHERE pr_id = ?', [paymentId]);
+  if (!uEmail || !payment?.stage) throw new Error('AUTH: Current payment approver required');
+  const { newStage } = await ApprovalWorkflowService.getNextStage('payment_request', payment.stage, roles, true);
+  if (newStage === payment.stage) throw new Error('AUTH: Current payment approver required');
+  if (!queryText?.trim()) throw new Error('Clarification text required');
+  const policyRow = await queryGet('SELECT value FROM app_settings WHERE key = ?', ['erp_control_policies']);
+  const policies = policyRow?.value ? normalizeControlPolicies(JSON.parse(policyRow.value)) : DEFAULT_CONTROL_POLICIES;
+  if (!policies.allow_payment_holds) throw new Error('Payment holds are disabled in ERP control policies');
   const uName = user?.name || user?.email?.split('@')[0] || 'Approver';
   const now = new Date().toISOString();
 
-  await queryRun(
-    `UPDATE payment_requests SET query_status = 'hold', query_text = ?, query_asked_by = ?, query_asked_at = ? WHERE pr_id = ?`,
-    [queryText, `${uName} (${uEmail})`, now, paymentId]
+  const changed = await queryRun(
+    `UPDATE payment_requests SET query_status = 'hold', query_text = ?, query_asked_by = ?, query_asked_at = ?, query_response = NULL, query_answered_at = NULL WHERE pr_id = ? AND stage = ? AND COALESCE(query_status, '') <> 'hold'`,
+    [queryText, `${uName} (${uEmail})`, now, paymentId, payment.stage]
   );
+  if (!changed.rowsAffected) throw new Error("Payment stage or hold has changed");
 
   await logActivity(user, 'requested clarification for', 'Payment Request', paymentId, queryText);
   await addComment(user, 'Payment Request', paymentId, `❓ Query Hold Requested: "${queryText}"`);
@@ -169,14 +173,17 @@ export async function requestPaymentClarification(user, paymentId, queryText) {
 
 export async function answerPaymentClarification(user, paymentId, responseText) {
   await ensureCollaborationTables();
-  const uEmail = user?.email || 'requester@luxeworx.com';
+  const uEmail = user?.email;
+  if (!uEmail || !responseText?.trim()) throw new Error('Signed-in responder and response text required');
+  const canAnswer = user.roles?.some(role => ['admin', 'proc', 'procurement'].includes(role));
   const uName = user?.name || user?.email?.split('@')[0] || 'Requester';
   const now = new Date().toISOString();
 
-  await queryRun(
-    `UPDATE payment_requests SET query_status = 'answered', query_response = ?, query_answered_at = ? WHERE pr_id = ?`,
-    [responseText, now, paymentId]
+  const changed = await queryRun(
+    `UPDATE payment_requests SET query_status = 'answered', query_response = ?, query_answered_at = ? WHERE pr_id = ? AND query_status = 'hold' AND (? = 1 OR LOWER(created_by) = LOWER(?))`,
+    [responseText, now, paymentId, canAnswer ? 1 : 0, uEmail]
   );
+  if (!changed.rowsAffected) throw new Error("AUTH: An open hold and an authorised responder are required");
 
   await logActivity(user, 'answered clarification for', 'Payment Request', paymentId, responseText);
   await addComment(user, 'Payment Request', paymentId, `✅ Clarification Answered: "${responseText}"`);

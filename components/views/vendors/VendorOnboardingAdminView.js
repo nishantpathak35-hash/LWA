@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge, Button, Dialog, Input, Textarea } from '../../ui/core';
 import { UserCheck, ShieldAlert, CheckCircle2, XCircle, Eye, Loader2, Download, AlertTriangle, Send, Mail, Copy, Check, FileText } from 'lucide-react';
 import { toast } from '../../ui/Toast';
@@ -83,7 +83,13 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
     }
   };
 
+  const reviewRequest = useRef(0);
+  const reviewReady = !!selectedSubmission && !loadingDetails &&
+    reviewDetails?.submission?.submission_id === selectedSubmission.submission_id;
+
   const handleOpenReview = async (sub) => {
+    const request = ++reviewRequest.current;
+    setReviewDetails(null);
     setSelectedSubmission(sub);
     setLoadingDetails(true);
     setActionError('');
@@ -93,16 +99,16 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
 
     try {
       const res = await call('getOnboardingDetails', sub.submission_id);
-      setReviewDetails(res);
+      if (request === reviewRequest.current) setReviewDetails(res);
     } catch (err) {
-      setActionError(err.message || 'Failed to load details');
+      if (request === reviewRequest.current) setActionError(err.message || 'Failed to load details');
     } finally {
-      setLoadingDetails(false);
+      if (request === reviewRequest.current) setLoadingDetails(false);
     }
   };
 
   const handleApprove = async () => {
-    if (!selectedSubmission) return;
+    if (!reviewReady) return;
     setSubmitting(true);
     setActionError('');
     try {
@@ -110,7 +116,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
       if (res.ok) {
         setSelectedSubmission(null);
         setReviewDetails(null);
-        await loadPending();
+        await loadData();
         if (onVendorApproved) onVendorApproved();
       }
     } catch (err) {
@@ -121,7 +127,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
   };
 
   const handleReject = async () => {
-    if (!selectedSubmission || !rejectionReason.trim()) {
+    if (!reviewReady || !rejectionReason.trim()) {
       setActionError("Rejection reason is required");
       return;
     }
@@ -132,7 +138,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
       if (res.ok) {
         setSelectedSubmission(null);
         setReviewDetails(null);
-        await loadPending();
+        await loadData();
       }
     } catch (err) {
       setActionError(err.message || 'Failed to reject onboarding');
@@ -349,7 +355,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
               <div className="py-12 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-amber-400" /> Fetching detailed submission data & attachment links...
               </div>
-            ) : reviewDetails && (
+            ) : reviewReady && (
               <>
                 {/* Duplicate Warning */}
                 {reviewDetails.duplicateMatch && (
@@ -395,10 +401,7 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
                     <div className="space-y-2">
                       {reviewDetails.documents.map((doc, idx) => {
                         const fileSizeKB = doc.file_size ? `${Math.ceil(doc.file_size / 1024)} KB` : null;
-                        let fileUrl = doc.file_data;
-                        if (fileUrl && !fileUrl.startsWith('http://') && !fileUrl.startsWith('https://') && !fileUrl.startsWith('data:')) {
-                          fileUrl = `data:${doc.file_type || 'application/pdf'};base64,${fileUrl}`;
-                        }
+                        const fileUrl = doc.id && `/api/attachments/${encodeURIComponent(doc.id)}`;
                         return (
                           <div key={idx} className="flex items-center justify-between text-xs p-2.5 bg-muted/40 rounded-lg border border-border gap-3">
                             <div className="min-w-0">
@@ -472,13 +475,13 @@ export default function VendorOnboardingAdminView({ onVendorApproved }) {
                     <Button type="button" variant="outline" onClick={() => setShowRejectForm(true)} className="text-xs border-rose-500/30 text-rose-400 hover:bg-rose-500/10">
                       <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
                     </Button>
-                    <Button type="button" onClick={handleApprove} disabled={submitting} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4">
+                    <Button type="button" onClick={handleApprove} disabled={!reviewReady || submitting} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4">
                       {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
                       Approve Vendor
                     </Button>
                   </>
                 ) : (
-                  <Button type="button" onClick={handleReject} disabled={submitting || !rejectionReason.trim()} className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold px-4">
+                  <Button type="button" onClick={handleReject} disabled={!reviewReady || submitting || !rejectionReason.trim()} className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold px-4">
                     {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Send className="w-3.5 h-3.5 mr-1" />}
                     Confirm Rejection
                   </Button>

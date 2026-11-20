@@ -222,7 +222,7 @@ export class ApprovalWorkflowService {
    * 
    * This replaces the hardcoded `if(stage==1) if(stage==2)` pattern.
    */
-  static async getNextStage(moduleType: string, currentStage: string, userRoles: string[]): Promise<{ newStage: string; updates: Record<string, string> }> {
+  static async getNextStage(moduleType: string, currentStage: string, userRoles: string[], requireKnownStage = false): Promise<{ newStage: string; updates: Record<string, string> }> {
     const workflow = await this.getActiveWorkflowForModule(moduleType);
     let stages = workflow?.stages;
     if (!stages || !Array.isArray(stages) || stages.length === 0) {

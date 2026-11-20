@@ -109,7 +109,8 @@ async function run() {
 
         const uploadResult = await cloudinary.uploader.upload(dataUri, {
           folder: `erp_attachments/${entity_type}/${entity_id}`,
-          resource_type: 'auto'
+          resource_type: 'raw',
+          type: 'authenticated'
         });
 
         await db.execute({

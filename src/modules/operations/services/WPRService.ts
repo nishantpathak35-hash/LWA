@@ -22,21 +22,15 @@ export class WPRService {
   // --- WPR Reports ---
   static async getWPRAggregation(project: string, weekStart: string, weekEnd: string): Promise<any> {
     // 1. Get all DPR reports for project in this range
-    const dprs = await DPRRepository.getReports({
+    const reports = await DPRRepository.getReports({
       project,
       dateFrom: weekStart,
       dateTo: weekEnd
     });
 
-    if (dprs.length === 0) {
-      return {
-        dprsCount: 0,
-        suggestedActualProgress: 0,
-        suggestedPlannedProgress: 0,
-        photos: [],
-        warning: "No DPRs found for this project in the selected week. Please verify the dates."
-      };
-    }
+    const dprs = reports.filter(report =>
+      ['submitted', 'checked', 'approved'].includes(String(report.approval_status).toLowerCase())
+    );
 
     // 2. Parse DPR data and aggregate actual progress
     let totalProgressSum = 0;
@@ -51,8 +45,8 @@ export class WPRService {
       floors.forEach((floor: any) => {
         const workDone = floor.workDone || [];
         workDone.forEach((w: any) => {
-          if (w.task) {
-            const prog = parseFloat(w.progress);
+          if (w.task || w.schedule_task_id) {
+            const prog = parseFloat(w.is_completed ? 100 : w.progress_pct ?? w.progress);
             if (!isNaN(prog)) {
               totalProgressSum += prog;
               totalTasksCount++;
@@ -112,6 +106,7 @@ export class WPRService {
     }
 
     return {
+      warning: dprs.length ? undefined : 'No submitted DPRs found for this week.',
       dprsCount: dprs.length,
       suggestedActualProgress,
       suggestedPlannedProgress,

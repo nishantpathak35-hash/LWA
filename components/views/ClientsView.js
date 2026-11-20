@@ -55,16 +55,19 @@ export default function ClientsView() {
   }, [loadClients]);
 
   // Load client details with linked projects and BOQs
+  const latestSelection = React.useRef(0);
   const handleSelectClient = async (client) => {
+    const request = ++latestSelection.current;
+    setClientDetails(null);
     setSelectedClient(client);
     setLoadingDetails(true);
     try {
       const details = await call('getClientProjectsAndBoqs', client.id);
-      setClientDetails(details);
+      if (request === latestSelection.current) setClientDetails(details);
     } catch (err) {
-      toast.error('Failed to load client details: ' + err.message);
+      if (request === latestSelection.current) toast.error('Failed to load client details: ' + err.message);
     } finally {
-      setLoadingDetails(false);
+      if (request === latestSelection.current) setLoadingDetails(false);
     }
   };
 
@@ -125,6 +128,7 @@ export default function ClientsView() {
       await call('deleteClient', client.id);
       toast.success('Client deactivated');
       if (selectedClient?.id === client.id) {
+        latestSelection.current++;
         setSelectedClient(null);
         setClientDetails(null);
       }
@@ -232,7 +236,7 @@ export default function ClientsView() {
                           <TableCell className="font-semibold text-xs text-foreground">
                             <div className="flex items-center gap-2">
                               <Building2 className="w-4 h-4 text-amber-500 shrink-0" />
-                              <span className="font-bold">{c.name}</span>
+                              <button type="button" className="font-bold text-left underline-offset-2 hover:underline" onClick={event => { event.stopPropagation(); handleSelectClient(c); }}>{c.name}</button>
                               {(c.is_project_mapped || c.created_by === 'system:project_sync') && (
                                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 font-normal">
                                   From Project
@@ -315,7 +319,7 @@ export default function ClientsView() {
                     variant="ghost"
                     onClick={(e) => handleDelete(selectedClient, e)}
                     className="h-7 px-2 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 flex items-center gap-1"
-                    title="Delete Client"
+                    title="Deactivate Client"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Delete</span>
@@ -324,6 +328,7 @@ export default function ClientsView() {
                     size="icon"
                     variant="ghost"
                     onClick={() => {
+                      latestSelection.current++;
                       setSelectedClient(null);
                       setClientDetails(null);
                     }}
@@ -391,7 +396,7 @@ export default function ClientsView() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setActiveView('projects')}
+                            onClick={() => setActiveView('projects', { project: p.project })}
                             className="h-7 text-[11px] text-amber-600 dark:text-amber-400 hover:text-amber-500"
                           >
                             Open Project <ExternalLink className="w-3 h-3 ml-1" />
@@ -434,7 +439,7 @@ export default function ClientsView() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => setActiveView('boqs')}
+                                onClick={() => setActiveView('boqs', { project: b.project, boqId: b.id })}
                                 className="h-5 px-1.5 text-[9px] text-amber-600 dark:text-amber-400 hover:text-amber-500 flex items-center"
                                 title="Open in BOQ & Estimation Workspace"
                               >

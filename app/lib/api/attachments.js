@@ -15,41 +15,30 @@ function requireAuth(session) {
   AuthService.requireAuth(session);
 }
 
-function extractCloudinaryPublicId(url) {
-  if (typeof url !== 'string' || !url.includes('cloudinary.com')) return null;
-  try {
-    const parts = url.split('/image/upload/');
-    if (parts.length < 2) return null;
-    const pathAfterUpload = parts[1]; // e.g. "v1234567/folder/public_id.pdf"
-    
-    let publicIdWithExt = pathAfterUpload;
-    if (pathAfterUpload.startsWith('v')) {
-      const match = pathAfterUpload.match(/^v\d+\/(.*)/);
-      if (match) {
-        publicIdWithExt = match[1];
-      }
-    }
-    
-    const dotIndex = publicIdWithExt.lastIndexOf('.');
-    if (dotIndex !== -1) {
-      return publicIdWithExt.substring(0, dotIndex);
-    }
-    return publicIdWithExt;
-  } catch (err) {
-    console.error('Failed to extract Cloudinary public ID:', err);
-    return null;
-  }
+function cloudinaryAsset(value) {
+  if (typeof value !== 'string' || !value.startsWith('https://res.cloudinary.com/')) return null;
+  const url = new URL(value);
+  const match = url.pathname.match(/^\/([^/]+)\/(image|video|raw)\/(authenticated|upload)\/v(\d+)\/(.+)$/);
+  if (!match || match[1] !== process.env.CLOUDINARY_CLOUD_NAME) return null;
+  const [, , resourceType, type, version, path] = match;
+  const name = decodeURIComponent(path);
+  const publicId = resourceType === 'raw' ? name : name.replace(/\.[^./]+$/, '');
+  return { publicId, path: name, resourceType, type, version };
 }
 
-export async function deleteCloudinaryAsset(publicId) {
-  if (!publicId) return;
-  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
-    try {
-      await cloudinary.uploader.destroy(publicId);
-    } catch (err) {
-      console.warn('Failed to delete asset from Cloudinary:', err.message);
-    }
-  }
+export function attachmentDeliveryUrl(value) {
+  const asset = cloudinaryAsset(value);
+  if (!asset) throw new Error('Unsupported attachment storage location');
+  return cloudinary.url(asset.path, {
+    secure: true, sign_url: true, resource_type: asset.resourceType, type: asset.type, version: asset.version
+  });
+}
+
+async function deleteStoredAsset(value) {
+  const asset = cloudinaryAsset(value);
+  if (asset) await cloudinary.uploader.destroy(asset.publicId, {
+    resource_type: asset.resourceType, type: asset.type, invalidate: true
+  });
 }
 
 export async function deleteEntityAttachments(entityType, entityId) {
@@ -59,10 +48,7 @@ export async function deleteEntityAttachments(entityType, entityId) {
     [entityType, entityId]
   );
   for (const att of attachments) {
-    const publicId = extractCloudinaryPublicId(att.file_data);
-    if (publicId) {
-      await deleteCloudinaryAsset(publicId);
-    }
+    await deleteStoredAsset(att.file_data);
     await queryRun(`DELETE FROM attachments WHERE id = ?`, [att.id]);
   }
 }
@@ -110,14 +96,18 @@ export async function uploadAttachment(payload, session) {
     cleanFileData = cleanFileData.split(',')[1];
   }
 
-  let dataToStore = fileData; // Default to raw fileData if Cloudinary is not configured
+  if (typeof cleanFileData !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(cleanFileData)) throw new Error('Invalid file data');
+  const bytes = Buffer.from(cleanFileData, 'base64');
+  if (!bytes.length || bytes.length > 3.5 * 1024 * 1024) throw new Error('File must be between 1 byte and 3.5 MB');
+  let dataToStore = cleanFileData; // Default to raw fileData if Cloudinary is not configured
 
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
     try {
       const dataUri = `data:${fileType || 'application/octet-stream'};base64,${cleanFileData}`;
       const uploadResult = await cloudinary.uploader.upload(dataUri, {
         folder: `erp_attachments/${entityType}/${entityId}`,
-        resource_type: 'auto'
+        resource_type: 'raw',
+        type: 'authenticated'
       });
       dataToStore = uploadResult.secure_url;
     } catch (err) {
@@ -125,44 +115,62 @@ export async function uploadAttachment(payload, session) {
     }
   }
 
-  await queryRun(
+  const inserted = await queryRun(
     `INSERT INTO attachments (entity_type, entity_id, file_name, file_type, file_size, file_data, uploaded_by)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [entityType, entityId, fileName, fileType || '', fileSize || 0, dataToStore, session.email]
+    [entityType, entityId, fileName, fileType || '', bytes.length, dataToStore, session.email]
   );
 
   await logAudit(session.email, 'Attachment Uploaded', `Uploaded "${fileName}" to ${entityType}/${entityId}`);
-  return { ok: true, url: dataToStore };
+  return { ok: true, url: `/api/attachments/${inserted.lastInsertRowid}` };
+}
+
+export async function attachmentAccess(session, type, id) {
+  const roles = session?.roles || [];
+  const vendor = session?.user_type === 'vendor';
+  if (!session?.email) return null;
+  if (!vendor && roles.some(r => ['admin', 'director'].includes(r))) return 'manage';
+  const po = type === 'po' || type === 'purchase_order';
+  const financeDoc = po || ['invoice', 'credit_note'].includes(type);
+  const procurement = roles.some(r => ['proc', 'procurement'].includes(r));
+  if (!vendor && (financeDoc || ['vendor', 'vendor_onboarding'].includes(type)) &&
+      (procurement || (financeDoc && roles.some(r => ['finance', 'accountant'].includes(r))))) return 'manage';
+
+  let parent;
+  if (po) parent = await queryGet('SELECT vendor_code, vendor_key, project FROM purchase_orders WHERE po_no = ?', [id]);
+  else if (type === 'invoice') parent = await queryGet(
+    'SELECT i.vendor_code, i.uploaded_by, p.project FROM invoices i LEFT JOIN purchase_orders p ON p.po_no = i.po_no WHERE i.invoice_id = ?', [id]);
+  if (vendor) {
+    const code = String(parent?.vendor_code || parent?.vendor_key || '').trim().toLowerCase();
+    return code && code === String(session.vendor_code || '').trim().toLowerCase() ? 'read' : null;
+  }
+  if (parent?.uploaded_by?.toLowerCase() === session.email.toLowerCase()) return 'project';
+  const project = ['dpr_photos', 'wpr_photos', 'schedule_renders'].includes(type) ? id : parent?.project;
+  if (!project) return null;
+  const allocation = await queryGet(
+    `SELECT 1 FROM site_employees e JOIN site_project_allocations a ON a.employee_id = e.employee_id
+     WHERE LOWER(COALESCE(NULLIF(e.user_email, ''), e.email)) = LOWER(?) AND a.project = ?
+     AND e.status = 'active' AND a.status = 'active' AND a.start_date <= date('now')
+     AND (NULLIF(a.end_date, '') IS NULL OR a.end_date >= date('now')) LIMIT 1`, [session.email, project]);
+  return allocation ? 'project' : null;
+}
+
+export async function uploadScopedAttachment(payload, session) {
+  if (!await attachmentAccess(session, payload?.entityType, payload?.entityId)) throw new Error('AUTH: Attachment access denied');
+  return uploadAttachment(payload, session);
 }
 
 export async function getAttachments(payload, session) {
-  requireAuth(session);
+  if (session?.user_type !== 'vendor') requireAuth(session);
   const { entityType, entityId } = payload;
   if (!entityType || !entityId) throw new Error('Missing entity details: entityType and entityId are required.');
 
   await ensureAttachmentsTable();
 
-  // Enforce vendor tenant isolation for attachment metadata access
-  if (session && session.user_type === 'vendor') {
-    if (entityType === 'invoice') {
-      const inv = await queryGet(`SELECT vendor_code FROM invoices WHERE invoice_id = ?`, [entityId]);
-      if (!inv || String(inv.vendor_code).trim().toLowerCase() !== String(session.vendor_code).trim().toLowerCase()) {
-        throw new Error('AUTH: Forbidden - Access Denied');
-      }
-    } else if (entityType === 'po' || entityType === 'purchase_order') {
-      const po = await queryGet(`SELECT vendor_code, vendor_key FROM purchase_orders WHERE po_no = ?`, [entityId]);
-      const vCode = String(po?.vendor_code || po?.vendor_key || '').trim().toLowerCase();
-      if (!po || vCode !== String(session.vendor_code).trim().toLowerCase()) {
-        throw new Error('AUTH: Forbidden - Access Denied');
-      }
-    } else {
-      throw new Error('AUTH: Forbidden - Access Denied');
-    }
-  }
+  if (!await attachmentAccess(session, entityType, entityId)) throw new Error('AUTH: Attachment access denied');
 
-  // Include file_data (Cloudinary URL or legacy base64) for attachment preview and download
   return queryAll(
-    `SELECT id, entity_type, entity_id, file_name, file_type, file_size, file_data, uploaded_by, created_at
+    `SELECT id, entity_type, entity_id, file_name, file_type, file_size, uploaded_by, created_at
      FROM attachments
      WHERE entity_type = ? AND entity_id = ?
      ORDER BY created_at DESC`,
@@ -179,30 +187,14 @@ export async function deleteAttachment(attachmentId, session) {
   const existing = await queryGet(`SELECT * FROM attachments WHERE id = ?`, [attachmentId]);
   if (!existing) throw new Error('Attachment not found.');
 
-  // Enforce vendor tenant isolation for attachment deletion
-  if (session && session.user_type === 'vendor') {
-    if (existing.entity_type === 'invoice') {
-      const inv = await queryGet(`SELECT vendor_code FROM invoices WHERE invoice_id = ?`, [existing.entity_id]);
-      if (!inv || String(inv.vendor_code).trim().toLowerCase() !== String(session.vendor_code).trim().toLowerCase()) {
-        throw new Error('AUTH: Forbidden - Access Denied');
-      }
-    } else if (existing.entity_type === 'po' || existing.entity_type === 'purchase_order') {
-      const po = await queryGet(`SELECT vendor_code, vendor_key FROM purchase_orders WHERE po_no = ?`, [existing.entity_id]);
-      const vCode = String(po?.vendor_code || po?.vendor_key || '').trim().toLowerCase();
-      if (!po || vCode !== String(session.vendor_code).trim().toLowerCase()) {
-        throw new Error('AUTH: Forbidden - Access Denied');
-      }
-    } else {
-      throw new Error('AUTH: Forbidden - Access Denied');
-    }
+  const access = await attachmentAccess(session, existing.entity_type, existing.entity_id);
+  if (access !== 'manage' && !(access === 'project' && existing.uploaded_by?.toLowerCase() === session.email.toLowerCase())) {
+    throw new Error('AUTH: Attachment deletion denied');
   }
 
   await queryRun(`DELETE FROM attachments WHERE id = ?`, [attachmentId]);
 
-  const publicId = extractCloudinaryPublicId(existing.file_data);
-  if (publicId) {
-    await deleteCloudinaryAsset(publicId);
-  }
+  await deleteStoredAsset(existing.file_data);
 
   await logAudit(
     session.email,

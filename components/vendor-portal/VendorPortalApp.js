@@ -5,6 +5,11 @@ import { toast } from '../ui/Toast';
 import { prepareInvoiceForOcr } from '../../app/lib/invoiceOcrClient';
 
 export default function VendorPortalApp() {
+  const [sessionKey, setSessionKey] = useState(0);
+  return <VendorPortalSession key={sessionKey} onSessionEnd={() => setSessionKey(key => key + 1)} />;
+}
+
+function VendorPortalSession({ onSessionEnd }) {
   const [token, setToken] = useState(() => {
     if (typeof window === 'undefined') return '';
     return localStorage.getItem('lx_vendor_token') || '';
@@ -22,6 +27,7 @@ export default function VendorPortalApp() {
   // Data states
   const [pos, setPos] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [dataError, setDataError] = useState('');
   const [loadingData, setLoadingData] = useState(false);
   const [downloadingInvId, setDownloadingInvId] = useState(null);
 
@@ -140,8 +146,7 @@ export default function VendorPortalApp() {
         console.error('Vendor session invalid:', err);
         if (active) {
           localStorage.removeItem('lx_vendor_token');
-          setToken('');
-          setVendorSession(null);
+          onSessionEnd();
         }
       } finally {
         if (active) setAuthLoading(false);
@@ -155,6 +160,7 @@ export default function VendorPortalApp() {
   const loadPortalData = async () => {
     if (!vendorSession) return;
     try {
+      setDataError('');
       setLoadingData(true);
       const [posData, invoicesData] = await Promise.all([
         callVendorApi('getVendorPortalPOs'),
@@ -163,7 +169,7 @@ export default function VendorPortalApp() {
       setPos(posData || []);
       setInvoices(invoicesData || []);
     } catch (err) {
-      console.error('Failed to load vendor portal data:', err);
+      setDataError(err.message || 'Could not load purchase orders and invoices.');
     } finally {
       setLoadingData(false);
     }
@@ -198,10 +204,11 @@ export default function VendorPortalApp() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await callVendorApi('logoutVendor'); }
+    catch { toast.error('Logout failed. Please retry.'); return; }
     localStorage.removeItem('lx_vendor_token');
-    setToken('');
-    setVendorSession(null);
+    onSessionEnd();
   };
 
   const handleOpenUploadModal = (po) => {
@@ -263,14 +270,18 @@ export default function VendorPortalApp() {
   const handleDownloadInvoice = async (inv) => {
     setDownloadingInvId(inv.invoice_id);
     try {
-      const url = `/api/attachments/${inv.invoice_id}?token=${encodeURIComponent(token)}&disposition=attachment`;
-      const res = await fetch(url);
+      const url = `/api/attachments/${encodeURIComponent(inv.invoice_id)}?entityType=invoice&disposition=attachment`;
+      const res = await fetch(url, { headers: { 'x-lwa-token': token } });
       if (!res.ok) throw new Error(`Download failed (${res.status}): ${res.statusText}`);
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `${inv.invoice_number || 'invoice'}.pdf`;
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+      const plainName = disposition.match(/filename="([^"]+)"/i)?.[1];
+      const extension = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[blob.type];
+      a.download = encodedName ? decodeURIComponent(encodedName) : plainName || [inv.invoice_number || 'invoice', extension].filter(Boolean).join('.');
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -426,6 +437,7 @@ export default function VendorPortalApp() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 space-y-6">
+        {dataError && <div role="alert" className="flex items-center gap-3"><span>{dataError}</span><Button onClick={loadPortalData}>Retry</Button></div>}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-fade-in">
             {/* KPI Banner */}

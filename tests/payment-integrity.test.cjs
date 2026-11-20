@@ -2,8 +2,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const os = require('node:os');
-const path = require('node:path');
 const ts = require('typescript');
 const { createClient } = require('@libsql/client');
 
@@ -20,10 +18,15 @@ function load(file, dependencies, processValue = process) {
 }
 
 async function setup(t) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'payment-integrity-'));
-  const client = createClient({ url: `file:${path.join(directory, 'test.db').replaceAll('\\', '/')}` });
-  t.after(() => { client.close(); fs.rmSync(directory, { recursive: true, force: true }); });
-  const db = load('app/lib/db.js', { '@libsql/client': { createClient: () => client } }, {
+  const client = createClient({ url: 'file::memory:?cache=shared' });
+  t.after(async () => {
+    try {
+      await client.executeMultiple(`DROP TABLE IF EXISTS payment_requests; DROP TABLE IF EXISTS purchase_orders;
+        DROP TABLE IF EXISTS system_payments; DROP TABLE IF EXISTS manual_payments; DROP TABLE IF EXISTS audit_logs;
+        DROP TABLE IF EXISTS approval_history_v2; DROP TABLE IF EXISTS invoices;`);
+    } finally { client.close(); }
+  });
+  const db = load('app/lib/db.js', { '@libsql/client': { createClient: () => client }, 'node:async_hooks': require('node:async_hooks') }, {
     env: { TURSO_DATABASE_URL: 'file::memory:', TURSO_AUTH_TOKEN: 'local-test' }
   });
   await client.executeMultiple(`
@@ -42,6 +45,8 @@ async function setup(t) {
   });
   const { AuthService } = load('src/modules/core/services/AuthService.ts', {});
   const { PaymentService } = load('src/modules/payments/services/PaymentService.ts', {
+    '../../../../app/lib/db.js': db,
+    '../../../../app/lib/paymentStatus.js': load('app/lib/paymentStatus.js', {}),
     '../repositories/PaymentRepository.ts': { PaymentRepository },
     '../../core/services/AuthService.ts': { AuthService },
     '../../core/services/ApprovalWorkflowService.ts': { ApprovalWorkflowService: {

@@ -53,7 +53,7 @@ export default function InvoiceDocumentPreview({ invoiceId, refreshKey, call }) 
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error('Please choose a file smaller than 10 MB.'); return; }
+    if (file.size > 3.5 * 1024 * 1024) { toast.error('Please choose a file up to 3.5 MB.'); return; }
     setUploading(true);
     try {
       const fileData = await new Promise((resolve, reject) => {

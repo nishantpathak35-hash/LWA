@@ -1,3 +1,4 @@
+import { isPOEligibleForPayment } from '../../poEligibility.js';
 // Domain: purchase-orders
 import { queryAll, queryGet, queryRun } from '../../db.js';
 import { AuthService } from '../../../../src/modules/core/services/AuthService';
@@ -220,6 +221,9 @@ export async function getPOFullDetails(poNo, session) {
     category: po.category || 'Goods',
     payment_status: po.payment_status || 'Unpaid',
     items: items.map(it => ({
+      boq_item_id: it.boq_item_id,
+      boq_id: it.boq_id,
+      boq_version_id: it.boq_version_id,
       description: it.description,
       hsnSac: it.hsn_sac,
       hsn_sac: it.hsn_sac,

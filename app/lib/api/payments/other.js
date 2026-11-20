@@ -100,14 +100,10 @@ export async function sendPaymentAdvice(rowNumberOrId, emailOverride, session) {
   const vCode = String(pr.vendor_code || pr.vendor_id || '').trim();
   const vName = String(pr.vendor_name || pr.vendor || '').trim();
 
-  let vendor = await queryGet(
-    `SELECT * FROM vendors WHERE 
-      (vendor_code = ? AND vendor_code != '') OR 
-      (LOWER(TRIM(legal_name)) = LOWER(TRIM(?)) AND legal_name != '') OR 
-      (LOWER(TRIM(trade_name)) = LOWER(TRIM(?)) AND trade_name != '')
-      LIMIT 1`,
-    [vCode, vName, vName]
-  );
+  const matches = vCode
+    ? await queryAll("SELECT * FROM vendors WHERE LOWER(TRIM(vendor_code)) = LOWER(?) LIMIT 2", [vCode])
+    : vName ? await queryAll("SELECT * FROM vendors WHERE LOWER(TRIM(legal_name)) = LOWER(?) OR LOWER(TRIM(trade_name)) = LOWER(?) LIMIT 2", [vName, vName]) : [];
+  const vendor = matches.length === 1 ? matches[0] : null;
   const toEmail = emailOverride || (vendor?.email || vendor?.contact_email || vendor?.primary_contact_email || pr.vendor_email || '').trim();
   if (!toEmail) throw new Error('No email address found for vendor: ' + (pr.vendor_name || ''));
 

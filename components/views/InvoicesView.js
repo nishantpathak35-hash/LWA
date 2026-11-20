@@ -911,6 +911,17 @@ export default function InvoicesView() {
     });
   }, [invoices, search, statusFilter, sourceFilter, quickFilter, invoiceSort, selectedVendorFilter]);
 
+  const filteredCreditNotes = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const vendor = String(selectedVendorFilter || '').toLowerCase();
+    return creditNotesList.filter(note => {
+      const fields = [note.cn_number, note.vendor_name, note.vendor_code, note.po_no, note.invoice_number];
+      return fields.some(value => String(value || '').toLowerCase().includes(term))
+        && (!vendor || [note.vendor_code, note.vendor_name].some(value => String(value || '').toLowerCase() === vendor));
+    });
+  }, [creditNotesList, search, selectedVendorFilter]);
+  const totalCnAmount = filteredCreditNotes.reduce((sum, note) => sum + Number(note.total_amount || 0), 0);
+
   const invoicePageCount = Math.max(1, Math.ceil(filteredInvoices.length / invoicePageSize));
   const safeInvoicePage = Math.min(invoicePage, invoicePageCount);
   const pagedInvoices = filteredInvoices.slice((safeInvoicePage - 1) * invoicePageSize, safeInvoicePage * invoicePageSize);
@@ -1035,8 +1046,7 @@ export default function InvoicesView() {
   const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
   const getAttachmentUrl = (invoiceId, disposition = 'inline') => {
-    const token = typeof window !== 'undefined' ? (localStorage.getItem('lx_auth_token') || localStorage.getItem('auth_token') || '') : '';
-    return `/api/attachments/${encodeURIComponent(invoiceId)}?token=${encodeURIComponent(token)}&disposition=${disposition}`;
+    return `/api/attachments/${encodeURIComponent(invoiceId)}?entityType=invoice&disposition=${disposition}`;
   };
 
   // Fetch attachment as blob and trigger a real browser download
@@ -1398,7 +1408,7 @@ export default function InvoicesView() {
           {error}
           <button type="button" onClick={fetchInvoices} className="block mx-auto mt-3 underline">Retry loading invoices</button>
         </div>
-      ) : filteredInvoices.length === 0 ? (
+      ) : activeViewMode !== 'credit_notes' && filteredInvoices.length === 0 ? (
         <div className="py-20 px-6 border border-border border-dashed rounded-lg text-center flex flex-col items-center justify-center max-w-md mx-auto bg-card">
           <div className="w-12 h-12 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-primary flex items-center justify-center mb-3 shadow-inner">
             <Receipt className="w-6 h-6" />

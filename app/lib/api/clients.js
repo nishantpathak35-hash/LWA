@@ -132,10 +132,9 @@ export async function deleteClient(id, session) {
   const client = await queryGet(`SELECT name FROM clients WHERE id = ?`, [clientId]);
   if (!client) throw new Error('Client not found');
 
-  // Hard delete so unwanted or unnecessary clients are completely purged
-  await queryRun(`DELETE FROM clients WHERE id = ?`, [clientId]);
+  await queryRun(`UPDATE clients SET status = 'Inactive', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [clientId]);
 
-  await logAudit('clients', clientId, 'DELETE_CLIENT', session?.email || 'admin', { name: client.name });
+  await logAudit('clients', clientId, 'DEACTIVATE_CLIENT', session?.email || 'admin', { name: client.name });
   return { success: true };
 }
 

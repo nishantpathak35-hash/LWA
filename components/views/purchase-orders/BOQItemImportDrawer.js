@@ -63,7 +63,7 @@ export default function BOQItemImportDrawer({
     setLoading(true);
     try {
       const boqItems = await call('getBoqItemsForPoImport', { boq_version_id: selectedVersionId });
-      const list = boqItems || [];
+      const list = (boqItems || []).filter(item => Number(item.available_balance ?? (item.quantity - item.committed_qty)) > 0);
       setItems(list);
 
       // Default quantities to available balance, and rates to cost_rate or selling_rate
@@ -71,7 +71,7 @@ export default function BOQItemImportDrawer({
       const initialRates = {};
       list.forEach(it => {
         const avail = Math.max(0, (it.quantity || 0) - (it.committed_qty || 0));
-        initialQtys[it.id] = avail > 0 ? avail : it.quantity;
+        initialQtys[it.id] = avail;
         initialRates[it.id] = it.cost_rate || it.selling_rate || 0;
       });
       setOrderQtys(initialQtys);
@@ -143,9 +143,13 @@ export default function BOQItemImportDrawer({
   };
 
   const handleImport = () => {
+    if (items.some(it => selectedIds.has(it.id) && (!(Number(orderQtys[it.id]) > 0) || Number(orderQtys[it.id]) > it.quantity - it.committed_qty))) {
+      toast.error('Enter an order quantity within the remaining BOQ balance.');
+      return;
+    }
     const toImport = items.filter(it => selectedIds.has(it.id)).map(it => {
       const qty = parseFloat(orderQtys[it.id]) || (it.quantity - it.committed_qty) || 1;
-      const rate = parseFloat(orderRates[it.id]) || it.cost_rate || it.selling_rate || 0;
+      const rate = Number(orderRates[it.id] ?? it.cost_rate ?? it.selling_rate ?? 0);
       return {
         description: it.description,
         specification: it.specification || '',
@@ -173,7 +177,7 @@ export default function BOQItemImportDrawer({
   // Total estimate of selected items
   const selectedTotal = items.filter(it => selectedIds.has(it.id)).reduce((acc, it) => {
     const q = parseFloat(orderQtys[it.id]) || 0;
-    const r = parseFloat(orderRates[it.id]) || it.cost_rate || it.selling_rate || 0;
+    const r = Number(orderRates[it.id] ?? it.cost_rate ?? it.selling_rate ?? 0);
     return acc + (q * r);
   }, 0);
 

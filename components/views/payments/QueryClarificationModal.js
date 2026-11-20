@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Dialog, Button, Input } from '../../ui/core';
 import { HelpCircle, Send, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from '../../ui/Toast';
+import { useAppState } from '../../StateProvider';
 
 export default function QueryClarificationModal({
   open,
@@ -11,6 +12,7 @@ export default function QueryClarificationModal({
   mode = 'ask', // 'ask' | 'answer'
   onSubmitSuccess
 }) {
+  const { call } = useAppState();
   const [queryText, setQueryText] = useState('');
   const [responseText, setResponseText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -25,8 +27,7 @@ export default function QueryClarificationModal({
     }
     setSubmitting(true);
     try {
-      const { requestPaymentClarification } = await import('../../../app/lib/api/collaboration');
-      const res = await requestPaymentClarification(null, payment.id || payment.pr_id, queryText.trim());
+      const res = await call('requestPaymentClarification', null, payment.id || payment.pr_id, queryText.trim());
       if (res && res.ok) {
         toast.success('Payment placed on Query Hold. Requester notified.');
         setQueryText('');
@@ -50,8 +51,7 @@ export default function QueryClarificationModal({
     }
     setSubmitting(true);
     try {
-      const { answerPaymentClarification } = await import('../../../app/lib/api/collaboration');
-      const res = await answerPaymentClarification(null, payment.id || payment.pr_id, responseText.trim());
+      const res = await call('answerPaymentClarification', null, payment.id || payment.pr_id, responseText.trim());
       if (res && res.ok) {
         toast.success('Clarification response submitted.');
         setResponseText('');

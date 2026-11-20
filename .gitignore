@@ -64,3 +64,5 @@ lx.sqlite
 /scratch/
 
 .env*
+
+*.xlsx

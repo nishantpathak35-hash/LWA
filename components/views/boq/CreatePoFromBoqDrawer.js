@@ -42,7 +42,7 @@ export default function CreatePoFromBoqDrawer({
     setLoading(true);
     try {
       const itemsData = await call('getBoqItemsForPoImport', { boq_version_id: boqVersionId });
-      const itemsList = itemsData || [];
+      const itemsList = (itemsData || []).filter(item => Number(item.available_balance ?? (item.quantity - item.committed_qty)) > 0);
       setAllItems(itemsList);
 
       // Pre-fill adjustments
@@ -50,7 +50,8 @@ export default function CreatePoFromBoqDrawer({
       itemsList.forEach(it => {
         const available = Math.max(0, (it.quantity || 0) - (it.committed_qty || 0));
         initialAdj[it.id] = {
-          order_qty: available > 0 ? available : it.quantity,
+          order_qty: available,
+          gst_pct: 18,
           po_rate: it.cost_rate || it.selling_rate || 0
         };
       });
@@ -60,10 +61,10 @@ export default function CreatePoFromBoqDrawer({
       // If user passed pre-selected IDs from table, check only those.
       // Otherwise, default all items with available balance > 0 to checked!
       if (selectedItemIds && selectedItemIds.length > 0) {
-        setCheckedIds(new Set(selectedItemIds));
+        setCheckedIds(new Set(itemsList.filter(item => selectedItemIds.includes(item.id)).map(item => item.id)));
       } else {
         const withBalance = itemsList.filter(it => ((it.quantity || 0) - (it.committed_qty || 0)) > 0);
-        setCheckedIds(new Set(withBalance.length > 0 ? withBalance.map(it => it.id) : itemsList.map(it => it.id)));
+        setCheckedIds(new Set(withBalance.map(it => it.id)));
       }
     } catch (err) {
       toast.error('Failed to load BOQ items: ' + err.message);
@@ -159,8 +160,8 @@ export default function CreatePoFromBoqDrawer({
       return;
     }
 
-    const vendorObj = vendors.find(v => (v.id || v.vendor_id || v.vendor_name) === selectedVendorId);
-    const vendorName = vendorObj?.vendor_name || vendorObj?.name || selectedVendorId;
+    const vendorObj = vendors.find(v => String(v.id || v.vendor_id || v.vendor_name) === selectedVendorId);
+    const vendorName = vendorObj?.legal_name || vendorObj?.vendor_name || vendorObj?.name || selectedVendorId;
     const vendorCode = vendorObj?.vendor_code || vendorObj?.code || '';
 
     const payloadItems = checkedItems.map(it => {
@@ -168,6 +169,7 @@ export default function CreatePoFromBoqDrawer({
       return {
         boq_item_id: it.id,
         order_qty: adj.order_qty || 0,
+        gst_pct: adj.gst_pct ?? 18,
         po_rate: adj.po_rate || 0
       };
     }).filter(i => i.order_qty > 0);
@@ -239,7 +241,7 @@ export default function CreatePoFromBoqDrawer({
                   <option value="">Select Vendor from Master</option>
                   {vendors.map(v => {
                     const id = v.id || v.vendor_id || v.vendor_name;
-                    const name = v.vendor_name || v.name;
+                    const name = v.legal_name || v.vendor_name || v.name;
                     return <option key={id} value={id}>{name} {v.vendor_code ? `(${v.vendor_code})` : ''}</option>;
                   })}
                 </select>
@@ -407,6 +409,7 @@ export default function CreatePoFromBoqDrawer({
                                 type="number"
                                 step="any"
                                 disabled={!isChecked}
+                                min="0" max={available}
                                 value={adj.order_qty ?? ''}
                                 onChange={e => handleQtyChange(it.id, e.target.value)}
                                 className="text-xs font-mono font-bold h-7"
@@ -425,6 +428,12 @@ export default function CreatePoFromBoqDrawer({
                               />
                             </div>
                           </div>
+
+                          <label className="flex items-center gap-2 text-xs">GST %
+                            <Input type="number" min="0" max="100" step="any" disabled={!isChecked}
+                              value={adj.gst_pct ?? 18} className="w-20"
+                              onChange={e => setItemAdjustments(prev => ({ ...prev, [it.id]: { ...prev[it.id], gst_pct: Number(e.target.value) } }))} />
+                          </label>
 
                           <div className="flex justify-between items-center text-[11px] font-mono text-muted-foreground pt-1.5 mt-1">
                             <span>Cost Rate: {formatCurrency(it.cost_rate || 0)}</span>

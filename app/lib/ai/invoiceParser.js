@@ -112,6 +112,7 @@ function parseText(text) {
  * Generates Tally-compatible XML Voucher format from extracted data.
  */
 export function generateTallyXML(extractedData) {
+  const xmlText = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   const amount = Math.abs(extractedData.totalAmount || 0);
   
   // Format Date for Tally (YYYYMMDD)
@@ -142,11 +143,11 @@ export function generateTallyXML(extractedData) {
           <VOUCHER VCHTYPE="Purchase" ACTION="Create">
             <DATE>${formattedDate}</DATE>
             <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
-            <VOUCHERNUMBER>${extractedData.invoiceNo || "AUTO"}</VOUCHERNUMBER>
-            <PARTYLEDGERNAME>${extractedData.vendorName || "Unknown Vendor"}</PARTYLEDGERNAME>
-            <NARRATION>Auto-extracted by AI Invoice Engine (Inv: ${extractedData.invoiceNo || 'N/A'})</NARRATION>
+            <VOUCHERNUMBER>${xmlText(extractedData.invoiceNo || "AUTO")}</VOUCHERNUMBER>
+            <PARTYLEDGERNAME>${xmlText(extractedData.vendorName || "Unknown Vendor")}</PARTYLEDGERNAME>
+            <NARRATION>Auto-extracted by AI Invoice Engine (Inv: ${xmlText(extractedData.invoiceNo || 'N/A')})</NARRATION>
             <ALLLEDGERENTRIES.LIST>
-              <LEDGERNAME>${extractedData.vendorName || "Unknown Vendor"}</LEDGERNAME>
+              <LEDGERNAME>${xmlText(extractedData.vendorName || "Unknown Vendor")}</LEDGERNAME>
               <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
               <AMOUNT>-${amount.toFixed(2)}</AMOUNT>
             </ALLLEDGERENTRIES.LIST>

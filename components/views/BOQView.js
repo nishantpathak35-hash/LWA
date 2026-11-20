@@ -8,10 +8,10 @@ import { toast } from '../ui/Toast';
 import ProjectBOQModule from './projects/ProjectBOQModule';
 
 export default function BOQView() {
-  const { call } = useAppState();
+  const { call, viewTarget } = useAppState();
   const [projectsList, setProjectsList] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedProjectName, setSelectedProjectName] = useState('');
+  const [selectedProjectName, setSelectedProjectName] = useState(viewTarget?.project || '');
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -35,7 +35,7 @@ export default function BOQView() {
   }, [loadProjects]);
 
   const activeProject = useMemo(() => {
-    return projectsList.find(p => p.project === selectedProjectName) || projectsList[0] || null;
+    return projectsList.find(p => p.project === selectedProjectName) || null;
   }, [projectsList, selectedProjectName]);
 
   return (
@@ -85,7 +85,7 @@ export default function BOQView() {
 
       {/* Main BOQ Module Workspace */}
       {activeProject ? (
-        <ProjectBOQModule selectedProject={activeProject} />
+        <ProjectBOQModule key={selectedProjectName} initialBoqId={viewTarget?.project === selectedProjectName ? viewTarget.boqId : undefined} selectedProject={activeProject} />
       ) : loading ? (
         <div className="py-20 text-center text-muted-foreground text-xs">
           <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-amber-500" />

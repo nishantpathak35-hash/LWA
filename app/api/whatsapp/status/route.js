@@ -1,27 +1,40 @@
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+import { getMySession } from '../../../lib/api/auth.js';
+import { isSuperAdmin } from '../../../lib/config.js';
+
+function json(body, options = {}) {
+  return NextResponse.json(body, { ...options, headers: { 'Cache-Control': 'private, no-store' } });
+}
+
+export async function GET(request) {
+  const token = request.headers.get('x-lwa-token') || request.cookies?.get('lx_auth_token')?.value;
+  const session = token && await getMySession(token).catch(() => null);
+  if (!session?.email) return json({ error: 'Sign in required' }, { status: 401 });
+  if (!isSuperAdmin(session.email) && !session.roles?.some(role => ['director','admin'].includes(role))) {
+    return json({ error: 'Administrator access required' }, { status: 403 });
+  }
   try {
     const idInstance = process.env.GREEN_API_ID_INSTANCE;
     const apiToken = process.env.GREEN_API_TOKEN_INSTANCE;
     const host = process.env.GREEN_API_URL || 'https://7107.api.greenapi.com';
 
     if (!idInstance || !apiToken) {
-      return NextResponse.json({ status: 'offline', qr: null, error: 'Missing Green API credentials' });
+      return json({ status: 'offline', qr: null, error: 'Missing Green API credentials' });
     }
 
     // 1. Get State
     const stateRes = await fetch(`${host}/waInstance${idInstance}/getStateInstance/${apiToken}`, { cache: 'no-store' });
     if (!stateRes.ok) {
        console.error("Green API State Error:", stateRes.status, await stateRes.text());
-       return NextResponse.json({ status: 'offline', qr: null, error: `Failed to fetch state: ${stateRes.status}` });
+       return json({ status: 'offline', qr: null, error: `Failed to fetch state: ${stateRes.status}` });
     }
     
     const stateData = await stateRes.json();
     const currentState = stateData?.stateInstance; // "authorized", "notAuthorized", etc.
 
     if (currentState === 'authorized' || currentState === 'starting') {
-      return NextResponse.json({ status: currentState === 'starting' ? 'starting' : 'connected', qr: null });
+      return json({ status: currentState === 'starting' ? 'starting' : 'connected', qr: null });
     } else {
       // 2. Fetch QR code if not authorized
       const qrRes = await fetch(`${host}/waInstance${idInstance}/qr/${apiToken}`, { cache: 'no-store' });
@@ -32,12 +45,12 @@ export async function GET() {
          if (base64Qr && !base64Qr.startsWith('data:')) {
            qrUri = `data:image/png;base64,${base64Qr}`;
          }
-         return NextResponse.json({ status: currentState || 'offline', qr: qrUri });
+         return json({ status: currentState || 'offline', qr: qrUri });
       }
-      return NextResponse.json({ status: currentState || 'offline', qr: null });
+      return json({ status: currentState || 'offline', qr: null });
     }
   } catch (error) {
     console.error('Failed to get Green API status:', error);
-    return NextResponse.json({ error: error.message, status: 'offline' }, { status: 500 });
+    return json({ error: "Provider unavailable", status: 'offline' }, { status: 500 });
   }
 }

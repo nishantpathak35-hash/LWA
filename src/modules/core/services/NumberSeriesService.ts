@@ -175,10 +175,11 @@ export class NumberSeriesService {
     try {
       const rows = await queryAll(`SELECT po_no FROM purchase_orders ORDER BY po_no DESC`);
       let maxSeq = 0;
-      const prefix = series.prefix || '';
+      const prefix = this.formatNumber(series, 0).replace(/\d+$/, '');
       
       for (const row of rows) {
         const poNo = String(row.po_no || '');
+        if (!poNo.startsWith(prefix) || !/^\d+$/.test(poNo.slice(prefix.length))) continue;
         // Extract trailing digits
         const match = poNo.match(/(\d+)$/);
         if (match) {

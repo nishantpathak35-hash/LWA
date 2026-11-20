@@ -210,8 +210,9 @@ export async function updateTaskProgressFromDpr(progressPayload, session) {
   if (!task) throw new Error(`Scheduled task ${taskId} not found.`);
 
   const now = new Date().toISOString();
-  const numProgress = Math.min(100, Math.max(0, Number(progressPct) || (isCompleted ? 100 : task.progress_pct)));
-  const newActualQty = (Number(task.actual_qty) || 0) + (Number(executedQty) || 0);
+  const numProgress = isCompleted ? 100 : Math.min(100, Math.max(0, Number(progressPct ?? task.progress_pct)));
+  const newActualQty = Number(executedQty ?? task.actual_qty ?? 0);
+  if (!Number.isFinite(newActualQty) || newActualQty < 0) throw new Error("Invalid executed quantity");
 
   let newStatus = task.status;
   let completionDate = task.completion_date;
@@ -221,8 +222,10 @@ export async function updateTaskProgressFromDpr(progressPayload, session) {
     newStatus = 'Completed';
     completionDate = now.split('T')[0];
     completedBy = session?.email || session?.name || 'Site Staff';
-  } else if (numProgress > 0) {
-    newStatus = 'In Progress';
+  } else {
+    newStatus = numProgress > 0 || newActualQty > 0 ? 'In Progress' : 'Not Started';
+    completionDate = null;
+    completedBy = null;
   }
 
   await queryRun(

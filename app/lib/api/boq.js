@@ -1,7 +1,8 @@
+import { reserveBoqItems, legacyBoqLines } from './purchase-orders/boq-commitments.js';
 // Domain: BOQ (Bill of Quantities) Engine 2.0
 // Comprehensive Estimation, Rate Analysis, Item Master, BOM, Revisions & Procurement Integration
 
-import { queryAll, queryGet, queryRun, queryBatch } from '../db.js';
+import { queryAll, queryGet, queryRun, queryBatch, withWriteTransaction } from '../db.js';
 import { isSuperAdmin } from '../config.js';
 import { savePO } from './purchase-orders/write.js';
 import * as XLSX from 'xlsx';
@@ -1555,21 +1556,21 @@ export async function createPoFromBoq(payload, session) {
   );
   if (!version) throw new Error('BOQ version not found');
 
-  const poProject = project || version.header_project;
+  const poProject = version.header_project;
 
   // 1. Build PO Items for existing PTS savePO
   const poItemsData = [];
-  const linkRecords = [];
 
   for (const sel of selected_items) {
-    const boqItem = await queryGet(`SELECT * FROM boq_items WHERE id = ?`, [sel.boq_item_id]);
-    if (!boqItem) continue;
+    const boqItem = await queryGet(`SELECT * FROM boq_items WHERE id = ? AND boq_version_id = ?`, [sel.boq_item_id, boq_version_id]);
+    if (!boqItem) throw new Error('BOQ item missing from this revision');
 
     const orderQty = parseFloat(sel.order_qty) || 0;
-    if (orderQty <= 0) continue;
+    if (!(orderQty > 0)) throw new Error('Order quantity must be positive');
 
     const poRate = parseFloat(sel.po_rate !== undefined ? sel.po_rate : boqItem.cost_rate) || 0;
-    const itemAmount = Math.round(orderQty * poRate * 100) / 100;
+    const taxPct = Number(sel.gst_pct ?? 18);
+    if (!Number.isFinite(taxPct) || taxPct < 0 || taxPct > 100) throw new Error('Invalid item GST percentage');
 
     poItemsData.push({
       description: boqItem.description,
@@ -1578,20 +1579,10 @@ export async function createPoFromBoq(payload, session) {
       unit: boqItem.unit || 'Nos',
       rate: poRate,
       disc_pct: 0,
-      tax_pct: 18,
-      amount: itemAmount,
+      tax_pct: taxPct,
       boq_item_id: boqItem.id,
       boq_id: version.boq_id,
       boq_version_id: version.id
-    });
-
-    linkRecords.push({
-      boq_id: version.boq_id,
-      boq_version_id: version.id,
-      boq_item_id: boqItem.id,
-      orderQty,
-      poRate,
-      itemAmount
     });
   }
 
@@ -1613,7 +1604,7 @@ export async function createPoFromBoq(payload, session) {
     items: poItemsData,
     terms: terms || 'Standard Procurement Terms',
     notes: notes ? `${notes} (Created from ${version.boq_no})` : `Created from BOQ: ${version.boq_no}`,
-    expected_delivery_date: expected_delivery_date,
+    expectedDeliveryDate: expected_delivery_date,
     status: 'draft',
     approval_status: 'draft'
   };
@@ -1625,33 +1616,13 @@ export async function createPoFromBoq(payload, session) {
     throw new Error('Failed to create Purchase Order via PTS Procurement engine');
   }
 
-  // 3. Insert links in boq_po_links and update committed_qty on boq_items
-  const now = new Date().toISOString();
-  for (const link of linkRecords) {
-    await queryRun(
-      `INSERT INTO boq_po_links (
-        id, boq_id, boq_version_id, boq_item_id, po_no, linked_qty, po_rate, po_amount, link_type, status, created_by, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'work_package', 'active', ?, ?)`,
-      [
-        crypto.randomUUID(), link.boq_id, link.boq_version_id, link.boq_item_id, poNo,
-        link.orderQty, link.poRate, link.itemAmount, session.user.email, now
-      ]
-    );
-
-    // Increase committed_qty
-    await queryRun(
-      `UPDATE boq_items SET committed_qty = committed_qty + ? WHERE id = ?`,
-      [link.orderQty, link.boq_item_id]
-    );
-  }
-
-  await recordAuditEvent(version.boq_id, version.id, null, session.user.email, 'CREATE_PO_FROM_BOQ', null, { po_no: poNo, items_count: linkRecords.length });
+  await recordAuditEvent(version.boq_id, version.id, null, session.user.email, 'CREATE_PO_FROM_BOQ', null, { po_no: poNo, items_count: poItemsData.length });
 
   return {
     success: true,
     po_no: poNo,
     po_details: poResult,
-    linked_items_count: linkRecords.length
+    linked_items_count: poItemsData.length
   };
 }
 
@@ -1692,7 +1663,7 @@ export async function getBoqItemsForPoImport(filters = {}) {
 
   let sql = `
     SELECT i.*, s.name as section_name,
-           (i.quantity - i.committed_qty) as available_balance
+           (i.quantity - COALESCE(i.committed_qty,0) - COALESCE((SELECT SUM(qty) FROM (${legacyBoqLines}) old WHERE old.boq_item_id=i.id),0)) as available_balance
     FROM boq_items i
     LEFT JOIN boq_sections s ON i.section_id = s.id
     WHERE i.boq_version_id = ?
@@ -1708,7 +1679,7 @@ export async function getBoqItemsForPoImport(filters = {}) {
   sql += ` ORDER BY s.sort_order ASC, i.sort_order ASC`;
 
   const items = await queryAll(sql, params);
-  return items || [];
+  return (items || []).map(item => ({ ...item, committed_qty: Number(item.quantity) - Number(item.available_balance) }));
 }
 
 export async function linkPoItemToBoq(payload, session) {
@@ -1718,46 +1689,33 @@ export async function linkPoItemToBoq(payload, session) {
   const { po_no, boq_item_id, qty, rate } = payload;
   if (!po_no || !boq_item_id) throw new Error('PO Number and BOQ Item ID are required');
 
-  const boqItem = await queryGet(`SELECT * FROM boq_items WHERE id = ?`, [boq_item_id]);
-  if (!boqItem) throw new Error('BOQ Item not found');
-
-  const version = await queryGet(`SELECT boq_id FROM boq_versions WHERE id = ?`, [boqItem.boq_version_id]);
-
-  const linkedQty = parseFloat(qty) || 0;
-  const poRate = parseFloat(rate) || boqItem.cost_rate;
-  const amount = Math.round(linkedQty * poRate * 100) / 100;
-  const now = new Date().toISOString();
-
-  await queryRun(
-    `INSERT INTO boq_po_links (
-      id, boq_id, boq_version_id, boq_item_id, po_no, linked_qty, po_rate, po_amount, link_type, status, created_by, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual_link', 'active', ?, ?)`,
-    [
-      crypto.randomUUID(), version.boq_id, boqItem.boq_version_id, boq_item_id, po_no,
-      linkedQty, poRate, amount, session.user.email, now
-    ]
-  );
-
-  await queryRun(`UPDATE boq_items SET committed_qty = committed_qty + ? WHERE id = ?`, [linkedQty, boq_item_id]);
-  return { success: true };
+  return withWriteTransaction(async () => {
+    const po = await queryGet('SELECT project FROM purchase_orders WHERE po_no = ?', [po_no]);
+    if (!po) throw new Error('Purchase order not found');
+    const item = await queryGet('SELECT cost_rate FROM boq_items WHERE id = ?', [boq_item_id]);
+    await reserveBoqItems(po_no, po.project, [{ boq_item_id, qty, rate: rate ?? item?.cost_rate }], session.user.email, 'manual_link');
+    return { success: true };
+  });
 }
 
 export async function cancelBoqPoLink(linkId, session) {
   await initBoqTables();
   requireAuth(session);
 
-  const link = await queryGet(`SELECT * FROM boq_po_links WHERE id = ?`, [linkId]);
-  if (!link || link.status === 'cancelled') return { success: true };
+  return withWriteTransaction(async () => {
+    const link = await queryGet(`SELECT * FROM boq_po_links WHERE id = ?`, [linkId]);
+    if (!link || link.status === 'cancelled') return { success: true };
 
-  await queryRun(`UPDATE boq_po_links SET status = 'cancelled' WHERE id = ?`, [linkId]);
+    await queryRun(`UPDATE boq_po_links SET status = 'cancelled' WHERE id = ?`, [linkId]);
 
-  // Reverse committed_qty
-  await queryRun(
-    `UPDATE boq_items SET committed_qty = MAX(0, committed_qty - ?) WHERE id = ?`,
-    [link.linked_qty || 0, link.boq_item_id]
-  );
+    // Reverse committed_qty
+    await queryRun(
+      `UPDATE boq_items SET committed_qty = MAX(0, committed_qty - ?) WHERE id = ?`,
+      [link.linked_qty || 0, link.boq_item_id]
+    );
 
-  return { success: true };
+    return { success: true };
+  });
 }
 
 export async function getBoqProcurementStatus(versionId) {
@@ -1765,11 +1723,15 @@ export async function getBoqProcurementStatus(versionId) {
   if (!versionId) return [];
 
   const items = await queryAll(
-    `SELECT i.id, i.s_no, i.item_code, i.description, i.unit, i.quantity, i.cost_rate,
-            i.committed_qty, i.procured_qty, s.name as section_name,
-            (i.quantity - i.committed_qty) as remaining_qty,
-            (SELECT COUNT(*) FROM boq_po_links l WHERE l.boq_item_id = i.id AND l.status = 'active') as linked_po_count,
-            (SELECT GROUP_CONCAT(DISTINCT po_no) FROM boq_po_links l WHERE l.boq_item_id = i.id AND l.status = 'active') as linked_pos
+    `WITH legacy AS (${legacyBoqLines}), linked AS (
+       SELECT po_no, boq_item_id FROM boq_po_links WHERE status='active'
+       UNION SELECT po_no, boq_item_id FROM legacy)
+     SELECT i.id, i.s_no, i.item_code, i.description, i.unit, i.quantity, i.cost_rate,
+            COALESCE(i.committed_qty,0) + COALESCE((SELECT SUM(qty) FROM legacy WHERE boq_item_id=i.id),0) as committed_qty,
+            i.procured_qty, s.name as section_name,
+            i.quantity - COALESCE(i.committed_qty,0) - COALESCE((SELECT SUM(qty) FROM legacy WHERE boq_item_id=i.id),0) as remaining_qty,
+            (SELECT COUNT(*) FROM linked WHERE boq_item_id=i.id) as linked_po_count,
+            (SELECT GROUP_CONCAT(po_no) FROM linked WHERE boq_item_id=i.id) as linked_pos
      FROM boq_items i
      LEFT JOIN boq_sections s ON i.section_id = s.id
      WHERE i.boq_version_id = ?

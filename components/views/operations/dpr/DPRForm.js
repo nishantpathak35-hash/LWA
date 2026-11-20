@@ -50,17 +50,15 @@ export default function DPRForm({ onNavigate, editData = null }) {
     }
   }, [editData]);
 
-  useEffect(() => {
-    const fetchTemplates = async () => {
+  const fetchTemplates = React.useCallback(async () => {
       try {
-        const list = await call('listTemplates', {});
+        const list = await call('listTemplates');
         setTemplates(list || []);
       } catch (err) {
         console.error(err);
       }
-    };
-    fetchTemplates();
-  }, []);
+  }, [call]);
+  useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
   const [dropdownOptions, setDropdownOptions] = useState({
     weather: ['Normal', 'Sunny', 'Cloudy', 'Rainy'],
@@ -284,7 +282,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
     try {
       setLoading(true);
       if (editData) {
-        await call('updateDPR', editData.id, { ...formData, approval_status: status });
+        await call('updateDPR', editData.id, { ...formData, approval_status: status, expected_updated_at: editData.updated_at });
       } else {
         await call('submitDPR', { ...formData, approval_status: status });
       }
@@ -395,7 +393,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
       {/* OVERALL MANPOWER SUMMARY */}
       <div className="flex items-center justify-between px-4 py-3 bg-gold/10 border border-gold/20 rounded-lg">
         <h3 className="text-primary font-medium">Overall Site Manpower</h3>
-        <span className="text-2xl font-bold text-primary">{calculateOverallManpower()}</span>
+        <span className="text-2xl font-bold text-primary">{calcOverall(formData.data)}</span>
       </div>
 
       {/* SECTION 2 & 3 & 4: Floor-wise Progress */}
@@ -715,7 +713,7 @@ export default function DPRForm({ onNavigate, editData = null }) {
         <Button 
           type="button" 
           variant="outline" 
-          onClick={handleSaveAsTemplate}
+          onClick={handleSaveTemplate}
           disabled={loading}
           className="border-blue-500/30 hover:bg-blue-500/10 text-blue-400 mr-auto"
         >

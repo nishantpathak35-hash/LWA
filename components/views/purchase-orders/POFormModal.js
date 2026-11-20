@@ -48,37 +48,23 @@ export default function POFormModal(props) {
   const lockKey = `po:${editingPoNo}`;
   const [contractRateMatches, setContractRateMatches] = React.useState({});
 
-  const checkContractRate = async (idx, description) => {
-    if (!description || description.trim().length < 3) return;
+  const rateKey = item => JSON.stringify([vendorCode, project, item.description, item.unit || 'Nos', item.quantity]);
+  const checkContractRate = async item => {
+    const key = rateKey(item);
+    const description = item.description?.trim();
+    if (!vendorCode || !description || description.length < 3 || !(Number(item.quantity) > 0)) return;
     try {
-      const vendorObj = findVendorBySelection ? findVendorBySelection(vendorCode) : null;
-      const vendorName = vendorObj?.name || vendorCode;
+      const vendor = findVendorBySelection?.(vendorCode)?.name || vendorCode;
       const res = await call('getEligibleRateContractsForPO', {
-        vendor: vendorName,
-        project,
-        item_description: description
+        vendor, project, item_description: description, unit: item.unit || 'Nos', qty: Number(item.quantity)
       });
-      if (res?.hasContract && res.contractMatches?.[0]) {
-        setContractRateMatches(prev => ({
-          ...prev,
-          [idx]: {
-            rate: res.contractMatches[0].agreed_rate,
-            contractNo: res.contractMatches[0].contract_no,
-            isContract: true
-          }
-        }));
-      } else if (res?.poHistoryMatches?.[0]) {
-        setContractRateMatches(prev => ({
-          ...prev,
-          [idx]: {
-            rate: res.poHistoryMatches[0].rate,
-            poNo: res.poHistoryMatches[0].po_no,
-            isContract: false
-          }
-        }));
-      }
-    } catch (e) {
-      // Non-fatal
+      const contract = res?.contractMatches?.[0];
+      const past = res?.poHistoryMatches?.[0];
+      const match = contract ? { rate: contract.agreed_rate, contractNo: contract.contract_no, isContract: true }
+        : past ? { rate: past.rate, poNo: past.po_no, isContract: false } : null;
+      setContractRateMatches(prev => ({ ...prev, [key]: match }));
+    } catch {
+      setContractRateMatches(prev => ({ ...prev, [key]: null }));
     }
   };
   const currentLock = editingPoNo ? activeLocks[lockKey] : null;
@@ -332,16 +318,16 @@ export default function POFormModal(props) {
                     type="text"
                     value={item.description}
                     onChange={e => handleItemChange(idx, 'description', e.target.value)}
-                    onBlur={() => checkContractRate(idx, item.description)}
+                    onBlur={() => checkContractRate(item)}
                     placeholder="Item description"
                     className="h-10 text-xs bg-background text-foreground"
                   />
                   <Input type="text" value={item.hsnSac}
                     onChange={e => handleItemChange(idx, 'hsnSac', e.target.value)}
                     placeholder="Code" className="h-10 text-xs font-mono bg-background text-foreground" />
-                  <Input type="number" required min="0.001" step="0.001" value={item.quantity}
+                  <Input type="number" required min="0.001" step="0.001" onBlur={() => checkContractRate(item)} value={item.quantity}
                     onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="h-10 text-xs font-mono bg-background text-foreground" />
-                  <Input type="text" list={`uom-options-${idx}`} value={item.unit || 'Nos'} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
+                  <Input type="text" list={`uom-options-${idx}`} onBlur={() => checkContractRate(item)} value={item.unit || 'Nos'} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
                     className="h-10 text-xs bg-background text-foreground" />
                   <datalist id={`uom-options-${idx}`}>
                     {UOM_OPTIONS.map(u => <option key={u.value} value={u.label} />)}
@@ -361,22 +347,22 @@ export default function POFormModal(props) {
                       </Button>
                     : <div />
                   }
-                  {contractRateMatches[idx] && (
+                  {contractRateMatches[rateKey(item)] && (
                     <div className="col-span-full flex items-center justify-between px-2.5 py-1.5 bg-amber-500/10 rounded-lg border border-amber-500/25 text-xs animate-in fade-in-50">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-amber-700 dark:text-amber-400">
-                          {contractRateMatches[idx].isContract ? '📜 Active Approved Rate Contract' : '🕒 Historical Purchase Rate'}:
+                          {contractRateMatches[rateKey(item)].isContract ? '📜 Active Approved Rate Contract' : '🕒 Historical Purchase Rate'}:
                         </span>
                         <span className="text-muted-foreground text-[11px]">
-                          {contractRateMatches[idx].isContract ? contractRateMatches[idx].contractNo : contractRateMatches[idx].poNo}
+                          {contractRateMatches[rateKey(item)].isContract ? contractRateMatches[rateKey(item)].contractNo : contractRateMatches[rateKey(item)].poNo}
                         </span>
                         <strong className="font-mono text-foreground font-bold text-xs">
-                          ₹{contractRateMatches[idx].rate}
+                          ₹{contractRateMatches[rateKey(item)].rate}
                         </strong>
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleItemChange(idx, 'rate', contractRateMatches[idx].rate)}
+                        onClick={() => handleItemChange(idx, 'rate', contractRateMatches[rateKey(item)].rate)}
                         className="text-[10px] bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-2 py-0.5 rounded cursor-pointer transition-colors"
                       >
                         Apply Rate

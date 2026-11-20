@@ -59,7 +59,7 @@ export default function InvoiceUploadModal({ open, onClose }) {
       const res = await fetch('/api/tally/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ xml: tallyXml })
+        body: JSON.stringify({ invoice: { vendorName: extractedData.vendorName, invoiceNo: extractedData.invoiceNo, date: extractedData.date, totalAmount: extractedData.totalAmount } })
       });
       const data = await res.json();
       if (data.success) {

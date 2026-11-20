@@ -5,20 +5,10 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 async function handleCronBackup(request) {
-  // Verify Cron Secret if configured
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    const { searchParams } = new URL(request.url);
-    const querySecret = searchParams.get('secret');
-
-    const provided = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : querySecret;
-    if (provided !== cronSecret) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Invalid cron secret' },
-        { status: 401 }
-      );
-    }
+  const secret = process.env.CRON_SECRET;
+  if (!secret?.trim()) return NextResponse.json({ error: 'Backup schedule is unconfigured' }, { status: 503 });
+  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -33,7 +23,7 @@ async function handleCronBackup(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Automated backup failed'
+        error: 'Automated backup failed'
       },
       { status: 500 }
     );

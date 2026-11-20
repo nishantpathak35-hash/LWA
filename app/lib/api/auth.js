@@ -160,7 +160,7 @@ async function ensureRevokedTokensTable() {
   return _revokedTokensTablePromise;
 }
 
-async function isTokenRevoked(token) {
+export async function isTokenRevoked(token) {
   if (revokedTokens.has(token)) return true;
   const tokenHash = hashToken(token);
   try {
@@ -171,7 +171,7 @@ async function isTokenRevoked(token) {
       return true;
     }
   } catch (error) {
-    console.warn('Could not check persistent auth token revocation:', error.message);
+    throw new Error('AUTH:Unable to verify session revocation', { cause: error });
   }
   return false;
 }
@@ -439,7 +439,6 @@ export async function addCustomRole(roleName, session) {
 
 export async function logoutUser(token, session) {
   if (token) {
-    revokedTokens.add(token);
     sessionCache.delete(token);
     if (revokedTokens.size > 5000) revokedTokens.delete(revokedTokens.values().next().value);
     try {
@@ -452,8 +451,9 @@ export async function logoutUser(token, session) {
       if (payload?.exp) {
         await queryRun(`DELETE FROM revoked_auth_tokens WHERE expires_at IS NOT NULL AND expires_at <= ?`, [Date.now()]);
       }
+      revokedTokens.add(token);
     } catch (error) {
-      console.warn('Could not persist auth token revocation:', error.message);
+      throw new Error('Unable to complete logout', { cause: error });
     }
   }
   if (session?.email) {

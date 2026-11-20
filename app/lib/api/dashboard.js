@@ -1,7 +1,8 @@
+import { updatePOPaymentStatus } from './shared.js';
 import { aggregatePaymentStages } from '../paymentStatus.js';
 // Domain: dashboard
 // Auto-extracted from api.js
-import { queryAll, queryGet, queryRun } from '../db.js';
+import { queryAll, queryGet, queryRun, withWriteTransaction } from '../db.js';
 import { sendInviteEmail, sendPaymentAdviceEmail, sendPOEmail } from '../email.js';
 import { getPOPaymentIneligibilityReason, isPOEligibleForPayment } from '../poEligibility.js';
 import { calculateProjectOutflowSnapshots, calculateProjectPaymentSummaryForRequest } from '../paymentCalculations.js';
@@ -352,30 +353,32 @@ export async function getSystemPaymentsDetail(project, session) {
 export async function deduplicateSystemPayments(session) {
   requireAuth(session);
   await ensureSettingsTable();
-  const dupes = await queryAll(
-    `SELECT po_no, pr_key, COUNT(*) as cnt, MIN(id) as keep_id
-     FROM system_payments
-     WHERE pr_key IS NOT NULL AND pr_key NOT LIKE 'MANUAL-%'
-     GROUP BY po_no, pr_key
-     HAVING COUNT(*) > 1`
-  );
-  let deletedCount = 0;
-  for (const d of dupes) {
-    const res = await queryRun(
-      `DELETE FROM system_payments WHERE po_no = ? AND pr_key = ? AND id != ?`,
-      [d.po_no, d.pr_key, d.keep_id]
+  return withWriteTransaction(async () => {
+    const dupes = await queryAll(
+      `SELECT po_no, pr_key, COUNT(*) as cnt, MIN(id) as keep_id
+       FROM system_payments
+       WHERE pr_key IS NOT NULL AND pr_key NOT LIKE 'MANUAL-%'
+       GROUP BY po_no, pr_key
+       HAVING COUNT(*) > 1`
     );
-    deletedCount += (d.cnt - 1);
-  }
-  const affectedPOs = [...new Set(dupes.map(d => d.po_no))];
-  for (const poNo of affectedPOs) {
-    await updatePOPaymentStatus(poNo);
-  }
-  return {
-    ok: true, duplicateGroups: dupes.length, rowsDeleted: deletedCount,
-    posRecalculated: affectedPOs.length,
-    summary: dupes.slice(0, 20).map(d => ({ po_no: d.po_no, pr_key: d.pr_key, dupeCount: d.cnt }))
-  };
+    let deletedCount = 0;
+    for (const d of dupes) {
+      const res = await queryRun(
+        `DELETE FROM system_payments WHERE po_no = ? AND pr_key = ? AND id != ?`,
+        [d.po_no, d.pr_key, d.keep_id]
+      );
+      deletedCount += (d.cnt - 1);
+    }
+    const affectedPOs = [...new Set(dupes.map(d => d.po_no))];
+    for (const poNo of affectedPOs) {
+      await updatePOPaymentStatus(poNo);
+    }
+    return {
+      ok: true, duplicateGroups: dupes.length, rowsDeleted: deletedCount,
+      posRecalculated: affectedPOs.length,
+      summary: dupes.slice(0, 20).map(d => ({ po_no: d.po_no, pr_key: d.pr_key, dupeCount: d.cnt }))
+    };
+  });
 }
 
 export async function getMasterHealth(session) {

@@ -1,3 +1,4 @@
+import { SYSTEM_FALLBACK_EMAIL } from '../config.js';
 // Domain: vendors
 // Auto-extracted from api.js
 import { queryAll, queryGet, queryRun } from '../db.js';

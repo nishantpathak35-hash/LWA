@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { isTokenRevoked } from '../../../../app/lib/api/auth.js';
 import { queryGet, queryAll, queryRun } from '../../../../app/lib/db.js';
 import { encryptToken, decryptToken } from '../../../../app/lib/api/token.js';
 import bcrypt from 'bcryptjs';
@@ -45,6 +47,7 @@ export class VendorPortalAuthService {
       user_type: 'vendor',
       vendor_id: user.vendor_id,
       vendor_code: vendorCode,
+      credentialVersion: createHash('sha256').update(user.password_hash).digest('hex'),
       email: user.email,
       name: user.name || vendorName,
       exp: Date.now() + 7 * 24 * 60 * 60 * 1000
@@ -72,6 +75,10 @@ export class VendorPortalAuthService {
     const user = await queryGet(`SELECT * FROM vendor_portal_users WHERE email = ?`, [payload.email]);
     if (!user || user.status !== 'Active') {
       throw new Error('AUTH:Vendor user account inactive or missing');
+    }
+
+    if (!user.password_hash || payload.credentialVersion !== createHash('sha256').update(user.password_hash).digest('hex') || await isTokenRevoked(token)) {
+      throw new Error('AUTH:Vendor session expired');
     }
 
     const vendor = await queryGet(`SELECT * FROM vendors WHERE id = ? OR vendor_code = ?`, [user.vendor_id, user.vendor_code]);

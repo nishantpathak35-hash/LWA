@@ -450,8 +450,7 @@ export default function POInvoicesTab({ poNo, poValue = 0, vendorName = '' }) {
   const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
   const getAttachmentDownloadUrl = (invoiceId) => {
-    const token = typeof window !== 'undefined' ? (localStorage.getItem('lx_auth_token') || '') : '';
-    return `/api/attachments/${invoiceId}?token=${encodeURIComponent(token)}`;
+    return `/api/attachments/${encodeURIComponent(invoiceId)}?entityType=invoice`;
   };
 
   return (

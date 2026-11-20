@@ -93,9 +93,9 @@ export default function AttachmentsSection({ entityType, entityId }) {
     setDownloadingId(att.id);
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('lx_auth_token') : '';
-      const downloadUrl = `/api/attachments/${att.id}?token=${encodeURIComponent(token || '')}&disposition=attachment`;
+      const downloadUrl = `/api/attachments/${att.id}?disposition=attachment`;
       
-      const res = await fetch(downloadUrl);
+      const res = await fetch(downloadUrl, { headers: token ? { 'x-lwa-token': token } : {} });
       if (!res.ok) throw new Error(`Download failed (${res.status}): ${res.statusText}`);
       
       const blob = await res.blob();
