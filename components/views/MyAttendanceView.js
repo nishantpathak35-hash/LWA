@@ -85,6 +85,22 @@ export default function MyAttendanceView() {
     }
   };
 
+  // Reliable IST Date Formatter YYYY-MM-DD
+  const getISTDateString = (d = new Date()) => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(d);
+    } catch {
+      const offset = 5.5 * 60 * 60 * 1000;
+      const ist = new Date(d.getTime() + offset);
+      return ist.toISOString().split('T')[0];
+    }
+  };
+
   // GPS Coordinates
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsCoords, setGpsCoords] = useState(null);
@@ -571,6 +587,168 @@ export default function MyAttendanceView() {
     }
   };
 
+  // 1-Click Regularisation Request for a specific date
+  const handleRequestCorrectionForDate = (date, proj, defaultReason) => {
+    setRegFormData({
+      date: date || getISTDateString(),
+      project: proj || activeProject || 'General Project',
+      proposed_punch_in: '09:30',
+      proposed_punch_out: '18:30',
+      reason: defaultReason || 'Site duty / Missed punch regularisation'
+    });
+    setRegModalOpen(true);
+  };
+
+  // ── Past 30 Days Full Attendance Register (All Calendar Dates with Punch / Absent / Holiday / Off) ──
+  const full30DayRegister = useMemo(() => {
+    const recordsMap = new Map();
+    (historyRecords || []).forEach(r => {
+      if (r.date) recordsMap.set(r.date, r);
+    });
+    if (todayRecord?.date && !recordsMap.has(todayRecord.date)) {
+      recordsMap.set(todayRecord.date, todayRecord);
+    }
+
+    const holidaysMap = new Map();
+    (companyHolidays || []).forEach(h => {
+      if (h.date) holidaysMap.set(h.date, h.title || 'Company Holiday');
+    });
+
+    const approvedLeaves = (myLeaveRequests || []).filter(lv => lv.status === 'approved');
+    const weeklyOffDayName = (employeeProfile?.weekly_off || 'Sunday').toLowerCase();
+
+    const now = new Date();
+    const rows = [];
+    const todayStr = getISTDateString(now);
+
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = getISTDateString(d);
+      let dayName = 'day';
+      try {
+        dayName = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' }).format(d).toLowerCase();
+      } catch {
+        dayName = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      }
+      const isWeeklyOff = dayName === weeklyOffDayName;
+      const holidayTitle = holidaysMap.get(dateStr);
+      const leave = approvedLeaves.find(lv => dateStr >= lv.start_date && dateStr <= lv.end_date);
+      const existingRec = recordsMap.get(dateStr);
+      const isToday = dateStr === todayStr;
+
+      if (existingRec && existingRec.punch_in_time) {
+        const isAutoClosed = existingRec.punch_out_geo_status === 'auto_closed' ||
+          !existingRec.punch_out_time ||
+          (existingRec.is_flagged && String(existingRec.flag_reason || '').toLowerCase().includes('missed punch out')) ||
+          existingRec.status === 'auto_closed';
+
+        rows.push({
+          ...existingRec,
+          date: dateStr,
+          dayName,
+          type: 'punched',
+          isAutoClosed
+        });
+      } else if (holidayTitle) {
+        rows.push({
+          id: `hol-${dateStr}`,
+          date: dateStr,
+          dayName,
+          project: `Holiday: ${holidayTitle}`,
+          punch_in_time: null,
+          punch_out_time: null,
+          total_hours: null,
+          punch_in_geo_status: null,
+          status: 'holiday',
+          type: 'holiday',
+          holiday_title: holidayTitle
+        });
+      } else if (isWeeklyOff) {
+        rows.push({
+          id: `off-${dateStr}`,
+          date: dateStr,
+          dayName,
+          project: 'Weekly Off',
+          punch_in_time: null,
+          punch_out_time: null,
+          total_hours: null,
+          punch_in_geo_status: null,
+          status: 'weekly_off',
+          type: 'weekly_off'
+        });
+      } else if (leave) {
+        rows.push({
+          id: `lv-${dateStr}`,
+          date: dateStr,
+          dayName,
+          project: `On Leave (${leave.leave_type_name || leave.leave_type_code || 'Approved'})`,
+          punch_in_time: null,
+          punch_out_time: null,
+          total_hours: null,
+          punch_in_geo_status: null,
+          status: 'on_leave',
+          type: 'leave',
+          leave
+        });
+      } else if (isToday) {
+        rows.push({
+          id: `today-${dateStr}`,
+          date: dateStr,
+          dayName,
+          project: activeProject || 'General Project',
+          punch_in_time: null,
+          punch_out_time: null,
+          total_hours: null,
+          punch_in_geo_status: null,
+          status: 'not_punched',
+          type: 'today'
+        });
+      } else {
+        // Past working day without punch -> ABSENT
+        rows.push({
+          id: `absent-${dateStr}`,
+          date: dateStr,
+          dayName,
+          project: activeProject || 'General Project',
+          punch_in_time: null,
+          punch_out_time: null,
+          total_hours: 0,
+          punch_in_geo_status: null,
+          status: 'absent',
+          type: 'absent'
+        });
+      }
+    }
+
+    return rows;
+  }, [historyRecords, todayRecord, companyHolidays, myLeaveRequests, employeeProfile, activeProject]);
+
+  const registerKpis = useMemo(() => {
+    let present = 0;
+    let absent = 0;
+    let missedOut = 0;
+    let holidays = 0;
+    let weeklyOffs = 0;
+    let leaves = 0;
+
+    full30DayRegister.forEach(r => {
+      if (r.type === 'punched') {
+        if (r.isAutoClosed) missedOut++;
+        else present++;
+      } else if (r.type === 'absent') {
+        absent++;
+      } else if (r.type === 'holiday') {
+        holidays++;
+      } else if (r.type === 'weekly_off') {
+        weeklyOffs++;
+      } else if (r.type === 'leave') {
+        leaves++;
+      }
+    });
+
+    return { present, absent, missedOut, holidays, weeklyOffs, leaves };
+  }, [full30DayRegister]);
+
   // Status helper
   const renderStatusBadge = (status, isFlagged) => {
     const s = String(status || '').toLowerCase();
@@ -681,7 +859,7 @@ export default function MyAttendanceView() {
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           }`}
         >
-          <History className="w-3.5 h-3.5" /> My Attendance History ({historyRecords.length})
+          <History className="w-3.5 h-3.5" /> My Attendance History (30 Days)
         </button>
         <button
           onClick={() => setActiveTab('regularisations')}
@@ -1104,24 +1282,54 @@ export default function MyAttendanceView() {
         </div>
       )}
 
-      {/* ── TAB 2: Personal Attendance History ── */}
+      {/* ── TAB 2: Personal Attendance History (Full 30-Day Calendar Register) ── */}
       {activeTab === 'history' && (
-        <Card className="bg-card border-border shadow-xs">
-          <CardHeader className="border-b border-border py-3.5 px-6 flex items-center justify-between">
-            <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-              <History className="w-4 h-4 text-amber-500" />
-              Past 30 Days Attendance Register
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setRegModalOpen(true)} className="text-xs">
-              <Clock className="w-3.5 h-3.5 mr-1 text-amber-500" /> Request Correction
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            {historyRecords.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-xs">
-                No historical attendance records logged yet.
-              </div>
-            ) : (
+        <div className="space-y-4">
+          {/* KPI Summary for past 30 days */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <Card className="p-3 bg-emerald-500/5 border-emerald-500/20">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Present</span>
+              <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{registerKpis.present}</div>
+              <span className="text-[10px] text-muted-foreground">Punched shifts</span>
+            </Card>
+            <Card className="p-3 bg-rose-500/5 border-rose-500/20">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Absent</span>
+              <div className="text-xl font-black text-rose-600 dark:text-rose-400 mt-1">{registerKpis.absent}</div>
+              <span className="text-[10px] text-muted-foreground">No punch on duty</span>
+            </Card>
+            <Card className="p-3 bg-amber-500/5 border-amber-500/20">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Missed Out</span>
+              <div className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">{registerKpis.missedOut}</div>
+              <span className="text-[10px] text-muted-foreground">Incomplete shifts</span>
+            </Card>
+            <Card className="p-3 bg-blue-500/5 border-blue-500/20">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Weekly Off</span>
+              <div className="text-xl font-black text-blue-600 dark:text-blue-400 mt-1">{registerKpis.weeklyOffs}</div>
+              <span className="text-[10px] text-muted-foreground">{employeeProfile?.weekly_off || 'Sundays'}</span>
+            </Card>
+            <Card className="p-3 bg-purple-500/5 border-purple-500/20">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Holidays</span>
+              <div className="text-xl font-black text-purple-600 dark:text-purple-400 mt-1">{registerKpis.holidays}</div>
+              <span className="text-[10px] text-muted-foreground">Company off</span>
+            </Card>
+            <Card className="p-3 bg-teal-500/5 border-teal-500/20">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">On Leave</span>
+              <div className="text-xl font-black text-teal-600 dark:text-teal-400 mt-1">{registerKpis.leaves}</div>
+              <span className="text-[10px] text-muted-foreground">Approved leaves</span>
+            </Card>
+          </div>
+
+          <Card className="bg-card border-border shadow-xs">
+            <CardHeader className="border-b border-border py-3.5 px-6 flex items-center justify-between">
+              <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                <History className="w-4 h-4 text-amber-500" />
+                Past 30 Days Attendance Register
+              </CardTitle>
+              <Button variant="outline" size="sm" onClick={() => setRegModalOpen(true)} className="text-xs">
+                <Clock className="w-3.5 h-3.5 mr-1 text-amber-500" /> Request Correction
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -1133,34 +1341,81 @@ export default function MyAttendanceView() {
                       <TableHead>Duration</TableHead>
                       <TableHead>Geo Status</TableHead>
                       <TableHead>Verification</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Status & Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {historyRecords.map(rec => (
-                      <TableRow key={rec.id}>
-                        <TableCell className="font-semibold text-foreground text-xs whitespace-nowrap">
-                          {rec.date}
+                    {full30DayRegister.map(rec => (
+                      <TableRow key={rec.id || rec.date} className={rec.type === 'today' ? 'bg-amber-500/5 font-medium' : ''}>
+                        {/* Date column */}
+                        <TableCell className="text-xs whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-foreground font-mono">{rec.date}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-medium">({rec.dayName?.slice(0, 3)})</span>
+                            {rec.type === 'today' && (
+                              <span className="text-[9px] bg-amber-500/20 text-amber-700 dark:text-amber-400 px-1 py-0.2 rounded font-bold">
+                                Today
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-xs font-medium text-foreground whitespace-nowrap">
-                          {rec.project}
+
+                        {/* Project / Site */}
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {rec.type === 'holiday' ? (
+                            <span className="text-purple-600 dark:text-purple-400 font-semibold">{rec.project}</span>
+                          ) : rec.type === 'weekly_off' ? (
+                            <span className="text-muted-foreground italic font-medium">Weekly Off</span>
+                          ) : rec.type === 'leave' ? (
+                            <span className="text-teal-600 dark:text-teal-400 font-semibold">{rec.project}</span>
+                          ) : (
+                            <span className="font-medium text-foreground">{rec.project}</span>
+                          )}
                         </TableCell>
+
+                        {/* Punch In */}
                         <TableCell className="text-xs font-mono whitespace-nowrap">
-                          {rec.punch_in_time ? new Date(rec.punch_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {rec.punch_in_time ? formatTimeIST(rec.punch_in_time) : '—'}
                         </TableCell>
+
+                        {/* Punch Out (no fake fabricated time) */}
                         <TableCell className="text-xs font-mono whitespace-nowrap">
-                          {rec.punch_out_time ? new Date(rec.punch_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {rec.isAutoClosed ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-semibold text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                              Missed Out
+                            </span>
+                          ) : rec.punch_out_time ? (
+                            formatTimeIST(rec.punch_out_time)
+                          ) : (
+                            '—'
+                          )}
                         </TableCell>
-                        <TableCell className="text-xs font-mono font-bold text-amber-500 whitespace-nowrap">
-                          {rec.total_hours ? `${rec.total_hours}h` : '—'}
+
+                        {/* Duration */}
+                        <TableCell className="text-xs font-mono whitespace-nowrap">
+                          {rec.isAutoClosed ? (
+                            <span className="text-muted-foreground text-[11px]">—</span>
+                          ) : rec.total_hours ? (
+                            <span className="font-bold text-amber-500">{rec.total_hours}h</span>
+                          ) : rec.type === 'absent' ? (
+                            <span className="text-rose-500">0h</span>
+                          ) : (
+                            '—'
+                          )}
                         </TableCell>
+
+                        {/* Geo Status */}
                         <TableCell className="text-xs whitespace-nowrap">
                           {rec.punch_in_geo_status === 'within_radius' ? (
                             <span className="text-emerald-500 font-medium">Inside Site</span>
                           ) : rec.punch_in_geo_status ? (
                             <span className="text-rose-500 font-medium">Outside Site</span>
-                          ) : '—'}
+                          ) : (
+                            '—'
+                          )}
                         </TableCell>
+
+                        {/* Verification */}
                         <TableCell className="text-xs whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             {rec.punch_in_selfie && (
@@ -1173,7 +1428,7 @@ export default function MyAttendanceView() {
                                 <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">In</span>
                               </button>
                             )}
-                            {rec.punch_out_selfie && (
+                            {rec.punch_out_selfie && !rec.isAutoClosed && (
                               <button
                                 onClick={() => setViewSelfieModal({ title: `Punch Out Selfie: ${rec.date} (${rec.project})`, src: rec.punch_out_selfie })}
                                 title="View Punch Out Selfie"
@@ -1198,7 +1453,7 @@ export default function MyAttendanceView() {
                                 <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">In Map</span>
                               </button>
                             )}
-                            {rec.punch_out_latitude != null && (
+                            {rec.punch_out_latitude != null && !rec.isAutoClosed && (
                               <button
                                 onClick={() => setViewMapModal({
                                   lat: rec.punch_out_latitude,
@@ -1213,19 +1468,68 @@ export default function MyAttendanceView() {
                                 <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Out Map</span>
                               </button>
                             )}
+                            {!rec.punch_in_selfie && !rec.punch_in_latitude && '—'}
                           </div>
                         </TableCell>
+
+                        {/* Status & Action */}
                         <TableCell className="whitespace-nowrap">
-                          {renderStatusBadge(rec.status, rec.is_flagged)}
+                          {rec.isAutoClosed ? (
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="destructive" className="bg-amber-500/10 text-amber-600 border border-amber-500/30 text-[10px]">
+                                Missed Out
+                              </Badge>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => handleRequestCorrectionForDate(rec.date, rec.project, 'Missed punch out on site')}
+                                className="h-6 text-[10px] px-2 border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+                              >
+                                Regularise
+                              </Button>
+                            </div>
+                          ) : rec.type === 'holiday' ? (
+                            <Badge className="bg-purple-500/10 text-purple-600 border border-purple-500/30 text-[10px]">
+                              Holiday
+                            </Badge>
+                          ) : rec.type === 'weekly_off' ? (
+                            <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/30 text-[10px]">
+                              Weekly Off
+                            </Badge>
+                          ) : rec.type === 'leave' ? (
+                            <Badge className="bg-teal-500/10 text-teal-600 border border-teal-500/30 text-[10px]">
+                              On Leave
+                            </Badge>
+                          ) : rec.type === 'today' ? (
+                            <Badge variant="outline" className="border-amber-500/40 text-amber-500 text-[10px]">
+                              Pending Punch
+                            </Badge>
+                          ) : rec.type === 'absent' ? (
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="destructive" className="bg-rose-500/10 text-rose-600 border border-rose-500/30 text-[10px]">
+                                Absent
+                              </Badge>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => handleRequestCorrectionForDate(rec.date, activeProject, 'Absent on site / Missed punch')}
+                                className="h-6 text-[10px] px-2 border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+                              >
+                                Regularise
+                              </Button>
+                            </div>
+                          ) : (
+                            renderStatusBadge(rec.status, rec.is_flagged)
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* ── TAB 3: Regularisation Requests ── */}

@@ -304,19 +304,19 @@ export async function initSiteAttendanceTables() {
       `);
     } catch (e) { }
 
-    // Clean up past unclosed shifts from previous days so punch_out_time is never dangling NULL
+    // Clean up past unclosed shifts from previous days so punch_out_time is never left dangling
     try {
       const today = getLocalDateString();
       await queryRun(`
         UPDATE site_attendance_records 
-        SET punch_out_time = COALESCE(punch_out_time, datetime(punch_in_time, '+9 hours')),
+        SET punch_out_time = NULL,
             punch_out_geo_status = 'auto_closed',
             punch_out_address = 'Auto-closed due to missed punch out',
-            total_hours = 4.0,
+            total_hours = 0,
             status = 'half_day',
             is_flagged = 1,
             flag_reason = 'Missed Punch Out (Auto-closed)'
-        WHERE date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL
+        WHERE date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL AND (punch_out_geo_status IS NULL OR punch_out_geo_status != 'auto_closed')
       `, [today]);
     } catch (e) { }
 
@@ -936,15 +936,15 @@ export async function punchAttendance(punchData, session) {
     // Ensures yesterday's missed punch-out never locks or corrupts future days
     await queryRun(
       `UPDATE site_attendance_records 
-       SET punch_out_time = COALESCE(punch_out_time, datetime(punch_in_time, '+9 hours')),
+       SET punch_out_time = NULL,
            punch_out_geo_status = 'auto_closed',
            punch_out_address = 'Auto-closed on next shift punch-in',
-           total_hours = 4.0,
+           total_hours = 0,
            status = 'half_day',
            is_flagged = 1,
            flag_reason = 'Missed Punch Out (Auto-closed on next shift punch-in)',
            updated_at = ?
-       WHERE employee_id = ? AND date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL`,
+       WHERE employee_id = ? AND date < ? AND punch_in_time IS NOT NULL AND punch_out_time IS NULL AND (punch_out_geo_status IS NULL OR punch_out_geo_status != 'auto_closed')`,
       [serverTimestamp, employee.employee_id, today]
     );
 
@@ -1117,28 +1117,24 @@ export async function getMyAttendanceToday(session) {
       activeOvernightShift = openPastShift;
     } else {
       // Normal day shift or elapsed shift.
-      // Auto-close it cleanly and set punch_out_time so it NEVER hijacks today's attendance!
-      const autoOutMs = punchInMs + (9 * 60 * 60 * 1000);
-      const autoOutTime = new Date(Math.min(autoOutMs, nowMs)).toISOString();
-      const autoHours = 4.0;
-
+      // Auto-close it cleanly without fabricating fake punch-out times!
       await queryRun(
         `UPDATE site_attendance_records 
-         SET punch_out_time = ?,
+         SET punch_out_time = NULL,
              punch_out_geo_status = 'auto_closed',
              punch_out_address = 'Auto-closed due to missed punch out',
-             total_hours = ?,
+             total_hours = 0,
              status = 'half_day',
              is_flagged = 1,
              flag_reason = 'Missed Punch Out (Auto-closed)',
              updated_at = ?
          WHERE id = ?`,
-        [autoOutTime, autoHours, serverTimestamp, openPastShift.id]
+        [serverTimestamp, openPastShift.id]
       );
       recentMissedPunch = {
         ...openPastShift,
-        punch_out_time: autoOutTime,
-        total_hours: autoHours,
+        punch_out_time: null,
+        total_hours: 0,
         status: 'half_day',
         is_flagged: 1,
         flag_reason: 'Missed Punch Out (Auto-closed)'
